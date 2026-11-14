@@ -39,7 +39,7 @@ pick ─► PROMPT ─► DESIGN ─► CODE ─► REVIEW ─► VERIFY ─► 
    no scope creep. Verdict: `approve` or `changes` with a numbered list. Use `/code-review` where available.
 6. **Verify** — verifier runs every command in the task's *Verification* section plus the global gates (§3)
    and pastes the outputs (trimmed) into the task file. UI tasks need a screenshot or Playwright trace.
-7. **Ship** — orchestrator squash-merges the task branch into local `main` (D-12), re-runs `pnpm ci` on
+7. **Ship** — orchestrator squash-merges the task branch into local `main` (D-12), re-runs `pnpm run ci` on
    `main`, ticks the box in `PLAN.md`, appends to `LOG.md`. (Vercel previews start at PLAN 9.6.) Production
    deploys and signed desktop releases are human checkpoints.
 
@@ -56,7 +56,7 @@ orchestrator moves on to other unblocked work.
 ## 3. Global gates (every task)
 
 - `pnpm typecheck`, `pnpm lint`, `pnpm test` all green; `pnpm test:int` green when the task touches anything
-  that talks to Postgres/Redis/mocks (requires `pnpm dev:up`). `pnpm ci` runs all of it.
+  that talks to Postgres/Redis/mocks (requires `pnpm dev:up`). `pnpm run ci` runs all of it.
 - No calls to external services in dev or tests (D-11): new integrations get a mock in `tools/mocks` and an
   env-selected base URL; real-provider smoke tests are skipped unless the key is set.
 - New logic has tests; bug fixes have a regression test.
@@ -191,5 +191,5 @@ task file `docs/tasks/<file>` first. Keep your final report under 15 lines; put 
   answer with evidence IDs to `research/granola/<topic>.md`. Close REA sessions when done."
 
 Merging: orchestrator runs `git merge --squash <branch>` on `main`, commits `<id>: <title>`, re-runs
-`pnpm ci`, then removes the worktree/branch. Merge conflicts on docs files (PLAN/LOG) are resolved by the
+`pnpm run ci`, then removes the worktree/branch. Merge conflicts on docs files (PLAN/LOG) are resolved by the
 orchestrator; conflicts in code go back to the implementer.

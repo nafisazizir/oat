@@ -21,10 +21,10 @@ detection and calendar, each with evidence.
 - [ ] 0.7 Write `ARCHITECTURE.md` synthesis + "what we do differently" section · deps: 0.2–0.6
 
 ## M1 — Foundations
-Exit: monorepo builds, `pnpm ci` green, `pnpm dev:up && pnpm dev` runs the web app against the compose stack
+Exit: monorepo builds, `pnpm run ci` green, `pnpm dev:up && pnpm dev` runs the web app against the compose stack
 with sign-in working (magic link via Mailpit, Google via mock OAuth).
 - [ ] 1.1 `git init`, pnpm + Turborepo skeleton matching SPEC §5 layout, TS/ESLint/Prettier/Vitest config · deps: —
-- [ ] 1.2 CI: `pnpm ci` (typecheck, lint, test, test:int with compose) + equivalent GitHub Actions workflow file (no remote yet, D-12) · deps: 1.1, 1.10
+- [ ] 1.2 CI: `pnpm run ci` (typecheck, lint, test, test:int with compose) + equivalent GitHub Actions workflow file (no remote yet, D-12) · deps: 1.1, 1.10
 - [ ] 1.3 `packages/ui`: shadcn init, token file (colour, type, radius, spacing, motion), light/dark, base components · deps: 1.1
 - [ ] 1.4 `apps/web`: Next.js App Router shell, app layout (sidebar, workspace switcher, content) · deps: 1.3
 - [ ] 1.10 Dev environment (D-11): `docker-compose.yml` (postgres+pgvector, redis, mailpit, mock-oauth2, mocks), `tools/mocks` skeleton with health route, `pnpm dev:up/down/reset/logs`, `.env.example` defaults, `docs/DEV.md` (new machine in 3 commands), per-run test DB helper · deps: 1.1

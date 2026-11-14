@@ -67,7 +67,7 @@ Agent detail:
 
 ## D-12 · 2026-11-14 · accepted · human
 Local git only (no GitHub remote for now). The factory commits, branches and squash-merges to local `main`.
-The GitHub Actions workflow is still written; `pnpm ci` runs the identical checks locally and is the gate.
+The GitHub Actions workflow is still written; `pnpm run ci` runs the identical checks locally and is the gate.
 
 ## D-13 · 2026-11-14 · accepted · human
 Dev AI is mocks only — no local LLM or local STT containers. The mock LLM returns deterministic,
