@@ -1,0 +1,15 @@
+# Factory Log
+
+Append-only. Newest at the bottom. Orchestrator writes one entry per state change.
+
+## Waiting on human
+(nothing yet — autonomous run in progress)
+
+## Entries
+- 2026-11-14 · setup · Docs written: CLAUDE.md, SPEC, PLAN, FACTORY, IDEAS, DECISIONS. Initial Granola
+  recon (bundle listing + package.json) in `research/granola/FINDINGS.md`. Next: M0 (needs 0.1) and M1.1 in parallel.
+- 2026-11-14 · decision · D-10: audio kept in local archive (never synced). Added PLAN 2.8, 3.7, 3.8; SPEC updated.
+- 2026-11-14 · decision · Human answered pre-run questions: local git only (D-12), M0 research approved,
+  defaults accepted (D-7/8/9 accepted, D-14), mocks-only dev AI (D-13). Containerised offline dev adopted (D-11).
+  PLAN updated: new 1.10 dev env, 🧑 reduced to real-credential/real-device steps, prod infra moved to 9.6.
+  FACTORY §9 standard briefs added. Starting autonomous orchestrator run.

@@ -1,0 +1,16 @@
+research/granola/raw/
+node_modules/
+.env*
+!.env.example
+.DS_Store
+.turbo/
+dist/
+out/
+.next/
+coverage/
+*.tsbuildinfo
+.build/
+.swiftpm/
+playwright-report/
+test-results/
+.claude/worktrees/
