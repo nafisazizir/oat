@@ -194,3 +194,11 @@ One run per document (Postgres advisory lock + Redis lock), idempotency keys, SS
 for `Last-Event-ID` resume, 2-min run timeout / 3-min staleness. If the user edited the note during a run, their
 body wins and the output is stored with `applied: false` ("Use enhanced version"). Indexing needs no hook — it
 follows change_log (D-22).
+
+## D-27 · 2026-11-14 · accepted · agent
+Assistant (from 6.2/6.3): tools re-check permissions per row and ignore share tokens; citations are allowed only
+for ids returned by tools in the current turn (filtered in-stream); `updateDocument` only creates proposals that
+the thread owner approves (applied at baseVersion inside the locking transaction). The server ignores
+client-supplied history. Per-user chat rate limit 20/min, 500/day. Known trade-off: tool outputs already stored
+in a thread stay in its history after the user later loses access to that note (threads are private to their
+owner; revisit with retention settings).

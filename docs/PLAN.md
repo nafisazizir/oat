@@ -78,7 +78,7 @@ Exit: invite a teammate, share a note to the workspace or via link, permissions 
 Exit: chat with one note and across the workspace, answers cite segments/blocks, tools work.
 - [x] 6.1 Chunking + embeddings (pgvector), backfill + incremental indexing (Redis-backed job queue) · deps: 3.3, 4.1
 - [x] 6.2 Tools: `searchMeetings`, `getDocument`, `getTranscript`, `listMeetings(filter)` returning segment ids + `start_ms` + block ids; `updateDocument` as find/replace → minimal block diff with pending/approved/denied state · deps: 6.1
-- [ ] 6.3 Chat API (AI SDK tool loop, streaming) + threads persistence with typed `context_json` per message · deps: 6.2
+- [x] 6.3 Chat API (AI SDK tool loop, streaming) + threads persistence with typed `context_json` per message · deps: 6.2
 - [ ] 6.4 Chat UI: note-scoped side panel + global assistant view, citations jump to transcript time · deps: 6.3
 - [ ] 6.5 Assistant evals (grounding/citation accuracy) · deps: 4.2, 6.3
 
