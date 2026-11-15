@@ -64,7 +64,7 @@ Exit: after a meeting, one click (or auto) produces structured notes from notes 
 - [x] 4.3 Templates (D-20): title/description/ordered sections {heading, instructions}, 5 built-ins, custom template editor, `buildMeetingContext()` · deps: 3.3, 4.1
 - [x] 4.4 Enhance pipeline (D-20): server job w/ status + idempotency key + resumable stream, structured output → TipTap JSON with `origin` attrs, raw notes kept, streaming into the editor, client re-attach after crash · deps: 3.2, 4.3
 - [x] 4.5 Regenerate / switch template / undo + restore earlier versions / show original notes; warn when body differs from last output · deps: 4.4
-- [ ] 4.6 "About me" profile used as context · deps: 4.4
+- [x] 4.6 "About me" profile used as context · deps: 4.4
 
 ## M5 — Workspaces & sharing
 Exit: invite a teammate, share a note to the workspace or via link, permissions enforced everywhere.
