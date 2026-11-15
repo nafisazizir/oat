@@ -46,3 +46,4 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - 2026-11-14 · 2.4 · shipped: SidecarSource + RecordingController (squash-merged).
 - 2026-11-14 · 3.1 · shipped: TipTap block editor (@oat/editor) (squash-merged).
 - 2026-11-14 · 2.2 · shipped: SttProvider, Fake, Deepgram adapter + Deepgram-compatible mock (squash-merged).
+- 2026-11-14 · 4.2 · shipped: eval harness + 5 fixture meetings (squash-merged).

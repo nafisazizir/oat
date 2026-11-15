@@ -11,11 +11,13 @@ import {
 
 describe('model registry', () => {
   it('maps every role to a provider/model gateway id, Claude for text', () => {
-    expect([...AI_ROLES]).toEqual(['enhance', 'chat', 'fast', 'embed']);
+    expect([...AI_ROLES]).toEqual(['enhance', 'chat', 'fast', 'judge', 'embed']);
     for (const role of AI_ROLES) expect(DEFAULT_MODELS[role]).toMatch(/^[a-z]+\/[\w.-]+$/);
     expect(DEFAULT_MODELS.enhance).toMatch(/^anthropic\/claude-/);
     expect(DEFAULT_MODELS.chat).toMatch(/^anthropic\/claude-/);
     expect(DEFAULT_MODELS.fast).toMatch(/^anthropic\/claude-/);
+    // The eval judge comes from a different provider than the models it grades.
+    expect(DEFAULT_MODELS.judge.split('/')[0]).not.toBe(DEFAULT_MODELS.enhance.split('/')[0]);
   });
 
   it('shares the embedding width with the db', () => {

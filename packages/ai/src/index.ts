@@ -27,3 +27,22 @@ export {
   getModel,
   resolveAiBackend,
 } from './provider.ts';
+export {
+  BLOCK_KINDS,
+  BLOCK_ORIGINS,
+  type BlockKind,
+  type BlockOrigin,
+  buildEnhancePrompt,
+  type EnhanceBlock,
+  type EnhanceFn,
+  type EnhanceInput,
+  enhanceNotes,
+  type EnhanceOptions,
+  type EnhanceOutput,
+  enhanceOutputSchema,
+  type EnhanceSection,
+  type EnhanceSegment,
+  type EnhanceTemplate,
+  formatTranscript,
+  type MeetingMeta,
+} from './enhance.ts';

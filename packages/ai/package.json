@@ -13,7 +13,9 @@
     "typecheck": "tsc",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:int": "vitest run --mode int"
+    "test:int": "vitest run --mode int",
+    "eval": "tsx evals/run.ts",
+    "eval:baseline": "tsx evals/run.ts --update-baseline"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "catalog:",
@@ -25,6 +27,7 @@
   "devDependencies": {
     "@oat/mocks": "workspace:*",
     "@types/node": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

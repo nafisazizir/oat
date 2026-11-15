@@ -5,8 +5,11 @@
  * The mock LLM accepts any id, so the same ids flow through in dev and show up in its request log.
  */
 
-export const AI_ROLES = ['enhance', 'chat', 'fast', 'embed'] as const;
-/** `enhance`: note enhancement · `chat`: assistants/Q&A · `fast`: titles, classification · `embed`: retrieval. */
+export const AI_ROLES = ['enhance', 'chat', 'fast', 'judge', 'embed'] as const;
+/**
+ * `enhance`: note enhancement · `chat`: assistants/Q&A · `fast`: titles, classification · `judge`: eval grader
+ * (quality tier, `pnpm --filter @oat/ai eval --model real`) · `embed`: retrieval.
+ */
 export type AiRole = (typeof AI_ROLES)[number];
 export type LanguageRole = Exclude<AiRole, 'embed'>;
 
@@ -14,6 +17,8 @@ export const DEFAULT_MODELS: Readonly<Record<AiRole, string>> = {
   enhance: 'anthropic/claude-sonnet-5.5',
   chat: 'anthropic/claude-sonnet-5.5',
   fast: 'anthropic/claude-haiku-5.5',
+  // Deliberately another provider's model than `enhance`/`chat`, so evals aren't graded by the model under test.
+  judge: 'openai/gpt-5.5',
   // 1536-dimensional natively, matching EMBEDDING_DIMENSIONS.
   embed: 'openai/text-embedding-3-small',
 };

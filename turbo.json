@@ -36,6 +36,11 @@
         "OAT_*"
       ]
     },
+    "eval": {
+      "dependsOn": ["transit"],
+      "cache": false,
+      "passThroughEnv": ["AI_*", "VERCEL", "VERCEL_OIDC_TOKEN", "MOCKS_URL"]
+    },
     "dev": {
       "cache": false,
       "persistent": true,
