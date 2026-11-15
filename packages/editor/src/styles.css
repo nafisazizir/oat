@@ -1,0 +1,259 @@
+/*
+ * @oat/editor/styles.css — prose styles for <OatEditor>. Import after `@oat/ui/styles.css` in the
+ * app's Tailwind entry. Every value comes from @oat/ui tokens (var(--…)); tints are color-mix()es
+ * of tokens, never new colours.
+ */
+
+/* Menus (slash, mention, bubble) use Tailwind utilities: scan this package's sources too. */
+@source './';
+
+.oat-editor {
+  color: var(--my-text);
+  font-family: var(--font-family-sans);
+  font-size: var(--type-base);
+  line-height: var(--type-base-leading);
+  caret-color: var(--primary);
+  outline: none;
+  word-break: break-word;
+  min-height: calc(var(--type-base-leading) * 3);
+}
+
+/* ── Block rhythm ─────────────────────────────────────────────────── */
+/* Zero-specificity reset, so the sibling rules below always win. */
+.oat-editor :where(p, h1, h2, h3, ul, ol, blockquote, pre) {
+  margin: 0;
+}
+.oat-editor > * + *,
+.oat-editor [data-callout-content] > * + *,
+.oat-editor blockquote > * + * {
+  margin-top: calc(var(--space) * 2);
+}
+/* Boxed blocks get a little more air. */
+.oat-editor > :is(blockquote, pre, [data-type='callout']) + *,
+.oat-editor > * + :is(blockquote, pre, [data-type='callout']) {
+  margin-top: calc(var(--space) * 3);
+}
+
+.oat-editor :is(h1, h2, h3) {
+  font-family: var(--font-family-heading);
+  letter-spacing: var(--tracking-heading);
+  font-weight: 600;
+}
+.oat-editor h1 {
+  font-size: var(--type-2xl);
+  line-height: var(--type-2xl-leading);
+}
+.oat-editor h2 {
+  font-size: var(--type-xl);
+  line-height: var(--type-xl-leading);
+}
+.oat-editor h3 {
+  font-size: var(--type-lg);
+  line-height: var(--type-lg-leading);
+}
+.oat-editor > :is(h1, h2, h3):not(:first-child) {
+  margin-top: calc(var(--space) * 6);
+}
+
+/* ── Lists ────────────────────────────────────────────────────────── */
+.oat-editor :is(ul, ol) {
+  padding-left: 1.5em;
+}
+.oat-editor ul {
+  list-style: disc;
+}
+.oat-editor ul ul {
+  list-style: circle;
+}
+.oat-editor ol {
+  list-style: decimal;
+}
+.oat-editor li + li,
+.oat-editor li > * + * {
+  margin-top: calc(var(--space) * 0.5);
+}
+.oat-editor li::marker {
+  color: var(--muted-foreground);
+}
+
+.oat-editor ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: calc(var(--space) * 0.5);
+}
+.oat-editor ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--space) * 2);
+}
+.oat-editor ul[data-type='taskList'] li > label {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: var(--type-base-leading);
+  user-select: none;
+}
+.oat-editor ul[data-type='taskList'] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.oat-editor ul[data-type='taskList'] input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.oat-editor ul[data-type='taskList'] li[data-checked='true'] > div {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
+}
+
+/* ── Quote, code, divider ─────────────────────────────────────────── */
+.oat-editor blockquote {
+  padding-left: calc(var(--space) * 4);
+  border-left: 3px solid var(--border);
+  font-family: var(--font-family-serif);
+  font-size: var(--type-lg);
+  line-height: var(--type-lg-leading);
+}
+
+.oat-editor pre {
+  padding: calc(var(--space) * 3) calc(var(--space) * 4);
+  border-radius: var(--radius);
+  background: var(--muted);
+  border: 1px solid var(--border);
+  font-family: var(--font-family-mono);
+  font-size: var(--type-sm);
+  line-height: var(--type-sm-leading);
+  overflow-x: auto;
+  white-space: pre;
+}
+.oat-editor pre code {
+  background: none;
+  padding: 0;
+  border: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.oat-editor :not(pre) > code {
+  font-family: var(--font-family-mono);
+  font-size: 0.875em;
+  padding: 0.1em 0.35em;
+  border-radius: calc(var(--radius) * 0.6);
+  background: var(--muted);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+}
+
+.oat-editor hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin-block: calc(var(--space) * 5);
+  cursor: pointer;
+}
+.oat-editor hr.ProseMirror-selectednode {
+  border-top-color: var(--ring);
+}
+
+/* ── Marks ────────────────────────────────────────────────────────── */
+.oat-editor mark {
+  background: color-mix(in oklch, var(--warning) 32%, transparent);
+  color: inherit;
+  border-radius: calc(var(--radius) * 0.25);
+  padding-inline: 0.1em;
+  box-decoration-break: clone;
+}
+.oat-editor a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--primary) 40%, transparent);
+  text-underline-offset: 0.2em;
+  cursor: text;
+}
+.oat-editor a:hover {
+  text-decoration-color: var(--primary);
+}
+
+/* ── Mentions ─────────────────────────────────────────────────────── */
+.oat-editor .oat-mention {
+  color: var(--me-foreground);
+  background: var(--me);
+  border-radius: calc(var(--radius) * 0.6);
+  padding: 0.05em 0.3em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.oat-editor .suggestion {
+  color: var(--primary);
+}
+
+/* ── Callout ──────────────────────────────────────────────────────── */
+.oat-editor [data-type='callout'] {
+  --callout-tint: var(--muted-foreground);
+  display: flex;
+  gap: calc(var(--space) * 3);
+  padding: calc(var(--space) * 3) calc(var(--space) * 4);
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--callout-tint) 9%, var(--background));
+  border: 1px solid color-mix(in oklab, var(--callout-tint) 18%, transparent);
+}
+.oat-editor [data-type='callout'][data-variant='info'] {
+  --callout-tint: var(--primary);
+}
+.oat-editor [data-type='callout'][data-variant='success'] {
+  --callout-tint: var(--success);
+}
+.oat-editor [data-type='callout'][data-variant='warning'] {
+  --callout-tint: var(--warning);
+}
+.oat-editor [data-type='callout'][data-variant='danger'] {
+  --callout-tint: var(--destructive);
+}
+.oat-editor [data-callout-emoji] {
+  flex: none;
+  line-height: var(--type-base-leading);
+  user-select: none;
+}
+.oat-editor [data-callout-content] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ── My text vs AI text (SPEC §3.5, D-20). Innermost block wins. ─── */
+.oat-editor [data-origin='me'] {
+  color: var(--my-text);
+}
+.oat-editor [data-origin='ai'] {
+  color: var(--ai-text);
+}
+
+/* ── Placeholders (textblocks only) ───────────────────────────────── */
+.oat-editor :is(p, h1, h2, h3).is-empty::before,
+.oat-editor pre.is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--muted-foreground);
+  opacity: 0.8;
+  pointer-events: none;
+}
+.oat-editor p.is-editor-empty:first-child::before {
+  opacity: 1;
+}
+
+/* ── Selection & cursors ──────────────────────────────────────────── */
+.oat-editor .ProseMirror-selectednode:not(hr) {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: calc(var(--radius) * 0.6);
+}
+.oat-editor .ProseMirror-gapcursor::after {
+  border-top-color: var(--foreground);
+}
+
+/* Read-only: links are clickable. */
+.oat-editor[contenteditable='false'] a {
+  cursor: pointer;
+}

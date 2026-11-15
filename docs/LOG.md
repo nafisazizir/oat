@@ -44,3 +44,4 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - 2026-11-14 · 1.2 · shipped: pnpm run ci + GitHub Actions workflow (squash-merged).
 - 2026-11-14 · 1.2 · post-merge: full `pnpm run ci` on main = ok in 41.7 s (format, actionlint, typecheck, lint, test, stack, migrate, test:int, web e2e, swift build/test/synthetic). This is now the gate.
 - 2026-11-14 · 2.4 · shipped: SidecarSource + RecordingController (squash-merged).
+- 2026-11-14 · 3.1 · shipped: TipTap block editor (@oat/editor) (squash-merged).

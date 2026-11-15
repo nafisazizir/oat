@@ -2,10 +2,12 @@
   "name": "@oat/editor",
   "version": "0.0.0",
   "private": true,
-  "description": "TipTap extensions, document schema and JSON to Markdown conversion.",
+  "description": "TipTap block editor: React component, shared document schema and extensions.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./react": "./src/react/index.ts",
+    "./styles.css": "./src/styles.css",
     "./*": "./src/*.ts",
     "./*.test": null
   },
@@ -13,10 +15,51 @@
     "typecheck": "tsc",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:int": "vitest run --mode int --passWithNoTests"
+    "test:int": "vitest run --mode int --passWithNoTests",
+    "playground": "vite --config playground/vite.config.ts",
+    "e2e": "playwright test",
+    "screenshots": "SCREENSHOTS_DIR=../../docs/tasks/evidence/3.1 playwright test screenshots"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "dependencies": {
+    "@floating-ui/dom": "catalog:",
+    "@oat/ui": "workspace:*",
+    "@tiptap/core": "catalog:",
+    "@tiptap/extension-bubble-menu": "catalog:",
+    "@tiptap/extension-highlight": "catalog:",
+    "@tiptap/extension-link": "catalog:",
+    "@tiptap/extension-list": "catalog:",
+    "@tiptap/extension-mention": "catalog:",
+    "@tiptap/extension-unique-id": "catalog:",
+    "@tiptap/extensions": "catalog:",
+    "@tiptap/pm": "catalog:",
+    "@tiptap/react": "catalog:",
+    "@tiptap/starter-kit": "catalog:",
+    "@tiptap/suggestion": "catalog:",
+    "lucide-react": "catalog:"
   },
   "devDependencies": {
+    "@playwright/test": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@testing-library/dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@tiptap/html": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "eslint-plugin-react-hooks": "catalog:",
+    "globals": "catalog:",
+    "happy-dom": "catalog:",
+    "jsdom": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
     "typescript": "catalog:",
+    "vite": "catalog:",
     "vitest": "catalog:"
   }
 }
