@@ -29,6 +29,7 @@ import {
   type Auth,
   BLOCKED_ORGANIZATION_PATHS,
   createAuth,
+  DISABLED_AUTH_PATHS,
   INVITE_EMAIL_LIMITS,
 } from './server.ts';
 import { listUserWorkspaces, loadPermissionContext } from './workspaces.ts';
@@ -841,5 +842,109 @@ describe('Better Auth organization endpoints', () => {
     expect((await update(owner, { slug: 'Not A Slug!' })).status).toBe(400);
     expect((await update(owner, { slug: `owner-${crypto.randomUUID()}` })).status).toBe(200);
     expect((await update(admin, { name: 'Renamed', logo: '🌾' })).status).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------
+// 5.5 authz audit: deny cases for the Better Auth endpoints the catch-all serves (`endpoints.test.ts`)
+// ---------------------------------------------------------------------------------------------------
+
+describe('Better Auth endpoints: deny cases (5.5)', () => {
+  const workspaceName = async (ws: string) =>
+    (await db.select().from(schema.workspace).where(eq(schema.workspace.id, ws)))[0]!.name;
+  const inviteStatus = async (id: string) =>
+    (await db.select().from(schema.invite).where(eq(schema.invite.id, id)))[0]!.status;
+  const activeOf = async (p: Person) =>
+    (await db.select().from(schema.session).where(eq(schema.session.userId, p.id)))[0]!
+      .activeWorkspaceId;
+  const refused = (status: number) => status >= 400 && status < 500;
+
+  it('organization/update: members, viewers and outsiders cannot change a workspace', async () => {
+    const { ws, member, viewer } = await team();
+    const outsider = await person('outsider');
+    for (const p of [member, viewer, outsider]) {
+      const res = await postJson(p.jar, '/api/auth/organization/update', {
+        organizationId: ws,
+        data: { name: 'Hijacked' },
+      });
+      expect(refused(res.status), `${p.email}: ${res.status}`).toBe(true);
+    }
+    expect(await workspaceName(ws)).toBe('Acme');
+  });
+
+  it('invitations: only the recipient reads or rejects; outsiders and members cannot cancel', async () => {
+    const { ws, owner, member } = await team();
+    const invitee = await person('invitee');
+    const outsider = await person('outsider');
+    const created = await invite(owner, ws, invitee.email, 'member');
+    const id = created!.id;
+    for (const p of [outsider, member, owner]) {
+      const read = await call(p.jar, `/api/auth/organization/get-invitation?id=${id}`);
+      expect(refused(read.status), `read ${p.email}: ${read.status}`).toBe(true);
+      const reject = await postJson(p.jar, '/api/auth/organization/reject-invitation', {
+        invitationId: id,
+      });
+      expect(refused(reject.status), `reject ${p.email}: ${reject.status}`).toBe(true);
+    }
+    for (const p of [outsider, member]) {
+      const cancel = await postJson(p.jar, '/api/auth/organization/cancel-invitation', {
+        invitationId: id,
+      });
+      expect(refused(cancel.status), `cancel ${p.email}: ${cancel.status}`).toBe(true);
+    }
+    expect(await inviteStatus(id)).toBe('pending');
+    const own = await call(invitee.jar, `/api/auth/organization/get-invitation?id=${id}`);
+    expect(own.status).toBe(200);
+  });
+
+  it('set-active and get-organization refuse non-members; soft-deleted workspaces are not served', async () => {
+    const { ws, owner, member } = await team();
+    const outsider = await person('outsider');
+    const set = await postJson(outsider.jar, '/api/auth/organization/set-active', {
+      organizationId: ws,
+    });
+    expect(refused(set.status), String(set.status)).toBe(true);
+    // Better Auth clears the active workspace on a refused switch; it never becomes `ws`.
+    expect(await activeOf(outsider)).not.toBe(ws);
+    const path = `/api/auth/organization/get-organization?organizationId=${ws}`;
+    const asOutsider = await call(outsider.jar, path);
+    expect(refused(asOutsider.status), String(asOutsider.status)).toBe(true);
+    expect((await call(member.jar, path)).status).toBe(200);
+    await deleteWorkspace(db, { actorId: owner.id, workspaceId: ws });
+    expect((await call(member.jar, path)).status).toBe(404);
+  });
+
+  it('disabled routes answer 404 even when signed in', async () => {
+    const p = await person('disabled');
+    for (const path of DISABLED_AUTH_PATHS) {
+      const get = await call(p.jar, `/api/auth${path}`);
+      const post = await postJson(p.jar, `/api/auth${path}`, {
+        email: uniqueAddress('x'),
+        newEmail: uniqueAddress('y'),
+        password: 'correct horse battery staple',
+        activeOrganizationId: 'x',
+        slug: 'acme',
+      });
+      expect(get.status, `GET ${path}`).toBe(404);
+      expect(post.status, `POST ${path}`).toBe(404);
+    }
+    const [row] = await db.select().from(schema.user).where(eq(schema.user.id, p.id));
+    expect(row!.email).toBe(p.email);
+  });
+
+  it('update-user changes only the caller’s name: no avatar URL, email or other fields', async () => {
+    const p = await person('profile');
+    const update = (body: unknown) => postJson(p.jar, '/api/auth/update-user', body);
+    const pixel = 'https://tracker.example/p.gif';
+    expect((await update({ name: 'Pat', image: pixel })).status).toBe(403);
+    expect((await update({ image: pixel })).status).toBe(403);
+    expect((await update({ email: uniqueAddress('other') })).status).toBe(403);
+    expect((await update({ name: 'x'.repeat(101) })).status).toBe(400);
+    expect((await update({ name: '  ' })).status).toBe(400);
+    const anonymous = await postJson(new Jar(), '/api/auth/update-user', { name: 'Anon' });
+    expect(refused(anonymous.status), String(anonymous.status)).toBe(true);
+    expect((await update({ name: 'Pat' })).status).toBe(200);
+    const [row] = await db.select().from(schema.user).where(eq(schema.user.id, p.id));
+    expect(row).toMatchObject({ name: 'Pat', image: null, email: p.email });
   });
 });

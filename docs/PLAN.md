@@ -72,7 +72,7 @@ Exit: invite a teammate, share a note to the workspace or via link, permissions 
 - [x] 5.2 Invites (email via SMTP → Mailpit in dev) + roles + member management · deps: 5.1
 - [x] 5.3 Document visibility (private/workspace/link) + share dialog · deps: 1.7, 3.3
 - [x] 5.4 Public read-only web viewer for link shares · deps: 5.3
-- [ ] 5.5 Authz audit: every API route covered by permission tests · deps: 5.3
+- [x] 5.5 Authz audit: every API route covered by permission tests · deps: 5.3
 
 ## M6 — Assistant
 Exit: chat with one note and across the workspace, answers cite segments/blocks, tools work.

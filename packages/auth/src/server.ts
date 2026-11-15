@@ -70,6 +70,7 @@ export const INVITE_EMAIL_LIMITS = {
  * session's active one): a soft-deleted workspace is not served.
  */
 const WORKSPACE_READ_PATHS: ReadonlySet<string> = new Set([
+  '/organization/get-organization',
   '/organization/get-full-organization',
   '/organization/list-members',
   '/organization/list-invitations',
@@ -88,6 +89,40 @@ export const BLOCKED_ORGANIZATION_PATHS: ReadonlySet<string> = new Set([
   '/organization/leave',
   '/organization/delete',
 ]);
+
+/**
+ * Better Auth HTTP routes we never serve (`disabledPaths`: 404 before any handler runs; `auth.api` calls
+ * in-process are unaffected). The full inventory of what is served, and why, is pinned in
+ * `endpoints.test.ts` (5.5).
+ * - Provider tokens stay on the server: these would hand a signed-in browser its plaintext Google tokens.
+ * - No passwords in Oat (magic link + Google): the email/password family, off today by config, stays off
+ *   even if `emailAndPassword` is ever switched on for something else.
+ * - Account lifecycle we don't offer (yet): changing the email (it is the invite/identity key), deleting
+ *   the user (would cascade through workspaces Oat soft-deletes instead, D-22), email verification
+ *   (magic link and Google verify), session fields (none are client-settable).
+ * - Slug lookups would let anyone probe which workspace addresses exist; the app never needs them.
+ */
+export const DISABLED_AUTH_PATHS: readonly string[] = [
+  '/get-access-token',
+  '/refresh-token',
+  '/account-info',
+  '/sign-in/email',
+  '/sign-up/email',
+  '/change-password',
+  '/request-password-reset',
+  '/reset-password',
+  '/verify-password',
+  '/change-email',
+  '/delete-user',
+  '/delete-user/callback',
+  '/send-verification-email',
+  '/verify-email',
+  '/update-session',
+  '/organization/check-slug',
+];
+
+/** Longest display name `/update-user` accepts (its only changeable field). */
+const MAX_USER_NAME = 100;
 
 /** The `/invite/<token>` page an invitation email links to. */
 export function inviteUrl(baseURL: string, token: string): string {
@@ -146,13 +181,28 @@ export function createAuth({
       // this was on still read as plain text.
       encryptOAuthTokens: true,
     },
-    // Provider tokens stay on the server: the app reads them through `auth.api` (not affected by this list),
-    // so the HTTP routes that would hand a signed-in browser its plaintext Google tokens are switched off.
-    disabledPaths: ['/get-access-token', '/refresh-token', '/account-info'],
+    // Not served over HTTP (see DISABLED_AUTH_PATHS); the app's own `auth.api` calls are unaffected.
+    disabledPaths: [...DISABLED_AUTH_PATHS],
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         if (BLOCKED_ORGANIZATION_PATHS.has(ctx.path)) {
           throw new APIError('NOT_FOUND', { message: 'Not found.' });
+        }
+        if (ctx.path === '/update-user') {
+          // Only the display name. The avatar URL is rendered in teammates' browsers, so it only ever comes
+          // from the identity provider (an arbitrary URL would be a tracking pixel on every members list).
+          const body = (ctx.body ?? {}) as Record<string, unknown>;
+          const extra = Object.keys(body).filter((key) => key !== 'name');
+          if (extra.length > 0) {
+            throw forbidden(`The ${extra[0]} can’t be changed here.`);
+          }
+          const name = typeof body.name === 'string' ? body.name.trim() : '';
+          if (name.length === 0 || name.length > MAX_USER_NAME) {
+            throw new APIError('BAD_REQUEST', {
+              message: `Names are 1–${MAX_USER_NAME} characters.`,
+            });
+          }
+          return;
         }
         if (ctx.path === '/organization/invite-member') {
           const session = await getSessionFromCtx(ctx);

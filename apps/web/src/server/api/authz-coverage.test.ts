@@ -10,194 +10,40 @@
  *   keyed `'action <module under src>#<export>'`. A `'use server'` directive anywhere else (inline actions
  *   inside components/functions) fails: define actions in a module so they can be enumerated.
  *
- * Each handler needs one of:
+ * Each handler needs one of (registries in `./authz-registry.ts`):
  * - a deny-case int test marked `denies('<key>')` (`./authz-markers`) in a `*.int.test.ts` under `src` —
  *   only calls in statement position count (not in comments);
  * - `PUBLIC` (no authorization by design, with the reason);
  * - `SELF_SCOPED` (takes no resource identifier; only ever touches the session user's own data) — the module
  *   must check the session (`getSession(` / `requireSession(`);
  * - `TESTED_ELSEWHERE` (the deny case lives in another package's tests): the named file must contain the
- *   named test title;
- * - `KNOWN_GAPS` (pre-existing actions whose deny case isn't tested yet; owed by 5.5). Never add to it.
- * Entries that no longer match a handler fail too.
+ *   named test title.
+ * Entries that no longer match a handler fail too. Separately, `../entrypoints.int.test.ts` calls every
+ * non-PUBLIC handler anonymously and expects a refusal (401 / redirect to sign-in).
  */
-import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-const SRC = fileURLToPath(new URL('../../', import.meta.url));
+import {
+  denyMarkers,
+  exportedMethods,
+  exportsOf,
+  handlers,
+  isUseServerModule,
+  markersIn,
+  ROUTE_FILE,
+} from './authz-enumerate';
+import { PUBLIC, SELF_SCOPED, TESTED_ELSEWHERE } from './authz-registry';
+
 const REPO = fileURLToPath(new URL('../../../../../', import.meta.url));
-const APP_DIR = join(SRC, 'app');
-
-const PUBLIC: Record<string, string> = {
-  'GET /api/health': 'Liveness probe; returns only version and database status.',
-  'GET /api/auth/[...all]':
-    'Better Auth’s own endpoints (sign-in, session); it authenticates itself.',
-  'POST /api/auth/[...all]':
-    'Better Auth’s own endpoints (sign-in, session); it authenticates itself.',
-  'POST /api/sign-in/magic-link':
-    'Redeems a single-use magic-link token (same-origin only); signing in is the point.',
-};
-
-const SELF_SCOPED: Record<string, string> = {
-  'GET /api/calendar/upcoming': 'Reads the session user’s own calendar connection; no resource id.',
-  'action server/actions/calendar.ts#disconnectGoogleCalendarAction':
-    'Disconnects the session user’s own Google calendar; no resource id.',
-  'action server/actions/workspaces.ts#createTeamWorkspace':
-    'Creates a workspace owned by the session user (per-user cap in @oat/auth); no resource id.',
-};
-
-const MEMBERS_TESTS = 'packages/auth/src/members.int.test.ts';
-const TESTED_ELSEWHERE: Record<string, { file: string; test: string }> = {
-  'action server/actions/members.ts#changeRole': {
-    file: MEMBERS_TESTS,
-    test: 'deny: admin demotes owner, admin grants owner, admin demotes admin, member/viewer change roles',
-  },
-  'action server/actions/members.ts#removeMember': {
-    file: MEMBERS_TESTS,
-    test: 'deny: admin removes owner or admin, member/viewer remove others, last owner removed',
-  },
-  'action server/actions/members.ts#leaveWorkspace': {
-    file: MEMBERS_TESTS,
-    test: 'anyone may leave, except the last owner',
-  },
-  'action server/actions/members.ts#deleteWorkspace': {
-    file: MEMBERS_TESTS,
-    test: 'only the owner deletes; the workspace disappears everywhere but the rows remain',
-  },
-  'action server/actions/members.ts#inviteMember': {
-    file: MEMBERS_TESTS,
-    test: 'admin invites members but not owners; members and viewers cannot invite',
-  },
-  'action server/actions/members.ts#resendInvite': {
-    file: MEMBERS_TESTS,
-    test: 'resend re-checks the workspace and the inviter',
-  },
-  'action server/actions/members.ts#revokeInvite': {
-    file: MEMBERS_TESTS,
-    test: 'members and viewers cannot revoke invites',
-  },
-  'action server/actions/members.ts#acceptInvite': {
-    file: MEMBERS_TESTS,
-    test: 'an invite cannot be accepted by a different email',
-  },
-};
-
-/** Debt, not policy: handlers that predate this gate and have no deny-case test yet (5.5). */
-const KNOWN_GAPS: Record<string, string> = {
-  'action server/actions/workspaces.ts#switchWorkspace':
-    'Better Auth refuses non-members; only the deleted-workspace case is tested.',
-  'action server/actions/members.ts#updateWorkspace':
-    'assertCan(manageMembers) — core-tested, the action itself is not.',
-  'action server/actions/members.ts#declineInvite':
-    'Recipient-email check in the action is untested (only the happy path is).',
-};
-
-const METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']);
-const ROUTE_FILE = /(?:^|[\\/])route\.(?:ts|tsx|js|jsx|mjs|mts|cjs|cts)$/;
-const SOURCE_FILE = /\.(?:ts|tsx|js|jsx|mjs|mts|cjs|cts)$/;
-const TEST_FILE = /\.test\.(?:ts|tsx)$/;
-
-function walk(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return entry.name === 'node_modules' ? [] : walk(path);
-    return [path];
-  });
-}
-
-const posix = (path: string) => path.split(sep).join('/');
-
-/** Source without comments (strings containing comment markers are rare here and only over-strip). */
-function stripComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
-}
-
-/** Names a module exports; `star` when it has an `export *` (can't be enumerated statically). */
-function exportsOf(source: string): { names: string[]; star: boolean } {
-  const code = stripComments(source);
-  const names = new Set<string>();
-  const decl =
-    /export\s+(?:default\s+)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Za-z_$][\w$]*)/g;
-  for (const m of code.matchAll(decl)) names.add(m[1]!);
-  for (const m of code.matchAll(/export\s+(?:const|let|var)\s+\{([^}]*)\}/g)) {
-    for (const part of m[1]!.split(',')) {
-      const name = part.split(':').at(-1)?.trim().split(/\s|=/)[0];
-      if (name) names.add(name);
-    }
-  }
-  for (const m of code.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}/g)) {
-    for (const part of m[1]!.split(',')) {
-      const name = part.trim().split(/\s+/).at(-1);
-      if (name) names.add(name);
-    }
-  }
-  return { names: [...names], star: /export\s*\*/.test(code) };
-}
-
-function exportedMethods(source: string): string[] {
-  return exportsOf(source)
-    .names.filter((n) => METHODS.has(n))
-    .sort();
-}
-
-const isUseServerModule = (source: string) =>
-  /^(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*['"]use server['"]/.test(source);
-
-type Problem = string;
-
-/** Every handler key, plus problems that make enumeration impossible. */
-function handlers(): { keys: Map<string, string>; problems: Problem[] } {
-  const keys = new Map<string, string>(); // key → file
-  const problems: Problem[] = [];
-  for (const file of walk(APP_DIR).filter((f) => ROUTE_FILE.test(f))) {
-    const source = readFileSync(file, 'utf8');
-    const rel = posix(relative(SRC, file));
-    const route = `/${posix(relative(APP_DIR, file)).split('/').slice(0, -1).join('/')}`;
-    const { star } = exportsOf(source);
-    const methods = exportedMethods(source);
-    if (star) problems.push(`${rel}: \`export *\` hides which handlers it exports`);
-    if (methods.length === 0) problems.push(`${rel}: no recognised HTTP method exports`);
-    for (const method of methods) keys.set(`${method} ${route}`, file);
-  }
-  for (const file of walk(SRC).filter((f) => SOURCE_FILE.test(f) && !TEST_FILE.test(f))) {
-    const source = readFileSync(file, 'utf8');
-    const rel = posix(relative(SRC, file));
-    if (isUseServerModule(source)) {
-      const { names, star } = exportsOf(source);
-      if (star) problems.push(`${rel}: \`export *\` in a 'use server' module`);
-      for (const name of names) keys.set(`action ${rel}#${name}`, file);
-    } else if (/['"]use server['"]/.test(stripComments(source))) {
-      problems.push(`${rel}: inline 'use server' — move server actions into a 'use server' module`);
-    }
-  }
-  return { keys, problems };
-}
-
-/** Keys named by `denies(…)` calls in statement position in `*.int.test.ts` under src. */
-function denyMarkers(): Set<string> {
-  const markers = new Set<string>();
-  for (const file of walk(SRC).filter((f) => f.endsWith('.int.test.ts'))) {
-    for (const key of markersIn(readFileSync(file, 'utf8'))) markers.add(key);
-  }
-  return markers;
-}
-
-function markersIn(source: string): string[] {
-  const code = source.replace(/\/\*[\s\S]*?\*\//g, '');
-  const keys: string[] = [];
-  for (const call of code.matchAll(/^[ \t]*denies\(([^)]*)\)/gm)) {
-    for (const literal of call[1]!.matchAll(/['"`]([^'"`]+)['"`]/g)) keys.push(literal[1]!);
-  }
-  return keys;
-}
 
 describe('authorization coverage', () => {
   const { keys, problems } = handlers();
   const markers = denyMarkers();
-  const registries = { PUBLIC, SELF_SCOPED, TESTED_ELSEWHERE, KNOWN_GAPS };
+  const registries = { PUBLIC, SELF_SCOPED, TESTED_ELSEWHERE };
 
   it('finds the route handlers and server actions', () => {
     expect([...keys.keys()]).toEqual(

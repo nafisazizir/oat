@@ -79,6 +79,7 @@ export {
 } from './rate-limit.ts';
 export {
   BLOCKED_ORGANIZATION_PATHS,
+  DISABLED_AUTH_PATHS,
   INVITE_EMAIL_LIMITS,
   createAuth,
   inviteUrl,
