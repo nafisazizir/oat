@@ -186,3 +186,11 @@ CSP, no-referrer, noindex, per-IP rate limiting and no cookies. Every API route 
 (`denies('<METHOD> <route>')` marker) or an explicit public-route entry — enforced in CI. Sharing changes
 (visibility, token, share_transcript) do not bump the document content `version` (D-19 conflict detection is
 about content), so toggling sharing never creates a conflicted copy.
+
+## D-26 · 2026-11-14 · accepted · agent
+Enhance details (from 4.4): block origin = fuzzy match of output blocks to the user's note lines (similarity
+≥ 0.85 → `me`), never trusted from the model; user lines the model drops are re-inserted under "Other notes".
+One run per document (Postgres advisory lock + Redis lock), idempotency keys, SSE stream with a Redis event log
+for `Last-Event-ID` resume, 2-min run timeout / 3-min staleness. If the user edited the note during a run, their
+body wins and the output is stored with `applied: false` ("Use enhanced version"). Indexing needs no hook — it
+follows change_log (D-22).
