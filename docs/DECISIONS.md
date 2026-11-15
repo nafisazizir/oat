@@ -167,3 +167,12 @@ Block `origin` editing rule (from 3.1): a newly created block is `me`; an `ai` b
 edits words inside it; if the user deletes all of an AI block's text and writes their own, it becomes `me`.
 Joining two blocks of different origin yields `me` (never relabel the user's words as AI).
 Revisit with real use (an "edited" state could be added later without a migration — it's an attribute).
+
+## D-24 · 2026-11-14 · accepted · agent
+Audio archive details (from 2.8): codec `libopus-wasm` (MIT wrapper, BSD libopus; WASM, no native addon),
+mono 16 kHz, 24 kbps, 20 ms packets, DTX on (~12 MB per meeting-hour for both sources); our own Ogg muxer.
+Gaps (pause/overrun) inside one recording session are filled with silence so file time == session time.
+**Multiple recording sessions per meeting** (stop then resume later) create numbered parts
+(`<meeting_id>/{mic,system}.<n>.opus`, part 1 may keep the unnumbered name for compatibility) — one
+`audio_recording` row per part with `offset_ms` from the meeting's first start; transcript segment times stay on
+the meeting clock, and playback/seek maps a segment to (part, offset). No multi-hour silence padding.
