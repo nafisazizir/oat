@@ -13,3 +13,7 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   defaults accepted (D-7/8/9 accepted, D-14), mocks-only dev AI (D-13). Containerised offline dev adopted (D-11).
   PLAN updated: new 1.10 dev env, 🧑 reduced to real-credential/real-device steps, prod infra moved to 9.6.
   FACTORY §9 standard briefs added. Starting autonomous orchestrator run.
+- 2026-11-14 · ops · Mac slept mid-run (two researchers died, reviewer stalled ~3h). `caffeinate -dims` now
+  holds idle sleep for the run; lid-close sleep on battery can still interrupt — keep the lid open / on power.
+- 2026-11-14 · 1.1 · implemented + verified by orchestrator (all gates green on clean install); review =
+  changes (vitest .tsx globs, turbo strict-env passThroughEnv) → back to implementer.
