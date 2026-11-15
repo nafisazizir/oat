@@ -144,8 +144,8 @@ integration(id, workspace_id, user_id, provider: notion|google|slack, credential
 ```
 ### Desktop-only (SQLite + filesystem, never synced)
 ```
-audio_recording(id, meeting_id, source: mic|system, path, codec: opus, sample_rate,
-                started_at, duration_ms, bytes, status: recording|complete|partial|deleted)
+audio_recording(id, meeting_id, source: mic|system, part, offset_ms, path, codec: opus, sample_rate,
+                started_at, duration_ms, bytes, status: recording|complete|partial|failed|deleted)  -- D-24
 ```
 Files live at `~/Library/Application Support/Oat/audio/<meeting_id>/{mic,system}.opus` (Ogg Opus, mono,
 ~24 kbps each → roughly 20 MB per meeting-hour for both). They are written incrementally while recording so a
