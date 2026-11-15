@@ -92,3 +92,4 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - 2026-11-15 · 3.4 · shipped: meeting note view (desktop live + web), shared packages/meeting-ui, participants API (squash-merged).
 - 2026-11-15 · flake · assistant.spec sheet-Escape still fails occasionally in full runs (passes alone 6/6). Fold into 9.3 design pass: make Escape close the sheet even when a tooltip is open, or remove tooltips inside the sheet.
 - 2026-11-15 · 3.8 · shipped: desktop storage settings: size, delete audio, Show in Finder, retention sweeper (D-30 per-account) (squash-merged).
+- 2026-11-15 · flake-fix · root cause of recurring web e2e 429s: per-IP rate-limit counters (share page 120/min on 127.0.0.1) shared across parallel e2e servers via the one dev Redis. Added OAT_RATE_LIMIT_NAMESPACE (unique per e2e server).
