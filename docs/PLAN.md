@@ -84,7 +84,7 @@ Exit: chat with one note and across the workspace, answers cite segments/blocks,
 
 ## M7 — Calendar & detection
 Exit: upcoming meetings visible; joining a call prompts to start notes; attendees auto-attached.
-- [x] 7.1 🧑 EventKit calendar access (sidecar `calendar status/request-access/events/watch`, store-changed driven, −24 h…+14 d) behind a `CalendarSource` interface + normalised `CalendarEvent` shared with Google (7.4), fixture source; upcoming list; real EventKit permission is the human step · deps: 2.3
+- [x] 7.1 🧑 (pending: real Calendars permission test) EventKit calendar access (sidecar `calendar status/request-access/events/watch`, store-changed driven, −24 h…+14 d) behind a `CalendarSource` interface + normalised `CalendarEvent` shared with Google (7.4), fixture source; upcoming list; real EventKit permission is the human step · deps: 2.3
 - [ ] 7.2 Meeting detection per D-21: sidecar `mic-apps watch`, pure rule functions w/ fixture tests, notification · deps: 7.1
 - [ ] 7.3 Auto-create meeting note from event, attendees as participants · deps: 3.4, 7.1
 - [ ] 7.5 Auto-stop (3-min floor; mic app gone + event end ±5 min, else ask) and auto-enhance (no output yet + min transcript length, grace delay cancelled by resume) · deps: 4.4, 7.2

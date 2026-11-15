@@ -10,7 +10,11 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
       `cd native/oat-audio && swift build -c release && .build/release/oat-audio capture --duration 15 | node scripts/check-frames.mjs`
       with a call/video playing on speakers; grant Microphone + System Audio Recording when prompted. Check:
       both sources present, speaker echo removed from mic (AEC), call audio not ducked, AirPods/Bluetooth
-      rate switch (`format_changed` event) handled.
+      rate switch (`format_changed` event) handled. NOTE: since 7.1 the binary embeds an Info.plist (mic,
+      system-audio, calendar usage strings) — run this capture test on a build that includes 7.1.
+- [ ] **Calendar access test (7.1)** — `cd native/oat-audio && .build/release/oat-audio calendar request-access`
+      (grant), then `calendar status`, `calendar events --from <today> --to <+7d>` and `calendar watch`
+      (edit an event in Calendar.app → a `changed` line appears). Steps in `docs/tasks/7.1-calendar.md`.
 
 ## Entries
 - 2026-11-14 · setup · Docs written: CLAUDE.md, SPEC, PLAN, FACTORY, IDEAS, DECISIONS. Initial Granola
