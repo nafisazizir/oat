@@ -1,0 +1,22 @@
+{
+  "name": "@oat/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Drizzle schema (Postgres), migrations and shared row types.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts",
+    "./*.test": null
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:int": "vitest run --mode int --passWithNoTests"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

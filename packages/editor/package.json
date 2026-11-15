@@ -1,0 +1,22 @@
+{
+  "name": "@oat/editor",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TipTap extensions, document schema and JSON to Markdown conversion.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts",
+    "./*.test": null
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:int": "vitest run --mode int --passWithNoTests"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

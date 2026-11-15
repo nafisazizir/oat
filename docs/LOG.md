@@ -17,3 +17,4 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   holds idle sleep for the run; lid-close sleep on battery can still interrupt — keep the lid open / on power.
 - 2026-11-14 · 1.1 · implemented + verified by orchestrator (all gates green on clean install); review =
   changes (vitest .tsx globs, turbo strict-env passThroughEnv) → back to implementer.
+- 2026-11-14 · 1.1 · shipped: monorepo skeleton (pnpm catalog, turbo, TS-source packages D-15) squash-merged to main.

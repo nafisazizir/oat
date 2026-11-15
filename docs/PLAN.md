@@ -23,7 +23,7 @@ detection and calendar, each with evidence.
 ## M1 — Foundations
 Exit: monorepo builds, `pnpm run ci` green, `pnpm dev:up && pnpm dev` runs the web app against the compose stack
 with sign-in working (magic link via Mailpit, Google via mock OAuth).
-- [ ] 1.1 `git init`, pnpm + Turborepo skeleton matching SPEC §5 layout, TS/ESLint/Prettier/Vitest config · deps: —
+- [x] 1.1 `git init`, pnpm + Turborepo skeleton matching SPEC §5 layout, TS/ESLint/Prettier/Vitest config · deps: —
 - [ ] 1.2 CI: `pnpm run ci` (typecheck, lint, test, test:int with compose) + equivalent GitHub Actions workflow file (no remote yet, D-12) · deps: 1.1, 1.10
 - [ ] 1.3 `packages/ui`: shadcn init, token file (colour, type, radius, spacing, motion), light/dark, base components · deps: 1.1
 - [ ] 1.4 `apps/web`: Next.js App Router shell, app layout (sidebar, workspace switcher, content) · deps: 1.3

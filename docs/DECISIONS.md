@@ -78,3 +78,19 @@ are added.
 ## D-14 · 2026-11-14 · accepted · human
 SPEC §10 open questions resolved with the defaults: Better Auth, Deepgram (behind `SttProvider`), Postgres +
 Drizzle, Swift sidecar, no Windows in v1, product name "Oat".
+
+## D-15 · 2026-11-14 · proposed · agent
+Internal workspace packages (`packages/*`, `@oat/<name>`) are **TypeScript-source packages**: `exports` point
+at `./src/*.ts` (`.` → `./src/index.ts`, `./*` → `./src/*.ts`), there is no per-package build step, and
+consumers compile them (Next.js `transpilePackages`, electron-vite/Vite, Vitest). Shared dependency versions
+live in the pnpm `catalog:` in `pnpm-workspace.yaml`.
+Why: no build ordering or watch processes between packages, instant cross-package edits in dev, go-to-definition
+lands in source, one less cache layer in turbo. Cost: every consumer must be able to compile TS (all of ours
+can), and packages can't be published to npm as-is (not a goal). If a package ever needs to run under plain
+Node without a bundler (e.g. a CLI), give that one package a build step rather than changing the default.
+Turbo still invalidates dependents' `typecheck`/`test` caches when a dependency's source changes via a `transit`
+task (`dependsOn: ["^transit"]`).
+Consumer requirements: Next.js (`apps/web`) must list every `@oat/*` package in `transpilePackages`;
+electron-vite (`apps/desktop`) externalizes dependencies in its main/preload builds by default, so `@oat/*` must
+be excluded from externalization (bundled) — otherwise Node tries to load `.ts` files at runtime.
+Package `exports` map `./*` → `./src/*.ts` but block test files with `"./*.test": null`.
