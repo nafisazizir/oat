@@ -14,6 +14,7 @@ import { Suspense } from 'react';
 
 import { BlockFocus } from '@/components/document/block-focus';
 import { DocumentAssistant } from '@/components/assistant/document-assistant';
+import { ConflictBannerSlot } from '@/components/document/conflict-banner-slot';
 import { FolderActions } from '@/components/document/folder-actions';
 import { DocumentEditor } from '@/components/document/document-editor';
 import { EmptyState, PageContainer, PageHeader } from '@/components/page';
@@ -76,6 +77,10 @@ export default async function DocumentPage({ params, searchParams }: Props) {
           transcript={transcript}
           focus={focus}
         >
+          {/* A conflicted copy (3.5): where it came from and how to resolve it. Streams in on its own. */}
+          <Suspense fallback={null}>
+            <ConflictBannerSlot documentId={doc.id} />
+          </Suspense>
           <DocumentEditor key={doc.id} document={doc} workspaceName={workspace.name} />
         </DocumentAssistant>
         {/* `?block=<id>` links (My tasks): scroll to and highlight that block. */}

@@ -8,6 +8,7 @@
 import { AUTH_TOKEN_HEADER, DESKTOP_TOKEN_ENDPOINT } from '@oat/auth/desktop-link';
 import { type DesktopUser, desktopUserSchema } from '@oat/core/bridge';
 import {
+  type SyncBackfillResponse,
   type SyncPullChange,
   syncPullChangeSchema,
   type SyncPullResponse,
@@ -23,6 +24,8 @@ const AUTH_BASE = '/api/auth';
 const STT_TOKEN_PATH = '/api/stt/token';
 const SYNC_PUSH_PATH = '/api/sync/push';
 const SYNC_PULL_PATH = '/api/sync/pull';
+const SYNC_BACKFILL_PATH = '/api/sync/backfill';
+const SYNC_EVENTS_PATH = '/api/sync/events';
 /** A push carries up to 500 rows; give it longer than a plain call. */
 const SYNC_TIMEOUT_MS = 30_000;
 
@@ -31,6 +34,12 @@ const pullEnvelopeSchema = z.object({
   cursor: z.string().nullable(),
   hasMore: z.boolean(),
   workspaceIds: z.array(z.string()),
+  lagging: z.boolean().optional(),
+});
+
+const backfillEnvelopeSchema = z.object({
+  changes: z.array(z.unknown()),
+  next: z.string().nullable(),
 });
 
 const sttGrantSchema = z.object({
@@ -199,6 +208,64 @@ export function createApiClient({
         else onSkippedChange?.(change.error.issues[0]?.message ?? 'invalid change');
       }
       return { ...parsed.data, changes };
+    },
+
+    /** `GET /api/sync/backfill` (3.5): a document's subtree, a page at a time. Same skipping as pulls. */
+    async syncBackfill(
+      token: string,
+      documentId: string,
+      after: string | null,
+    ): Promise<SyncBackfillResponse> {
+      const q = new URLSearchParams({ document: documentId });
+      if (after !== null) q.set('after', after);
+      const res = await request(`${SYNC_BACKFILL_PATH}?${q}`, {
+        token,
+        base: syncBaseUrl,
+        timeoutMs: SYNC_TIMEOUT_MS,
+      });
+      if (!res.ok) throw new ApiError(res.status, `Sync backfill failed (${res.status}).`);
+      const parsed = backfillEnvelopeSchema.safeParse(await res.json().catch(() => undefined));
+      if (!parsed.success) throw new ApiError(502, 'Unexpected sync backfill response.');
+      const changes: SyncPullChange[] = [];
+      for (const raw of parsed.data.changes) {
+        const change = syncPullChangeSchema.safeParse(raw);
+        if (change.success) changes.push(change.data);
+        else onSkippedChange?.(change.error.issues[0]?.message ?? 'invalid change');
+      }
+      return { changes, next: parsed.data.next };
+    },
+
+    /**
+     * Opens `GET /api/sync/events` (3.5, SSE) — no timeout: the caller reads the stream until it ends or
+     * aborts it. 401 rejects with an `ApiError` (so the session wrapper signs out); other statuses are
+     * returned for the caller to retry.
+     */
+    async openSyncEvents(
+      token: string,
+      lastEventId: string | null,
+      signal: AbortSignal,
+    ): Promise<Response> {
+      const headers = new Headers({
+        'user-agent': userAgent,
+        accept: 'text/event-stream',
+        authorization: `Bearer ${token}`,
+      });
+      if (lastEventId) headers.set('last-event-id', lastEventId);
+      let res: Response;
+      try {
+        res = await fetch(new URL(SYNC_EVENTS_PATH, syncBaseUrl), {
+          headers,
+          redirect: 'error',
+          signal,
+        });
+      } catch {
+        throw new ApiError(0, `Couldn’t reach ${new URL(syncBaseUrl).host}.`);
+      }
+      if (res.status === 401) {
+        await res.body?.cancel().catch(() => {});
+        throw new ApiError(401, 'Not signed in.');
+      }
+      return res;
     },
 
     /** Revokes the session on the server. */

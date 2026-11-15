@@ -54,6 +54,9 @@ class FakeServer {
             createdAt: at,
             updatedAt: at,
             deletedAt: null,
+            conflictOfId: null,
+            conflictDevice: null,
+            conflictAt: null,
           };
           this.docs.set(row.id, row);
           this.log.push({ table: 'document', id: row.id });

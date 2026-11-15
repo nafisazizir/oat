@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  diffLines,
+  documentContentKey,
+  documentLines,
   sameDocumentContent,
+  syncBackfillResponseSchema,
+  syncConflictResolveSchema,
+  syncDocumentRowSchema,
+  syncEventSchema,
   SYNC_PULL_TABLES,
   SYNC_PUSH_TABLES,
   syncPullChangeSchema,
@@ -163,5 +170,115 @@ describe('sameDocumentContent', () => {
     expect(sameDocumentContent(h({ level: 1, id: 'a' }), h({ id: 'b', level: 1 }))).toBe(true);
     expect(sameDocumentContent(a, { type: 'doc', content: [] })).toBe(false);
     expect(sameDocumentContent(h({ level: 1 }), h({ level: 2 }))).toBe(false);
+  });
+});
+
+describe('3.5 protocol additions', () => {
+  const doc = (text: string, id?: string) => ({
+    type: 'doc',
+    content: [
+      { type: 'paragraph', ...(id ? { attrs: { id } } : {}), content: [{ type: 'text', text }] },
+    ],
+  });
+
+  it('documentContentKey matches sameDocumentContent and the server title rule', () => {
+    expect(documentContentKey('  A  title ', doc('x'))).toBe(
+      documentContentKey('A title', doc('x', 'b1')),
+    );
+    expect(documentContentKey('A', doc('x'))).not.toBe(documentContentKey('A', doc('y')));
+    expect(documentContentKey('A', doc('x'))).not.toBe(documentContentKey('B', doc('x')));
+  });
+
+  it('push: device name and conflictOf are optional; rows default the conflict fields', () => {
+    expect(
+      syncPushRequestSchema.safeParse({ entries: [{ version: 1 }], device: { name: ' Mac ' } }).data
+        ?.device,
+    ).toEqual({ name: 'Mac' });
+    expect(
+      syncPushRequestSchema.safeParse({ entries: [{ version: 1 }], device: { name: '' } }).success,
+    ).toBe(false);
+    const entry = {
+      version: 1,
+      op: 'upsert',
+      table: 'document',
+      baseVersion: 0,
+      row: {
+        id: 'c',
+        workspaceId: 'w',
+        kind: 'page',
+        title: 't',
+        contentJson: doc('x'),
+        conflictOf: 'd',
+      },
+    };
+    expect(syncPushEntrySchema.safeParse(entry).success).toBe(true);
+    const row = syncDocumentRowSchema.parse({
+      id: 'd',
+      workspaceId: 'w',
+      folderId: null,
+      ownerId: 'u',
+      kind: 'page',
+      title: '',
+      contentJson: doc('x'),
+      visibility: 'private',
+      version: 1,
+      createdAt: '2026-11-14T10:00:00.000Z',
+      updatedAt: '2026-11-14T10:00:00.000Z',
+      deletedAt: null,
+    });
+    expect(row).toMatchObject({ conflictOfId: null, conflictDevice: null, conflictAt: null });
+  });
+
+  it('pull lagging, backfill pages, events and conflict resolution', () => {
+    expect(
+      syncPullResponseSchema.parse({
+        changes: [],
+        cursor: null,
+        hasMore: false,
+        workspaceIds: [],
+        lagging: true,
+      }).lagging,
+    ).toBe(true);
+    expect(syncBackfillResponseSchema.parse({ changes: [], next: null })).toEqual({
+      changes: [],
+      next: null,
+    });
+    expect(syncEventSchema.parse({ seq: '1.2', tables: ['document'], ids: ['d'] }).ids).toEqual([
+      'd',
+    ]);
+    expect(syncConflictResolveSchema.safeParse({ keep: 'copy' }).success).toBe(true);
+    expect(syncConflictResolveSchema.safeParse({ keep: 'both' }).success).toBe(false);
+  });
+});
+
+describe('compare helpers', () => {
+  it('documentLines flattens blocks, lists and headings', () => {
+    const p = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
+    const doc = {
+      type: 'doc',
+      content: [
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Agenda' }] },
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'Hello ' },
+            { type: 'text', text: 'world' },
+          ],
+        },
+        { type: 'bulletList', content: [{ type: 'listItem', content: [p('one')] }] },
+        {
+          type: 'taskList',
+          content: [{ type: 'taskItem', attrs: { checked: true }, content: [p('done')] }],
+        },
+        { type: 'paragraph' },
+      ],
+    };
+    expect(documentLines(doc)).toEqual(['## Agenda', 'Hello world', '• one', '☑ done']);
+  });
+
+  it('diffLines marks what the other side lacks', () => {
+    const d = diffLines(['a', 'b', 'c'], ['a', 'x', 'c', 'd']);
+    expect(d.left.map((l) => l.changed)).toEqual([false, true, false]);
+    expect(d.right.map((l) => l.changed)).toEqual([false, true, false, true]);
   });
 });

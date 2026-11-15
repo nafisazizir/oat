@@ -332,7 +332,8 @@ describe('push', () => {
     const entries = [
       { version: v(), op: 'upsert', table: 'transcript_segment', row: { id: 'x' } },
       { version: v(), op: 'upsert', table: 'workspace', row: { id: 'w' } },
-      { version: v(), op: 'delete', table: 'document', id: uid('doc') },
+      // (3.5: deleting an unknown document is ok — conflicted copies are deleted by sync.)
+      { version: v(), op: 'delete', table: 'meeting', id: uid('mtg') },
       docEntry(uid('doc'), ownerPersonal, {
         contentJson: { type: 'doc', content: [{ type: 'iframe' }] },
       }),

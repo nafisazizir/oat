@@ -16,7 +16,12 @@ export {
   type WipeReason,
 } from './open.ts';
 export {
+  CONFLICT_SUFFIX,
+  HIGHLIGHT_END,
+  HIGHLIGHT_START,
   LocalStore,
+  stripConflictSuffix,
+  type LocalConflict,
   type LocalDocument,
   type LocalMeeting,
   type LocalParticipant,
@@ -26,6 +31,7 @@ export {
   type OutboxEntry,
   type OutboxTable,
   type PushOutcome,
+  type SearchHit,
 } from './store.ts';
 export {
   SyncEngine,

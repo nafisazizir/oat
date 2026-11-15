@@ -37,6 +37,8 @@ import { useRecording, useTranscript } from '../recording-state.ts';
 import { syncLabel, type SyncTone } from '../sync-status.ts';
 import { IssueBanner, RecordingBar } from '../recording/recording-controls.tsx';
 import { TranscriptPanel } from '../recording/transcript-panel.tsx';
+import { ConflictsPanel } from '../sync/conflicts-panel.tsx';
+import { LocalSearch } from '../sync/local-search.tsx';
 import { Wordmark } from '../wordmark.tsx';
 
 /**
@@ -68,8 +70,13 @@ export default function MainWindow() {
       </header>
       {signedIn ? (
         <main className="flex min-h-0 flex-1" data-testid="shell">
-          <aside className="flex w-64 shrink-0 flex-col border-r bg-sidebar p-3">
-            <SignedInCard user={signedIn} sync={state!.sync} />
+          <aside className="flex w-64 shrink-0 flex-col gap-3 border-r bg-sidebar p-3">
+            {/* 3.5: local search + conflicted copies, refreshed after every sync. */}
+            <LocalSearch refreshKey={state!.sync.lastSyncedAt} />
+            <ConflictsPanel refreshKey={state!.sync.lastSyncedAt} />
+            <div className="flex min-h-0 flex-1 flex-col">
+              <SignedInCard user={signedIn} sync={state!.sync} />
+            </div>
           </aside>
           <MeetingView />
         </main>

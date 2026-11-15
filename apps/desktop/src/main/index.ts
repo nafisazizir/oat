@@ -42,7 +42,7 @@ import {
 } from './security.ts';
 import { MainStore } from './store.ts';
 import { SttCredentials } from './stt-credentials.ts';
-import { SyncService } from './sync-service.ts';
+import { deviceName, SyncService } from './sync-service.ts';
 import { TokenStore } from './token-store.ts';
 import { createWindowFactory } from './windows.ts';
 
@@ -254,11 +254,25 @@ async function start() {
     transport: {
       push: (request) => viaSession((token) => api.syncPush(token, request)),
       pull: (cursor) => viaSession((token) => api.syncPull(token, cursor)),
+      backfill: (documentId, after) =>
+        viaSession((token) => api.syncBackfill(token, documentId, after)),
     },
+    // 3.5: SSE invalidation channel (pull on every event; 60 s backstop) and this Mac's name.
+    events: {
+      connect: (lastEventId, signal) =>
+        auth.withSession((token) => api.openSyncEvents(token, lastEventId, signal)),
+    },
+    deviceName: deviceName(),
     onStatus: (status) => store.update((s) => ({ ...s, sync: status })),
     log,
   });
   bridge.handle('sync:now', () => sync.syncNow());
+  bridge.handle('search:query', ({ query }) => ({ hits: sync.search(query) }));
+  bridge.handle('conflicts:list', () => ({ conflicts: sync.conflicts() }));
+  bridge.handle('conflicts:get', ({ copyId }) => sync.conflict(copyId));
+  bridge.handle('conflicts:resolve', ({ copyId, keep }) => ({
+    resolved: sync.resolveConflict(copyId, keep),
+  }));
   const signedInUser = () =>
     store.state.auth.status === 'signed-in' ? store.state.auth.user.id : null;
 

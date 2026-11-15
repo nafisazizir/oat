@@ -17,6 +17,10 @@ export const OUTBOX_TABLES = ['document', 'meeting', 'participant', 'transcript_
 
 const now = `CAST(unixepoch('subsec') * 1000 AS INTEGER)`;
 
+/** The plain text of a TipTap JSON body (every text node, in order), for the search index. */
+const DOC_BODY = (row: string) =>
+  `(SELECT coalesce(group_concat(value, ' '), '') FROM json_tree(${row}.content_json) WHERE key = 'text' AND type = 'text')`;
+
 function outboxTriggers(table: string): string {
   const enqueue = (row: 'NEW' | 'OLD', op: 'upsert' | 'delete') => `
     INSERT OR REPLACE INTO outbox (table_name, row_id, op, first_enqueued_at)
@@ -109,6 +113,61 @@ CREATE TABLE transcript_segment (
 CREATE INDEX transcript_segment_meeting_start_idx ON transcript_segment (meeting_id, start_ms);
 
 ${OUTBOX_TABLES.map(outboxTriggers).join('\n')}
+`,
+  // 2 — 3.5: conflicted copies, lost-ack hashes, subtree backfill queue, local full-text search.
+  `
+ALTER TABLE document ADD COLUMN conflict_of_id TEXT;
+ALTER TABLE document ADD COLUMN conflict_device TEXT;
+ALTER TABLE document ADD COLUMN conflict_at TEXT;
+CREATE INDEX document_conflict_of_idx ON document (conflict_of_id) WHERE conflict_of_id IS NOT NULL;
+
+-- What this device pushed for a document since the server last acknowledged one of its writes: hashes of
+-- title + canonical body. A 409 whose server copy matches one is our own write whose ack was lost.
+CREATE TABLE doc_sent (
+  document_id TEXT NOT NULL,
+  hash TEXT NOT NULL,
+  sent_at INTEGER NOT NULL,
+  PRIMARY KEY (document_id, hash)
+) STRICT;
+
+-- Meeting documents seen for the first time after the initial sync: their subtree (meeting, participants,
+-- segments) is fetched with GET /api/sync/backfill; \`after\` is the next page token.
+CREATE TABLE backfill (
+  document_id TEXT PRIMARY KEY,
+  after TEXT,
+  queued_at INTEGER NOT NULL,
+  -- Failed fetches (server errors, refusals); dropped after a few: backfill is best-effort.
+  attempts INTEGER NOT NULL DEFAULT 0
+) STRICT;
+
+-- Local full-text search (FTS5, trigram: substring matches in any language, accents folded), kept by
+-- triggers. Index rowids are the base tables' rowids: never VACUUM this file (it may renumber them).
+CREATE VIRTUAL TABLE document_fts USING fts5(title, body, tokenize = 'trigram remove_diacritics 1');
+CREATE VIRTUAL TABLE segment_fts USING fts5(text, tokenize = 'trigram remove_diacritics 1');
+
+CREATE TRIGGER document_fts_insert AFTER INSERT ON document BEGIN
+  INSERT INTO document_fts (rowid, title, body) VALUES (NEW.rowid, NEW.title, ${DOC_BODY('NEW')});
+END;
+CREATE TRIGGER document_fts_update AFTER UPDATE OF title, content_json ON document BEGIN
+  DELETE FROM document_fts WHERE rowid = OLD.rowid;
+  INSERT INTO document_fts (rowid, title, body) VALUES (NEW.rowid, NEW.title, ${DOC_BODY('NEW')});
+END;
+CREATE TRIGGER document_fts_delete AFTER DELETE ON document BEGIN
+  DELETE FROM document_fts WHERE rowid = OLD.rowid;
+END;
+CREATE TRIGGER segment_fts_insert AFTER INSERT ON transcript_segment BEGIN
+  INSERT INTO segment_fts (rowid, text) VALUES (NEW.rowid, NEW.text);
+END;
+CREATE TRIGGER segment_fts_update AFTER UPDATE OF text ON transcript_segment BEGIN
+  DELETE FROM segment_fts WHERE rowid = OLD.rowid;
+  INSERT INTO segment_fts (rowid, text) VALUES (NEW.rowid, NEW.text);
+END;
+CREATE TRIGGER segment_fts_delete AFTER DELETE ON transcript_segment BEGIN
+  DELETE FROM segment_fts WHERE rowid = OLD.rowid;
+END;
+
+INSERT INTO document_fts (rowid, title, body) SELECT rowid, title, ${DOC_BODY('document')} FROM document;
+INSERT INTO segment_fts (rowid, text) SELECT rowid, text FROM transcript_segment;
 `,
 ];
 

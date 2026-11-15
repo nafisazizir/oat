@@ -213,6 +213,40 @@ export const syncStatusSchema = z.object({
 });
 export type SyncStatusSnapshot = z.infer<typeof syncStatusSchema>;
 
+// Local search + conflicted copies (task 3.5) ---------------------------------------------------------
+
+/** A local full-text hit (`@oat/local-store` `search`); `snippet` marks matches with \u0001…\u0002. */
+export const searchHitSchema = z.object({
+  documentId: z.string(),
+  title: z.string(),
+  kind: z.enum(['meeting', 'page']),
+  in: z.enum(['note', 'transcript']),
+  snippet: z.string(),
+  segmentId: z.string().nullable(),
+  startMs: z.number().nullable(),
+  updatedAt: z.string(),
+});
+export type SearchHitSnapshot = z.infer<typeof searchHitSchema>;
+
+export const conflictSummarySchema = z.object({
+  copyId: z.string(),
+  title: z.string(),
+  device: z.string().nullable(),
+  at: z.string().nullable(),
+  originalId: z.string().nullable(),
+  originalTitle: z.string().nullable(),
+});
+export type ConflictSummary = z.infer<typeof conflictSummarySchema>;
+
+const diffLineSchema = z.object({ text: z.string(), changed: z.boolean() });
+export const conflictDetailSchema = z.object({
+  summary: conflictSummarySchema,
+  /** Side by side: the other (server) version and this copy, as compared lines. */
+  original: z.array(diffLineSchema).nullable(),
+  copy: z.array(diffLineSchema),
+});
+export type ConflictDetailSnapshot = z.infer<typeof conflictDetailSchema>;
+
 /**
  * Small cross-window live state owned by the main process. Volatile: rebuilt on every launch (auth is
  * restored from the stored token; recording and meeting start idle).
@@ -301,6 +335,28 @@ export const bridgeContract = {
     'transcript:get': { request: none, response: transcriptSnapshotSchema },
     /** Sync now (push the outbox, then pull); resolves with the status after the run. */
     'sync:now': { request: none, response: syncStatusSchema },
+    /** Local full-text search over notes and transcripts (3.5; works offline). */
+    'search:query': {
+      request: z.strictObject({ query: z.string().max(200) }),
+      response: z.object({ hits: z.array(searchHitSchema) }),
+    },
+    /** Conflicted copies on this Mac (3.5). */
+    'conflicts:list': {
+      request: none,
+      response: z.object({ conflicts: z.array(conflictSummarySchema) }),
+    },
+    'conflicts:get': {
+      request: z.strictObject({ copyId: z.string().min(1).max(100) }),
+      response: conflictDetailSchema.nullable(),
+    },
+    /** Keep the copy's text (it replaces the original) or the original; the copy is deleted. Synced. */
+    'conflicts:resolve': {
+      request: z.strictObject({
+        copyId: z.string().min(1).max(100),
+        keep: z.enum(['copy', 'original']),
+      }),
+      response: z.object({ resolved: z.boolean() }),
+    },
     'window:open-widget': { request: none, response: none },
     'window:close-widget': { request: none, response: none },
   },

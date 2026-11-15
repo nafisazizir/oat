@@ -8,9 +8,17 @@
  * exponentially with jitter (network/5xx/429 → `offline`/`error`, retried; 401 → `stopped` until started
  * again). A 409 on pull (stale cursor) restarts the pull from the beginning. Every request is idempotent
  * on the server, so a lost response is simply retried.
+ *
+ * 3.5: after the pull, documents queued for backfill get their subtree (`transport.backfill`, paged; a
+ * 403/404 drops the entry). `notify()` is the SSE invalidation hook (pull soon, even while backing off: an
+ * event proves the server is reachable). A pull that says `lagging` (changes held back by an open
+ * transaction, D-22) is retried after `laggingRetryMs`, doubling while it persists, instead of waiting
+ * for the interval backstop.
  */
 import {
   MAX_PUSH_ENTRIES,
+  type SyncBackfillResponse,
+  type SyncDevice,
   type SyncPullResponse,
   type SyncPushEntry,
   type SyncPushRequest,
@@ -22,6 +30,8 @@ import type { LocalStore } from './store.ts';
 export interface SyncTransport {
   push(request: SyncPushRequest): Promise<SyncPushResponse>;
   pull(cursor: string | null): Promise<SyncPullResponse>;
+  /** `GET /api/sync/backfill` (3.5). Without it, queued backfills wait. */
+  backfill?(documentId: string, after: string | null): Promise<SyncBackfillResponse>;
 }
 
 /** A failed request. `status` 0 = the server couldn't be reached. */
@@ -76,6 +86,13 @@ export interface SyncEngineOptions {
   /** Safety cap per run (a run never loops forever). */
   maxPushBatches?: number;
   maxPullPages?: number;
+  maxBackfillPages?: number;
+  /** Sent with every push (its name is written on conflicted copies). */
+  device?: SyncDevice;
+  /** First retry after a `lagging` pull; doubles while it persists, capped by `intervalMs`. Default 2 s. */
+  laggingRetryMs?: number;
+  /** Delay after an SSE notification before pulling (coalesces bursts). Default 150 ms. */
+  notifyDebounceMs?: number;
 }
 
 const defaultTimer = (fn: () => void, ms: number) => {
@@ -96,6 +113,7 @@ export class SyncEngine {
   #cancelTimer: (() => void) | null = null;
   #timerDue = Infinity;
   #serverErrors = 0;
+  #lagging = 0;
 
   constructor(options: SyncEngineOptions) {
     this.#o = options;
@@ -144,6 +162,23 @@ export class SyncEngine {
     }
     if (this.#failures > 0) return; // backing off: the scheduled retry will carry it
     this.#schedule(this.#o.debounceMs ?? 500);
+  }
+
+  /**
+   * The server says something changed (SSE invalidation, 3.5): pull soon. Resets a backoff — the event
+   * itself shows the server is reachable.
+   */
+  notify(): void {
+    if (!this.#started) return;
+    if (this.#running) {
+      this.#again = true;
+      return;
+    }
+    if (this.#failures > 0) {
+      this.#failures = 0;
+      this.#clearTimer();
+    }
+    this.#schedule(this.#o.notifyDebounceMs ?? 150);
   }
 
   /** Runs now (resetting any backoff) and resolves with the status after it. */
@@ -233,6 +268,7 @@ export class SyncEngine {
       }
       phase = 'pull';
       let cursor = store.pullCursor();
+      let lagging = false;
       for (let page = 0; page < (this.#o.maxPullPages ?? 100); page++) {
         const response = await transport.pull(cursor);
         const { restart } = store.applyPull(response, cursor);
@@ -242,8 +278,10 @@ export class SyncEngine {
           continue;
         }
         cursor = response.cursor;
+        lagging = response.lagging === true;
         if (!response.hasMore) break;
       }
+      await this.#backfill();
       this.#failures = 0;
       this.#set({
         state: 'idle',
@@ -252,11 +290,56 @@ export class SyncEngine {
         parked: store.parkedCount(),
         lastSyncedAt: this.#now(),
       });
-      // Something was written while we pushed: go again right away, otherwise the interval backstop.
+      // Something was written while we pushed: go again right away, otherwise the interval backstop
+      // (sooner while the server holds changes back).
       if (store.outboxSize() > 0) this.#again = true;
-      this.#schedule(this.#o.intervalMs ?? 30_000);
+      const interval = this.#o.intervalMs ?? 30_000;
+      if (lagging) {
+        const wait = Math.min(interval, (this.#o.laggingRetryMs ?? 2_000) * 2 ** this.#lagging);
+        this.#lagging += 1;
+        this.#o.log?.info(`sync: the server is holding changes back; pulling again in ${wait} ms`);
+        this.#schedule(wait);
+      } else {
+        this.#lagging = 0;
+        this.#schedule(interval);
+      }
     } catch (error) {
       this.#failed(error, phase);
+    }
+  }
+
+  /**
+   * Fetches the subtrees of documents seen for the first time (3.5), a page at a time. Best-effort: it
+   * never fails the run and one document never blocks the rest (D-28). 401 → the session is gone (the run
+   * fails as usual). Other 4xx (gone, unreadable, a stale page token…) → that entry is dropped. Network,
+   * 408, 429 → stop for this run, retried next run. 5xx or an unexpected error → that entry goes to the back
+   * of the queue with a strike (dropped after 5), and backfilling stops for this run.
+   */
+  async #backfill(): Promise<void> {
+    const { store, transport } = this.#o;
+    if (!transport.backfill) return;
+    for (let i = 0; i < (this.#o.maxBackfillPages ?? 200); i++) {
+      const next = store.nextBackfill();
+      if (!next) return;
+      try {
+        store.applyBackfill(next.documentId, await transport.backfill(next.documentId, next.after));
+      } catch (error) {
+        const status = error instanceof SyncTransportError ? error.status : -1;
+        if (status === 401) throw error;
+        const what = `sync: backfill of ${next.documentId}`;
+        if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
+          this.#o.log?.warn(`${what} refused (HTTP ${status}); dropped`);
+          store.dropBackfill(next.documentId);
+          continue;
+        }
+        if (status >= 500 || status === -1) {
+          const dropped = store.backfillFailed(next.documentId);
+          this.#o.log?.warn(
+            `${what} failed (${status === -1 ? String(error) : `HTTP ${status}`}); ${dropped ? 'dropped' : 'retried later'}`,
+          );
+        }
+        return; // network trouble or a failing server: try again next run
+      }
     }
   }
 
@@ -318,14 +401,17 @@ export class SyncEngine {
 
   async #send(entries: SyncPushEntry[]): Promise<void> {
     const { store, transport } = this.#o;
-    const response = await transport.push({ entries });
+    const response = await transport.push({
+      entries,
+      ...(this.#o.device ? { device: this.#o.device } : {}),
+    });
     const outcome = store.applyPushResults(entries, response.results);
     if (outcome.conflicts || outcome.rejected) {
       this.#o.log?.warn(
         `sync: push had ${outcome.conflicts} conflict(s), ${outcome.rejected} rejected (parked)`,
       );
     }
-    if (outcome.acknowledged + outcome.conflicts + outcome.rejected === 0) {
+    if (outcome.acknowledged + outcome.conflicts + outcome.rejected + outcome.adopted === 0) {
       throw new SyncTransportError(502, 'The server acknowledged nothing.');
     }
   }

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { createDb, type Db } from '@oat/db';
+import { createDb, type Db, sessionTimeoutsFromEnv } from '@oat/db';
 
 import { serverEnv } from '@/lib/env';
 
@@ -8,9 +8,13 @@ import { serverEnv } from '@/lib/env';
 // leaking a new pool per edit.
 const holder = globalThis as typeof globalThis & { __oatDb?: Db };
 
-/** The app's Postgres client (`DATABASE_URL`), created on first use so `next build` needs no database. */
+/**
+ * The app's Postgres client (`DATABASE_URL`), created on first use so `next build` needs no database.
+ * Every connection gets statement / idle-in-transaction timeouts (3.5): an open transaction holds back
+ * every change-log reader in the cluster (D-22), so none may linger.
+ */
 export function getDb(): Db {
-  holder.__oatDb ??= createDb(serverEnv().DATABASE_URL);
+  holder.__oatDb ??= createDb(serverEnv().DATABASE_URL, { timeouts: sessionTimeoutsFromEnv() });
   return holder.__oatDb;
 }
 

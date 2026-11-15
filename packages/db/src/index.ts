@@ -5,8 +5,11 @@ export {
   createDb,
   migrate,
   MIGRATIONS_FOLDER,
+  APP_SESSION_TIMEOUTS,
+  sessionTimeoutsFromEnv,
   type CreateDbOptions,
   type Db,
+  type SessionTimeouts,
   type Schema,
 } from './client.ts';
 export { newId, newToken, idTimestamp, UUID_V7 } from './id.ts';
@@ -14,10 +17,14 @@ export { organizationOptions, organizationSchema } from './auth-mapping.ts';
 export {
   decodeCursor,
   encodeCursor,
+  hasHeldBackChanges,
+  headCursor,
+  longTransactions,
   readAllChanges,
   readChanges,
   type Change,
   type ChangePage,
+  type LongTransaction,
 } from './sync.ts';
 export {
   upsertBuiltinTemplates,

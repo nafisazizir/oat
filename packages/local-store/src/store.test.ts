@@ -68,6 +68,9 @@ const serverDoc = (patch: Partial<SyncDocumentRow> = {}): SyncDocumentRow => ({
   createdAt: '2026-11-14T10:00:00.000Z',
   updatedAt: '2026-11-14T10:00:00.000Z',
   deletedAt: null,
+  conflictOfId: null,
+  conflictDevice: null,
+  conflictAt: null,
   ...patch,
 });
 

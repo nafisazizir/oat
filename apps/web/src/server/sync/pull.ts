@@ -14,7 +14,10 @@ import {
   decodeCursor,
   document,
   type DocumentRow,
+  hasHeldBackChanges,
+  longTransactions,
   meeting,
+  type MeetingRow,
   participant,
   readChanges,
   transcriptSegment,
@@ -34,7 +37,49 @@ import { toSyncDocument } from './push';
  * document turned private by its owner, a meeting whose document went to someone else's trash…). Rows
  * of tables the protocol doesn't carry yet are skipped (clients re-pull from the start when the scope
  * grows, `SYNC_PULL_SCOPE`). `workspaceIds` lets the client drop the content of workspaces it left.
+ *
+ * 3.5: a last page that comes back while committed changes are still held back by an open transaction
+ * (D-22 visibility rule) says `lagging: true` — the client pulls again shortly — and logs the long
+ * transactions that cause it (at most every 30 s per server process).
  */
+
+const LONG_TX_LOG_EVERY_MS = 30_000;
+let lastLongTxLog = 0;
+
+/** Logs transactions old enough to hold back every change-log reader (throttled). */
+async function logLongTransactions(db: Db): Promise<void> {
+  const now = Date.now();
+  if (now - lastLongTxLog < LONG_TX_LOG_EVERY_MS) return;
+  lastLongTxLog = now;
+  try {
+    const long = await longTransactions(db, 5_000);
+    if (long.length === 0) return;
+    console.warn(
+      `[sync] pulls are lagging: ${long.length} open transaction(s) hold back the change log`,
+      long.map((t) => ({
+        pid: t.pid,
+        ageSeconds: Math.round(t.ageSeconds),
+        state: t.state,
+        app: t.applicationName,
+        db: t.database,
+      })),
+    );
+  } catch {
+    // diagnostics only
+  }
+}
+
+export function toSyncMeeting(m: MeetingRow) {
+  return {
+    id: m.id,
+    documentId: m.documentId,
+    calendarEventId: m.calendarEventId,
+    startedAt: m.startedAt?.toISOString() ?? null,
+    endedAt: m.endedAt?.toISOString() ?? null,
+    platform: m.platform,
+    templateId: m.templateId,
+  };
+}
 
 const PULL_TABLES: ReadonlySet<string> = new Set(SYNC_PULL_TABLES);
 
@@ -88,7 +133,15 @@ export async function pullChanges(
     const row = rows.get(`${table}:${id}`);
     return row ?? { op: 'delete', table, id };
   });
-  return { changes, cursor: page.cursor, hasMore: page.hasMore, workspaceIds };
+  const lagging = !page.hasMore && (await hasHeldBackChanges(db, workspaceIds, page.cursor));
+  if (lagging) void logLongTransactions(db);
+  return {
+    changes,
+    cursor: page.cursor,
+    hasMore: page.hasMore,
+    workspaceIds,
+    ...(lagging ? { lagging: true } : {}),
+  };
 }
 
 /** Current rows the actor can read, keyed `table:id`, as upsert changes. */
@@ -126,19 +179,7 @@ async function loadReadable(
       .where(inArray(meeting.id, ids.meeting));
     for (const { m, doc } of rows) {
       if (!readable(doc)) continue;
-      out.set(`meeting:${m.id}`, {
-        op: 'upsert',
-        table: 'meeting',
-        row: {
-          id: m.id,
-          documentId: m.documentId,
-          calendarEventId: m.calendarEventId,
-          startedAt: m.startedAt?.toISOString() ?? null,
-          endedAt: m.endedAt?.toISOString() ?? null,
-          platform: m.platform,
-          templateId: m.templateId,
-        },
-      });
+      out.set(`meeting:${m.id}`, { op: 'upsert', table: 'meeting', row: toSyncMeeting(m) });
     }
   }
   if (ids.participant.length) {

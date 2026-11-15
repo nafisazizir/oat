@@ -14,8 +14,17 @@
  * old rows outlive their workspace until pruned (3.5).
  */
 import { sql } from 'drizzle-orm';
-import { bigserial, customType, index, pgTable, text } from 'drizzle-orm/pg-core';
+import {
+  bigserial,
+  customType,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+} from 'drizzle-orm/pg-core';
 import { createdAt } from './columns.ts';
+import { document } from './documents.ts';
 import { changeOpEnum } from './enums.ts';
 
 /** Postgres `xid8` (64-bit, wraparound-free transaction id), read as a decimal string. */
@@ -59,4 +68,23 @@ export const changeLog = pgTable(
     // Server-side consumers that follow every workspace (the 6.1 indexer: `readAllChanges`).
     index('change_log_txid_seq_idx').on(t.txid, t.seq),
   ],
+);
+
+/**
+ * Texts a sync push wrote into a document (3.5): `content_key` = SHA-256 (base64url) of `@oat/core`
+ * `documentContentKey(title, content)`, the last 20 per document. A push on a stale base whose text is
+ * one of these is a replay of a write that already landed (its answer was lost, and someone may have
+ * edited since): answered `ok`, never turned into a conflicted copy.
+ */
+export const syncReceipt = pgTable(
+  'sync_receipt',
+  {
+    documentId: text('document_id')
+      .notNull()
+      .references(() => document.id, { onDelete: 'cascade' }),
+    contentKey: text('content_key').notNull(),
+    version: integer('version').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.documentId, t.contentKey] })],
 );

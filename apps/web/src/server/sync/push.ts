@@ -1,9 +1,13 @@
 import 'server-only';
 
+import { createHash } from 'node:crypto';
+
 import {
   canCreateInWorkspace,
+  canDeleteDocument,
   canEditDocument,
   canReadDocument,
+  documentContentKey,
   isForbiddenError,
   roleIn,
   sameDocumentContent,
@@ -23,10 +27,11 @@ import {
   meeting,
   type MeetingRow,
   participant,
+  syncReceipt,
   transcriptSegment,
   workspace,
 } from '@oat/db';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, notInArray, sql } from 'drizzle-orm';
 
 import type { Actor } from '../actor';
 import { ApiError } from '../api/errors';
@@ -49,7 +54,22 @@ import type { Queryable, Tx } from '../folders';
  *
  * Entries are applied parents first (documents, meetings, participants, segments), each in its own
  * savepoint, all in one transaction; segments of one meeting go in as one statement.
+ *
+ * 3.5: every document text a push writes leaves a receipt (`sync_receipt`, last 20 per document). A stale
+ * base whose text matches a receipt is a replay of a write that already landed (lost answer, maybe
+ * edited by others since) → `ok` with the current row, never a conflict. A create with `conflictOf` is a
+ * conflicted copy: linked to its original only if the actor can read that original (same workspace),
+ * stamped with the pushing device's name. A `delete` of a document is accepted for conflicted copies
+ * (moved to the trash, `deleteDocument` rights) and for documents that don't exist (idempotent).
  */
+
+/** Receipts kept per document. */
+const MAX_RECEIPTS = 20;
+
+/** What a document's text is remembered by (see `@oat/core` `documentContentKey`). */
+export function contentReceiptKey(title: string, contentJson: unknown): string {
+  return createHash('sha256').update(documentContentKey(title, contentJson)).digest('base64url');
+}
 
 type Entry = SyncPushEntry;
 type DocEntry = Extract<Entry, { table: 'document'; op: 'upsert' }>;
@@ -86,15 +106,23 @@ export function toSyncDocument(row: DocumentRow): SyncDocumentRow {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     deletedAt: row.deletedAt?.toISOString() ?? null,
+    conflictOfId: row.conflictOfId,
+    conflictDevice: row.conflictDevice,
+    conflictAt: row.conflictAt?.toISOString() ?? null,
   };
 }
+
+/** Name stored on conflicted copies when the pushing client didn't say. */
+const UNKNOWN_DEVICE = 'Another device';
 
 /** Validates entries one by one, then applies the valid ones (see the module comment). */
 export async function pushChanges(
   db: Db,
   actor: Actor,
   raw: readonly { version: number }[],
+  device: { name: string } | null = null,
 ): Promise<SyncPushResponse> {
+  const ctx: PushContext = { actor, deviceName: device?.name ?? UNKNOWN_DEVICE };
   const results = new Map<number, SyncPushResult>();
   const valid: Entry[] = [];
   for (const item of raw) {
@@ -133,7 +161,7 @@ export async function pushChanges(
       }
       results.set(
         entry.version,
-        await guarded(tx, entry.version, (sp) => applyOne(sp, actor, entry)),
+        await guarded(tx, entry.version, (sp) => applyOne(sp, ctx, entry)),
       );
     }
     for (const [meetingId, entries] of segmentsByMeeting) {
@@ -221,11 +249,14 @@ function pgErrorCode(error: unknown): string | undefined {
   return undefined;
 }
 
-function applyOne(tx: Tx, actor: Actor, entry: Entry): Promise<SyncPushResult> {
+type PushContext = { actor: Actor; deviceName: string };
+
+function applyOne(tx: Tx, ctx: PushContext, entry: Entry): Promise<SyncPushResult> {
+  const { actor } = ctx;
   if (entry.op === 'delete') return applyDelete(tx, actor, entry);
   switch (entry.table) {
     case 'document':
-      return upsertDocument(tx, actor, entry);
+      return upsertDocument(tx, ctx, entry);
     case 'meeting':
       return upsertMeeting(tx, actor, entry);
     case 'participant':
@@ -274,7 +305,11 @@ async function editableMeeting(
 
 // --- documents ---------------------------------------------------------------------------------------
 
-async function upsertDocument(tx: Tx, actor: Actor, entry: DocEntry): Promise<SyncPushResult> {
+async function upsertDocument(
+  tx: Tx,
+  { actor, deviceName }: PushContext,
+  entry: DocEntry,
+): Promise<SyncPushResult> {
   const { row } = entry;
   const ok = (stored: DocumentRow): SyncPushResult => ({
     version: entry.version,
@@ -296,6 +331,13 @@ async function upsertDocument(tx: Tx, actor: Actor, entry: DocEntry): Promise<Sy
     if (!ws) throw new Reject('not_found', 'Workspace not found.');
     if (!canCreateInWorkspace(actor.ctx, ws))
       throw new Reject('forbidden', 'Not allowed to create.');
+    // A conflicted copy is linked only to an original the actor can read in the same workspace (an
+    // unknown or foreign id just makes an ordinary page: no existence leak).
+    const original = row.conflictOf ? await loadDocument(tx, row.conflictOf) : undefined;
+    const linked =
+      original && original.workspaceId === ws.id && canReadDocument(actor.ctx, original)
+        ? { conflictOfId: original.id, conflictDevice: deviceName, conflictAt: new Date() }
+        : {};
     const [created] = await tx
       .insert(document)
       .values({
@@ -306,10 +348,14 @@ async function upsertDocument(tx: Tx, actor: Actor, entry: DocEntry): Promise<Sy
         title,
         visibility: 'private',
         ...content,
+        ...linked,
       })
       .onConflictDoNothing({ target: document.id })
       .returning();
-    if (created) return ok(created);
+    if (created) {
+      await addReceipt(tx, created);
+      return ok(created);
+    }
     existing = await loadDocument(tx, row.id, true); // created concurrently: treat as an update
   }
 
@@ -321,6 +367,17 @@ async function upsertDocument(tx: Tx, actor: Actor, entry: DocEntry): Promise<Sy
   const same = doc.title === title && sameDocumentContent(doc.contentJson, content.contentJson);
   if (same) return ok(doc); // nothing to do, or a replay of what was already applied
   if (doc.version !== entry.baseVersion) {
+    // This text already landed through an earlier push (whose answer was lost): a replay, not a conflict.
+    const [receipt] = await tx
+      .select({ version: syncReceipt.version })
+      .from(syncReceipt)
+      .where(
+        and(
+          eq(syncReceipt.documentId, doc.id),
+          eq(syncReceipt.contentKey, contentReceiptKey(title, content.contentJson)),
+        ),
+      );
+    if (receipt) return ok(doc);
     return { version: entry.version, status: 'conflict', row: toSyncDocument(doc) };
   }
   const [updated] = await tx
@@ -328,7 +385,29 @@ async function upsertDocument(tx: Tx, actor: Actor, entry: DocEntry): Promise<Sy
     .set({ title, ...content, version: sql`${document.version} + 1` })
     .where(and(eq(document.id, doc.id), eq(document.version, entry.baseVersion)))
     .returning();
+  await addReceipt(tx, updated!);
   return ok(updated!); // the row is locked: the version can't have moved
+}
+
+/** Records that a push wrote this text (keeps the newest {@link MAX_RECEIPTS} per document). */
+async function addReceipt(tx: Tx, doc: DocumentRow): Promise<void> {
+  const key = contentReceiptKey(doc.title, doc.contentJson);
+  await tx
+    .insert(syncReceipt)
+    .values({ documentId: doc.id, contentKey: key, version: doc.version })
+    .onConflictDoUpdate({
+      target: [syncReceipt.documentId, syncReceipt.contentKey],
+      set: { version: doc.version, createdAt: new Date() },
+    });
+  const keep = tx
+    .select({ key: syncReceipt.contentKey })
+    .from(syncReceipt)
+    .where(eq(syncReceipt.documentId, doc.id))
+    .orderBy(sql`${syncReceipt.version} desc`)
+    .limit(MAX_RECEIPTS);
+  await tx
+    .delete(syncReceipt)
+    .where(and(eq(syncReceipt.documentId, doc.id), notInArray(syncReceipt.contentKey, keep)));
 }
 
 // --- meetings + participants ---------------------------------------------------------------------------
@@ -462,9 +541,27 @@ function segmentValues(row: SyncSegmentRow) {
 async function applyDelete(tx: Tx, actor: Actor, entry: DeleteEntry): Promise<SyncPushResult> {
   const ok = { version: entry.version, status: 'ok' } as const;
   switch (entry.table) {
-    case 'document':
+    case 'document': {
+      // Only conflicted copies (resolving a conflict, 3.5) are deleted by sync — into the trash. Other
+      // documents go through the documents API (D-18 rules, trash).
+      const doc = await loadDocument(tx, entry.id, true);
+      if (!doc) return ok; // never arrived, or already gone
+      if (!canReadDocument(actor.ctx, doc)) throw new Reject('not_found', 'Document not found.');
+      if (!doc.conflictOfId) {
+        throw new Reject('unsupported', 'Only conflicted copies can be deleted by sync.');
+      }
+      if (!canDeleteDocument(actor.ctx, doc))
+        throw new Reject('forbidden', 'Not allowed to delete.');
+      if (!doc.deletedAt) {
+        await tx
+          .update(document)
+          .set({ deletedAt: new Date(), version: sql`${document.version} + 1` })
+          .where(eq(document.id, doc.id));
+      }
+      return ok;
+    }
     case 'meeting':
-      // Trash/delete go through the documents API (D-18 rules, trash); not part of desktop sync yet.
+      // Meetings go with their document (documents API); not deleted by sync.
       throw new Reject('unsupported', `Deleting a ${entry.table} isn’t supported by sync.`);
     case 'participant': {
       const [row] = await tx

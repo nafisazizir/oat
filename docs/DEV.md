@@ -378,6 +378,21 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   gets its own file; switching waits for a recording to end. Entries the server refuses are parked (sidebar
   count, retried every 15 min or when edited). Inspect with `sqlite3 "<userData>/oat-<userId>.sqlite"` (dev
   profile: `~/Library/Application Support/Oat Dev/`). Details: `docs/tasks/2.6-persist-segments.md`.
+- **Sync 3.5 (live, conflicts, backfill, search).** The app keeps `GET /api/sync/events` open (SSE
+  invalidation: `{seq, tables, ids}`, `Last-Event-ID` replay, heartbeat; reconnect 1 s → 30 s) and pulls on
+  every event; the pull interval is a 60 s backstop. A document first seen after the initial sync (e.g. a
+  teammate shares a meeting note) gets its meeting/participants/segments from `GET /api/sync/backfill`.
+  A push whose answer was lost never becomes a conflicted copy (client hashes in `doc_sent`, server
+  `sync_receipt`); a real conflict files the losing text as "<title> (conflicted copy)" with this Mac's
+  name — listed in the sidebar with a side-by-side compare ("Keep this copy" / "Keep other version";
+  synced, the copy goes to the trash). The web shows the same banner + compare on the copy's page and
+  refreshes the sidebar/page live from the same SSE channel. The sidebar search box queries the local
+  SQLite FTS5 index (trigram: substrings, case/accents ignored, words ≥ 3 characters; works offline).
+  The web app's Postgres pool sets `statement_timeout` / `idle_in_transaction_session_timeout`
+  (`DATABASE_STATEMENT_TIMEOUT_MS`, `DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS`; defaults 30 s / 15 s): an
+  open transaction holds back every change-log reader (D-22); a pull that is held back answers
+  `lagging: true` (the app retries in 2 s, doubling) and the server logs the long transactions (≤ every
+  30 s). Details: `docs/tasks/3.5-sync.md`.
 - **Packaging (9.1).** `src/build/fuses.ts` (`OAT_FUSES`, `applyFuses`) holds the fuse settings to flip on
   the packaged binary: no run-as-node, no `NODE_OPTIONS`/`--inspect`, asar-only + integrity, cookie
   encryption.
@@ -386,7 +401,7 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   the app with a temp profile against `next dev` on a throwaway database (apps/web's `e2e/web-server.ts`,
   `E2E_PORT`, default 3100). `shell.openExternal` is stubbed and deep links are delivered by emitting
   `open-url`, so no browser opens and nothing is registered with the OS. The web half of sign-in runs in
-  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/`, `2.5/` and `2.6/` (screenshots, `cold-start.json`, `latency.json`, `sync.json`). Other
+  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/`, `2.5/`, `2.6/` and `3.5/` (screenshots, `cold-start.json`, `latency.json`, `sync.json`). Other
   platforms skip it.
 
 ## Database (`@oat/db`)

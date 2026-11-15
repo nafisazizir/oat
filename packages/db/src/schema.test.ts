@@ -59,6 +59,7 @@ describe('schema', () => {
         'membership',
         'participant',
         'session',
+        'sync_receipt',
         'template',
         'transcript_segment',
         'user',

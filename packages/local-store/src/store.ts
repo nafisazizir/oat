@@ -18,18 +18,34 @@
  *   deletes win and clear the row's outbox entry; children whose parent never arrived are dropped; the
  *   cursor moves only with the rows. Workspaces the user left are dropped with their content; a workspace
  *   the user joined restarts the pull from the beginning (its history is behind our cursor).
+ *
+ * 3.5:
+ * - Lost acknowledgements: every document push records a hash of what it sent (`doc_sent`). A conflict
+ *   whose server copy matches one of them is our own earlier write whose answer never arrived: the server
+ *   version becomes our base, the entry stays queued, no conflicted copy.
+ * - Conflicted copies carry `conflictOfId` / `conflictDevice` / `conflictAt` (pushed as `conflictOf`);
+ *   `resolveConflict(copy, keep)` writes the kept text into the original (an ordinary edit) and deletes
+ *   the copy (a synced delete: the server trashes it).
+ * - Backfill: a meeting document first seen after the initial sync is queued (`backfill`); the engine
+ *   fetches its subtree page by page (`nextBackfill` / `applyBackfill`).
+ * - `search(query)`: FTS5 (trigram) over note titles/bodies and transcript segments.
  */
 import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
+
+import { createHash } from 'node:crypto';
 
 import {
   type DocumentKind,
   type DocumentVisibility,
+  documentContentKey,
   sameDocumentContent,
   SYNC_PULL_SCOPE,
   SYNC_PULL_TABLES,
+  type SyncBackfillResponse,
   type SyncDocumentRow,
   type SyncMeetingRow,
   type SyncParticipantRow,
+  type SyncPullChange,
   type SyncPullResponse,
   type SyncPushEntry,
   type SyncPushResult,
@@ -65,7 +81,38 @@ export interface LocalDocument {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  /** Conflicted copy (3.5): the document it was split from, the device whose edit lost, and when. */
+  conflictOfId: string | null;
+  conflictDevice: string | null;
+  conflictAt: string | null;
 }
+
+/** A conflicted copy with what the banner/compare view needs. */
+export interface LocalConflict {
+  copy: LocalDocument;
+  /** `undefined` when the original is gone (deleted, or no longer readable). */
+  original: LocalDocument | undefined;
+}
+
+export interface SearchHit {
+  documentId: string;
+  title: string;
+  kind: DocumentKind;
+  /** Where it matched: the note itself (title/body) or a transcript segment of its meeting. */
+  in: 'note' | 'transcript';
+  /** Plain text around the match; matched parts wrapped in `HIGHLIGHT_START` … `HIGHLIGHT_END`. */
+  snippet: string;
+  segmentId: string | null;
+  startMs: number | null;
+  updatedAt: string;
+}
+
+/** Marks around matched text in {@link SearchHit.snippet} (control characters: never in note text). */
+export const HIGHLIGHT_START = '\u0001';
+export const HIGHLIGHT_END = '\u0002';
+
+/** Suffix of a conflicted copy's title (stripped again when the copy's text is kept). */
+export const CONFLICT_SUFFIX = ' (conflicted copy)';
 
 export type LocalMeeting = SyncMeetingRow;
 
@@ -98,6 +145,8 @@ export interface LocalStoreOptions {
   newId?: () => string;
   /** How long a statement waits for a lock held by another connection. Default 5 s. */
   busyTimeoutMs?: number;
+  /** This device's name, written on the conflicted copies it creates. */
+  deviceName?: string;
 }
 
 export interface PushOutcome {
@@ -105,6 +154,8 @@ export interface PushOutcome {
   conflicts: number;
   /** Rejected by the server, now parked. */
   rejected: number;
+  /** Conflicts that were our own earlier write (lost ack): server version adopted, entry kept (3.5). */
+  adopted: number;
   /** Conflicted copies created (documents whose local text differed from the server copy). */
   copies: string[];
 }
@@ -125,7 +176,15 @@ const STATE = {
   cursor: 'pull.cursor',
   scope: 'pull.scope',
   workspaces: 'pull.workspaces',
+  /** Set while a pull from the beginning is still paging (no backfill needed for what it brings). */
+  initial: 'pull.initial',
 } as const;
+
+/** Most hashes kept per document between acknowledgements. */
+const MAX_SENT_HASHES = 20;
+
+const contentHash = (title: string, contentJson: unknown) =>
+  createHash('sha256').update(documentContentKey(title, contentJson)).digest('base64url');
 
 type Row = Record<string, SQLInputValue>;
 
@@ -134,6 +193,7 @@ export class LocalStore {
   readonly #log: LocalStoreOptions['log'];
   readonly #now: () => number;
   readonly #newId: () => string;
+  readonly #deviceName: string;
   #wiped: WipeReason | null;
   #depth = 0;
 
@@ -141,6 +201,7 @@ export class LocalStore {
     this.#log = options.log;
     this.#now = options.now ?? Date.now;
     this.#newId = options.newId ?? (() => uuidv7(this.#now()));
+    this.#deviceName = options.deviceName?.trim().slice(0, 100) || 'Another device';
     const opened = openDatabase(options.path, options.log, MIGRATIONS, {
       ...(options.busyTimeoutMs !== undefined ? { busyTimeoutMs: options.busyTimeoutMs } : {}),
     });
@@ -519,21 +580,23 @@ export class LocalStore {
     switch (e.table) {
       case 'document': {
         const d = this.document(e.rowId);
-        return (
-          d && {
-            version: e.version,
-            op: 'upsert',
-            table: 'document',
-            baseVersion: d.version,
-            row: {
-              id: d.id,
-              workspaceId: d.workspaceId,
-              kind: d.kind,
-              title: d.title,
-              contentJson: d.contentJson,
-            },
-          }
-        );
+        if (!d) return undefined;
+        this.#recordSent(d);
+        return {
+          version: e.version,
+          op: 'upsert',
+          table: 'document',
+          baseVersion: d.version,
+          row: {
+            id: d.id,
+            workspaceId: d.workspaceId,
+            kind: d.kind,
+            title: d.title,
+            contentJson: d.contentJson,
+            // A copy not yet on the server says what it is a copy of (only honoured on create).
+            ...(d.conflictOfId && d.version === 0 ? { conflictOf: d.conflictOfId } : {}),
+          },
+        };
       }
       case 'meeting': {
         const m = this.meeting(e.rowId);
@@ -556,13 +619,35 @@ export class LocalStore {
     }
   }
 
+  /** Remembers what is being sent for a document (lost-ack detection, see the module comment). */
+  #recordSent(d: LocalDocument): void {
+    this.#run(
+      'INSERT OR IGNORE INTO doc_sent (document_id, hash, sent_at) VALUES (?, ?, ?)',
+      d.id,
+      contentHash(d.title, d.contentJson),
+      this.#now(),
+    );
+    this.#run(
+      `DELETE FROM doc_sent WHERE document_id = ?1 AND hash NOT IN (
+         SELECT hash FROM doc_sent WHERE document_id = ?1 ORDER BY sent_at DESC, rowid DESC LIMIT ?2)`,
+      d.id,
+      MAX_SENT_HASHES,
+    );
+  }
+
   /** Applies the server's answer to a push (one transaction). */
   applyPushResults(
     sent: readonly SyncPushEntry[],
     results: readonly SyncPushResult[],
   ): PushOutcome {
     const byVersion = new Map(sent.map((e) => [e.version, e]));
-    const outcome: PushOutcome = { acknowledged: 0, conflicts: 0, rejected: 0, copies: [] };
+    const outcome: PushOutcome = {
+      acknowledged: 0,
+      conflicts: 0,
+      rejected: 0,
+      adopted: 0,
+      copies: [],
+    };
     this.transaction(() => {
       for (const result of results) {
         const entry = byVersion.get(result.version);
@@ -573,7 +658,19 @@ export class LocalStore {
           this.#run('DELETE FROM outbox WHERE version = ?', result.version);
           outcome.acknowledged += 1;
           if (entry.table === 'document' && result.row) this.#acceptDocument(result.row);
+          if (entry.table === 'document') {
+            this.#run('DELETE FROM doc_sent WHERE document_id = ?', id);
+          }
         } else if (result.status === 'conflict') {
+          if (this.#isOwnWrite(result.row)) {
+            // Our earlier push landed but its answer was lost: build on it, push the entry again.
+            outcome.adopted += 1;
+            this.#remote(() =>
+              this.#run('UPDATE document SET version = ? WHERE id = ?', result.row.version, id),
+            );
+            this.#log?.info?.(`local-store: document ${id}: adopted our own unacknowledged write`);
+            continue;
+          }
           outcome.conflicts += 1;
           const copy = this.#resolveConflict(id, result.row);
           if (copy) outcome.copies.push(copy);
@@ -585,6 +682,15 @@ export class LocalStore {
       }
     });
     return outcome;
+  }
+
+  /** Whether a conflicting server copy is something this device sent (and never got an answer for). */
+  #isOwnWrite(server: SyncDocumentRow): boolean {
+    const hash = contentHash(server.title, server.contentJson);
+    return (
+      this.#get('SELECT 1 FROM doc_sent WHERE document_id = ? AND hash = ?', server.id, hash) !==
+      undefined
+    );
   }
 
   /** After an acknowledged document push: take the server's version (and its row, unless edited since). */
@@ -614,21 +720,70 @@ export class LocalStore {
       copy = this.#newId();
       const at = this.#iso();
       this.#run(
-        `INSERT INTO document (id, workspace_id, owner_id, kind, title, content_json, visibility, version, created_at, updated_at)
-         VALUES (?, ?, ?, 'page', ?, ?, 'private', 0, ?, ?)`,
+        `INSERT INTO document (id, workspace_id, owner_id, kind, title, content_json, visibility, version, created_at, updated_at,
+           conflict_of_id, conflict_device, conflict_at)
+         VALUES (?, ?, ?, 'page', ?, ?, 'private', 0, ?, ?, ?, ?, ?)`,
         copy,
         local.workspaceId,
         local.ownerId,
-        `${local.title || 'Untitled'} (conflicted copy)`.slice(0, 1000),
+        `${local.title || 'Untitled'}${CONFLICT_SUFFIX}`.slice(0, 1000),
         JSON.stringify(local.contentJson),
         at,
+        at,
+        id,
+        this.#deviceName,
         at,
       );
       this.#log?.warn(`local-store: document ${id} changed elsewhere; kept ours as ${copy}`);
     }
     this.#run("DELETE FROM outbox WHERE table_name = 'document' AND row_id = ?", id);
+    this.#run('DELETE FROM doc_sent WHERE document_id = ?', id);
     this.#remote(() => this.#upsertDocument(server));
     return copy;
+  }
+
+  // --- conflicted copies (3.5) -------------------------------------------------------------------------------
+
+  /** Live conflicted copies, newest first, with their originals. */
+  conflicts(): LocalConflict[] {
+    return this.#all(
+      `SELECT * FROM document WHERE conflict_of_id IS NOT NULL AND deleted_at IS NULL
+       ORDER BY coalesce(conflict_at, created_at) DESC, id`,
+    ).map((r) => {
+      const copy = toDocument(r);
+      const original = this.document(copy.conflictOfId!);
+      return { copy, original };
+    });
+  }
+
+  conflict(copyId: string): LocalConflict | undefined {
+    const copy = this.document(copyId);
+    if (!copy?.conflictOfId || copy.deletedAt !== null) return undefined;
+    return { copy, original: this.document(copy.conflictOfId) };
+  }
+
+  /**
+   * Resolves a conflicted copy: `copy` writes the copy's title (without the suffix) and body into the
+   * original (an ordinary local edit, pushed on the original's current version — if that has moved on
+   * meanwhile, the push conflicts again, never overwriting); `original` keeps the original as it is.
+   * Either way the copy is deleted (a synced delete: the server moves it to the trash). Returns `false`
+   * if `copyId` is not a live conflicted copy (or its original is gone and `keep` is `copy`).
+   */
+  resolveConflict(copyId: string, keep: 'copy' | 'original'): boolean {
+    return this.transaction(() => {
+      const conflict = this.conflict(copyId);
+      if (!conflict) return false;
+      if (keep === 'copy') {
+        const original = conflict.original;
+        if (!original || original.deletedAt !== null) return false;
+        this.updateDocument(original.id, {
+          title: stripConflictSuffix(conflict.copy.title),
+          contentJson: conflict.copy.contentJson,
+        });
+      }
+      this.#run('DELETE FROM document WHERE id = ?', copyId);
+      return true;
+    });
   }
 
   // --- pull ------------------------------------------------------------------------------------------------
@@ -665,53 +820,11 @@ export class LocalStore {
         return { restart: true };
       }
       this.#db.exec('PRAGMA defer_foreign_keys = ON');
-      for (const change of page.changes) {
-        const pending = this.#get(
-          'SELECT 1 FROM outbox WHERE table_name = ? AND row_id = ?',
-          change.table,
-          change.op === 'delete' ? change.id : change.row.id,
-        );
-        if (!PULL_TABLES.has(change.table)) continue;
-        if (change.op === 'delete') {
-          if (change.table === 'workspace') this.#dropWorkspace(change.id);
-          else this.#run(`DELETE FROM ${change.table} WHERE id = ?`, change.id);
-          this.#run(
-            'DELETE FROM outbox WHERE table_name = ? AND row_id = ?',
-            change.table,
-            change.id,
-          );
-          continue;
-        }
-        // The note changed on the server (e.g. restored from the trash): retry what was parked for it.
-        // An echo of our own acknowledged write (same version), or a note going *to* the trash, doesn't.
-        if (change.table === 'document') {
-          const local = this.document(change.row.id);
-          if (
-            change.row.deletedAt === null &&
-            (!local || local.version !== change.row.version || local.deletedAt !== null)
-          ) {
-            this.unparkDocument(change.row.id);
-          }
-        }
-        if (pending) continue; // our edit is pushed next; the server resolves it
-        switch (change.table) {
-          case 'workspace':
-            if (current.has(change.row.id)) this.#upsertWorkspace(change.row);
-            break;
-          case 'document':
-            this.#upsertDocument(change.row);
-            break;
-          case 'meeting':
-            this.#upsertMeeting(change.row);
-            break;
-          case 'participant':
-            this.#upsertParticipant(change.row);
-            break;
-          case 'transcript_segment':
-            this.#upsertSegment(change.row);
-            break;
-        }
-      }
+      // Once the first full pull is done, a meeting note we haven't seen before (new access: shared with
+      // us, made visible to the workspace) may have a meeting and transcript older than our cursor.
+      if (sentCursor === null) this.setState(STATE.initial, '1');
+      const backfillNew = this.getState(STATE.initial) === null;
+      for (const change of page.changes) this.#applyChange(change, current, backfillNew);
       this.#dropOrphans();
       // Pending upserts whose rows a remote delete (or its cascade) took away can't be pushed.
       for (const t of OUTBOX_TABLES) {
@@ -721,8 +834,187 @@ export class LocalStore {
       }
       this.setState(STATE.cursor, page.cursor);
       this.setState(STATE.scope, String(SYNC_PULL_SCOPE));
+      if (!page.hasMore) this.setState(STATE.initial, null);
       return { restart: false };
     });
+  }
+
+  /** One pulled (or backfilled) change; see `applyPull`. Runs inside `#remote`. */
+  #applyChange(
+    change: SyncPullChange,
+    workspaces: ReadonlySet<string> | null,
+    backfillNew: boolean,
+  ): void {
+    if (!PULL_TABLES.has(change.table)) return;
+    const pending = this.#get(
+      'SELECT 1 FROM outbox WHERE table_name = ? AND row_id = ?',
+      change.table,
+      change.op === 'delete' ? change.id : change.row.id,
+    );
+    if (change.op === 'delete') {
+      if (change.table === 'workspace') this.#dropWorkspace(change.id);
+      else this.#run(`DELETE FROM ${change.table} WHERE id = ?`, change.id);
+      this.#run('DELETE FROM outbox WHERE table_name = ? AND row_id = ?', change.table, change.id);
+      if (change.table === 'document') {
+        this.#run('DELETE FROM backfill WHERE document_id = ?', change.id);
+        this.#run('DELETE FROM doc_sent WHERE document_id = ?', change.id);
+      }
+      return;
+    }
+    let isNew = false;
+    // The note changed on the server (e.g. restored from the trash): retry what was parked for it.
+    // An echo of our own acknowledged write (same version), or a note going *to* the trash, doesn't.
+    if (change.table === 'document') {
+      const local = this.document(change.row.id);
+      isNew = local === undefined;
+      if (
+        change.row.deletedAt === null &&
+        (!local || local.version !== change.row.version || local.deletedAt !== null)
+      ) {
+        this.unparkDocument(change.row.id);
+      }
+    }
+    if (pending) return; // our edit is pushed next; the server resolves it
+    switch (change.table) {
+      case 'workspace':
+        if (!workspaces || workspaces.has(change.row.id)) this.#upsertWorkspace(change.row);
+        break;
+      case 'document':
+        this.#upsertDocument(change.row);
+        if (isNew && backfillNew && change.row.kind === 'meeting')
+          this.queueBackfill(change.row.id);
+        break;
+      case 'meeting':
+        this.#upsertMeeting(change.row);
+        break;
+      case 'participant':
+        this.#upsertParticipant(change.row);
+        break;
+      case 'transcript_segment':
+        this.#upsertSegment(change.row);
+        break;
+    }
+  }
+
+  // --- backfill (3.5) -------------------------------------------------------------------------------------
+
+  /** The next document whose subtree must be fetched, with the page token to continue from. */
+  nextBackfill(): { documentId: string; after: string | null } | null {
+    const row = this.#get(
+      'SELECT document_id, after FROM backfill ORDER BY queued_at, rowid LIMIT 1',
+    );
+    return row ? { documentId: String(row.document_id), after: str(row.after) } : null;
+  }
+
+  backfillQueue(): string[] {
+    return this.#all('SELECT document_id FROM backfill ORDER BY queued_at, rowid').map((r) =>
+      String(r.document_id),
+    );
+  }
+
+  /** Queues a document's subtree for fetching. */
+  queueBackfill(documentId: string): void {
+    this.#run(
+      'INSERT OR IGNORE INTO backfill (document_id, after, queued_at) VALUES (?, NULL, ?)',
+      documentId,
+      this.#now(),
+    );
+  }
+
+  /**
+   * A fetch for `documentId` failed: it goes to the back of the queue (never blocks the others); after
+   * `maxAttempts` failures it is dropped (best-effort, D-28). Returns whether it was dropped.
+   */
+  backfillFailed(documentId: string, maxAttempts = 5): boolean {
+    this.#run(
+      `UPDATE backfill SET attempts = attempts + 1,
+         queued_at = max(?1, (SELECT max(queued_at) FROM backfill) + 1) WHERE document_id = ?2`,
+      this.#now(),
+      documentId,
+    );
+    const row = this.#get('SELECT attempts FROM backfill WHERE document_id = ?', documentId);
+    if (row && Number(row.attempts) >= maxAttempts) {
+      this.dropBackfill(documentId);
+      return true;
+    }
+    return false;
+  }
+
+  /** The document can't be backfilled (gone / not readable): forget it. */
+  dropBackfill(documentId: string): void {
+    this.#run('DELETE FROM backfill WHERE document_id = ?', documentId);
+  }
+
+  /**
+   * Applies one backfill page for `documentId` like pulled rows (pending local edits win, no echo); the
+   * entry moves on to `next`, or is done.
+   */
+  applyBackfill(documentId: string, page: SyncBackfillResponse): void {
+    this.#remote(() => {
+      this.#db.exec('PRAGMA defer_foreign_keys = ON');
+      for (const change of page.changes) this.#applyChange(change, null, false);
+      this.#dropOrphans();
+      if (page.next === null) this.dropBackfill(documentId);
+      else this.#run('UPDATE backfill SET after = ? WHERE document_id = ?', page.next, documentId);
+    });
+  }
+
+  // --- search (3.5, PLAN 3.6 desktop part) ----------------------------------------------------------------
+
+  /**
+   * Full-text search over live notes (title + body) and transcript segments, best matches first. Trigram
+   * matching: every word of 3+ characters must occur (as a substring, case and accents ignored); shorter
+   * words are ignored, and a query with none returns nothing.
+   */
+  search(query: string, options: { limit?: number } = {}): SearchHit[] {
+    const words = query
+      .split(/\s+/)
+      .map((w) => w.replace(/"/g, ''))
+      .filter((w) => [...w].length >= 3)
+      .slice(0, 8);
+    if (words.length === 0) return [];
+    const match = words.map((w) => `"${w}"`).join(' AND ');
+    const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
+    // Snippets are counted in tokens, and a trigram token is ~one character: 64 (the maximum) ≈ a line.
+    const notes = this.#all(
+      `SELECT d.id, d.title, d.kind, d.updated_at,
+              snippet(document_fts, -1, ?, ?, '…', 64) AS snippet, document_fts.rank AS rank
+       FROM document_fts JOIN document d ON d.rowid = document_fts.rowid
+       WHERE document_fts MATCH ? AND d.deleted_at IS NULL
+       ORDER BY rank LIMIT ?`,
+      HIGHLIGHT_START,
+      HIGHLIGHT_END,
+      match,
+      limit,
+    );
+    const segments = this.#all(
+      `SELECT d.id, d.title, d.kind, d.updated_at, t.id AS segment_id, t.start_ms,
+              snippet(segment_fts, 0, ?, ?, '…', 64) AS snippet, segment_fts.rank AS rank
+       FROM segment_fts
+       JOIN transcript_segment t ON t.rowid = segment_fts.rowid
+       JOIN meeting m ON m.id = t.meeting_id
+       JOIN document d ON d.id = m.document_id
+       WHERE segment_fts MATCH ? AND d.deleted_at IS NULL
+       ORDER BY rank LIMIT ?`,
+      HIGHLIGHT_START,
+      HIGHLIGHT_END,
+      match,
+      limit,
+    );
+    const hits = [
+      ...notes.map((r) => ({ r, where: 'note' as const })),
+      ...segments.map((r) => ({ r, where: 'transcript' as const })),
+    ].sort((a, b) => Number(a.r.rank) - Number(b.r.rank));
+    return hits.slice(0, limit).map(({ r, where }) => ({
+      documentId: String(r.id),
+      title: String(r.title),
+      kind: r.kind as DocumentKind,
+      in: where,
+      snippet: String(r.snippet ?? ''),
+      segmentId: where === 'transcript' ? String(r.segment_id) : null,
+      startMs: where === 'transcript' ? Number(r.start_ms) : null,
+      updatedAt: String(r.updated_at),
+    }));
   }
 
   #dropWorkspace(id: string): void {
@@ -762,12 +1054,15 @@ export class LocalStore {
 
   #upsertDocument(d: SyncDocumentRow): void {
     this.#run(
-      `INSERT INTO document (id, workspace_id, folder_id, owner_id, kind, title, content_json, visibility, version, created_at, updated_at, deleted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO document (id, workspace_id, folder_id, owner_id, kind, title, content_json, visibility, version, created_at, updated_at, deleted_at,
+         conflict_of_id, conflict_device, conflict_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (id) DO UPDATE SET workspace_id = excluded.workspace_id, folder_id = excluded.folder_id,
          owner_id = excluded.owner_id, kind = excluded.kind, title = excluded.title,
          content_json = excluded.content_json, visibility = excluded.visibility, version = excluded.version,
-         created_at = excluded.created_at, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at`,
+         created_at = excluded.created_at, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at,
+         conflict_of_id = excluded.conflict_of_id, conflict_device = excluded.conflict_device,
+         conflict_at = excluded.conflict_at`,
       d.id,
       d.workspaceId,
       d.folderId,
@@ -780,6 +1075,9 @@ export class LocalStore {
       d.createdAt,
       d.updatedAt,
       d.deletedAt,
+      d.conflictOfId ?? null,
+      d.conflictDevice ?? null,
+      d.conflictAt ?? null,
     );
   }
 
@@ -859,7 +1157,15 @@ function toDocument(r: Row): LocalDocument {
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
     deletedAt: str(r.deleted_at),
+    conflictOfId: str(r.conflict_of_id),
+    conflictDevice: str(r.conflict_device),
+    conflictAt: str(r.conflict_at),
   };
+}
+
+/** A conflicted copy's title without the suffix it was given. */
+export function stripConflictSuffix(title: string): string {
+  return title.endsWith(CONFLICT_SUFFIX) ? title.slice(0, -CONFLICT_SUFFIX.length) : title;
 }
 
 function toMeeting(r: Row): LocalMeeting {

@@ -62,7 +62,10 @@ const summaryColumns = {
   updatedAt: document.updatedAt,
   deletedAt: document.deletedAt,
 };
-type SummaryRow = Omit<DocumentRow, 'contentJson' | 'contentMd' | 'shareTranscript'>;
+type SummaryRow = Omit<
+  DocumentRow,
+  'contentJson' | 'contentMd' | 'shareTranscript' | 'conflictOfId' | 'conflictDevice' | 'conflictAt'
+>;
 
 export function toSummary(actor: Actor, row: SummaryRow): DocumentSummary {
   return {

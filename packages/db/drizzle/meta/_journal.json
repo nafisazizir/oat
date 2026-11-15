@@ -78,6 +78,13 @@
       "when": 1794727824414,
       "tag": "0010_action_items",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794729829535,
+      "tag": "0011_sync_conflicts",
+      "breakpoints": true
     }
   ]
 }

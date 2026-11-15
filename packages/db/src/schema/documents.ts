@@ -81,6 +81,16 @@ export const document = pgTable(
      * is rejected with 409.
      */
     version: integer('version').notNull().default(0),
+    /**
+     * Conflicted copy (D-19, 3.5): the document this one was split from when a device's edit lost a
+     * conflict, the device that wrote it (`conflictDevice`, from its sync push) and when. Resolving the
+     * conflict trashes the copy. `set null` if the original is deleted for good.
+     */
+    conflictOfId: text('conflict_of_id').references((): AnyPgColumn => document.id, {
+      onDelete: 'set null',
+    }),
+    conflictDevice: text('conflict_device'),
+    conflictAt: timestamptz('conflict_at'),
     ...timestamps(),
     /** Soft delete: non-null = in trash. */
     deletedAt: timestamptz('deleted_at'),
@@ -90,6 +100,9 @@ export const document = pgTable(
     index('document_workspace_updated_idx').on(t.workspaceId, t.updatedAt.desc()),
     index('document_folder_updated_idx').on(t.folderId, t.updatedAt.desc()),
     index('document_owner_id_idx').on(t.ownerId),
+    index('document_conflict_of_idx')
+      .on(t.conflictOfId)
+      .where(sql`${t.conflictOfId} is not null`),
     check('document_version_ck', sql`${t.version} >= 0`),
     check('document_link_token_ck', sql`${t.visibility} <> 'link' or ${t.shareToken} is not null`),
     check(

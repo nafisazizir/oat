@@ -44,6 +44,8 @@ function fakeWeb() {
       if (!sessions.has(token)) throw new ApiError(401, 'ended');
       return { changes: [], cursor: null, hasMore: false, workspaceIds: [] };
     }),
+    syncBackfill: vi.fn(async () => ({ changes: [], next: null })),
+    openSyncEvents: vi.fn(async () => new Response('')),
     signOut: vi.fn(async (token: string) => void sessions.delete(token)),
   } satisfies ApiClient;
   return {

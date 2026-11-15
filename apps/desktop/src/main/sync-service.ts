@@ -11,11 +11,20 @@
  * - A database that can't be opened right now (busy, disk full…) is reported in the status and retried;
  *   its file is left alone (only corruption leads to a rebuild, inside `LocalStore`).
  * - Status goes to `MainStore.sync` (every window) through `onStatus`.
+ * - 3.5: while the engine runs, the SSE invalidation channel (`SyncEventsClient`) is open; each event (and
+ *   each reconnect) makes the engine pull now; the engine's 60 s interval is the backstop. Pushes carry
+ *   this Mac's name (written on the conflicted copies it creates). Local search and conflicted-copy
+ *   resolution read/write the open user's database.
  */
+import { hostname } from 'node:os';
 import { join } from 'node:path';
 
+import type { ConflictDetailSnapshot, ConflictSummary, SearchHitSnapshot } from '@oat/core/bridge';
+import { diffLines, documentLines } from '@oat/core/sync';
 import {
+  type LocalConflict,
   LocalStore,
+  stripConflictSuffix,
   SyncEngine,
   type SyncEngineOptions,
   type SyncStatus,
@@ -23,6 +32,7 @@ import {
 } from '@oat/local-store';
 
 import type { Logger } from './ipc.ts';
+import { SyncEventsClient, type SyncEventsOptions } from './sync-events.ts';
 
 export interface SyncServiceOptions {
   /** Folder of the per-user database files (`app.getPath('userData')`). */
@@ -40,7 +50,15 @@ export interface SyncServiceOptions {
   retryOpenMs?: number;
   /** Engine overrides (timers, intervals) for tests. */
   engine?: Partial<SyncEngineOptions>;
+  /** This Mac's name, written on conflicted copies (3.5). */
+  deviceName?: string;
+  /** Opens the SSE invalidation channel (3.5); without it, only the interval backstop pulls. */
+  events?: Pick<SyncEventsOptions, 'connect'> &
+    Partial<Omit<SyncEventsOptions, 'connect' | 'onEvent' | 'onOpen'>>;
 }
+
+/** Pull backstop while the SSE channel normally carries changes (3.5). */
+const BACKSTOP_MS = 60_000;
 
 const STOPPED: SyncStatus = {
   state: 'stopped',
@@ -49,6 +67,17 @@ const STOPPED: SyncStatus = {
   lastSyncedAt: null,
   error: null,
 };
+
+/** This Mac's name for conflicted copies: the host name without `.local`, dashes as spaces. */
+export function deviceName(host: string = hostname()): string {
+  return (
+    host
+      .replace(/\.local$/i, '')
+      .replace(/[-_]+/g, ' ')
+      .trim()
+      .slice(0, 100) || 'Mac'
+  );
+}
 
 /** `oat-<userId>.sqlite` with anything but `[A-Za-z0-9_-]` replaced. */
 export function databaseFileFor(userId: string): string {
@@ -60,6 +89,7 @@ export class SyncService {
   #store: LocalStore | null = null;
   #storeUser: string | null = null;
   #engine: SyncEngine | null = null;
+  #events: SyncEventsClient | null = null;
   /** The user the app is signed in as (`null` = signed out). */
   #wanted: string | null = null;
   /** The user the last `#apply` settled on (`undefined` before the first). */
@@ -109,20 +139,25 @@ export class SyncService {
     const wanted = this.#wanted;
     this.#applied = wanted;
     if (wanted === null) {
+      this.#events?.stop();
       this.#engine?.stop();
       this.#emit(STOPPED);
       return;
     }
     if (wanted === this.#storeUser && this.#engine) {
       this.#engine.start();
+      this.#events?.start();
       return;
     }
     if (this.#store && this.#o.isRecording()) {
       this.#o.log.warn('sync: account changed while recording; switching once the recording ends');
+      this.#events?.stop();
       this.#engine?.stop();
       this.#applied = undefined;
       return;
     }
+    this.#events?.stop();
+    this.#events = null;
     if (this.#engine) {
       this.#engine.stop();
       await this.#engine.idle();
@@ -135,9 +170,15 @@ export class SyncService {
     }
     const path = join(this.#o.dir, databaseFileFor(wanted));
     try {
-      const store = (this.#o.openStore ?? ((p) => new LocalStore({ path: p, log: this.#o.log })))(
-        path,
-      );
+      const open =
+        this.#o.openStore ??
+        ((p: string) =>
+          new LocalStore({
+            path: p,
+            log: this.#o.log,
+            ...(this.#o.deviceName ? { deviceName: this.#o.deviceName } : {}),
+          }));
+      const store = open(path);
       if (store.wiped) this.#o.log.warn(`sync: local database was rebuilt (${store.wiped})`);
       this.#store = store;
       this.#storeUser = wanted;
@@ -158,10 +199,59 @@ export class SyncService {
       transport: this.#o.transport,
       onStatus: (status) => this.#emit(status),
       log: this.#o.log,
+      intervalMs: BACKSTOP_MS,
+      ...(this.#o.deviceName ? { device: { name: this.#o.deviceName } } : {}),
       ...(this.#o.onUnauthorized ? { onUnauthorized: this.#o.onUnauthorized } : {}),
       ...this.#o.engine,
     });
     this.#engine.start();
+    if (this.#o.events) {
+      const engine = this.#engine;
+      this.#events = new SyncEventsClient({
+        log: this.#o.log,
+        ...this.#o.events,
+        onEvent: () => engine.notify(),
+        onOpen: () => engine.notify(),
+      });
+      this.#events.start();
+    }
+  }
+
+  /** Whether the SSE channel is connected right now. */
+  get live(): boolean {
+    return this.#events?.connected ?? false;
+  }
+
+  // --- local search + conflicted copies (3.5) -----------------------------------------------------------
+
+  search(query: string): SearchHitSnapshot[] {
+    return this.#store?.search(query, { limit: 30 }) ?? [];
+  }
+
+  conflicts(): ConflictSummary[] {
+    return (this.#store?.conflicts() ?? []).map(summary);
+  }
+
+  conflict(copyId: string): ConflictDetailSnapshot | null {
+    const c = this.#store?.conflict(copyId);
+    if (!c) return null;
+    const copyLines = [stripConflictSuffix(c.copy.title), ...documentLines(c.copy.contentJson)];
+    if (!c.original || c.original.deletedAt !== null) {
+      return {
+        summary: summary(c),
+        original: null,
+        copy: copyLines.map((text) => ({ text, changed: false })),
+      };
+    }
+    const diff = diffLines([c.original.title, ...documentLines(c.original.contentJson)], copyLines);
+    return { summary: summary(c), original: diff.left, copy: diff.right };
+  }
+
+  /** Resolves a conflicted copy locally; the edit and the copy's delete sync like any change. */
+  resolveConflict(copyId: string, keep: 'copy' | 'original'): boolean {
+    const done = this.#store?.resolveConflict(copyId, keep) ?? false;
+    if (done) this.kick();
+    return done;
   }
 
   #emit(status: SyncStatus): void {
@@ -217,8 +307,20 @@ export class SyncService {
   async shutdown(): Promise<void> {
     clearTimeout(this.#retry);
     await this.#chain;
+    this.#events?.stop();
     this.#engine?.stop();
     await this.#engine?.idle();
     this.#store?.close();
   }
+}
+
+function summary({ copy, original }: LocalConflict): ConflictSummary {
+  return {
+    copyId: copy.id,
+    title: copy.title,
+    device: copy.conflictDevice,
+    at: copy.conflictAt,
+    originalId: copy.conflictOfId,
+    originalTitle: original && original.deletedAt === null ? original.title : null,
+  };
 }

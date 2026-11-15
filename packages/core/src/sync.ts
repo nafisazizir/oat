@@ -10,7 +10,13 @@
  *   server copy (the client keeps the server copy and files its own as a conflicted copy).
  * - Pull: opaque cursor over the server change log (D-22), current rows (or deletes) of what changed, only
  *   for rows the user can read; `workspaceIds` lets the client drop workspaces it lost and re-fetch from
- *   the start when it joined one.
+ *   the start when it joined one; `lagging` says committed changes are still held back (pull again soon).
+ *
+ * 3.5 additions: the push names the device (`device.name`, stored on conflicted copies); a document
+ * create may say it is a conflicted copy (`conflictOf`); `GET /api/sync/backfill?document=` returns a
+ * document's meeting subtree the first time a client sees it; `GET /api/sync/events` is an SSE
+ * invalidation channel ({@link SyncEvent}); conflicted copies are resolved with
+ * `POST /api/sync/conflicts/:id` ({@link syncConflictResolveSchema}) or by syncing a delete of the copy.
  */
 import { z } from 'zod';
 
@@ -35,8 +41,11 @@ export type SyncPushTable = (typeof SYNC_PUSH_TABLES)[number];
 export const SYNC_PULL_TABLES = ['workspace', ...SYNC_PUSH_TABLES] as const;
 export type SyncPullTable = (typeof SYNC_PULL_TABLES)[number];
 
-/** Bumped whenever {@link SYNC_PULL_TABLES} grows: a client with an older scope restarts its cursor. */
-export const SYNC_PULL_SCOPE = 1;
+/**
+ * Bumped whenever {@link SYNC_PULL_TABLES} or a pulled row grows: a client with an older scope restarts its
+ * cursor. 2 = 3.5 (conflicted-copy fields on documents).
+ */
+export const SYNC_PULL_SCOPE = 2;
 
 /** Most entries in one push; most changes in one pull page. */
 export const MAX_PUSH_ENTRIES = 500;
@@ -66,6 +75,8 @@ export const syncDocumentPushSchema = z.strictObject({
   kind: DocumentKindSchema,
   title: Title,
   contentJson: Content,
+  /** Only on create: this document is a conflicted copy of that one (D-19, 3.5). Ignored on updates. */
+  conflictOf: Id.optional(),
 });
 export type SyncDocumentPush = z.infer<typeof syncDocumentPushSchema>;
 
@@ -82,6 +93,10 @@ export const syncDocumentRowSchema = z.object({
   createdAt: Iso,
   updatedAt: Iso,
   deletedAt: Iso.nullable(),
+  /** Conflicted copy (3.5): the document it was split from, the device whose edit lost, and when. */
+  conflictOfId: Id.nullable().default(null),
+  conflictDevice: z.string().max(200).nullable().default(null),
+  conflictAt: Iso.nullable().default(null),
 });
 export type SyncDocumentRow = z.infer<typeof syncDocumentRowSchema>;
 
@@ -172,10 +187,15 @@ export type SyncPushEntry = z.infer<typeof syncPushEntrySchema>;
  * The request body. Entries are validated one by one on the server (a malformed entry is `rejected`
  * with `invalid` rather than failing the batch), so only the envelope and `version` are checked here.
  */
+export const syncDeviceSchema = z.strictObject({ name: z.string().trim().min(1).max(100) });
+export type SyncDevice = z.infer<typeof syncDeviceSchema>;
+
 export const syncPushRequestSchema = z.strictObject({
   entries: z.array(z.looseObject({ version })).min(1).max(MAX_PUSH_ENTRIES),
+  /** The pushing device (3.5): its name is stored on the conflicted copies it creates. */
+  device: syncDeviceSchema.optional(),
 });
-export type SyncPushRequest = { entries: SyncPushEntry[] };
+export type SyncPushRequest = { entries: SyncPushEntry[]; device?: SyncDevice };
 
 export const SYNC_REJECT_CODES = ['forbidden', 'not_found', 'invalid', 'unsupported'] as const;
 export type SyncRejectCode = (typeof SYNC_REJECT_CODES)[number];
@@ -239,8 +259,66 @@ export const syncPullResponseSchema = z.object({
   hasMore: z.boolean(),
   /** Every workspace the user belongs to right now. */
   workspaceIds: z.array(Id),
+  /**
+   * Committed changes after `cursor` are still held back because an older transaction is open somewhere
+   * (D-22): the pull isn't complete; try again in a moment instead of at the next scheduled pull.
+   */
+  lagging: z.boolean().optional(),
 });
 export type SyncPullResponse = z.infer<typeof syncPullResponseSchema>;
+
+// ---------------------------------------------------------------------------------------------------
+// Backfill (3.5)
+// ---------------------------------------------------------------------------------------------------
+
+/** Most rows in one backfill page. */
+export const MAX_BACKFILL_LIMIT = 500;
+
+/**
+ * `GET /api/sync/backfill?document=<id>&after=<token>`: the current rows under a document the client
+ * has just seen for the first time (its meeting, participants, final segments) — they may have changed
+ * before the client's cursor while it couldn't read them. Upserts only, parents first; page with `next`.
+ */
+export const syncBackfillResponseSchema = z.object({
+  changes: z.array(syncPullChangeSchema),
+  /** Pass back as `?after=` for the next page; `null` = done. */
+  next: z.string().nullable(),
+});
+export type SyncBackfillResponse = z.infer<typeof syncBackfillResponseSchema>;
+
+// ---------------------------------------------------------------------------------------------------
+// Events (3.5): SSE invalidation channel
+// ---------------------------------------------------------------------------------------------------
+
+/**
+ * One `data:` of `GET /api/sync/events` (`event: change`). `seq` is also the SSE `id` (send it back as
+ * `Last-Event-ID` to replay what was missed). Says *what* to pull, never the rows: `tables` that changed
+ * in the user's workspaces and the `ids` of affected **documents** the user can read (a meeting, segment
+ * or participant change names its document). `workspaces: true` = the user's workspace list changed.
+ */
+export const syncEventSchema = z.object({
+  seq: z.string(),
+  tables: z.array(z.string()),
+  ids: z.array(z.string()),
+  workspaces: z.boolean().optional(),
+});
+export type SyncEvent = z.infer<typeof syncEventSchema>;
+
+// ---------------------------------------------------------------------------------------------------
+// Conflicted copies (3.5)
+// ---------------------------------------------------------------------------------------------------
+
+/**
+ * `POST /api/sync/conflicts/:copyId`: `copy` = the copy's title/body replace the original's (one new
+ * version of the original), `original` = keep the original as it is. Either way the copy goes to the
+ * trash.
+ */
+export const syncConflictResolveSchema = z.strictObject({
+  keep: z.enum(['copy', 'original']),
+  /** The original's version the user compared against; a newer one is a 409 (compare again). */
+  baseVersion: z.int().nonnegative().optional(),
+});
+export type SyncConflictResolve = z.infer<typeof syncConflictResolveSchema>;
 
 // ---------------------------------------------------------------------------------------------------
 // Helpers
@@ -264,6 +342,20 @@ function canonicalContent(value: unknown): unknown {
   return out;
 }
 
+/** The title as the server stores it (one line, collapsed whitespace). */
+export function normalizeSyncTitle(title: string): string {
+  return title.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * A stable string for a document's title + body, equal for two versions exactly when
+ * {@link sameDocumentContent} and the normalized titles agree. Clients hash it to recognise their own
+ * earlier write in a conflict (3.5: a lost acknowledgement must not become a conflicted copy).
+ */
+export function documentContentKey(title: string, contentJson: unknown): string {
+  return JSON.stringify([normalizeSyncTitle(title), canonicalContent(contentJson)]);
+}
+
 /**
  * Whether two TipTap documents say the same thing, ignoring key order (Postgres `jsonb` reorders keys)
  * and block ids (the server assigns missing ones). Used to recognise a replayed push and to skip a
@@ -271,4 +363,95 @@ function canonicalContent(value: unknown): unknown {
  */
 export function sameDocumentContent(a: unknown, b: unknown): boolean {
   return JSON.stringify(canonicalContent(a)) === JSON.stringify(canonicalContent(b));
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Comparing a conflicted copy with its original (3.5, desktop + web)
+// ---------------------------------------------------------------------------------------------------
+
+const LINE_BLOCKS = new Set([
+  'paragraph',
+  'heading',
+  'codeBlock',
+  'horizontalRule',
+  'image',
+  'tableRow',
+]);
+
+/**
+ * A TipTap document as plain lines for a side-by-side compare: one line per text block, list items
+ * prefixed with "• " (task items with "☐ " / "☑ "), headings with "#"s. Not a renderer — just enough to
+ * see what differs.
+ */
+export function documentLines(json: unknown): string[] {
+  const lines: string[] = [];
+  const text = (node: unknown): string => {
+    if (!node || typeof node !== 'object') return '';
+    const n = node as { type?: string; text?: string; content?: unknown[] };
+    if (n.type === 'text') return n.text ?? '';
+    if (n.type === 'hardBreak') return ' ';
+    return (n.content ?? []).map(text).join('');
+  };
+  const walk = (node: unknown, prefix: string): void => {
+    if (!node || typeof node !== 'object') return;
+    const n = node as { type?: string; attrs?: Record<string, unknown>; content?: unknown[] };
+    const type = n.type ?? '';
+    if (type === 'listItem' || type === 'taskItem') {
+      const mark = type === 'taskItem' ? (n.attrs?.checked ? '☑ ' : '☐ ') : '• ';
+      let first = true;
+      for (const child of n.content ?? []) {
+        walk(child, first ? prefix + mark : prefix + '  ');
+        first = false;
+      }
+      return;
+    }
+    if (LINE_BLOCKS.has(type)) {
+      const level = type === 'heading' ? Number(n.attrs?.level ?? 1) : 0;
+      const head = level > 0 ? `${'#'.repeat(Math.min(level, 6))} ` : '';
+      const value = type === 'horizontalRule' ? '———' : text(n);
+      if (type === 'codeBlock') for (const l of value.split('\n')) lines.push(prefix + l);
+      else lines.push(prefix + head + value);
+      return;
+    }
+    for (const child of n.content ?? []) walk(child, prefix);
+  };
+  walk(json, '');
+  while (lines.length > 0 && lines.at(-1)!.trim() === '') lines.pop();
+  return lines;
+}
+
+export interface DiffLine {
+  text: string;
+  /** Not in the other side (outside the longest common subsequence). */
+  changed: boolean;
+}
+
+/** Marks the lines of `a` and `b` that aren't part of their longest common subsequence. */
+export function diffLines(
+  a: readonly string[],
+  b: readonly string[],
+): { left: DiffLine[]; right: DiffLine[] } {
+  // Quadratic; compare views are short. Past 2000 lines the rest is shown as changed.
+  const n = Math.min(a.length, 2_000);
+  const m = Math.min(b.length, 2_000);
+  const lcs: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      lcs[i]![j] =
+        a[i] === b[j] ? lcs[i + 1]![j + 1]! + 1 : Math.max(lcs[i + 1]![j]!, lcs[i]![j + 1]!);
+    }
+  }
+  const keepA = new Array<boolean>(a.length).fill(false);
+  const keepB = new Array<boolean>(b.length).fill(false);
+  for (let i = 0, j = 0; i < n && j < m;) {
+    if (a[i] === b[j]) {
+      keepA[i++] = true;
+      keepB[j++] = true;
+    } else if (lcs[i + 1]![j]! >= lcs[i]![j + 1]!) i++;
+    else j++;
+  }
+  return {
+    left: a.map((text, i) => ({ text, changed: !keepA[i] })),
+    right: b.map((text, j) => ({ text, changed: !keepB[j] })),
+  };
 }

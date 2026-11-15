@@ -14,6 +14,58 @@ export interface CreateDbOptions {
   max?: number;
   /** Forwarded to postgres.js (e.g. `prepare: false` behind a transaction-mode pooler). */
   postgres?: postgres.Options<Record<string, postgres.PostgresType>>;
+  /**
+   * Server-side limits set on every connection of the pool (3.5). App connections should set them: one
+   * long or forgotten open transaction holds back the cluster-wide xmin horizon and so every change-log
+   * reader (D-22: sync pulls, SSE, the indexer). Unset = the server defaults (none).
+   */
+  timeouts?: SessionTimeouts;
+}
+
+export interface SessionTimeouts {
+  /** `statement_timeout`: a single statement running longer is cancelled. 0 = off. */
+  statementMs?: number;
+  /** `idle_in_transaction_session_timeout`: a session idle inside a transaction this long is closed. */
+  idleInTransactionMs?: number;
+}
+
+/** App defaults: 30 s per statement, 15 s idle in a transaction. */
+export const APP_SESSION_TIMEOUTS: Required<SessionTimeouts> = {
+  statementMs: 30_000,
+  idleInTransactionMs: 15_000,
+};
+
+/**
+ * The app's timeouts, overridable with `DATABASE_STATEMENT_TIMEOUT_MS` /
+ * `DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS` (non-negative integers; 0 turns one off).
+ */
+export function sessionTimeoutsFromEnv(
+  env: Record<string, string | undefined> = process.env,
+): Required<SessionTimeouts> {
+  const read = (name: string, fallback: number) => {
+    const raw = env[name]?.trim();
+    if (!raw) return fallback;
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 0)
+      throw new Error(`${name} must be a whole number of ms`);
+    return value;
+  };
+  return {
+    statementMs: read('DATABASE_STATEMENT_TIMEOUT_MS', APP_SESSION_TIMEOUTS.statementMs),
+    idleInTransactionMs: read(
+      'DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS',
+      APP_SESSION_TIMEOUTS.idleInTransactionMs,
+    ),
+  };
+}
+
+function connectionParams(t: SessionTimeouts | undefined): Record<string, string> {
+  const params: Record<string, string> = {};
+  if (t?.statementMs !== undefined) params.statement_timeout = String(t.statementMs);
+  if (t?.idleInTransactionMs !== undefined) {
+    params.idle_in_transaction_session_timeout = String(t.idleInTransactionMs);
+  }
+  return params;
 }
 
 /** A Drizzle client over a postgres.js pool. Close it with `await db.$client.end()`. */
@@ -23,6 +75,7 @@ export function createDb(url: string, options: CreateDbOptions = {}): Db {
     // Silence NOTICEs such as "extension already exists, skipping".
     onnotice: () => {},
     ...options.postgres,
+    connection: { ...connectionParams(options.timeouts), ...options.postgres?.connection },
   });
   return drizzle({ client, schema });
 }

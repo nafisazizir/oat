@@ -2,10 +2,17 @@
 import { createTestDatabase, type TestDatabase, waitFor } from '@oat/testkit';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createDb, type Db, migrate } from './client.ts';
+import { createDb, type Db, migrate, sessionTimeoutsFromEnv } from './client.ts';
 import { newId } from './id.ts';
 import * as s from './schema/index.ts';
-import { type Change, readAllChanges, readChanges } from './sync.ts';
+import {
+  type Change,
+  hasHeldBackChanges,
+  headCursor,
+  longTransactions,
+  readAllChanges,
+  readChanges,
+} from './sync.ts';
 
 let testDb: TestDatabase;
 let db: Db;
@@ -300,5 +307,84 @@ describe('readAllChanges', () => {
     expect(first.hasMore).toBe(true);
     const rest = await readAllChanges(db, first.cursor, { limit: 10 });
     expect(rest.changes.map((c) => c.tableName)).toContain('folder');
+  });
+});
+
+describe('3.5 helpers: head cursor, held-back changes, long transactions, timeouts', () => {
+  it('headCursor is where readChanges would end; held-back changes show while an old transaction runs', async () => {
+    const { userId, ws } = await makeWorkspace();
+    const start = await eventually([ws], null, 1);
+    expect(await headCursor(db, [ws])).toBe(start.cursor);
+    expect(await headCursor(db, [])).toBeNull();
+    expect(await hasHeldBackChanges(db, [ws], start.cursor)).toBe(false);
+
+    const blocker = await db.$client.reserve();
+    try {
+      await blocker`begin`;
+      await blocker`select pg_current_xact_id()`; // holds the xmin horizon back
+      await db.insert(s.folder).values({
+        workspaceId: ws,
+        name: 'held',
+        visibility: 'workspace',
+        ownerId: userId,
+      });
+      // Committed, but not served yet: the reader says so instead of silently returning nothing.
+      expect((await readChanges(db, [ws], start.cursor)).changes).toEqual([]);
+      expect(await hasHeldBackChanges(db, [ws], start.cursor)).toBe(true);
+      expect(await headCursor(db, [ws])).toBe(start.cursor);
+      await new Promise((r) => setTimeout(r, 1_100));
+      const long = await longTransactions(db, 1_000);
+      expect(long.length).toBeGreaterThan(0);
+      expect(long[0]).toMatchObject({ ageSeconds: expect.any(Number) });
+      await blocker`commit`;
+    } finally {
+      blocker.release();
+    }
+    const after = await eventually([ws], start.cursor, 1);
+    await waitFor(
+      async () => ((await hasHeldBackChanges(db, [ws], after.cursor)) ? undefined : true),
+      {
+        timeout: 10_000,
+      },
+    );
+    expect(await headCursor(db, [ws])).toBe(after.cursor);
+  });
+
+  it('timeouts end an idle open transaction and cap statements', async () => {
+    const limited = createDb(testDb.url, {
+      max: 1,
+      timeouts: { statementMs: 200, idleInTransactionMs: 300 },
+    });
+    try {
+      const [row] = await limited.$client<{ s: string; i: string }[]>`
+        select current_setting('statement_timeout') as s,
+               current_setting('idle_in_transaction_session_timeout') as i`;
+      expect(row).toEqual({ s: '200ms', i: '300ms' });
+      await expect(limited.$client`select pg_sleep(1)`).rejects.toMatchObject({ code: '57014' });
+      // The server closes a session left idle inside a transaction.
+      await expect(
+        limited.$client.begin(async (tx) => {
+          await tx`select 1`;
+          await new Promise((r) => setTimeout(r, 700));
+          await tx`select 1`;
+        }),
+      ).rejects.toBeTruthy();
+    } finally {
+      await limited.$client.end();
+    }
+  });
+
+  it('reads the timeouts from the environment', () => {
+    expect(sessionTimeoutsFromEnv({})).toEqual({
+      statementMs: 30_000,
+      idleInTransactionMs: 15_000,
+    });
+    expect(
+      sessionTimeoutsFromEnv({
+        DATABASE_STATEMENT_TIMEOUT_MS: '0',
+        DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS: '5000',
+      }),
+    ).toEqual({ statementMs: 0, idleInTransactionMs: 5_000 });
+    expect(() => sessionTimeoutsFromEnv({ DATABASE_STATEMENT_TIMEOUT_MS: '-1' })).toThrow();
   });
 });

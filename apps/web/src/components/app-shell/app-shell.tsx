@@ -9,6 +9,7 @@ import { CommandMenu, CommandMenuProvider } from './command-menu';
 import { ShellDataProvider } from './shell-data';
 import { TopBar } from './top-bar';
 import { TreeActionsProvider } from './tree-actions';
+import { useSyncEvents } from './use-sync-events';
 
 /**
  * The signed-in app frame: collapsible sidebar + top bar + content, and the ⌘K palette.
@@ -26,6 +27,7 @@ export function AppShell({
   defaultOpen: boolean;
   children: React.ReactNode;
 }) {
+  useSyncEvents(); // live tree/page updates when another tab or device edits (3.5)
   return (
     <ShellDataProvider value={data}>
       <SidebarProvider defaultOpen={defaultOpen}>

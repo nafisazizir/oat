@@ -1,5 +1,5 @@
 /** Reading the trigger-written change log (D-19, D-22). See `schema/sync.ts` for the ordering argument. */
-import { and, asc, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, inArray, sql } from 'drizzle-orm';
 import type { Db } from './client.ts';
 import { changeLog, type ChangeOp, type SyncedTable } from './schema/index.ts';
 
@@ -113,4 +113,93 @@ export async function readAllChanges(
   const changes = hasMore ? rows.slice(0, limit) : rows;
   const last = changes.at(-1);
   return { changes, cursor: last ? encodeCursor(last) : cursor, hasMore };
+}
+
+/**
+ * The cursor of the newest change in `workspaceIds` that {@link readChanges} would serve right now (`null`
+ * when there is none): where a live listener (the 3.5 SSE channel) starts when it has nothing to replay.
+ */
+export async function headCursor(db: Db, workspaceIds: readonly string[]): Promise<string | null> {
+  if (workspaceIds.length === 0) return null;
+  const [row] = await db
+    .select({ seq: changeLog.seq, txid: sql<string>`${changeLog.txid}::text` })
+    .from(changeLog)
+    .where(
+      and(
+        inArray(changeLog.workspaceId, [...workspaceIds]),
+        sql`${changeLog.txid} < pg_snapshot_xmin(pg_current_snapshot())`,
+      ),
+    )
+    .orderBy(desc(changeLog.txid), desc(changeLog.seq))
+    .limit(1);
+  return row ? encodeCursor(row) : null;
+}
+
+/**
+ * Whether committed changes in `workspaceIds` after `cursor` are being held back by the D-22 visibility rule
+ * (an older transaction somewhere in the cluster is still open). A pull that comes back with this set
+ * isn't complete yet: the client should try again shortly rather than wait for its next scheduled pull.
+ */
+export async function hasHeldBackChanges(
+  db: Db,
+  workspaceIds: readonly string[],
+  cursor: string | null,
+): Promise<boolean> {
+  if (workspaceIds.length === 0) return false;
+  const after = cursor === null ? undefined : decodeCursor(cursor);
+  const [row] = await db
+    .select({ one: sql<number>`1` })
+    .from(changeLog)
+    .where(
+      and(
+        inArray(changeLog.workspaceId, [...workspaceIds]),
+        sql`${changeLog.txid} >= pg_snapshot_xmin(pg_current_snapshot())`,
+        after &&
+          sql`(${changeLog.txid}, ${changeLog.seq}) > (${after.txid}::xid8, ${after.seq}::bigint)`,
+      ),
+    )
+    .limit(1);
+  return row !== undefined;
+}
+
+export interface LongTransaction {
+  pid: number;
+  /** Seconds since the transaction started. */
+  ageSeconds: number;
+  /** `active`, `idle in transaction`, … */
+  state: string | null;
+  applicationName: string | null;
+  database: string | null;
+}
+
+/**
+ * Transactions in the cluster open for at least `minAgeMs` that hold back the xmin horizon (they have an
+ * xid or a snapshot): what stalls every change-log reader (D-22). For diagnostics/logs; no query text.
+ */
+export async function longTransactions(db: Db, minAgeMs = 5_000): Promise<LongTransaction[]> {
+  const rows = await db.$client<
+    {
+      pid: number;
+      age_seconds: number;
+      state: string | null;
+      application_name: string | null;
+      datname: string | null;
+    }[]
+  >`
+    select pid, extract(epoch from now() - xact_start)::float8 as age_seconds, state,
+           application_name, datname
+    from pg_stat_activity
+    where xact_start is not null
+      and xact_start < now() - make_interval(secs => ${minAgeMs / 1000})
+      and (backend_xid is not null or backend_xmin is not null)
+      and pid <> pg_backend_pid()
+    order by xact_start
+    limit 20`;
+  return rows.map((r) => ({
+    pid: r.pid,
+    ageSeconds: Number(r.age_seconds),
+    state: r.state,
+    applicationName: r.application_name,
+    database: r.datname,
+  }));
 }
