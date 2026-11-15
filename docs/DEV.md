@@ -321,7 +321,15 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   also gives a separate single-instance lock), `OAT_E2E=1` (windows don't take focus, no protocol
   registration), `OAT_DEVTOOLS=1` (devtools in a built renderer; forced off when packaged). Dev builds are named "Oat Dev" (own
   userData folder and Keychain key). `OAT_AUDIO_BIN` is honoured only when not packaged
-  (`src/main/sidecar.ts`).
+  (`src/main/sidecar.ts`). `OAT_AUDIO_SOURCE` picks the recording input: `sidecar` (default, live mic +
+  system audio), `synthetic` (the sidecar's tone generator: no devices, no permission prompts) or
+  `file:<fixture>` (replays `fixtures/audio/<fixture>.wav` in real time through `FileSource`; against the
+  local mock the transcript is the fixture's ground truth; the e2e default). `OAT_STT_URL` replaces the
+  live-transcription websocket the API names (e2e points it at a closed port to test "transcription down").
+- **Recording (2.5).** Start/pause/stop in the main window (or Stop in the widget); the transcript is live
+  (mic = "me", system = "them"). STT tokens come from `POST /api/stt/token` (the mock in dev, Deepgram with
+  `DEEPGRAM_API_KEY`), audio goes to `<userData>/audio/<meeting>/{mic,system}.opus`. Sleep pauses the
+  recording, quitting stops it gracefully first. Details: `docs/tasks/2.5-transcript-panel.md`.
 - **Packaging (9.1).** `src/build/fuses.ts` (`OAT_FUSES`, `applyFuses`) holds the fuse settings to flip on
   the packaged binary: no run-as-node, no `NODE_OPTIONS`/`--inspect`, asar-only + integrity, cookie
   encryption.
@@ -330,7 +338,7 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   the app with a temp profile against `next dev` on a throwaway database (apps/web's `e2e/web-server.ts`,
   `E2E_PORT`, default 3100). `shell.openExternal` is stubbed and deep links are delivered by emitting
   `open-url`, so no browser opens and nothing is registered with the OS. The web half of sign-in runs in
-  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/` (screenshots + `cold-start.json`). Other
+  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/` and `2.5/` (screenshots, `cold-start.json`, `latency.json`). Other
   platforms skip it.
 
 ## Database (`@oat/db`)

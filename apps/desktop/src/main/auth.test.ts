@@ -31,6 +31,10 @@ function fakeWeb() {
       if (!sessions.has(token)) throw new ApiError(401, 'ended');
       return { user: ADA, activeWorkspaceId: 'w1' };
     }),
+    sttToken: vi.fn(async (token: string) => {
+      if (!sessions.has(token)) throw new ApiError(401, 'ended');
+      return { accessToken: `stt-${token}`, expiresIn: 60, listenUrl: 'ws://localhost:1/listen' };
+    }),
     signOut: vi.fn(async (token: string) => void sessions.delete(token)),
   } satisfies ApiClient;
   return {
@@ -274,5 +278,43 @@ describe('session lifecycle', () => {
     await auth.signOut();
     expect(tokens.saved).toBeNull();
     expect(store.state.auth.status).toBe('signed-out');
+  });
+});
+
+describe('STT grant (2.5)', () => {
+  it('needs a session and passes the bearer token to the API (never to the caller)', async () => {
+    const { auth, web, opened } = setup();
+    await auth.restore();
+    await expect(auth.sttGrant()).rejects.toThrow(/not signed in/);
+    await auth.beginSignIn();
+    await auth.handleDeepLink(web.issue(opened[0]!));
+    const grant = await auth.sttGrant();
+    expect(web.api.sttToken).toHaveBeenCalledWith('session1.signature');
+    expect(grant).toEqual({
+      accessToken: 'stt-session1.signature',
+      expiresIn: 60,
+      listenUrl: 'ws://localhost:1/listen',
+    });
+  });
+
+  it('a revoked session signs the app out', async () => {
+    const { auth, store, tokens, web } = setup({ stored: { token: 'gone.s', user: ADA } });
+    web.api.me.mockRejectedValue(new ApiError(0, 'offline'));
+    await auth.restore();
+    await expect(auth.sttGrant()).rejects.toBeInstanceOf(ApiError);
+    expect(store.state.auth).toEqual({
+      status: 'signed-out',
+      error: 'Your session ended. Sign in again.',
+    });
+    expect(tokens.saved).toBeNull();
+  });
+
+  it('an unavailable API keeps the session', async () => {
+    const { auth, web, store } = setup({ stored: { token: 't.s', user: ADA } });
+    web.api.me.mockRejectedValue(new ApiError(0, 'offline'));
+    web.api.sttToken.mockRejectedValue(new ApiError(503, 'down'));
+    await auth.restore();
+    await expect(auth.sttGrant()).rejects.toMatchObject({ status: 503 });
+    expect(store.state.auth.status).toBe('signed-in');
   });
 });

@@ -19,6 +19,7 @@ import type { DesktopUser } from '@oat/core/bridge';
 
 import { type ApiClient, ApiError, type MeResult } from './api-client.ts';
 import { BridgeError, type Logger } from './ipc.ts';
+import type { SttGrant } from './stt-credentials.ts';
 import type { MainStore } from './store.ts';
 import type { TokenStore } from './token-store.ts';
 
@@ -186,6 +187,25 @@ export class AuthController {
         throw new BridgeError('unauthorized', MESSAGES.expired);
       }
       if (error instanceof ApiError) throw new BridgeError('unavailable', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * A short-lived STT token for the signed-in user (2.5). Throws when signed out; a rejected session
+   * signs the app out, as in `me()`. Failures are plain errors: the STT stream reports and retries them.
+   */
+  async sttGrant(): Promise<SttGrant> {
+    const token = this.#token;
+    if (!token) throw new Error('not signed in');
+    try {
+      return await this.#o.api.sttToken(token);
+    } catch (error) {
+      if (error instanceof ApiError && error.unauthorized && this.#token === token) {
+        this.#token = null;
+        await this.#o.tokens.clear();
+        this.#setSignedOut(MESSAGES.expired);
+      }
       throw error;
     }
   }

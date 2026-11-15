@@ -9,7 +9,16 @@ import { AUTH_TOKEN_HEADER, DESKTOP_TOKEN_ENDPOINT } from '@oat/auth/desktop-lin
 import { type DesktopUser, desktopUserSchema } from '@oat/core/bridge';
 import { z } from 'zod';
 
+import type { SttGrant } from './stt-credentials.ts';
+
 const AUTH_BASE = '/api/auth';
+const STT_TOKEN_PATH = '/api/stt/token';
+
+const sttGrantSchema = z.object({
+  accessToken: z.string().min(1).max(4096),
+  expiresIn: z.number().positive().max(86_400),
+  listenUrl: z.string().min(1).max(2048),
+});
 const TIMEOUT_MS = 10_000;
 
 /** `<session token>.<signature>` as Better Auth's bearer plugin issues it. */
@@ -103,6 +112,25 @@ export function createApiClient({
         user: { id: user.id, email: user.email, name: user.name || null },
         activeWorkspaceId: session.activeOrganizationId ?? null,
       };
+    },
+
+    /** A short-lived live-transcription token and the websocket it is for (`POST /api/stt/token`, D-17). */
+    async sttToken(token: string): Promise<SttGrant> {
+      const res = await request(STT_TOKEN_PATH, {
+        method: 'POST',
+        token,
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      });
+      if (!res.ok) {
+        throw new ApiError(
+          res.status,
+          res.status === 401 ? 'Your session has ended.' : 'Transcription is unavailable.',
+        );
+      }
+      const body = sttGrantSchema.safeParse(await res.json().catch(() => undefined));
+      if (!body.success) throw new ApiError(502, 'Unexpected transcription token response.');
+      return body.data;
     },
 
     /** Revokes the session on the server. */

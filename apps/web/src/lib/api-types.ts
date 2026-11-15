@@ -92,7 +92,18 @@ export type ApiErrorCode =
   | 'private_folder'
   /** Templates: built-ins are read-only (duplicate them instead). */
   | 'builtin_read_only'
-  | 'cross_site';
+  | 'cross_site'
+  | 'stt_unavailable';
+
+/** `POST /api/stt/token` (2.5, D-17): a short-lived live-transcription credential for the desktop. */
+export type SttTokenResponse = {
+  /** Bearer token for the provider's live websocket (`Authorization: Bearer …`). */
+  accessToken: string;
+  /** Seconds until `accessToken` stops being accepted for new connections. */
+  expiresIn: number;
+  /** Deepgram-compatible live websocket URL the token is valid for. */
+  listenUrl: string;
+};
 
 // Request bodies -------------------------------------------------------------------------------------
 

@@ -2,6 +2,7 @@ import 'server-only';
 
 import { getAuth, getAuthConfig } from '../auth';
 import { getDb } from '../db';
+import { createSttTokenRoute } from '../stt-token';
 import { createApi } from './handlers';
 import type { ApiDeps } from './route';
 
@@ -20,3 +21,10 @@ export const apiDeps: ApiDeps = {
 
 /** The app's API handlers, bound to the real deps (route files re-export these). */
 export const api = createApi(apiDeps);
+
+/** `POST /api/stt/token` (2.5, D-17). */
+export const sttToken = createSttTokenRoute({
+  getSession: apiDeps.getSession,
+  allowedOrigins: apiDeps.allowedOrigins,
+  env: () => process.env,
+});

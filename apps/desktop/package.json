@@ -17,9 +17,12 @@
     "e2e": "electron-vite build && playwright test"
   },
   "dependencies": {
+    "@oat/audio": "workspace:*",
     "@oat/auth": "workspace:*",
     "@oat/core": "workspace:*",
+    "@oat/stt": "workspace:*",
     "@oat/ui": "workspace:*",
+    "@tanstack/react-virtual": "catalog:",
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

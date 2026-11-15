@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createMailpit, extractFirstLink } from '@oat/testkit';
 import {
   _electron as electron,
+  type Browser,
   type ElectronApplication,
   expect,
   type Page,
@@ -23,7 +24,11 @@ const mailpit = createMailpit();
  * windows don't take focus and `oat://` is never registered with the OS. `shell.openExternal` is
  * replaced in the main process so the system browser never opens; the URLs are recorded instead.
  */
-export async function launchApp(userDataDir: string, webUrl: string) {
+export async function launchApp(
+  userDataDir: string,
+  webUrl: string,
+  extraEnv: Record<string, string> = {},
+) {
   const app = await electron.launch({
     args: [APP_DIR],
     env: {
@@ -31,6 +36,7 @@ export async function launchApp(userDataDir: string, webUrl: string) {
       OAT_E2E: '1',
       OAT_USER_DATA_DIR: userDataDir,
       OAT_WEB_URL: webUrl,
+      ...extraEnv,
     },
   });
   await app.evaluate(({ shell }) => {
@@ -79,20 +85,53 @@ export async function signInOnWeb(page: Page, email: string) {
   await page.getByRole('button', { name: 'Continue to Oat' }).click();
 }
 
-export async function evidence(page: Page, name: string) {
+/** `docs/tasks/evidence/<task>/` (default 1.8, the shell's own evidence). */
+const evidenceDir = (task: string) =>
+  task === '1.8'
+    ? EVIDENCE
+    : fileURLToPath(new URL(`../../../docs/tasks/evidence/${task}/`, import.meta.url));
+
+export async function evidence(page: Page, name: string, task = '1.8') {
   if (!process.env.E2E_SCREENSHOTS) return;
-  mkdirSync(EVIDENCE, { recursive: true });
+  const dir = evidenceDir(task);
+  mkdirSync(dir, { recursive: true });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(300);
   // Hide the Next.js dev indicator on web pages.
   await page.screenshot({
-    path: `${EVIDENCE}${name}.png`,
+    path: `${dir}${name}.png`,
     style: 'nextjs-portal { display: none !important; }',
   });
 }
 
-export function writeEvidence(name: string, data: unknown) {
+export function writeEvidence(name: string, data: unknown, task = '1.8') {
   if (!process.env.E2E_SCREENSHOTS) return;
-  mkdirSync(EVIDENCE, { recursive: true });
-  writeFileSync(`${EVIDENCE}${name}`, `${JSON.stringify(data, null, 2)}\n`);
+  const dir = evidenceDir(task);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(`${dir}${name}`, `${JSON.stringify(data, null, 2)}\n`);
+}
+
+/**
+ * Signs the app in the way a user does (1.8): "Sign in with your browser" → web magic-link sign-in in
+ * Chromium → "Continue to the app" → the `oat://auth` link delivered to the app.
+ */
+export async function signInDesktop(
+  app: ElectronApplication,
+  page: Page,
+  browser: Browser,
+  email: string,
+) {
+  await page.getByRole('button', { name: 'Sign in with your browser' }).click();
+  await expect(page.getByTestId('signing-in')).toBeVisible();
+  const signInUrl = (await openedUrls(app)).findLast((u) => u.includes('/desktop/sign-in'));
+  const context = await browser.newContext();
+  const web = await context.newPage();
+  await web.goto(signInUrl!);
+  await signInOnWeb(web, email);
+  const codeResponse = web.waitForResponse((r) => r.url().endsWith('/api/auth/desktop/code'));
+  await web.getByRole('button', { name: 'Continue to the app' }).click();
+  const { redirectUrl } = (await (await codeResponse).json()) as { redirectUrl: string };
+  await context.close();
+  await deliverDeepLink(app, redirectUrl);
+  await expect(page.getByTestId('signed-in-email')).toHaveText(email);
 }

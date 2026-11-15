@@ -50,14 +50,156 @@ export const authStateSchema = z.discriminatedUnion('status', [
 ]);
 export type AuthState = z.infer<typeof authStateSchema>;
 
+// ---------------------------------------------------------------------------------------------------
+// Recording + live transcript (task 2.5)
+// ---------------------------------------------------------------------------------------------------
+
+/**
+ * `idle` → `starting` → `recording` ⇄ `paused` → `stopping` → `idle`; `error` = the audio stopped by
+ * itself (or never started) and stays until acknowledged with `recording:stop` or a new start. Mirrors
+ * `@oat/audio` `RecordingState`.
+ */
+export const RECORDING_STATUSES = [
+  'idle',
+  'starting',
+  'recording',
+  'paused',
+  'stopping',
+  'error',
+] as const;
+export const recordingStatusSchema = z.enum(RECORDING_STATUSES);
+export type RecordingStatus = z.infer<typeof recordingStatusSchema>;
+
+/** `mic` = "me", `system` = "them" (never mixed, D-17). */
+export const audioSourceKindSchema = z.enum(['mic', 'system']);
+
+/**
+ * Where audio comes from: the Swift sidecar (live capture) or a WAV fixture replayed by `FileSource`
+ * (development and tests only; refused in a packaged app).
+ */
+export const recordingInputSchema = z.enum(['sidecar', 'file']);
+export type RecordingInput = z.infer<typeof recordingInputSchema>;
+
+/** A plain id usable as a folder name (`@oat/audio` archive paths): no separators, no dots. */
+export const meetingIdSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/);
+/** Fixture names as in `fixtures/audio/<name>.wav`. */
+export const fixtureNameSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
+
+/** Per-source live transcription status: `idle` when no stream is open, else `@oat/stt` `SttStatus`. */
+export const sttStreamStatusSchema = z.enum([
+  'idle',
+  'connecting',
+  'open',
+  'reconnecting',
+  'closed',
+  'error',
+]);
+export type SttStreamStatus = z.infer<typeof sttStreamStatusSchema>;
+
+/** Latest level of one source (dBFS, −100 = silence). */
+export const audioLevelSchema = z.object({ rmsDb: z.number(), peakDb: z.number() });
+export type AudioLevel = z.infer<typeof audioLevelSchema>;
+
+/**
+ * Something the user must see (SPEC §8: recording never stops silently). `scope` says which part failed:
+ * `audio` (capture), `stt` (transcription; the recording carries on), `archive` (the local audio file).
+ */
+export const recordingIssueSchema = z.object({
+  id: z.number().int().nonnegative(),
+  scope: z.enum(['audio', 'stt', 'archive']),
+  code: z.string().max(64),
+  message: z.string().max(500),
+  source: audioSourceKindSchema.nullable(),
+  /** This ended that part (capture stopped, or that source's transcription gave up). */
+  fatal: z.boolean(),
+  /** Wall clock (Unix ms) of the latest occurrence. */
+  at: z.number(),
+  /** How often it happened (a retry loop repeats the same issue; it is listed once). */
+  count: z.number().int().positive(),
+});
+export type RecordingIssue = z.infer<typeof recordingIssueSchema>;
+
+export const recordingSnapshotSchema = z.object({
+  /** Bumped on every change; windows ignore anything older than what they show. */
+  seq: z.number().int().nonnegative(),
+  status: recordingStatusSchema,
+  meetingId: z.string().nullable(),
+  input: recordingInputSchema.nullable(),
+  /** Fixture being replayed (`input: 'file'`). */
+  fixture: fixtureNameSchema.nullable(),
+  /** Wall clock (Unix ms) of the `started` event, i.e. where this session starts. */
+  startedAt: z.number().nullable(),
+  /** Recorded (not paused) time as of `elapsedAt` (Unix ms); windows tick it forward while recording. */
+  elapsedMs: z.number().nonnegative(),
+  elapsedAt: z.number(),
+  levels: z.object({ mic: audioLevelSchema.nullable(), system: audioLevelSchema.nullable() }),
+  stt: z.object({ mic: sttStreamStatusSchema, system: sttStreamStatusSchema }),
+  /** Issues of the current (or last) recording, oldest first, at most 20. Cleared by the next start. */
+  issues: z.array(recordingIssueSchema).max(20),
+});
+export type RecordingSnapshot = z.infer<typeof recordingSnapshotSchema>;
+
+/**
+ * One transcript segment on the **meeting clock** (ms since the meeting's first recording started). D-19:
+ * `id` is stable; an interim and the final that replaces it share it. A final with `text: ''` is a
+ * retraction: drop the segment with that id.
+ */
+export const liveSegmentSchema = z.object({
+  id: z.string().min(1).max(64),
+  source: audioSourceKindSchema,
+  startMs: z.number().nonnegative(),
+  endMs: z.number().nonnegative(),
+  text: z.string().max(10_000),
+  isFinal: z.boolean(),
+});
+export type LiveSegment = z.infer<typeof liveSegmentSchema>;
+
+/** A batch of segment upserts/retractions, pushed every ~50 ms while segments arrive. */
+export const transcriptBatchSchema = z.object({
+  meetingId: z.string(),
+  /** +1 per batch of this meeting; the first batch after a `transcript:get` snapshot is snapshot + 1. */
+  seq: z.number().int().positive(),
+  segments: z.array(liveSegmentSchema).max(5000),
+});
+export type TranscriptBatch = z.infer<typeof transcriptBatchSchema>;
+
+/** The whole live transcript of the active meeting (no retractions), in time order. */
+export const transcriptSnapshotSchema = z.object({
+  meetingId: z.string().nullable(),
+  seq: z.number().int().nonnegative(),
+  segments: z.array(liveSegmentSchema).max(200_000),
+});
+export type TranscriptSnapshot = z.infer<typeof transcriptSnapshotSchema>;
+
+/** One archived audio file of a stopped session (D-10, D-24); never its path. */
+export const archivedAudioSchema = z.object({
+  source: audioSourceKindSchema,
+  part: z.number().int().positive(),
+  status: z.enum(['recording', 'complete', 'partial', 'failed', 'deleted']),
+  durationMs: z.number().nonnegative(),
+  bytes: z.number().int().nonnegative(),
+});
+export type ArchivedAudio = z.infer<typeof archivedAudioSchema>;
+
+/** What the recording UI may offer. */
+export const recordingOptionsSchema = z.object({
+  /** What `recording:start` without `input` uses (`OAT_AUDIO_SOURCE` in dev; the sidecar when packaged). */
+  defaultInput: recordingInputSchema,
+  defaultFixture: fixtureNameSchema.nullable(),
+  /** Fixtures that can be replayed instead of the mic (dev only; empty in a packaged app). */
+  fixtures: z.array(fixtureNameSchema).max(50),
+});
+export type RecordingOptions = z.infer<typeof recordingOptionsSchema>;
+
 /**
  * Small cross-window live state owned by the main process. Volatile: rebuilt on every launch (auth is
  * restored from the stored token; recording and meeting start idle).
  */
 export const mainStateSchema = z.object({
   auth: authStateSchema,
-  /** Placeholder until recording lands (2.5). */
-  recording: z.object({ status: z.enum(['idle', 'recording', 'paused']) }),
+  /** Coarse recording status for every window; the detail is on `recording:state`. */
+  recording: z.object({ status: recordingStatusSchema }),
+  /** The meeting being recorded (or the last one recorded since launch). */
   activeMeetingId: z.string().nullable(),
 });
 export type MainState = z.infer<typeof mainStateSchema>;
@@ -110,6 +252,29 @@ export const bridgeContract = {
       request: none,
       response: z.object({ user: desktopUserSchema, activeWorkspaceId: z.string().nullable() }),
     },
+    /** Recording options for the UI (default input, dev fixtures). */
+    'recording:options': { request: none, response: recordingOptionsSchema },
+    /**
+     * Starts recording (signed in only). `meetingId` continues an existing meeting (a new part, D-24);
+     * without one a new meeting id is created. `input` defaults to `recording:options` `defaultInput`.
+     */
+    'recording:start': {
+      request: z.strictObject({
+        meetingId: meetingIdSchema.optional(),
+        input: recordingInputSchema.optional(),
+        fixture: fixtureNameSchema.optional(),
+      }),
+      response: z.object({ meetingId: z.string() }),
+    },
+    'recording:pause': { request: none, response: none },
+    'recording:resume': { request: none, response: none },
+    /** Stops (or acknowledges an error); resolves once the audio files are closed. */
+    'recording:stop': {
+      request: none,
+      response: z.object({ meetingId: z.string().nullable(), audio: z.array(archivedAudioSchema) }),
+    },
+    'recording:get': { request: none, response: recordingSnapshotSchema },
+    'transcript:get': { request: none, response: transcriptSnapshotSchema },
     'window:open-widget': { request: none, response: none },
     'window:close-widget': { request: none, response: none },
   },
@@ -121,6 +286,10 @@ export const bridgeContract = {
   },
   subscribe: {
     'state:changed': mainStateSnapshotSchema,
+    /** Detailed recording state (levels, per-source STT status, issues), at most ~10 per second. */
+    'recording:state': recordingSnapshotSchema,
+    /** Transcript deltas of the active meeting (batched). */
+    'transcript:segments': transcriptBatchSchema,
   },
 } as const;
 
@@ -156,13 +325,15 @@ export const bridgeChannels = {
 /**
  * Why an invoke failed. `forbidden`: the sender isn't our renderer; `invalid_payload`: the request
  * failed its schema; `unauthorized`: not signed in (or the token was revoked); `unavailable`: the API
- * couldn't be reached; `internal`: anything else (details stay in the main-process log).
+ * (or, for recording, the audio input) couldn't be reached; `invalid_state`: not possible right now
+ * (e.g. pause while not recording); `internal`: anything else (details stay in the main-process log).
  */
 export const BRIDGE_ERROR_CODES = [
   'forbidden',
   'invalid_payload',
   'unauthorized',
   'unavailable',
+  'invalid_state',
   'internal',
 ] as const;
 export type BridgeErrorCode = (typeof BRIDGE_ERROR_CODES)[number];

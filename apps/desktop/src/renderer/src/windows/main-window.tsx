@@ -23,9 +23,15 @@ import { useEffect, useState } from 'react';
 
 import { BridgeCallError, call } from '../bridge.ts';
 import { useMainState } from '../main-state.ts';
+import { useRecording, useTranscript } from '../recording-state.ts';
+import { IssueBanner, RecordingBar } from '../recording/recording-controls.tsx';
+import { TranscriptPanel } from '../recording/transcript-panel.tsx';
 import { Wordmark } from '../wordmark.tsx';
 
-/** The main window: title bar + the account flow. The workspace UI arrives in later tasks. */
+/**
+ * The main window: title bar + the account flow; signed in, the account sidebar and the meeting view
+ * (recording bar + live transcript, 2.5). Notes and the workspace arrive in later tasks.
+ */
 export default function MainWindow() {
   const state = useMainState();
   const [info, setInfo] = useState<AppInfo | null>(null);
@@ -42,21 +48,32 @@ export default function MainWindow() {
     return () => clearTimeout(timer);
   }, []);
 
+  const signedIn = state?.auth.status === 'signed-in' ? state.auth.user : null;
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       <header className="app-drag flex h-12 shrink-0 items-center justify-center border-b bg-sidebar">
         <Wordmark className="text-lg" />
       </header>
-      <main className="flex flex-1 items-center justify-center overflow-auto px-6 py-10">
-        <div className="w-full max-w-sm" data-testid="shell">
-          {!state || state.auth.status === 'restoring' ? (
-            <RestoringCard />
-          ) : (
-            // Pasting a sign-in link is a dev-only fallback; never offered in a packaged app.
-            <AccountCard auth={state.auth} allowPaste={info !== null && !info.packaged} />
-          )}
-        </div>
-      </main>
+      {signedIn ? (
+        <main className="flex min-h-0 flex-1" data-testid="shell">
+          <aside className="flex w-64 shrink-0 flex-col border-r bg-sidebar p-3">
+            <SignedInCard user={signedIn} />
+          </aside>
+          <MeetingView />
+        </main>
+      ) : (
+        <main className="flex flex-1 items-center justify-center overflow-auto px-6 py-10">
+          <div className="w-full max-w-sm" data-testid="shell">
+            {!state || state.auth.status === 'restoring' ? (
+              <RestoringCard />
+            ) : (
+              // Pasting a sign-in link is a dev-only fallback; never offered in a packaged app.
+              <AccountCard auth={state.auth} allowPaste={info !== null && !info.packaged} />
+            )}
+          </div>
+        </main>
+      )}
       <footer className="flex h-8 shrink-0 items-center justify-center text-xs text-muted-foreground">
         {info && (
           <span data-testid="app-info">
@@ -235,6 +252,7 @@ function SigningInCard({ allowPaste }: { allowPaste: boolean }) {
   );
 }
 
+/** Account panel in the sidebar: who is signed in, connection check, widget, sign out. */
 function SignedInCard({ user }: { user: DesktopUser }) {
   const check = useAction();
   const other = useAction();
@@ -242,25 +260,29 @@ function SignedInCard({ user }: { user: DesktopUser }) {
   const label = user.name || user.email;
 
   return (
-    <Card className="shadow-md" data-testid="signed-in">
-      <CardHeader className="items-center text-center">
+    <div className="flex h-full flex-col gap-3" data-testid="signed-in">
+      <div className="flex items-center gap-2.5 px-1 pt-1">
         <div
           aria-hidden
-          className="mx-auto mb-2 flex size-12 items-center justify-center rounded-full bg-primary font-heading text-xl font-semibold text-primary-foreground"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-heading text-sm font-semibold text-primary-foreground"
         >
           {label.charAt(0).toUpperCase()}
         </div>
-        <CardTitle className="text-xl">
-          <h1>You’re signed in</h1>
-        </CardTitle>
-        <CardDescription data-selectable data-testid="signed-in-email">
-          {user.email}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col">
+          <h1 className="truncate text-sm font-medium">{user.name || 'Signed in'}</h1>
+          <p
+            className="truncate text-xs text-muted-foreground"
+            data-selectable
+            data-testid="signed-in-email"
+          >
+            {user.email}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
         <Button
-          variant="outline"
-          className="w-full"
+          variant="ghost"
+          className="w-full justify-start"
           disabled={check.pending}
           onClick={async () => setMe((await check.run(() => call('api:me'))) ?? null)}
         >
@@ -274,37 +296,57 @@ function SignedInCard({ user }: { user: DesktopUser }) {
         {me && !check.error && (
           <p
             role="status"
-            className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground"
+            className="flex items-center gap-1.5 px-2.5 text-xs text-muted-foreground"
             data-testid="api-me"
           >
-            <CheckCircle2Icon className="size-3.5 text-success" />
-            Connected as {me.user.email}
+            <CheckCircle2Icon className="size-3.5 shrink-0 text-success" />
+            <span className="truncate">Connected as {me.user.email}</span>
           </p>
         )}
         <Button
-          variant="outline"
-          className="w-full"
+          variant="ghost"
+          className="w-full justify-start"
           disabled={other.pending}
           onClick={() => void other.run(() => call('window:open-widget'))}
         >
           <PanelTopIcon data-icon="inline-start" />
           Show meeting widget
         </Button>
-        <p role="status" className="text-center text-xs text-destructive empty:hidden">
+        <p role="status" className="px-2.5 text-xs text-destructive empty:hidden">
           {check.error ?? other.error}
         </p>
-      </CardContent>
-      <CardFooter className="pt-4">
-        <Button
-          variant="ghost"
-          className="w-full"
-          disabled={other.pending}
-          onClick={() => void other.run(() => call('auth:sign-out'))}
-        >
-          <LogOutIcon data-icon="inline-start" />
-          Sign out
-        </Button>
-      </CardFooter>
-    </Card>
+      </div>
+      <Button
+        variant="ghost"
+        className="mt-auto w-full justify-start text-muted-foreground"
+        disabled={other.pending}
+        onClick={() => void other.run(() => call('auth:sign-out'))}
+      >
+        <LogOutIcon data-icon="inline-start" />
+        Sign out
+      </Button>
+    </div>
+  );
+}
+
+/** Recording bar, issue banner and the live transcript. */
+function MeetingView() {
+  const snapshot = useRecording();
+  const transcript = useTranscript();
+  const [options, setOptions] = useState<InvokeResponse<'recording:options'> | null>(null);
+  useEffect(() => {
+    void call('recording:options')
+      .then(setOptions)
+      .catch(() => {});
+  }, []);
+
+  return (
+    <section className="flex min-w-0 flex-1 flex-col" aria-label="Meeting">
+      <div className="flex flex-col gap-3 border-b px-6 py-3">
+        <RecordingBar snapshot={snapshot} options={options} />
+        <IssueBanner snapshot={snapshot} />
+      </div>
+      <TranscriptPanel transcript={transcript} snapshot={snapshot} />
+    </section>
   );
 }

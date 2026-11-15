@@ -1,0 +1,358 @@
+/**
+ * Recording bar pieces shared by the main window and the widget: start/pause/stop, elapsed time, level
+ * meters, the transcription status pill and the issue banner (which never hides while there are issues:
+ * SPEC §8, recording never stops silently).
+ */
+import type {
+  InvokeResponse,
+  RecordingInput,
+  RecordingIssue,
+  RecordingSnapshot,
+} from '@oat/core/bridge';
+import { Button } from '@oat/ui/components/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@oat/ui/components/select';
+import { cn } from '@oat/ui/lib/utils';
+import {
+  AlertTriangleIcon,
+  Loader2Icon,
+  MicIcon,
+  PauseIcon,
+  PlayIcon,
+  SquareIcon,
+  WifiOffIcon,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+
+import { formatClock } from '../../../shared/transcript.ts';
+import { BridgeCallError, call } from '../bridge.ts';
+import {
+  archiveFailed,
+  elapsedNow,
+  HEALTH_LABEL,
+  isActive,
+  levelFill,
+  transcriptionHealth,
+} from '../recording-view.ts';
+
+/** Runs a recording command, keeping a pending flag and the error message. */
+export function useRecordingAction() {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function run(fn: () => Promise<unknown>) {
+    setPending(true);
+    setError(null);
+    try {
+      await fn();
+    } catch (e) {
+      setError(e instanceof BridgeCallError ? e.message : 'Something went wrong.');
+    } finally {
+      setPending(false);
+    }
+  }
+  return { pending, error, run };
+}
+
+/** Elapsed recording time, ticking while recording. */
+export function Elapsed({
+  snapshot,
+  className,
+}: {
+  snapshot: RecordingSnapshot | null;
+  className?: string;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  const ticking = snapshot?.status === 'recording';
+  useEffect(() => {
+    if (!ticking) return;
+    const timer = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(timer);
+  }, [ticking]);
+  return (
+    <span
+      className={cn('font-mono text-sm tabular-nums', className)}
+      data-testid="recording-elapsed"
+      aria-label="Recorded time"
+    >
+      {formatClock(elapsedNow(snapshot, now))}
+    </span>
+  );
+}
+
+/** One source's level as a short bar in that voice's colour. */
+export function LevelMeter({
+  label,
+  source,
+  db,
+  compact = false,
+}: {
+  label: string;
+  source: 'mic' | 'system';
+  db: number | undefined;
+  compact?: boolean;
+}) {
+  const fill = levelFill(db);
+  return (
+    <div className="flex items-center gap-1.5" data-testid={`level-${source}`}>
+      {!compact && <span className="text-xs text-muted-foreground">{label}</span>}
+      <div
+        role="meter"
+        aria-label={`${label} level`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(fill * 100)}
+        className={cn(
+          'h-1.5 overflow-hidden rounded-full',
+          compact ? 'w-10' : 'w-14',
+          source === 'mic' ? 'bg-me' : 'bg-them',
+        )}
+      >
+        <div
+          className={cn(
+            'h-full rounded-full transition-[width] duration-150 ease-out',
+            source === 'mic' ? 'bg-me-foreground' : 'bg-them-foreground',
+          )}
+          style={{ width: `${fill * 100}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** "Live" / "Reconnecting…" / "Transcription offline"; hidden when nothing is transcribing. */
+export function SttStatusPill({ snapshot }: { snapshot: RecordingSnapshot | null }) {
+  const health = snapshot ? transcriptionHealth(snapshot.stt) : 'off';
+  if (health === 'off') return null;
+  const tone = {
+    live: 'bg-success/12 text-success',
+    connecting: 'bg-muted text-muted-foreground',
+    reconnecting: 'bg-warning/20 text-warning-foreground',
+    offline: 'bg-destructive/10 text-destructive',
+  }[health];
+  return (
+    <span
+      role="status"
+      data-testid="stt-status"
+      data-health={health}
+      className={cn(
+        'inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium',
+        tone,
+      )}
+    >
+      {health === 'live' && <span aria-hidden className="size-1.5 rounded-full bg-success" />}
+      {(health === 'connecting' || health === 'reconnecting') && (
+        <Loader2Icon aria-hidden className="size-3 animate-spin" />
+      )}
+      {health === 'offline' && <WifiOffIcon aria-hidden className="size-3" />}
+      {HEALTH_LABEL[health]}
+    </span>
+  );
+}
+
+const FILE_PREFIX = 'file:';
+
+/** The main window's recording bar. */
+export function RecordingBar({
+  snapshot,
+  options,
+}: {
+  snapshot: RecordingSnapshot | null;
+  options: InvokeResponse<'recording:options'> | null;
+}) {
+  const action = useRecordingAction();
+  const status = snapshot?.status ?? 'idle';
+  const active = isActive(status);
+  const defaultChoice =
+    options?.defaultInput === 'file' && options.defaultFixture
+      ? `${FILE_PREFIX}${options.defaultFixture}`
+      : 'sidecar';
+  const [choice, setChoice] = useState<string | null>(null);
+  const input = choice ?? defaultChoice;
+
+  function start() {
+    const request: { input: RecordingInput; fixture?: string } = input.startsWith(FILE_PREFIX)
+      ? { input: 'file', fixture: input.slice(FILE_PREFIX.length) }
+      : { input: 'sidecar' };
+    // A new meeting each time; continuing one (a new part, D-24) comes with meeting notes (3.4).
+    return action.run(() => call('recording:start', request));
+  }
+
+  return (
+    <div className="flex flex-col gap-2" data-testid="recording-bar" data-status={status}>
+      <div className="flex flex-wrap items-center gap-3">
+        {status === 'recording' && (
+          <Button
+            variant="secondary"
+            disabled={action.pending}
+            onClick={() => void action.run(() => call('recording:pause'))}
+          >
+            <PauseIcon data-icon="inline-start" />
+            Pause
+          </Button>
+        )}
+        {status === 'paused' && (
+          <Button
+            disabled={action.pending}
+            onClick={() => void action.run(() => call('recording:resume'))}
+          >
+            <PlayIcon data-icon="inline-start" />
+            Resume
+          </Button>
+        )}
+        {(status === 'idle' || status === 'error') && (
+          <Button disabled={action.pending || !snapshot} onClick={() => void start()}>
+            {action.pending ? (
+              <Loader2Icon data-icon="inline-start" className="animate-spin" />
+            ) : (
+              <MicIcon data-icon="inline-start" />
+            )}
+            Start recording
+          </Button>
+        )}
+        {status === 'starting' && (
+          <Button disabled>
+            <Loader2Icon data-icon="inline-start" className="animate-spin" />
+            Starting…
+          </Button>
+        )}
+        {status === 'stopping' && (
+          <Button disabled variant="secondary">
+            <Loader2Icon data-icon="inline-start" className="animate-spin" />
+            Saving…
+          </Button>
+        )}
+        {(active || status === 'error') && (
+          <Button
+            variant="destructive"
+            disabled={action.pending}
+            onClick={() => void action.run(() => call('recording:stop'))}
+            aria-label={status === 'error' ? 'Dismiss' : 'Stop recording'}
+          >
+            <SquareIcon data-icon="inline-start" className="fill-current" />
+            {status === 'error' ? 'Dismiss' : 'Stop'}
+          </Button>
+        )}
+
+        <div className="flex items-center gap-3 border-l pl-3">
+          <span className="flex items-center gap-2">
+            <RecordingDot status={status} />
+            <Elapsed snapshot={snapshot} />
+          </span>
+          {active && (
+            <>
+              <LevelMeter label="Me" source="mic" db={snapshot?.levels.mic?.rmsDb} />
+              <LevelMeter label="Them" source="system" db={snapshot?.levels.system?.rmsDb} />
+            </>
+          )}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <SttStatusPill snapshot={snapshot} />
+          {options && options.fixtures.length > 0 && (status === 'idle' || status === 'error') && (
+            <Select value={input} onValueChange={setChoice}>
+              <SelectTrigger size="sm" aria-label="Audio input (dev)" data-testid="audio-input">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sidecar">Mic + system audio</SelectItem>
+                {options.fixtures.map((f) => (
+                  <SelectItem key={f} value={`${FILE_PREFIX}${f}`}>
+                    Fixture: {f}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      </div>
+      {action.error && (
+        <p role="status" className="text-xs text-destructive">
+          {action.error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function RecordingDot({ status }: { status: RecordingSnapshot['status'] }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'size-2 rounded-full',
+        status === 'recording' && 'animate-pulse bg-destructive',
+        status === 'paused' && 'bg-warning',
+        status === 'error' && 'bg-destructive',
+        (status === 'idle' || status === 'starting' || status === 'stopping') &&
+          'bg-muted-foreground/40',
+      )}
+    />
+  );
+}
+
+/**
+ * Every problem of the current recording, newest first. Stays while there are issues (it is cleared by the
+ * next start only): a problem that fixed itself still shows what happened, under a calmer heading.
+ */
+export function IssueBanner({ snapshot }: { snapshot: RecordingSnapshot | null }) {
+  const issues = snapshot?.issues ?? [];
+  if (!snapshot || issues.length === 0) return null;
+  const health = transcriptionHealth(snapshot.stt);
+  const audioDown = snapshot.status === 'error';
+  const active = isActive(snapshot.status);
+  const sttDown = health === 'offline' || health === 'reconnecting';
+  const notSaved = archiveFailed(snapshot);
+  const heading = audioDown
+    ? 'Recording stopped'
+    : notSaved && active
+      ? 'Audio isn’t being saved on this Mac'
+      : sttDown && active
+        ? 'Transcription is offline — still recording'
+        : active
+          ? 'Recording, with a hiccup'
+          : 'This recording had problems';
+  const severe = audioDown || (active && (sttDown || notSaved));
+  return (
+    <div
+      role="alert"
+      data-testid="recording-issues"
+      className={cn(
+        'flex gap-3 rounded-lg border px-3 py-2.5 text-sm',
+        severe
+          ? 'border-destructive/30 bg-destructive/8 text-foreground'
+          : 'border-warning/40 bg-warning/10 text-foreground',
+      )}
+    >
+      <AlertTriangleIcon
+        aria-hidden
+        className={cn('mt-0.5 size-4 shrink-0', severe ? 'text-destructive' : 'text-warning')}
+      />
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="font-medium">{heading}</p>
+        <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+          {[...issues]
+            .reverse()
+            .slice(0, 3)
+            .map((issue) => (
+              <IssueLine key={issue.id} issue={issue} startedAt={snapshot.startedAt} />
+            ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function IssueLine({ issue, startedAt }: { issue: RecordingIssue; startedAt: number | null }) {
+  const at = startedAt !== null ? formatClock(issue.at - startedAt) : null;
+  return (
+    <li data-scope={issue.scope} data-code={issue.code} data-selectable>
+      {at && <span className="mr-1.5 font-mono tabular-nums">{at}</span>}
+      {issue.message}
+      {issue.count > 1 && <span className="ml-1 tabular-nums">(×{issue.count})</span>}
+    </li>
+  );
+}

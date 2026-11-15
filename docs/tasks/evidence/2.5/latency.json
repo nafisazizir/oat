@@ -1,0 +1,24 @@
+{
+  "fixture": "standup-short",
+  "firstSegmentLatencyMs": {
+    "mic": 577,
+    "system": 560
+  },
+  "wordRecall": {
+    "mic": 1,
+    "system": 1
+  },
+  "segments": 15,
+  "archive": [
+    {
+      "name": "mic.opus",
+      "bytes": 54117
+    },
+    {
+      "name": "system.opus",
+      "bytes": 68189
+    }
+  ],
+  "measured": "wall time from speech onset in the fixture (recording start + ground-truth startMs) to the first visible segment of that voice",
+  "at": "2026-11-15T05:02:28.537Z"
+}

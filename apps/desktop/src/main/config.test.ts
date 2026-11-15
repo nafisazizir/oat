@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_WEB_URL, desktopConfigFromEnv, parseWebUrl } from './config.ts';
+import { DEFAULT_WEB_URL, desktopConfigFromEnv, parseAudioSource, parseWebUrl } from './config.ts';
 
 describe('desktopConfigFromEnv', () => {
   it('dev: OAT_WEB_URL, else BETTER_AUTH_URL, else the default', () => {
@@ -53,7 +53,55 @@ describe('desktopConfigFromEnv', () => {
       rendererDevUrl: undefined,
       devTools: false,
       allowDevHandoff: false,
+      audio: { input: 'sidecar', fixture: null, synthetic: false, allowFixtures: false },
+      sttUrl: undefined,
     });
+  });
+
+  it('packaged: OAT_AUDIO_SOURCE / OAT_STT_URL are ignored (live capture, API-chosen STT)', () => {
+    const c = desktopConfigFromEnv(
+      { OAT_AUDIO_SOURCE: 'file:standup-short', OAT_STT_URL: 'ws://localhost:1/x' },
+      { isPackaged: true },
+    );
+    expect(c.audio).toEqual({
+      input: 'sidecar',
+      fixture: null,
+      synthetic: false,
+      allowFixtures: false,
+    });
+    expect(c.sttUrl).toBeUndefined();
+  });
+
+  it('dev: OAT_AUDIO_SOURCE picks the default input; OAT_STT_URL overrides the STT socket', () => {
+    const dev = { isPackaged: false };
+    expect(desktopConfigFromEnv({}, dev).audio).toMatchObject({
+      input: 'sidecar',
+      synthetic: false,
+    });
+    expect(
+      desktopConfigFromEnv({ OAT_AUDIO_SOURCE: 'file:standup-short', OAT_STT_URL: 'ws://x' }, dev),
+    ).toMatchObject({
+      audio: { input: 'file', fixture: 'standup-short', allowFixtures: true },
+      sttUrl: 'ws://x',
+    });
+  });
+});
+
+describe('parseAudioSource', () => {
+  it('accepts sidecar, synthetic and file:<fixture>', () => {
+    expect(parseAudioSource(undefined)).toMatchObject({ input: 'sidecar', synthetic: false });
+    expect(parseAudioSource(' sidecar ')).toMatchObject({ input: 'sidecar', synthetic: false });
+    expect(parseAudioSource('synthetic')).toMatchObject({ input: 'sidecar', synthetic: true });
+    expect(parseAudioSource('file:one-on-one')).toMatchObject({
+      input: 'file',
+      fixture: 'one-on-one',
+    });
+  });
+
+  it('refuses anything else (no paths, no traversal)', () => {
+    for (const bad of ['mic', 'file:', 'file:../etc/passwd', 'file:/tmp/a.wav', 'file:A B']) {
+      expect(() => parseAudioSource(bad), bad).toThrow(/OAT_AUDIO_SOURCE/);
+    }
   });
 
   it('DevTools: dev server or OAT_DEVTOOLS=1 when unpackaged, never when packaged', () => {

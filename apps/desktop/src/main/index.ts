@@ -8,11 +8,12 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { DESKTOP_SCHEME, findDeepLinkArg } from '@oat/auth/desktop-link';
-import type { MainStateSnapshot } from '@oat/core/bridge';
+import type { SubscribeChannel, SubscribePayload } from '@oat/core/bridge';
 import {
   app,
   BrowserWindow,
   ipcMain,
+  powerMonitor,
   protocol,
   safeStorage,
   session,
@@ -24,6 +25,8 @@ import { createApiClient } from './api-client.ts';
 import { AuthController } from './auth.ts';
 import { desktopConfigFromEnv } from './config.ts';
 import { BridgeError, createBridge, type Logger, subscribePayload } from './ipc.ts';
+import { RecordingService, RecordingServiceError } from './recording-service.ts';
+import { createRecordingSetup, InputError } from './recording-setup.ts';
 import { mimeType, resolveRendererFile } from './renderer-files.ts';
 import {
   APP_SCHEME,
@@ -35,6 +38,7 @@ import {
   trustedOrigins,
 } from './security.ts';
 import { MainStore } from './store.ts';
+import { SttCredentials } from './stt-credentials.ts';
 import { TokenStore } from './token-store.ts';
 import { createWindowFactory } from './windows.ts';
 
@@ -144,13 +148,13 @@ function harden(contents: WebContents) {
   contents.on('will-attach-webview', (event) => event.preventDefault());
 }
 
-/** Pushes a state change to every window that shows our renderer. */
-function broadcastState(snapshot: MainStateSnapshot) {
-  const payload = subscribePayload('state:changed', snapshot);
+/** Pushes to every window that shows our renderer (validated first). */
+function broadcast<C extends SubscribeChannel>(channel: C, value: SubscribePayload<C>) {
+  const payload = subscribePayload(channel, value);
   for (const win of BrowserWindow.getAllWindows()) {
     const contents = win.webContents;
     if (contents.isDestroyed() || !isTrustedFrame(contents.mainFrame, origins)) continue;
-    contents.send('state:changed', payload);
+    contents.send(channel, payload);
   }
 }
 
@@ -205,7 +209,11 @@ async function start() {
     if (!config.allowDevHandoff) throw new BridgeError('forbidden', 'Not available.');
     return { accepted: await auth.handleDeepLink(url.trim()) };
   });
-  bridge.handle('auth:sign-out', () => auth.signOut());
+  bridge.handle('auth:sign-out', async () => {
+    // Stop (and finish saving) a recording first: its transcription needs the session.
+    if (recording.busy) await recording.shutdown();
+    await auth.signOut();
+  });
   bridge.handle('api:me', () => auth.me());
   bridge.handle('window:open-widget', () => {
     if (!auth.signedIn) throw new BridgeError('unauthorized', 'Sign in first.');
@@ -214,6 +222,69 @@ async function start() {
   bridge.handle('window:close-widget', () => {
     widgetWindow?.close();
   });
+  // --- Recording + live transcript (2.5) ---
+  const credentials = new SttCredentials({ fetchGrant: () => auth.sttGrant() });
+  const setup = createRecordingSetup({
+    isPackaged: app.isPackaged,
+    audio: config.audio,
+    sttUrl: config.sttUrl,
+    repoRoot: app.isPackaged ? undefined : join(app.getAppPath(), '..', '..'),
+    resourcesPath: app.isPackaged ? process.resourcesPath : undefined,
+    env: process.env,
+    credentials,
+    log,
+  });
+  const recording = new RecordingService({
+    baseDir: app.getPath('userData'),
+    createSource: setup.createSource,
+    createStt: setup.createStt,
+    log,
+    power: powerMonitor,
+    onState: (snapshot) => broadcast('recording:state', snapshot),
+    onSegments: (batch) => broadcast('transcript:segments', batch),
+    onStatus: (status, meetingId) =>
+      store.update((s) =>
+        s.recording.status === status && s.activeMeetingId === meetingId
+          ? s
+          : { ...s, recording: { status }, activeMeetingId: meetingId },
+      ),
+  });
+  stopRecordingOnQuit(recording);
+  const recordingCall = async <T>(fn: () => T | Promise<T>): Promise<T> => {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error instanceof RecordingServiceError) {
+        throw new BridgeError(
+          error.code === 'invalid_state' ? 'invalid_state' : 'unavailable',
+          error.message,
+        );
+      }
+      if (error instanceof InputError) throw new BridgeError(error.code, error.message);
+      throw error;
+    }
+  };
+  bridge.handle('recording:options', () => ({
+    defaultInput: config.audio.input,
+    defaultFixture: config.audio.fixture,
+    fixtures: setup.fixtures(),
+  }));
+  bridge.handle('recording:start', (request) =>
+    recordingCall(() => {
+      if (!auth.signedIn) throw new BridgeError('unauthorized', 'Sign in to record.');
+      const spec = setup.resolveInput(request);
+      return recording.start({
+        ...(request.meetingId ? { meetingId: request.meetingId } : {}),
+        spec,
+      });
+    }),
+  );
+  bridge.handle('recording:pause', () => recordingCall(() => recording.pause()));
+  bridge.handle('recording:resume', () => recordingCall(() => recording.resume()));
+  bridge.handle('recording:stop', () => recordingCall(() => recording.stop()));
+  bridge.handle('recording:get', () => recording.snapshot());
+  bridge.handle('transcript:get', () => recording.transcript());
+
   bridge.on('app:rendered', ({ window }) => {
     if (window !== 'main' || coldStartMs !== null) return;
     coldStartMs = Math.round(process.uptime() * 1000);
@@ -223,7 +294,10 @@ async function start() {
     if (isSafeExternalUrl(url)) void shell.openExternal(url);
   });
 
-  store.subscribe(broadcastState);
+  store.subscribe((snapshot) => {
+    broadcast('state:changed', snapshot);
+    if (snapshot.state.auth.status === 'signed-out') credentials.clear();
+  });
   openMainWindow();
   await auth.restore();
 
@@ -236,6 +310,22 @@ async function start() {
 
   registerProtocolClient();
   app.on('activate', () => openMainWindow());
+}
+
+/**
+ * Quitting while recording (or while a stop / an ended session's files are still closing — `busy`) waits
+ * for `shutdown()`: last transcript finals, closed audio files. Only then does the app quit, so a quit
+ * never leaves a half-written recording behind. Recovery of crashed files is `recoverRecordings`.
+ */
+function stopRecordingOnQuit(recording: RecordingService) {
+  let stopping = false;
+  app.on('before-quit', (event) => {
+    if (stopping || !recording.busy) return;
+    event.preventDefault();
+    stopping = true;
+    log.info('quit: stopping the recording first');
+    void recording.shutdown().finally(() => app.quit());
+  });
 }
 
 app.on('window-all-closed', () => {
