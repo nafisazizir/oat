@@ -44,6 +44,76 @@ describe('TranscriptList', () => {
     expect(onSelect).toHaveBeenLastCalledWith(lines[1]);
   });
 
+  it('highlights the line under the playhead, distinct from the focused one', () => {
+    render(<TranscriptList segments={lines} activeId="s1" focusId="s2" onSelect={() => {}} />);
+    const rows = screen.getAllByTestId('transcript-segment');
+    expect(
+      rows.filter((r) => r.dataset.active !== undefined).map((r) => r.dataset.segmentId),
+    ).toEqual(['s1']);
+    expect(rows[0]!.getAttribute('aria-current')).toBe('time');
+    expect(rows[1]!.getAttribute('aria-current')).toBe('true');
+  });
+
+  it('stops following the playhead when the user scrolls, offers the way back, re-arms on a seek', async () => {
+    function Harness() {
+      const [active, setActive] = useState('s1');
+      const [key, setKey] = useState(0);
+      return (
+        <>
+          <button onClick={() => setActive('s2')}>advance</button>
+          <button onClick={() => setKey((k) => k + 1)}>seek</button>
+          <TranscriptList segments={lines} activeId={active} playheadKey={key} />
+        </>
+      );
+    }
+    render(<Harness />);
+    expect(screen.queryByTestId('back-to-playhead')).toBeNull();
+    fireEvent.wheel(screen.getByTestId('transcript-scroll'));
+    expect(await screen.findByTestId('back-to-playhead')).toBeTruthy();
+    await userEvent.click(screen.getByText('advance'));
+    expect(screen.getByTestId('back-to-playhead')).toBeTruthy(); // the highlight moving doesn't re-arm
+    await userEvent.click(screen.getByText('seek'));
+    await waitFor(() => expect(screen.queryByTestId('back-to-playhead')).toBeNull());
+    fireEvent.wheel(screen.getByTestId('transcript-scroll'));
+    await userEvent.click(await screen.findByTestId('back-to-playhead'));
+    expect(screen.queryByTestId('back-to-playhead')).toBeNull();
+  });
+
+  it('a just-recorded note played back: the playhead wins over the live end', async () => {
+    const many: TranscriptItem[] = Array.from({ length: 300 }, (_, i) => ({
+      id: `l${i}`,
+      source: i % 2 ? 'system' : 'mic',
+      startMs: i * 3000,
+      endMs: i * 3000 + 2500,
+      text: `line ${i}`,
+    }));
+    const { rerender } = render(
+      <TranscriptList segments={many} follow activeId="l150" playheadKey={1} />,
+    );
+    const scroller = screen.getByTestId('transcript-scroll');
+    // The reveal scroll (ours) and a new segment arriving never show "Jump to live" or pull to the end.
+    fireEvent.scroll(scroller);
+    rerender(
+      <TranscriptList
+        segments={[...many, { id: 'new', source: 'mic', startMs: 999_000, text: 'late' }]}
+        follow
+        activeId="l150"
+        playheadKey={1}
+      />,
+    );
+    fireEvent.scroll(scroller);
+    expect(screen.queryByTestId('jump-to-live')).toBeNull();
+    expect(screen.queryByTestId('back-to-playhead')).toBeNull();
+    // A press on the list's padding (no scrollbar there) is not the user scrolling.
+    fireEvent.pointerDown(scroller);
+    expect(screen.queryByTestId('back-to-playhead')).toBeNull();
+    // The user scrolls by hand: "Back to playback", still no "Jump to live".
+    fireEvent.wheel(scroller);
+    fireEvent.scroll(scroller);
+    expect(await screen.findByTestId('back-to-playhead')).toBeTruthy();
+    expect(screen.queryByTestId('jump-to-live')).toBeNull();
+  });
+
   it('has no clickable lines without onSelect', () => {
     render(<TranscriptList segments={lines} />);
     expect(screen.queryAllByRole('button')).toHaveLength(0);

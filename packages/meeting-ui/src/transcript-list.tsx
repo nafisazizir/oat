@@ -11,11 +11,14 @@
  * - `focusId`: a line to bring into view (centred) and highlight, e.g. a `?t=&seg=` deep link. Re-applied
  *   whenever it changes, and once the line exists (a transcript that loads later).
  * - `onSelect`: clicking a line (or Enter/Space on it) picks it: the jump target for playback (3.7).
+ * - `activeId`: the line under the playback head (3.7, `activeSegmentAt`): highlighted and kept in view while
+ *   the user hasn't scrolled the list themselves (wheel, touch, scrollbar, keys); then "Back to playback"
+ *   offers the way back. `playheadKey` changing (the user seeked) follows the playhead again.
  */
 import { Button } from '@oat/ui/components/button';
 import { cn } from '@oat/ui/lib/utils';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowDownIcon } from 'lucide-react';
+import { ArrowDownIcon, AudioLinesIcon } from 'lucide-react';
 import {
   type KeyboardEvent,
   useCallback,
@@ -38,6 +41,10 @@ export interface TranscriptListProps {
   follow?: boolean;
   focusId?: string | undefined;
   onSelect?: (segment: TranscriptItem) => void;
+  /** The line under the playback head: highlighted (`data-active`) and kept in view. */
+  activeId?: string | undefined;
+  /** Bumped when the user seeks: the list follows the playhead again even if they had scrolled away. */
+  playheadKey?: number;
   /** Changes when another meeting is shown (the live view starts at the bottom again). */
   resetKey?: string | null;
   className?: string;
@@ -48,6 +55,8 @@ export function TranscriptList({
   follow = false,
   focusId,
   onSelect,
+  activeId,
+  playheadKey,
   resetKey,
   className,
 }: TranscriptListProps) {
@@ -55,6 +64,9 @@ export function TranscriptList({
   const [following, setFollowing] = useState(follow);
   const followingRef = useRef(follow);
   const programmatic = useRef(false);
+  // Playback: keep the active line in view until the user scrolls the list themselves.
+  const [tracking, setTracking] = useState(true);
+  const trackingRef = useRef(true);
 
   const virtualizer = useVirtualizer({
     count: segments.length,
@@ -82,8 +94,9 @@ export function TranscriptList({
 
   // New or updated segments: stay on the live end if the user is following it.
   useLayoutEffect(() => {
-    if (follow && followingRef.current && !focusId) scrollToEnd();
-  }, [segments, scrollToEnd, follow, focusId]);
+    // Playback (an active line) owns the scroll position; the live end never pulls it away.
+    if (follow && followingRef.current && !focusId && !activeId) scrollToEnd();
+  }, [segments, scrollToEnd, follow, focusId, activeId]);
 
   // Another meeting: back to the live end.
   useEffect(() => {
@@ -152,9 +165,52 @@ export function TranscriptList({
     if (!focusId) focusedOnce.current = null;
   }, [focusId]);
 
+  // The line under the playhead: into view (centred) when it isn't fully visible, while tracking.
+  const activeIndex = activeId ? segments.findIndex((s) => s.id === activeId) : -1;
+  const revealActive = useCallback(() => {
+    const scroller = scrollRef.current;
+    if (!scroller || activeIndex < 0 || !activeId) return;
+    const el = scroller.querySelector<HTMLElement>(`[data-segment-id="${CSS.escape(activeId)}"]`);
+    if (el) {
+      const r = el.getBoundingClientRect();
+      const b = scroller.getBoundingClientRect();
+      if (r.top >= b.top + 8 && r.bottom <= b.bottom - 8) return;
+    }
+    const target = virtualizer.getOffsetForIndex(activeIndex, 'center');
+    if (!target) return;
+    // Ours, not the user's: `onScroll` must not read it as "left the live end".
+    programmatic.current = true;
+    scroller.scrollTop = target[0];
+    requestAnimationFrame(() => (programmatic.current = false));
+  }, [activeId, activeIndex, virtualizer]);
+  useEffect(() => {
+    if (trackingRef.current) revealActive();
+  }, [revealActive]);
+  useEffect(() => {
+    if (playheadKey === undefined) return;
+    trackingRef.current = true;
+    setTracking(true);
+    revealActive();
+    // Only a seek re-arms tracking; the active line moving on its own is handled above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playheadKey]);
+
+  /** The user scrolls the list (not us): stop moving it under them while audio plays. */
+  const userScrolls = () => {
+    if (!activeId || !trackingRef.current) return;
+    trackingRef.current = false;
+    setTracking(false);
+  };
+  const backToPlayhead = () => {
+    trackingRef.current = true;
+    setTracking(true);
+    revealActive();
+  };
+
   const onScroll = () => {
     const el = scrollRef.current;
-    if (!follow || !el || programmatic.current) return;
+    // While a line is playing, playback owns the scroll (live follow and playhead tracking never both run).
+    if (!follow || activeId || !el || programmatic.current) return;
     const atBottom = isNearBottom(el);
     followingRef.current = atBottom;
     setFollowing(atBottom);
@@ -173,6 +229,20 @@ export function TranscriptList({
       <div
         ref={scrollRef}
         onScroll={onScroll}
+        onWheel={userScrolls}
+        onTouchMove={userScrolls}
+        onPointerDown={(event) => {
+          // The scrollbar only: a press on the scroller itself, right of its content box (not the padding).
+          const el = event.currentTarget;
+          if (event.target !== el) return;
+          const x = event.clientX - el.getBoundingClientRect().left;
+          if (el.offsetWidth > el.clientWidth && x >= el.clientLeft + el.clientWidth) userScrolls();
+        }}
+        onKeyDown={(event) => {
+          if (['PageUp', 'PageDown', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+            userScrolls();
+          }
+        }}
         className="min-h-0 flex-1 overflow-y-auto px-4"
         data-testid="transcript-scroll"
       >
@@ -199,6 +269,7 @@ export function TranscriptList({
                     segment={segment}
                     header={startsGroup(segment, segments[item.index - 1])}
                     focused={segment.id === focusId}
+                    active={segment.id === activeId}
                     onSelect={onSelect}
                   />
                 </div>
@@ -207,7 +278,7 @@ export function TranscriptList({
           </div>
         </div>
       </div>
-      {follow && !following && segments.length > 0 && (
+      {follow && !activeId && !following && segments.length > 0 && (
         <Button
           size="sm"
           variant="secondary"
@@ -219,6 +290,18 @@ export function TranscriptList({
           Jump to live
         </Button>
       )}
+      {activeId && !tracking && (
+        <Button
+          size="sm"
+          variant="secondary"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 shadow-md"
+          onClick={backToPlayhead}
+          data-testid="back-to-playhead"
+        >
+          <AudioLinesIcon data-icon="inline-start" />
+          Back to playback
+        </Button>
+      )}
     </div>
   );
 }
@@ -227,11 +310,13 @@ function SegmentRow({
   segment,
   header,
   focused,
+  active,
   onSelect,
 }: {
   segment: TranscriptItem;
   header: boolean;
   focused: boolean;
+  active: boolean;
   onSelect: ((segment: TranscriptItem) => void) | undefined;
 }) {
   const me = segment.source === 'mic';
@@ -263,7 +348,8 @@ function SegmentRow({
       data-id={segment.id}
       data-segment-id={segment.id}
       data-focused={focused || undefined}
-      aria-current={focused ? 'true' : undefined}
+      data-active={active || undefined}
+      aria-current={focused ? 'true' : active ? 'time' : undefined}
     >
       {header && (
         <div className="mb-1 flex items-baseline gap-2 px-1 text-xs text-muted-foreground">
@@ -287,6 +373,7 @@ function SegmentRow({
           !final && 'italic opacity-60',
           onSelect &&
             'cursor-pointer outline-none hover:ring-1 hover:ring-ring/30 focus-visible:ring-2 focus-visible:ring-ring',
+          active && 'ring-2 ring-primary shadow-sm',
           focused && 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background',
         )}
       >

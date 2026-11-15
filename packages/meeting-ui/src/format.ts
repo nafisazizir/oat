@@ -180,3 +180,37 @@ export function clampWidth(value: number, min: number, max: number, fallback: nu
 export function isPlausibleEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 320;
 }
+
+/** Segments are searched back this far from the playhead (a single line is never longer). */
+const ACTIVE_LOOKBACK_MS = 5 * 60_000;
+
+/**
+ * The segment under the playhead at meeting time `ms` (playback, 3.7). `segments` are in time order (as the
+ * transcript shows them). Among the lines that contain `ms` — `[startMs, endMs)`, a line without an end lasts
+ * until the next one starts — the one that started last wins (the other side talking over me); in a short
+ * pause (≤ `holdMs` after a line ended) that line stays highlighted; otherwise nothing is.
+ */
+export function activeSegmentAt(
+  segments: readonly Pick<TranscriptItem, 'id' | 'startMs' | 'endMs'>[],
+  ms: number,
+  holdMs = 1_500,
+): string | undefined {
+  if (!Number.isFinite(ms)) return undefined;
+  // First index whose line starts after the playhead.
+  let lo = 0;
+  let hi = segments.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (segments[mid]!.startMs <= ms) lo = mid + 1;
+    else hi = mid;
+  }
+  let recent: { id: string; end: number } | undefined;
+  for (let i = lo - 1; i >= 0; i--) {
+    const s = segments[i]!;
+    if (ms - s.startMs > ACTIVE_LOOKBACK_MS) break;
+    const end = s.endMs ?? segments[i + 1]?.startMs ?? s.startMs;
+    if (ms < end) return s.id;
+    if (ms - end <= holdMs && (!recent || end > recent.end)) recent = { id: s.id, end };
+  }
+  return recent?.id;
+}

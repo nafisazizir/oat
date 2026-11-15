@@ -18,9 +18,11 @@ import {
   meetingSendChannels,
   meetingSubscribeChannels,
 } from './bridge-meetings.ts';
+import { playbackInvokeChannels } from './bridge-playback.ts';
 import { storageInvokeChannels, storageSubscribeChannels } from './bridge-storage.ts';
 
 export * from './bridge-meetings.ts';
+export * from './bridge-playback.ts';
 export * from './bridge-storage.ts';
 
 /** Bumped when a channel changes incompatibly (renderer and preload ship together, so mostly a sanity check). */
@@ -373,6 +375,8 @@ export const bridgeContract = {
     ...meetingInvokeChannels,
     /** Audio archive storage + retention (3.8), `bridge-storage.ts`. */
     ...storageInvokeChannels,
+    /** Listening back to a meeting's local audio (3.7), `bridge-playback.ts`. */
+    ...playbackInvokeChannels,
   },
   send: {
     /** The window's UI has rendered (used for the cold-start measurement). */

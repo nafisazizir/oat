@@ -3,11 +3,14 @@
  * recorded, attendees, and my notes (`OatEditor`, autosaved into the local database and synced, 2.6) — with
  * the transcript in a collapsible, resizable panel on the right (live while this note is being recorded,
  * the stored transcript otherwise). Nothing open: a start screen ("Start recording" makes a new note).
+ * A recorded note plays its local audio (3.7): the player sits on top of the transcript, a click on a line
+ * seeks there and the line under the playhead is highlighted (`audio-player.tsx`).
  */
 import type { InvokeResponse, MeetingNote, RecordingSnapshot } from '@oat/core/bridge';
 import { sameDocumentContent } from '@oat/core/sync';
 import { OatEditor } from '@oat/editor/react';
 import {
+  activeSegmentAt,
   MeetingTime,
   mergeTranscripts,
   ParticipantChips,
@@ -28,13 +31,14 @@ import {
   PanelRightOpenIcon,
   UsersIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import { BridgeCallError, call } from '../bridge.ts';
 import { IssueBanner, RecordingBar } from '../recording/recording-controls.tsx';
 import { TranscriptPanel } from '../recording/transcript-panel.tsx';
 import { useTranscript } from '../recording-state.ts';
 import { isActive } from '../recording-view.ts';
+import { PlaybackBar, playerKey, useMeetingPlayback } from './audio-player.tsx';
 import { registerFlush, useMeetingNote, useStoredTranscript } from './meetings-state.ts';
 import { type AutosaveState, NoteAutosave } from './note-autosave.ts';
 
@@ -77,12 +81,23 @@ export function MeetingView({
       : storedItems;
   }, [documentId, stored.segments, meetingId, live.meetingId, live.segments]);
 
+  // Playback (3.7): only a note with a meeting, and not while it is being recorded (the bar above says so).
+  const { audioRef, player } = useMeetingPlayback(
+    documentId && meetingId && !recordingThis ? meetingId : null,
+  );
+  const playable = player.available && !recordingThis;
+  // Re-renders only when the highlighted line changes, not on every frame of the playhead.
+  const activeId = useSyncExternalStore(player.clock.subscribe, () =>
+    playable ? activeSegmentAt(segments, player.clock.ms) : undefined,
+  );
+
   // Home (no note open) shows the recording's state; a note shows it only while it is the one recorded.
   const showsRecording = documentId === null || recordingThis;
   const followLive = recordingThis || (meetingId !== null && live.meetingId === meetingId);
 
   return (
     <section className="flex min-w-0 flex-1 flex-col" aria-label="Meeting">
+      <audio ref={audioRef} preload="metadata" hidden data-testid="playback-audio" />
       <div className="flex flex-col gap-3 border-b px-6 py-3">
         <RecordingBar
           snapshot={snapshot}
@@ -140,23 +155,41 @@ export function MeetingView({
               )
             }
             closeLabel="Hide transcript"
-            onClose={() => setPanelOpen(false)}
+            onClose={() => {
+              player.pause(); // no hidden player keeps talking
+              setPanelOpen(false);
+            }}
             storageKey="oat.desktop.transcript.width"
             defaultWidth={340}
             minWidth={260}
             maxWidth={560}
             data-testid="transcript-panel"
           >
-            <TranscriptPanel
-              segments={segments}
-              live={showsRecording || followLive}
-              snapshot={showsRecording ? snapshot : null}
-              loaded={documentId === null ? live.loaded : stored.loaded}
-              failed={documentId === null ? live.failed : stored.failed}
-              meetingKey={documentId}
-              focusId={selected}
-              onSelect={documentId ? (s) => setSelected(s.id) : undefined}
-            />
+            <div
+              className="flex min-h-0 flex-1 flex-col"
+              onKeyDown={(event) => playerKey(event, player)}
+            >
+              {documentId && meetingId && !recordingThis && <PlaybackBar player={player} />}
+              <TranscriptPanel
+                segments={segments}
+                // A just-recorded note that can be played back follows the playhead, not the live end.
+                live={showsRecording || (followLive && !playable)}
+                snapshot={showsRecording ? snapshot : null}
+                loaded={documentId === null ? live.loaded : stored.loaded}
+                failed={documentId === null ? live.failed : stored.failed}
+                meetingKey={documentId}
+                focusId={playable ? undefined : selected}
+                onSelect={
+                  playable
+                    ? (s) => player.seek(s.startMs)
+                    : documentId
+                      ? (s) => setSelected(s.id)
+                      : undefined
+                }
+                activeId={activeId}
+                playheadKey={playable ? player.seekCount : undefined}
+              />
+            </div>
           </SidePanel>
         )}
       </div>

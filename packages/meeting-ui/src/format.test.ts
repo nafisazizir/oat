@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  activeSegmentAt,
   clampWidth,
   formatClock,
   formatDuration,
@@ -120,5 +121,55 @@ describe('format', () => {
     expect(isPlausibleEmail('a@b.co')).toBe(true);
     expect(isPlausibleEmail('a@b')).toBe(false);
     expect(isPlausibleEmail('a b@c.de')).toBe(false);
+  });
+});
+
+describe('activeSegmentAt (playback highlight, 3.7)', () => {
+  const lines = [
+    { id: 'a', startMs: 0, endMs: 2000 },
+    { id: 'b', startMs: 2500, endMs: 6000 }, // me, long
+    { id: 'c', startMs: 3000, endMs: 4000 }, // them, talking over me
+    { id: 'd', startMs: 10_000, endMs: 11_000 },
+    { id: 'e', startMs: 11_000 }, // no end: lasts until the next line starts
+    { id: 'f', startMs: 15_000, endMs: 16_000 },
+  ];
+
+  it('the line containing the playhead', () => {
+    expect(activeSegmentAt(lines, 0)).toBe('a');
+    expect(activeSegmentAt(lines, 1999)).toBe('a');
+    expect(activeSegmentAt(lines, 2600)).toBe('b');
+    expect(activeSegmentAt(lines, 10_500)).toBe('d');
+  });
+
+  it('overlapping lines: the one that started last; then back to the one still going', () => {
+    expect(activeSegmentAt(lines, 3500)).toBe('c');
+    expect(activeSegmentAt(lines, 4500)).toBe('b');
+  });
+
+  it('a short pause keeps the last line, a long one clears it', () => {
+    expect(activeSegmentAt(lines, 2200)).toBe('a'); // 200 ms after a ended
+    expect(activeSegmentAt(lines, 7000)).toBe('b'); // 1 s after b ended
+    expect(activeSegmentAt(lines, 8000)).toBeUndefined();
+    expect(activeSegmentAt(lines, 8000, 3000)).toBe('b');
+  });
+
+  it('a line without an end lasts until the next starts; nothing before the first or for NaN', () => {
+    expect(activeSegmentAt(lines, 14_000)).toBe('e');
+    expect(activeSegmentAt(lines, 15_000)).toBe('f');
+    expect(activeSegmentAt([{ id: 'x', startMs: 500, endMs: 900 }], 100)).toBeUndefined();
+    expect(activeSegmentAt(lines, Number.NaN)).toBeUndefined();
+    expect(activeSegmentAt([], 100)).toBeUndefined();
+  });
+
+  it('stays fast on long transcripts', () => {
+    const many = Array.from({ length: 20_000 }, (_, i) => ({
+      id: `s${i}`,
+      startMs: i * 3000,
+      endMs: i * 3000 + 2500,
+    }));
+    const t0 = performance.now();
+    for (let k = 0; k < 2000; k++) activeSegmentAt(many, k * 29_000 + 100);
+    expect(performance.now() - t0).toBeLessThan(200);
+    expect(activeSegmentAt(many, 30_000 * 1000 + 100)).toBe('s10000');
   });
 });

@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { DESKTOP_SCHEME, findDeepLinkArg } from '@oat/auth/desktop-link';
-import type { SubscribeChannel, SubscribePayload } from '@oat/core/bridge';
+import { PLAYBACK_SCHEME, type SubscribeChannel, type SubscribePayload } from '@oat/core/bridge';
 import { InMemoryAudioRecordingStore } from '@oat/audio/node';
 import { AudioIndex, SyncTransportError } from '@oat/local-store';
 import {
@@ -24,6 +24,7 @@ import {
 } from 'electron';
 
 import { ApiError, createApiClient } from './api-client.ts';
+import { AudioPlayback, PlaybackError } from './audio-playback.ts';
 import { AudioStorage, StorageError } from './audio-storage.ts';
 import { AuthController } from './auth.ts';
 import { desktopConfigFromEnv } from './config.ts';
@@ -78,6 +79,8 @@ protocol.registerSchemesAsPrivileged([
     scheme: APP_SCHEME,
     privileges: { standard: true, secure: true, supportFetchAPI: true, codeCache: true },
   },
+  // Meeting audio for the player (3.7): `stream` lets the media element seek with range requests.
+  { scheme: PLAYBACK_SCHEME, privileges: { standard: true, secure: true, stream: true } },
 ]);
 
 // Deep links can arrive before the app is ready (macOS `open-url` during launch): queue them.
@@ -436,6 +439,31 @@ async function start() {
   );
   storage.start();
 
+  // --- Playback (3.7): the meeting's audio on the meeting clock, served to the renderer's <audio> ---
+  const playback = new AudioPlayback({
+    playable: (meetingId) => storage.playable(meetingId),
+    currentUser: () => {
+      const user = signedInUser();
+      return user && sync.store && sync.storeUser === user ? user : null;
+    },
+    log,
+  });
+  bridge.handle('playback:open', async ({ meetingId }) => {
+    try {
+      return await playback.open(meetingId);
+    } catch (error) {
+      if (error instanceof PlaybackError) throw new BridgeError(error.code, error.message);
+      if (error instanceof StorageError) throw new BridgeError(error.code, error.message);
+      throw error;
+    }
+  });
+  protocol.handle(PLAYBACK_SCHEME, (request) =>
+    playback.handle(request).catch((error: unknown) => {
+      log.error('playback: request failed', error);
+      return new Response('Playback failed', { status: 500 });
+    }),
+  );
+
   app.once('will-quit', () => {
     storage.stop();
     void sync.shutdown();
@@ -501,6 +529,7 @@ async function start() {
         const current = sync.storeUser;
         if (current !== storageUser) {
           storageUser = current;
+          playback.revokeAll(); // D-30: another account's player URLs stop working
           storage.accountChanged();
         }
       });

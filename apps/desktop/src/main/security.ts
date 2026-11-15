@@ -86,6 +86,8 @@ export function contentSecurityPolicy({ dev }: { dev: boolean }): string {
     'style-src': "'self' 'unsafe-inline'",
     'img-src': "'self' data:",
     'font-src': "'self' data:",
+    // Meeting audio from main's `oat-audio://` protocol (3.7); nothing else plays.
+    'media-src': 'oat-audio:',
     'connect-src': dev ? "'self' ws://localhost:* ws://127.0.0.1:*" : "'self'",
     'base-uri': "'none'",
     'form-action': "'none'",

@@ -20,6 +20,8 @@ export function TranscriptPanel({
   meetingKey,
   focusId,
   onSelect,
+  activeId,
+  playheadKey,
 }: {
   segments: readonly TranscriptItem[];
   /** This meeting is the one being recorded (or just was): follow the live end, show recording states. */
@@ -31,6 +33,9 @@ export function TranscriptPanel({
   meetingKey: string | null;
   focusId?: string | undefined;
   onSelect?: (segment: TranscriptItem) => void;
+  /** Playback (3.7): the line under the playhead, and a counter bumped on every seek. */
+  activeId?: string | undefined;
+  playheadKey?: number;
 }) {
   const status = live ? (snapshot?.status ?? 'idle') : 'idle';
   return (
@@ -57,6 +62,8 @@ export function TranscriptPanel({
           resetKey={meetingKey}
           focusId={focusId}
           onSelect={onSelect}
+          activeId={activeId}
+          playheadKey={playheadKey}
         />
       )}
     </section>

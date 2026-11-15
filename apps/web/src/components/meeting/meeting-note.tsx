@@ -9,6 +9,7 @@
  * - Clicking a line picks it: the URL becomes that line's deep link (shareable; the jump target for audio
  *   playback in 3.7) without a server round trip.
  * - While the meeting is still being recorded on a desktop, the panel polls for new lines every 5 s.
+ * - No player here (3.7): audio never leaves the Mac that recorded it (D-10), and the panel says so.
  */
 import {
   MeetingTime,
@@ -21,7 +22,7 @@ import {
 import { IN_PROGRESS_MAX_MS } from '@oat/meeting-ui/format';
 import { cn } from '@oat/ui';
 import { Button } from '@oat/ui/components/button';
-import { AudioLinesIcon, PanelRightOpenIcon } from 'lucide-react';
+import { AudioLinesIcon, LaptopIcon, PanelRightOpenIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import { DocumentEditor } from '@/components/document/document-editor';
@@ -275,12 +276,22 @@ function TranscriptBody({
     );
   }
   return (
-    <TranscriptList
-      segments={items}
-      focusId={focusId}
-      onSelect={onSelect}
-      follow={live && !focusId}
-      className="min-h-0"
-    />
+    <>
+      <p
+        className="flex shrink-0 items-center gap-1.5 border-b px-4 py-1.5 text-xs text-muted-foreground"
+        data-testid="audio-hint"
+        title="Recordings are kept only on the Mac that recorded the meeting. Open the note in the Oat desktop app there to listen back."
+      >
+        <LaptopIcon aria-hidden className="size-3.5 shrink-0" />
+        Audio is on the Mac that recorded this meeting
+      </p>
+      <TranscriptList
+        segments={items}
+        focusId={focusId}
+        onSelect={onSelect}
+        follow={live && !focusId}
+        className="min-h-0"
+      />
+    </>
   );
 }

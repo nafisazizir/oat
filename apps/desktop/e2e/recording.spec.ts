@@ -263,6 +263,27 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   await page.getByRole('button', { name: 'Resume' }).click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
 
+  // While it records: scrolling up stops following the live end and offers "Jump to live" (once the
+  // transcript overflows the small window).
+  const live = page.getByTestId('transcript-scroll');
+  await expect
+    .poll(() => live.evaluate((el) => el.scrollHeight - el.clientHeight), {
+      timeout: scaled(30_000),
+    })
+    .toBeGreaterThan(80);
+  await expect(page.getByTestId('recording-bar')).not.toHaveAttribute('data-status', 'idle');
+  await live.evaluate((el) => {
+    el.scrollTop = 0;
+    el.dispatchEvent(new Event('scroll'));
+  });
+  await expect(page.getByTestId('jump-to-live')).toBeVisible();
+  await evidence(page, 'scrolled-up', '2.5');
+  await page.getByTestId('jump-to-live').click();
+  await expect(page.getByTestId('jump-to-live')).toBeHidden();
+  await expect
+    .poll(() => live.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight))
+    .toBeLessThan(50);
+
   // The widget mirrors it, with a Stop button.
   const widgetOpened = electronApp.waitForEvent('window');
   await page.getByRole('button', { name: 'Show meeting widget' }).click();
@@ -304,23 +325,22 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   // No interims left on screen.
   await expect(page.locator('[data-testid=transcript-segment][data-final=false]')).toHaveCount(0);
 
-  // Scrolling up stops following the live end and offers "Jump to live".
+  // Archive: one Opus file per voice; stop returns their (complete) rows.
+  const stopped = await page.evaluate(() => window.oat.invoke('recording:stop'));
+  expect(stopped.ok).toBe(true);
+
+  // Files closed, finished and playable on this Mac (3.7): the playhead owns the scroll now — scrolling up never offers
+  // "Jump to live" for a recording that is over.
   const scroller = page.getByTestId('transcript-scroll');
+  await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'paused', {
+    timeout: scaled(15_000),
+  });
   await scroller.evaluate((el) => {
     el.scrollTop = 0;
     el.dispatchEvent(new Event('scroll'));
   });
-  await expect(page.getByTestId('jump-to-live')).toBeVisible();
-  await evidence(page, 'scrolled-up', '2.5');
-  await page.getByTestId('jump-to-live').click();
-  await expect(page.getByTestId('jump-to-live')).toBeHidden();
-  await expect
-    .poll(() => scroller.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight))
-    .toBeLessThan(50);
+  await expect(page.getByTestId('jump-to-live')).toHaveCount(0);
 
-  // Archive: one Opus file per voice; stop returns their (complete) rows.
-  const stopped = await page.evaluate(() => window.oat.invoke('recording:stop'));
-  expect(stopped.ok).toBe(true);
   const audio = stopped.ok ? stopped.value.audio : [];
   expect(audio.map((a) => [a.source, a.status])).toEqual([
     ['mic', 'complete'],

@@ -1,0 +1,67 @@
+{
+  "parts": [
+    {
+      "part": 1,
+      "startMs": 0,
+      "endMs": 8920,
+      "sources": [
+        "mic",
+        "system"
+      ],
+      "partial": false
+    },
+    {
+      "part": 2,
+      "startMs": 8920,
+      "endMs": 17820,
+      "sources": [
+        "mic",
+        "system"
+      ],
+      "partial": false
+    }
+  ],
+  "durationMs": 17820,
+  "seeks": [
+    {
+      "part": 2,
+      "startMs": 9420,
+      "at": 9420,
+      "errorMs": 0
+    },
+    {
+      "part": 1,
+      "startMs": 3380,
+      "at": 3380,
+      "errorMs": 0
+    }
+  ],
+  "mainCpuWhilePlaying2x": {
+    "userMs": 105,
+    "systemMs": 17,
+    "wallMs": 3512,
+    "percentOfOneCore": 3.5
+  },
+  "appMetrics": [
+    {
+      "type": "Browser",
+      "cpu": 0.25076870504775733
+    },
+    {
+      "type": "GPU",
+      "cpu": 0.5614162648942785
+    },
+    {
+      "type": "Utility",
+      "cpu": 0
+    },
+    {
+      "type": "Tab",
+      "cpu": 0.9379909739655136
+    },
+    {
+      "type": "Utility",
+      "cpu": 0.030212523066419864
+    }
+  ]
+}

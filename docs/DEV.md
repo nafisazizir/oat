@@ -400,6 +400,12 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   like the audio index); the sweeper runs on launch, after each recording and every 6 h, and never deletes the
   active recording or audio from the last hour. `storage:audio-status` gives the meeting view's "Audio
   deleted" / "Audio on another device" hint. Details: `docs/tasks/3.8-storage-settings.md`.
+- **Playback (3.7).** A recorded note's transcript panel has a player (play/pause, Me / Them / Both, 1–2×,
+  scrubber over the meeting's recording sessions; Space, ←/→). `playback:open` mints an `oat-audio://<token>/`
+  URL; main serves `<mic|system|mix>.wav` — the signed-in account's Opus parts decoded on the fly onto the
+  meeting clock, with range requests — so `currentTime` is the transcript's time: clicking a line seeks there
+  and the line under the playhead is highlighted. Deleted / other-device / no-audio states come from 3.8's
+  status. Details: `docs/tasks/3.7-playback.md`.
 - **Packaging (9.1).** `src/build/fuses.ts` (`OAT_FUSES`, `applyFuses`) holds the fuse settings to flip on
   the packaged binary: no run-as-node, no `NODE_OPTIONS`/`--inspect`, asar-only + integrity, cookie
   encryption.
@@ -408,7 +414,7 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   the app with a temp profile against `next dev` on a throwaway database (apps/web's `e2e/web-server.ts`,
   `E2E_PORT`, default 3100). `shell.openExternal` is stubbed and deep links are delivered by emitting
   `open-url`, so no browser opens and nothing is registered with the OS. The web half of sign-in runs in
-  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/`, `2.5/`, `2.6/`, `3.5/` and `3.8/` (screenshots, `cold-start.json`, `latency.json`, `sync.json`, `storage.json`). Other
+  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/`, `2.5/`, `2.6/`, `3.5/`, `3.7/` and `3.8/` (screenshots, `cold-start.json`, `latency.json`, `sync.json`, `playback.json`, `storage.json`). Other
   platforms skip it.
 
 ## Database (`@oat/db`)

@@ -74,6 +74,8 @@ describe('CSP', () => {
     expect(csp).toContain("connect-src 'self';");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("object-src 'none'");
+    // Media only from main's meeting-audio protocol (3.7).
+    expect(csp).toContain('media-src oat-audio:;');
   });
 
   it('dev: allows the Vite preamble and HMR socket only', () => {

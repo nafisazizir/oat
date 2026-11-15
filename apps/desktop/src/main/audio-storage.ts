@@ -166,6 +166,12 @@ type Settings = z.infer<typeof settingsSchema>;
 
 const DEFAULT_ACCOUNT: AccountSettings = { policy: DEFAULT_RETENTION_POLICY, lastSweep: null };
 
+/** `AudioStorage.playable`: availability + this account's validated rows with a file (3.7). */
+export interface PlayableAudio {
+  availability: AudioAvailability;
+  recordings: AudioRecording[];
+}
+
 export class AudioStorage {
   readonly #o: AudioStorageOptions;
   readonly #root: string;
@@ -343,6 +349,29 @@ export class AudioStorage {
     // Recorded, but no row of this account here (only failed rows count as "none").
     if (!meeting && this.#info(meetingId)?.recorded) return { ...base, status: 'other-device' };
     return { ...base, status: 'none' };
+  }
+
+  /**
+   * The signed-in account's audio of one meeting for playback (3.7): its availability and, when `available`,
+   * the rows whose file is an archive file directly inside the meeting's real folder (no symlinked folder;
+   * the reader opens each file with `O_NOFOLLOW`). Paths are the resolved, validated ones. Other accounts'
+   * rows are never returned (D-30).
+   */
+  async playable(meetingId: string): Promise<PlayableAudio> {
+    const availability = await this.audioStatus(meetingId);
+    if (availability.status !== 'available') return { availability, recordings: [] };
+    const folder = meetingFolder(this.#root, meetingId)!;
+    const meeting = (await this.#scan(meetingId)).mine.get(meetingId);
+    if (!meeting || !(await this.#isRealFolder(folder))) {
+      this.#o.log.warn(`storage: ${meetingId}: audio folder is not inside the audio root`);
+      return { availability, recordings: [] };
+    }
+    const recordings: AudioRecording[] = [];
+    for (const row of meeting.live) {
+      const path = archiveFilePath(this.#root, meetingId, row.path);
+      if (path && meeting.files.get(row.id)?.exists) recordings.push({ ...row, path });
+    }
+    return { availability, recordings };
   }
 
   /**

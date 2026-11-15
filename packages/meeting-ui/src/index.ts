@@ -3,6 +3,7 @@
  * `@oat/meeting-ui/styles.css` after `@oat/ui/styles.css` in the app's Tailwind entry.
  */
 export {
+  activeSegmentAt,
   clampWidth,
   compareTranscriptItems,
   formatClock,
