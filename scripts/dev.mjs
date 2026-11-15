@@ -4,7 +4,7 @@
 // Plain Node (no shell-isms) so it behaves the same on macOS and Linux. Extra args are passed to compose,
 // e.g. `pnpm dev:logs mocks` or `pnpm dev:up postgres`.
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -59,9 +59,28 @@ function compose(args) {
 const starts = command === 'up' || command === 'build' || command === 'app';
 if (starts) {
   const env = join(root, '.env');
+  const example = join(root, '.env.example');
   if (!existsSync(env)) {
-    copyFileSync(join(root, '.env.example'), env);
+    copyFileSync(example, env);
     console.log('dev: created .env from .env.example');
+  } else {
+    // Keys added to .env.example after .env was created would otherwise be missing (and the app's env
+    // validation fails). Append them with their example values; never touch keys already in .env.
+    const keysIn = (text) =>
+      new Set(
+        [...text.matchAll(/^\s*([A-Z0-9_]+)\s*=/gm)].map((m) => /** @type {string} */ (m[1])),
+      );
+    const current = keysIn(readFileSync(env, 'utf8'));
+    const missing = readFileSync(example, 'utf8')
+      .split('\n')
+      .filter((line) => {
+        const key = /^\s*([A-Z0-9_]+)\s*=/.exec(line)?.[1];
+        return key !== undefined && !current.has(key);
+      });
+    if (missing.length > 0) {
+      appendFileSync(env, `\n# Added by dev:up from .env.example\n${missing.join('\n')}\n`);
+      console.log(`dev: added ${missing.length} new key(s) from .env.example to .env`);
+    }
   }
 }
 
