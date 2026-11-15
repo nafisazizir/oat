@@ -183,4 +183,6 @@ off, replaceable via "reset link". Documents in private folders can't be link-sh
 only; the transcript is shown only when `document.share_transcript` is on (default off). The public page is
 server-rendered from TipTap JSON through schema validation + an allowlist sanitiser (ids stripped), with nonce
 CSP, no-referrer, noindex, per-IP rate limiting and no cookies. Every API route must have a deny-case test
-(`denies('<METHOD> <route>')` marker) or an explicit public-route entry — enforced in CI.
+(`denies('<METHOD> <route>')` marker) or an explicit public-route entry — enforced in CI. Sharing changes
+(visibility, token, share_transcript) do not bump the document content `version` (D-19 conflict detection is
+about content), so toggling sharing never creates a conflicted copy.
