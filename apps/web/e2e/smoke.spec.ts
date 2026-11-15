@@ -1,3 +1,4 @@
+import { apiCreateDocument, apiCreateFolder, unique } from './docs-helpers';
 import { expect, sidebarSelector, test } from './fixtures';
 
 test.describe('app shell', () => {
@@ -8,9 +9,7 @@ test.describe('app shell', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible();
     await expect(page.getByText('No meeting notes yet')).toBeVisible();
     await expect(page.getByTestId('workspace-switcher')).toContainText('Personal');
-    await expect(
-      page.getByTestId('page-tree').getByRole('link', { name: 'Reading list' }),
-    ).toBeVisible();
+    await expect(page.getByTestId('page-tree')).toBeVisible();
     const crumbs = page.getByRole('navigation', { name: 'Breadcrumb' });
     await expect(crumbs).toContainText('Personal');
     await expect(crumbs.locator('[aria-current="page"]')).toHaveText('Home');
@@ -34,7 +33,7 @@ test.describe('app shell', () => {
     await page.getByTestId('sidebar-trigger').click();
     await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
     // Collapsed to icons: labels hidden, icon buttons still there.
-    await expect(page.getByTestId('page-tree').getByText('Getting started')).toBeHidden();
+    await expect(page.getByTestId('open-trash').getByText('Trash')).toBeHidden();
 
     await page.reload();
     await expect(page.locator(sidebarSelector)).toHaveAttribute('data-state', 'collapsed');
@@ -46,23 +45,27 @@ test.describe('app shell', () => {
 
   test('page tree navigates and shows breadcrumbs', async ({ page }) => {
     await page.goto('/home');
-    await page.getByTestId('page-tree').getByRole('link', { name: 'Reading list' }).click();
-    await expect(page).toHaveURL(/\/d\/reading-list$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Reading list' })).toBeVisible();
+    const ideas = unique('Ideas');
+    const reading = unique('Reading list');
+    const folder = await apiCreateFolder(page, { name: ideas });
+    const doc = await apiCreateDocument(page, { title: reading, folderId: folder.id });
+    await page.reload();
+    await page.getByTestId('page-tree').getByRole('link', { name: reading }).click();
+    await expect(page).toHaveURL(new RegExp(`/d/${doc.id}$`));
+    await expect(page.getByTestId('document-title')).toHaveValue(reading);
     const crumbs = page.getByRole('navigation', { name: 'Breadcrumb' });
     // Separators are aria-hidden, so only the four crumbs are list items.
-    await expect(crumbs.getByRole('listitem')).toHaveText([
-      'Personal',
-      'Private',
-      'Ideas',
-      'Reading list',
-    ]);
-    await crumbs.getByRole('link', { name: 'Ideas' }).click();
-    await expect(page).toHaveURL(/\/d\/ideas$/);
+    await expect(crumbs.getByRole('listitem')).toHaveText(['Personal', 'Private', ideas, reading]);
+    await crumbs.getByRole('link', { name: ideas }).click();
+    await expect(page).toHaveURL(new RegExp(`/d/${folder.id}$`));
+    await expect(page.getByRole('heading', { level: 1, name: ideas })).toBeVisible();
   });
 
   test('⌘K opens the command palette and navigates', async ({ page }) => {
     await page.goto('/home');
+    const target = unique('Side projects');
+    const doc = await apiCreateDocument(page, { title: target });
+    await page.reload();
     await page.keyboard.press('ControlOrMeta+k');
     const palette = page.getByRole('dialog', { name: 'Command palette' });
     await expect(palette).toBeVisible();
@@ -79,9 +82,9 @@ test.describe('app shell', () => {
       .first()
       .click();
     await expect(palette).toBeVisible();
-    await page.keyboard.type('side projects');
+    await page.keyboard.type(target);
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/d\/side-projects$/);
+    await expect(page).toHaveURL(new RegExp(`/d/${doc.id}$`));
 
     // ⌘K toggles: a second press closes it.
     await page.keyboard.press('ControlOrMeta+k');

@@ -14,52 +14,39 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupAction,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarRail,
 } from '@oat/ui/components/sidebar';
 import {
   CheckIcon,
-  ChevronRightIcon,
   ChevronsUpDownIcon,
-  FileTextIcon,
-  FolderIcon,
-  FolderOpenIcon,
   HomeIcon,
   LayoutTemplateIcon,
   PlusIcon,
   SearchIcon,
   SettingsIcon,
   SquarePenIcon,
-  UsersIcon,
+  Trash2Icon,
 } from 'lucide-react';
-import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
 import { sections } from '@/lib/navigation';
-import { childrenOf, type DocumentNode, type Workspace } from '@/lib/tree';
+import { rootsOf, type Workspace } from '@/lib/tree';
 import { switchWorkspace } from '@/server/actions/workspaces';
 
 import { useCommandMenu } from './command-menu';
 import { CreateWorkspaceDialog } from './create-workspace-dialog';
+import { TreeSection } from './page-tree';
 import { useShellData } from './shell-data';
+import { useTreeActions } from './tree-actions';
 import { useNewNote } from './use-new-note';
 import { UserMenu } from './user-menu';
-
-const docHref = (doc: DocumentNode) => `/d/${doc.id}` as Route;
 
 function WorkspaceTile({ workspace, className }: { workspace: Workspace; className?: string }) {
   return (
@@ -152,53 +139,6 @@ function WorkspaceSwitcher() {
   );
 }
 
-/** One row of the page tree. Folders expand in place; nesting goes one level deep for now. */
-function TreeItem({ doc, pathname }: { doc: DocumentNode; pathname: string }) {
-  const { documents } = useShellData();
-  const children = childrenOf(documents, doc.id, doc.visibility);
-  const childActive = children.some((child) => pathname === `/d/${child.id}`);
-  const [expanded, setExpanded] = useState(true);
-  const open = expanded || childActive;
-  const FolderGlyph = open ? FolderOpenIcon : FolderIcon;
-
-  return (
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={pathname === `/d/${doc.id}`} tooltip={doc.title}>
-        <Link href={docHref(doc)}>
-          {doc.kind === 'folder' ? <FolderGlyph /> : <FileTextIcon />}
-          <span>{doc.title}</span>
-        </Link>
-      </SidebarMenuButton>
-      {children.length > 0 && (
-        <>
-          <SidebarMenuAction
-            aria-label={open ? `Collapse ${doc.title}` : `Expand ${doc.title}`}
-            aria-expanded={open}
-            onClick={() => setExpanded(!open)}
-          >
-            <ChevronRightIcon
-              className={cn('transition-transform duration-fast', open && 'rotate-90')}
-            />
-          </SidebarMenuAction>
-          {open && (
-            <SidebarMenuSub>
-              {children.map((child) => (
-                <SidebarMenuSubItem key={child.id}>
-                  <SidebarMenuSubButton asChild isActive={pathname === `/d/${child.id}`}>
-                    <Link href={docHref(child)}>
-                      <span>{child.title}</span>
-                    </Link>
-                  </SidebarMenuSubButton>
-                </SidebarMenuSubItem>
-              ))}
-            </SidebarMenuSub>
-          )}
-        </>
-      )}
-    </SidebarMenuItem>
-  );
-}
-
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
     <kbd className="ml-auto rounded-sm border bg-background px-1.5 font-sans text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
@@ -211,12 +151,13 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { setOpen: openCommandMenu } = useCommandMenu();
   const newNote = useNewNote();
-  const { documents } = useShellData();
-  const shared = childrenOf(documents, null, 'workspace');
-  const privateRoots = childrenOf(documents, null, 'private');
+  const { documents, workspace, trash } = useShellData();
+  const { openTrash } = useTreeActions();
+  // A personal workspace has nobody to share with: show "Shared" only if something is in it.
+  const showShared = workspace.kind === 'team' || rootsOf(documents, 'shared').length > 0;
 
   return (
-    <Sidebar collapsible="icon" data-testid="app-sidebar">
+    <Sidebar collapsible="icon" data-testid="app-sidebar" data-workspace-id={workspace.id}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -257,46 +198,23 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Shared</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {shared.map((doc) => (
-                <SidebarMenuItem key={doc.id}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === `/d/${doc.id}`}
-                    tooltip={doc.title}
-                  >
-                    <Link href={docHref(doc)}>
-                      <UsersIcon />
-                      <span>{doc.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Private</SidebarGroupLabel>
-          <SidebarGroupAction title="New page" onClick={newNote}>
-            <PlusIcon />
-            <span className="sr-only">New page</span>
-          </SidebarGroupAction>
-          <SidebarGroupContent>
-            <SidebarMenu data-testid="page-tree">
-              {privateRoots.map((doc) => (
-                <TreeItem key={doc.id} doc={doc} pathname={pathname} />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {showShared && <TreeSection area="shared" label="Shared" />}
+        <TreeSection area="private" label="Private" />
       </SidebarContent>
 
       <SidebarFooter>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="Trash" onClick={openTrash} data-testid="open-trash">
+              <Trash2Icon />
+              <span>Trash</span>
+              {trash.length > 0 && (
+                <span className="ml-auto text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+                  {trash.length}
+                </span>
+              )}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           {[
             { ...sections.templates, Icon: LayoutTemplateIcon },
             { ...sections.settings, Icon: SettingsIcon },

@@ -4,3 +4,4 @@
  * Keep app-level CSS to layout glue only; colours, type and spacing come from tokens.
  */
 @import '@oat/ui/styles.css';
+@import '@oat/editor/styles.css';

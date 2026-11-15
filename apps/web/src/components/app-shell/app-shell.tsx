@@ -8,6 +8,7 @@ import { AppSidebar } from './app-sidebar';
 import { CommandMenu, CommandMenuProvider } from './command-menu';
 import { ShellDataProvider } from './shell-data';
 import { TopBar } from './top-bar';
+import { TreeActionsProvider } from './tree-actions';
 
 /**
  * The signed-in app frame: collapsible sidebar + top bar + content, and the ⌘K palette.
@@ -28,14 +29,16 @@ export function AppShell({
   return (
     <ShellDataProvider value={data}>
       <SidebarProvider defaultOpen={defaultOpen}>
-        <CommandMenuProvider>
-          <AppSidebar />
-          <SidebarInset>
-            <TopBar />
-            <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-          </SidebarInset>
-          <CommandMenu />
-        </CommandMenuProvider>
+        <TreeActionsProvider>
+          <CommandMenuProvider>
+            <AppSidebar />
+            <SidebarInset>
+              <TopBar />
+              <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+            </SidebarInset>
+            <CommandMenu />
+          </CommandMenuProvider>
+        </TreeActionsProvider>
       </SidebarProvider>
     </ShellDataProvider>
   );

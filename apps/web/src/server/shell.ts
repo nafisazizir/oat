@@ -6,88 +6,51 @@ import {
   pickActiveWorkspace,
   type UserWorkspace,
 } from '@oat/auth';
+import { createPermissionContext } from '@oat/core';
 import { cache } from 'react';
 
+import type { DocumentDetail, DocumentSummary, FolderSummary } from '@/lib/api-types';
 import {
   childrenOf,
   displayName,
-  findDocument,
+  documentNode,
   type DocumentNode,
+  folderNode,
   type ShellData,
   type ShellUser,
   type Workspace,
 } from '@/lib/tree';
 
+import type { Actor } from './actor';
+import { ApiError } from './api/errors';
 import { getDb } from './db';
+import { getDocument, listDocuments, listRecentDocuments } from './documents';
+import { listFolders, readableFolder, toFolderSummary } from './folders';
 import { requireSession } from './session';
 
 /*
  * Server-side data for the app shell and pages. Client components never import this:
  * `(app)/layout.tsx` calls `getShellData()` and passes the result down through `AppShell` →
- * `ShellDataProvider`.
- *
- * - User and workspaces are real (1.6): the session's user and their memberships from the database.
- * - Documents are still an in-memory mock (the only place mock data lives). 3.3 replaces the document
- *   getters below with DB queries scoped to the active workspace (same names and shapes; 1.7
- *   permission filtering goes in there too).
+ * `ShellDataProvider`. Everything is read through the same permission-checked data layer as the API
+ * (`./documents`, `./folders`), scoped to the session's active workspace.
  */
-
-const documents: readonly DocumentNode[] = [
-  {
-    id: 'getting-started',
-    title: 'Getting started',
-    kind: 'page',
-    visibility: 'private',
-    parentId: null,
-    updatedAt: '2026-11-12T09:30:00.000Z',
-  },
-  {
-    id: 'ideas',
-    title: 'Ideas',
-    kind: 'folder',
-    visibility: 'private',
-    parentId: null,
-    updatedAt: '2026-11-10T16:00:00.000Z',
-  },
-  {
-    id: 'reading-list',
-    title: 'Reading list',
-    kind: 'page',
-    visibility: 'private',
-    parentId: 'ideas',
-    updatedAt: '2026-11-09T11:15:00.000Z',
-  },
-  {
-    id: 'side-projects',
-    title: 'Side projects',
-    kind: 'page',
-    visibility: 'private',
-    parentId: 'ideas',
-    updatedAt: '2026-11-08T20:45:00.000Z',
-  },
-  {
-    id: 'team-handbook',
-    title: 'Team handbook',
-    kind: 'page',
-    visibility: 'workspace',
-    parentId: null,
-    updatedAt: '2026-11-11T14:05:00.000Z',
-  },
-];
 
 const toWorkspace = (w: UserWorkspace): Workspace => ({
   id: w.id,
   name: w.name,
   kind: w.kind,
   members: w.memberCount,
+  role: w.role,
 });
 
-/** Pure part of the loader: session user + memberships → shell data. */
+/** Pure part of the loader: session user + memberships + tree → shell data. */
 export function buildShellData(input: {
   user: { id: string; name?: string | null; email: string; image?: string | null };
   workspaces: readonly UserWorkspace[];
   activeWorkspaceId: string | null | undefined;
-  documents: readonly DocumentNode[];
+  folders?: readonly FolderSummary[];
+  documents?: readonly DocumentSummary[];
+  trash?: readonly DocumentSummary[];
 }): ShellData {
   const active = pickActiveWorkspace(input.workspaces, input.activeWorkspaceId);
   if (!active) throw new Error('signed-in user has no workspace');
@@ -101,15 +64,19 @@ export function buildShellData(input: {
     user,
     workspace: toWorkspace(active),
     workspaces: input.workspaces.map(toWorkspace),
-    documents: input.documents,
+    documents: [
+      ...(input.folders ?? []).map(folderNode),
+      ...(input.documents ?? []).map(documentNode),
+    ],
+    trash: (input.trash ?? []).map(documentNode),
   };
 }
 
 /**
- * User, workspaces (the active one resolved from the session) and document tree for the signed-in
- * frame. Redirects to `/sign-in` without a session. Deduped per request (layout + pages).
+ * The signed-in user, their workspaces (the active one resolved from the session) and their
+ * permission context. Redirects to `/sign-in` without a session. Deduped per request.
  */
-export const getShellData = cache(async (): Promise<ShellData> => {
+const getContext = cache(async () => {
   const { user, session } = await requireSession();
   const db = getDb();
   let workspaces = await listUserWorkspaces(db, user.id);
@@ -118,34 +85,85 @@ export const getShellData = cache(async (): Promise<ShellData> => {
     await ensurePersonalWorkspace(db, user.id);
     workspaces = await listUserWorkspaces(db, user.id);
   }
+  // The workspace list already carries the user's roles: no second membership query.
+  const actor: Actor = {
+    userId: user.id,
+    ctx: createPermissionContext({
+      userId: user.id,
+      memberships: workspaces.map((w) => ({ workspaceId: w.id, userId: user.id, role: w.role })),
+    }),
+  };
+  const active = pickActiveWorkspace(workspaces, session.activeOrganizationId);
+  if (!active) throw new Error('signed-in user has no workspace');
+  return { db, user, session, workspaces, actor, active };
+});
+
+/** User, workspaces and the active workspace's tree + trash for the signed-in frame. */
+export const getShellData = cache(async (): Promise<ShellData> => {
+  const { db, user, workspaces, actor, active } = await getContext();
+  const [folders, documents, trash] = await Promise.all([
+    listFolders(db, actor, active.id),
+    listDocuments(db, actor, active.id),
+    listDocuments(db, actor, active.id, { trash: true }),
+  ]);
   return buildShellData({
     user,
     workspaces,
-    activeWorkspaceId: session.activeOrganizationId,
+    activeWorkspaceId: active.id,
+    folders,
     documents,
+    trash,
   });
 });
 
-export async function getDocument(id: string): Promise<DocumentNode | undefined> {
-  return findDocument(documents, id);
+export type DocumentPageData =
+  | { type: 'document'; document: DocumentDetail }
+  | { type: 'folder'; folder: FolderSummary; children: DocumentNode[] };
+
+const isNotFound = (error: unknown) => error instanceof ApiError && error.status === 404;
+
+/**
+ * What `/d/[id]` shows: a document (incl. a trashed one the user may still read) or a folder, or
+ * `undefined` when it doesn't exist *or* the user can't read it (the page 404s either way).
+ */
+export const loadDocumentPage = cache(async (id: string): Promise<DocumentPageData | undefined> => {
+  const { db, actor, active } = await getContext();
+  try {
+    return { type: 'document', document: await getDocument(db, actor, id) };
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+  }
+  try {
+    const folder = await readableFolder(db, actor, id);
+    // The active workspace's tree is already loaded; a folder from another workspace loads its own.
+    const documents =
+      folder.workspaceId === active.id
+        ? (await getShellData()).documents
+        : await Promise.all([
+            listFolders(db, actor, folder.workspaceId),
+            listDocuments(db, actor, folder.workspaceId),
+          ]).then(([folders, docs]) => [...folders.map(folderNode), ...docs.map(documentNode)]);
+    return {
+      type: 'folder',
+      folder: toFolderSummary(actor, folder),
+      children: childrenOf(documents, folder.id),
+    };
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+  }
+  return undefined;
+});
+
+/** Meeting notes for Home's "Recent notes", newest edit first. */
+export async function listRecentMeetings(limit: number): Promise<DocumentNode[]> {
+  const { db, actor, active } = await getContext();
+  const docs = await listRecentDocuments(db, actor, active.id, { kind: 'meeting', limit });
+  return docs.map(documentNode);
 }
 
-export async function listChildren(doc: DocumentNode): Promise<DocumentNode[]> {
-  return childrenOf(documents, doc.id, doc.visibility);
-}
-
-/** Meeting notes for Home's "Recent notes". Empty until capture (M2) and notes (M3) exist. */
-export async function listRecentMeetings(): Promise<DocumentNode[]> {
-  return documents.filter((doc) => doc.kind === 'meeting');
-}
-
-/** Most recently edited non-meeting documents for Home's "Jump back in". */
+/** Most recently edited pages for Home's "Jump back in". */
 export async function listRecentPages(limit: number): Promise<DocumentNode[]> {
-  return documents
-    .filter((doc) => doc.kind !== 'meeting')
-    .toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .slice(0, limit);
+  const { db, actor, active } = await getContext();
+  const docs = await listRecentDocuments(db, actor, active.id, { kind: 'page', limit });
+  return docs.map(documentNode);
 }
-
-/** The mock document tree (tests and 3.3's migration reference). */
-export const mockDocuments = documents;

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
 
 import { SIGNED_OUT } from './auth-helpers';
+import { apiCreateDocument } from './docs-helpers';
 import { expect, test } from './fixtures';
 
 /**
@@ -41,8 +42,9 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(page.getByText('No meeting notes yet')).toBeVisible();
       await shoot(page, `home-${theme}`);
 
-      await page.goto('/d/reading-list');
-      await expect(page.getByRole('heading', { level: 1, name: 'Reading list' })).toBeVisible();
+      const doc = await apiCreateDocument(page, { title: 'Reading list' });
+      await page.goto(`/d/${doc.id}`);
+      await expect(page.getByTestId('document-title')).toHaveValue('Reading list');
       await shoot(page, `document-${theme}`);
 
       await page.goto('/settings');

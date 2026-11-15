@@ -1,12 +1,22 @@
 import { Badge } from '@oat/ui/components/badge';
-import { FileTextIcon, FolderIcon, LockIcon, PenLineIcon, UsersIcon } from 'lucide-react';
+import {
+  FileTextIcon,
+  FolderIcon,
+  FolderOpenIcon,
+  LockIcon,
+  NotebookPenIcon,
+  UsersIcon,
+} from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { FolderActions } from '@/components/document/folder-actions';
+import { DocumentEditor } from '@/components/document/document-editor';
 import { EmptyState, PageContainer, PageHeader } from '@/components/page';
 import { formatDay } from '@/lib/format';
-import { getDocument, getShellData, listChildren } from '@/server/shell';
+import { titleOf } from '@/lib/tree';
+import { getShellData, loadDocumentPage } from '@/server/shell';
 
 type Props = { params: Promise<{ docId: string }> };
 
@@ -15,63 +25,95 @@ const ERROR_PROBE_ID = '__error';
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { docId } = await params;
-  return { title: (await getDocument(docId))?.title ?? 'Not found' };
+  const data = await loadDocumentPage(docId);
+  if (!data) return { title: 'Not found' };
+  return {
+    title:
+      data.type === 'folder'
+        ? titleOf({ title: data.folder.name, kind: 'folder' })
+        : titleOf(data.document),
+  };
 }
 
+/**
+ * `/d/[id]`: a document (title + editor) or a folder (its contents). Anything the user can't read is a
+ * plain 404, whether it exists or not (no existence leak for other people's private pages).
+ */
 export default async function DocumentPage({ params }: Props) {
   const { docId } = await params;
   if (docId === ERROR_PROBE_ID && process.env.NODE_ENV !== 'production') {
     throw new Error('Error-boundary probe: this page always fails in development.');
   }
-  const [doc, { workspace: currentWorkspace }] = await Promise.all([
-    getDocument(docId),
-    getShellData(),
-  ]);
-  if (!doc) notFound();
+  const [data, shell] = await Promise.all([loadDocumentPage(docId), getShellData()]);
+  if (!data) notFound();
+  // The item's own workspace (it can be opened from a link while another one is active).
+  const itemWorkspaceId =
+    data.type === 'document' ? data.document.workspaceId : data.folder.workspaceId;
+  const workspace = shell.workspaces.find((w) => w.id === itemWorkspaceId) ?? shell.workspace;
 
-  const isPrivate = doc.visibility === 'private';
-  const children = doc.kind === 'folder' ? await listChildren(doc) : [];
+  if (data.type === 'document') {
+    return (
+      <DocumentEditor
+        key={data.document.id}
+        document={data.document}
+        workspaceName={workspace.name}
+      />
+    );
+  }
 
+  const { folder, children } = data;
+  const isPrivate = folder.visibility === 'private';
   return (
     <PageContainer>
       <PageHeader
-        title={doc.title}
+        title={titleOf({ title: folder.name, kind: 'folder' })}
         eyebrow={
           <>
             <Badge variant="secondary" className="gap-1">
               {isPrivate ? <LockIcon /> : <UsersIcon />}
-              {isPrivate ? 'Private' : `Shared with ${currentWorkspace.name}`}
+              {isPrivate ? 'Private folder' : `Shared with ${workspace.name}`}
             </Badge>
-            <span>Edited {formatDay(doc.updatedAt)}</span>
+            <span>Edited {formatDay(folder.updatedAt)}</span>
           </>
         }
-      />
+      >
+        {folder.access.edit && <FolderActions folderId={folder.id} />}
+      </PageHeader>
 
-      {doc.kind === 'folder' ? (
-        <ul className="flex flex-col gap-1">
-          {children.map((child) => (
-            <li key={child.id}>
-              <Link
-                href={`/d/${child.id}`}
-                className="-mx-3 flex items-center gap-3 rounded-lg px-3 py-2 text-base transition-colors duration-fast hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-              >
-                {child.kind === 'folder' ? (
-                  <FolderIcon className="size-4 text-muted-foreground" />
-                ) : (
-                  <FileTextIcon className="size-4 text-muted-foreground" />
-                )}
-                <span className="flex-1 truncate">{child.title}</span>
-                <span className="text-xs text-muted-foreground">{formatDay(child.updatedAt)}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : (
+      {children.length === 0 ? (
         <EmptyState
-          icon={PenLineIcon}
-          title="The editor is on its way"
-          description="This page will open in Oat's block editor, with headings, checklists, mentions and your meeting notes side by side."
+          icon={FolderOpenIcon}
+          title="This folder is empty"
+          description="Add a page here, or drag pages onto the folder in the sidebar."
         />
+      ) : (
+        <ul className="flex flex-col gap-1" data-testid="folder-contents">
+          {children.map((child) => {
+            const Icon =
+              child.kind === 'folder'
+                ? FolderIcon
+                : child.kind === 'meeting'
+                  ? NotebookPenIcon
+                  : FileTextIcon;
+            return (
+              <li key={child.id}>
+                <Link
+                  href={`/d/${child.id}`}
+                  className="-mx-3 flex items-center gap-3 rounded-lg px-3 py-2 text-base transition-colors duration-fast hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                >
+                  <Icon className="size-4 text-muted-foreground" />
+                  <span className="flex-1 truncate">{titleOf(child)}</span>
+                  {child.visibility === 'private' && !isPrivate && (
+                    <LockIcon className="size-3.5 text-muted-foreground" aria-label="Only you" />
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    {formatDay(child.updatedAt)}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </PageContainer>
   );

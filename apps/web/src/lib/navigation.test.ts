@@ -1,34 +1,53 @@
 import { describe, expect, it } from 'vitest';
 
 import { breadcrumbsFor } from './navigation';
-import { ancestorsOf, childrenOf, type DocumentNode, type ShellData } from './tree';
+import {
+  ancestorsOf,
+  childrenOf,
+  type DocumentNode,
+  pathOf,
+  rootsOf,
+  sectionOf,
+  type ShellData,
+  subtreeIds,
+  titleOf,
+} from './tree';
 
-const doc = (
+const node = (
   id: string,
   parentId: string | null,
   visibility: DocumentNode['visibility'] = 'private',
+  kind: DocumentNode['kind'] = 'page',
 ): DocumentNode => ({
   id,
   title: id.replace(/-/g, ' '),
-  kind: 'page',
+  kind,
   visibility,
   parentId,
+  ownerId: 'u',
   updatedAt: '2026-11-01T00:00:00.000Z',
+  access: { edit: true, delete: true },
 });
 
-/** Fixture tree, independent of the server loader's mock data. */
-const tree: Pick<ShellData, 'workspace' | 'documents'> = {
-  workspace: { id: 'w', name: 'Studio', kind: 'team', members: 3 },
+/** Fixture tree. */
+const tree: Pick<ShellData, 'workspace' | 'documents' | 'trash'> = {
+  workspace: { id: 'w', name: 'Studio', kind: 'team', members: 3, role: 'member' },
   documents: [
-    doc('root-page', null),
-    doc('folder', null),
-    doc('child', 'folder'),
-    doc('grandchild', 'child'),
-    doc('shared-page', null, 'workspace'),
+    node('root-page', null),
+    node('folder', null, 'private', 'folder'),
+    node('child', 'folder', 'private', 'folder'),
+    node('grandchild', 'child'),
+    node('shared-page', null, 'link'),
+    node('shared-folder', null, 'workspace', 'folder'),
+    // My private page inside a shared folder: shows under Shared, inside the folder.
+    node('mine-in-shared', 'shared-folder', 'private'),
+    // Folder not visible to me (someone else's): the page becomes a root of its own area.
+    node('orphan', 'invisible-folder', 'workspace'),
     // Corrupt data must not hang breadcrumbs.
-    doc('loop-a', 'loop-b'),
-    doc('loop-b', 'loop-a'),
+    node('loop-a', 'loop-b'),
+    node('loop-b', 'loop-a'),
   ],
+  trash: [{ ...node('binned', null), deletedAt: '2026-11-02T00:00:00.000Z' }],
 };
 
 describe('breadcrumbsFor(tree, pathname)', () => {
@@ -50,16 +69,27 @@ describe('breadcrumbsFor(tree, pathname)', () => {
     ]);
   });
 
-  it('shared page sits under Shared', () => {
+  it('shared items sit under Shared, also a private page inside a shared folder', () => {
     expect(breadcrumbsFor(tree, '/d/shared-page').map((c) => c.label)).toEqual([
       'Studio',
       'Shared',
       'shared page',
     ]);
+    expect(breadcrumbsFor(tree, '/d/mine-in-shared').map((c) => c.label)).toEqual([
+      'Studio',
+      'Shared',
+      'shared folder',
+      'mine in shared',
+    ]);
   });
 
-  it('unknown document, unknown paths and cycles', () => {
-    expect(breadcrumbsFor(tree, '/d/nope').at(-1)).toEqual({ label: 'Not found' });
+  it('trashed, unknown, other paths and cycles', () => {
+    expect(breadcrumbsFor(tree, '/d/binned').map((c) => c.label)).toEqual([
+      'Studio',
+      'Trash',
+      'binned',
+    ]);
+    expect(breadcrumbsFor(tree, '/d/nope').at(-1)).toEqual({ label: 'Page' });
     expect(breadcrumbsFor(tree, '/home/extra')).toEqual([{ label: 'Studio', href: '/home' }]);
     expect(breadcrumbsFor(tree, '/')).toEqual([{ label: 'Studio', href: '/home' }]);
     expect(breadcrumbsFor(tree, '/d/loop-a').map((c) => c.label)).toEqual([
@@ -73,16 +103,39 @@ describe('breadcrumbsFor(tree, pathname)', () => {
 });
 
 describe('tree helpers', () => {
-  it('childrenOf filters by parent and visibility', () => {
-    expect(childrenOf(tree.documents, null, 'private').map((d) => d.id)).toEqual([
-      'root-page',
-      'folder',
+  it('rootsOf: root items per area (folders first) plus items whose folder I can’t see', () => {
+    expect(rootsOf(tree.documents, 'private').map((d) => d.id)).toEqual(['folder', 'root-page']);
+    expect(rootsOf(tree.documents, 'shared').map((d) => d.id)).toEqual([
+      'shared-folder',
+      'shared-page',
+      'orphan',
     ]);
-    expect(childrenOf(tree.documents, null, 'workspace').map((d) => d.id)).toEqual(['shared-page']);
   });
 
-  it('ancestorsOf walks to the root', () => {
+  it('childrenOf lists a folder’s items regardless of their visibility', () => {
+    expect(childrenOf(tree.documents, 'shared-folder').map((d) => d.id)).toEqual([
+      'mine-in-shared',
+    ]);
+    expect(childrenOf(tree.documents, 'folder').map((d) => d.id)).toEqual(['child']);
+  });
+
+  it('ancestorsOf, sectionOf, subtreeIds, pathOf', () => {
     expect(ancestorsOf(tree.documents, 'grandchild').map((d) => d.id)).toEqual(['folder', 'child']);
     expect(ancestorsOf(tree.documents, 'root-page')).toEqual([]);
+    expect(sectionOf(tree.documents, 'mine-in-shared')).toBe('shared');
+    expect(sectionOf(tree.documents, 'orphan')).toBe('shared');
+    expect(sectionOf(tree.documents, 'nope')).toBeUndefined();
+    expect([...subtreeIds(tree.documents, 'folder')].toSorted()).toEqual([
+      'child',
+      'folder',
+      'grandchild',
+    ]);
+    expect(pathOf(tree.documents, 'child')).toBe('folder / child');
+  });
+
+  it('titleOf falls back for empty titles', () => {
+    expect(titleOf({ title: '  ', kind: 'page' })).toBe('Untitled');
+    expect(titleOf({ title: '', kind: 'folder' })).toBe('Untitled folder');
+    expect(titleOf({ title: 'Plan', kind: 'meeting' })).toBe('Plan');
   });
 });

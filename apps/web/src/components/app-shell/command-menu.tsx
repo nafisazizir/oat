@@ -28,6 +28,7 @@ import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { sections } from '@/lib/navigation';
+import { titleOf } from '@/lib/tree';
 
 import { useTheme } from '../theme-provider';
 import { useShellData } from './shell-data';
@@ -109,11 +110,11 @@ export function CommandMenu() {
             {documents.map((doc) => (
               <CommandItem
                 key={doc.id}
-                value={`page ${doc.title}`}
+                value={`page ${titleOf(doc)} ${doc.id}`}
                 onSelect={() => run(() => router.push(`/d/${doc.id}`))}
               >
                 {doc.kind === 'folder' ? <FolderIcon /> : <FileTextIcon />}
-                {doc.title}
+                {titleOf(doc)}
               </CommandItem>
             ))}
           </CommandGroup>

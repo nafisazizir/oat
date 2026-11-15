@@ -1,4 +1,4 @@
-import { ancestorsOf, findDocument, type ShellData } from './tree';
+import { ancestorsOf, findDocument, sectionOf, type ShellData, titleOf } from './tree';
 
 export type Crumb = { label: string; href?: string };
 
@@ -11,10 +11,11 @@ export const sections = {
 
 /**
  * Breadcrumbs for an app pathname: workspace › section, or workspace › Private/Shared › ancestors ›
- * page. Pure: the tree comes from the shell data. The last crumb has no link.
+ * page (or workspace › Trash › page). Pure: the tree comes from the shell data. The last crumb has no
+ * link. A document outside the active workspace's tree (e.g. opened from a link) shows as "Page".
  */
 export function breadcrumbsFor(
-  tree: Pick<ShellData, 'workspace' | 'documents'>,
+  tree: Pick<ShellData, 'workspace' | 'documents'> & Partial<Pick<ShellData, 'trash'>>,
   pathname: string,
 ): Crumb[] {
   const workspace: Crumb = { label: tree.workspace.name, href: sections.home.href };
@@ -29,13 +30,19 @@ export function breadcrumbsFor(
   if (first === 'd' && second) {
     const id = decodeURIComponent(second);
     const doc = findDocument(tree.documents, id);
-    if (!doc) return [workspace, { label: 'Not found' }];
-    const area: Crumb = { label: doc.visibility === 'private' ? 'Private' : 'Shared' };
+    if (!doc) {
+      const trashed = tree.trash && findDocument(tree.trash, id);
+      if (trashed) return [workspace, { label: 'Trash' }, { label: titleOf(trashed) }];
+      return [workspace, { label: 'Page' }];
+    }
+    const area: Crumb = {
+      label: sectionOf(tree.documents, id) === 'private' ? 'Private' : 'Shared',
+    };
     const ancestors = ancestorsOf(tree.documents, id).map((a) => ({
-      label: a.title,
+      label: titleOf(a),
       href: `/d/${a.id}`,
     }));
-    return [workspace, area, ...ancestors, { label: doc.title }];
+    return [workspace, area, ...ancestors, { label: titleOf(doc) }];
   }
 
   return [workspace];

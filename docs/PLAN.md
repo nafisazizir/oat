@@ -50,7 +50,7 @@ Exit: start recording in the desktop app → live two-source transcript appears 
 Exit: create/edit pages and meeting notes on desktop and web; content syncs; Markdown export works.
 - [x] 3.1 `packages/editor`: TipTap setup, block set from SPEC §4, slash menu, Markdown shortcuts · deps: 1.3
 - [x] 3.2 JSON ↔ Markdown conversion with round-trip tests · deps: 3.1
-- [ ] 3.3 Documents CRUD API + folders + sidebar tree · deps: 1.7, 3.1
+- [x] 3.3 Documents CRUD API + folders + sidebar tree · deps: 1.7, 3.1
 - [ ] 3.4 Meeting note view: editor + collapsible transcript panel + meeting header (time, attendees) · deps: 2.5, 3.3
 - [ ] 3.5 Desktop sync per D-19: outbox push w/ version acks, cursor pull, 409 → conflicted copy / full resync, SSE invalidation channel + poll backstop, offline property tests · deps: 2.6, 3.3
 - [ ] 3.6 Full-text search: Postgres FTS (web/API) + desktop-local SQLite FTS5 (trigram) over notes and segments · deps: 3.3

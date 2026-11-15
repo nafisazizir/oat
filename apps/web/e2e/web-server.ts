@@ -6,11 +6,16 @@
  * test run sweeps `oat_test_*` databases older than an hour.
  */
 import { spawn } from 'node:child_process';
+import { rmSync } from 'node:fs';
 
 import { migrate } from '@oat/db';
 import { createTestDatabase } from '@oat/testkit';
 
 const port = process.env.E2E_PORT ?? '3000';
+// A `.next/dev` left by an earlier `next dev` whose sources changed since (formatting, edits) sometimes
+// made the new dev server rebuild and full-reload every page in a loop (1.4/1.6/3.3 notes); always
+// start e2e from a clean dev cache.
+rmSync(new URL('../.next/dev', import.meta.url), { recursive: true, force: true });
 const db = await createTestDatabase();
 await migrate(db.url);
 console.log(`[e2e] database ${db.name} ready; starting next dev on :${port}`);

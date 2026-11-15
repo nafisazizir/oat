@@ -284,9 +284,15 @@ importers:
       '@oat/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@oat/editor':
+        specifier: workspace:*
+        version: link:../../packages/editor
       '@oat/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.4(@types/pg@8.23.1)(kysely@0.29.9)(pg@8.23.1)(postgres@3.4.9)
       lucide-react:
         specifier: 'catalog:'
         version: 1.73.0(@types/react@19.3.0)(react@19.3.1)
