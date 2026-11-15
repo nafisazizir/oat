@@ -6,7 +6,15 @@
  * owner or not private) so `limit` holds; the tools re-check every row with `@oat/core` anyway.
  */
 import type { PermissionContext } from '@oat/core';
-import { type Db, document, meeting, participant, transcriptSegment, workspace } from '@oat/db';
+import {
+  type Db,
+  document,
+  meeting,
+  participant,
+  transcriptSegment,
+  user,
+  workspace,
+} from '@oat/db';
 import {
   and,
   asc,
@@ -151,6 +159,15 @@ export function createDbAssistantData(db: Db, options: { search: SearchFn }): As
         })
         .from(transcriptSegment)
         .where(and(inArray(transcriptSegment.id, unique), eq(transcriptSegment.isFinal, true)));
+    },
+
+    async users(ids) {
+      const unique = [...new Set(ids)].slice(0, MAX_IDS);
+      if (unique.length === 0) return [];
+      return db
+        .select({ id: user.id, name: user.name, email: user.email })
+        .from(user)
+        .where(inArray(user.id, unique));
     },
 
     async listMeetings(permissions, filter) {

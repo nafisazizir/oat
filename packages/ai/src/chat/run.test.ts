@@ -92,6 +92,31 @@ describe('streamAssistant (mock LLM tool loop)', () => {
     ).toBeUndefined();
   });
 
+  it('names the note’s owner as note-taker when a teammate asks, and keeps the owner’s own chat as is', async () => {
+    const scope = { kind: 'document' as const, workspaceId: TEAM, documentId: 'd-standup' };
+    // Bob asks about Alice's recording: her mic lines carry her name, Bob is named as the asker.
+    const bob = await loadDocumentContext(toolContext(users.bob, scope), new CitationRegistry(), {
+      me: { name: 'Bob' },
+    });
+    expect(bob?.context.me.name).toBe('Alice Liddell');
+    expect(bob?.context.asker).toEqual({ name: 'Bob' });
+    expect(bob?.rendered).toContain('Note-taker (the "Alice Liddell" lines in the transcript)');
+    expect(bob?.rendered).toContain('Asking now: Bob, who is not the note-taker');
+    expect(bob?.rendered).toContain('s1] Alice Liddell: Should we raise the starter price?');
+    expect(bob?.rendered).not.toMatch(/\] Bob: /);
+
+    // Alice asks about her own recording: unchanged (she is the note-taker).
+    const alice = await loadDocumentContext(
+      toolContext(users.alice, scope),
+      new CitationRegistry(),
+      { me: { name: 'Alice' } },
+    );
+    expect(alice?.context.me.name).toBe('Alice');
+    expect(alice?.context.asker).toBeUndefined();
+    expect(alice?.rendered).not.toContain('Asking now');
+    expect(alice?.rendered).toContain('s1] Alice: Should we raise the starter price?');
+  });
+
   it('passes the user profile into document and workspace chats, fenced as data', async () => {
     const profile = {
       aboutMe: 'Role: PM\nWhat I care about:\nPricing',

@@ -58,4 +58,5 @@ export {
   type TextEdit,
   type ToolContext,
   type ToolScope,
+  type UserRecord,
 } from './types.ts';

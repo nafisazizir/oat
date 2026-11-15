@@ -20,6 +20,13 @@ export interface DocumentRecord extends DocumentAccess {
   readonly updatedAt: Date;
 }
 
+/** A user as the tools may show them: who recorded a meeting. */
+export interface UserRecord {
+  readonly id: string;
+  readonly name: string | null;
+  readonly email: string | null;
+}
+
 export interface ParticipantRecord {
   readonly name: string;
   readonly email: string | null;
@@ -107,6 +114,8 @@ export interface AssistantData {
   ): Promise<SegmentRecord[]>;
   /** Segments by id (any meeting; the tools check each one's document). */
   segmentsByIds(ids: readonly string[]): Promise<SegmentRecord[]>;
+  /** Users by id (missing ids are left out). Only asked for owners of documents the actor may read. */
+  users(ids: readonly string[]): Promise<UserRecord[]>;
   /** Meetings in a workspace that the actor may read, newest first. */
   listMeetings(
     permissions: PermissionContext,

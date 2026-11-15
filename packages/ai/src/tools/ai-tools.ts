@@ -17,13 +17,20 @@ import type { ToolContext } from './types.ts';
 
 const Id = z.string().min(1).max(100);
 
+/** How transcript speakers are labelled (see `recorderLabels` in `./tools.ts`). */
+const SPEAKERS =
+  'Transcript lines from the user’s own microphone are labelled "Me"; in a meeting a teammate recorded, ' +
+  'that teammate’s lines carry their name instead.';
+
 export function createAssistantTools(ctx: ToolContext) {
   const documentScope = ctx.scope.kind === 'document';
   const tools = {
     searchMeetings: tool({
       description:
         'Semantic search over the meeting notes and transcripts this chat can see. Returns excerpts, each ' +
-        'with the exact citation marker to copy into your answer. Search before answering factual questions.',
+        'with the exact citation marker to copy into your answer. Search before answering factual questions.' +
+        ' ' +
+        SPEAKERS,
       inputSchema: z.object({
         query: z.string().min(1).max(500).describe('What to look for, in natural language.'),
         limit: z.number().int().min(1).max(TOOL_LIMITS.maxSearchResults).optional(),
@@ -45,7 +52,9 @@ export function createAssistantTools(ctx: ToolContext) {
     getTranscript: tool({
       description:
         'Read a meeting transcript, optionally a time range (milliseconds from the start). Each line starts ' +
-        'with its citation marker [[seg:<id>]].',
+        'with its citation marker [[seg:<id>]].' +
+        ' ' +
+        SPEAKERS,
       inputSchema: z
         .object({
           meetingId: Id.optional(),

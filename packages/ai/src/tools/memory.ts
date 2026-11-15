@@ -19,6 +19,8 @@ export interface MemoryDataInput {
   documents: readonly DocumentRecord[];
   meetings?: readonly MeetingRecord[];
   segments?: readonly SegmentRecord[];
+  /** Display names (and emails) by user id. */
+  users?: Readonly<Record<string, { name?: string | null; email?: string | null }>>;
 }
 
 const DIMS = 256;
@@ -127,6 +129,13 @@ export function createMemoryAssistantData(input: MemoryDataInput): AssistantData
     async segmentsByIds(ids) {
       const wanted = new Set(ids);
       return segments.filter((s) => wanted.has(s.id));
+    },
+
+    async users(ids) {
+      return [...new Set(ids)].flatMap((id) => {
+        const user = input.users?.[id];
+        return user ? [{ id, name: user.name ?? null, email: user.email ?? null }] : [];
+      });
     },
 
     async listMeetings(permissions, filter) {

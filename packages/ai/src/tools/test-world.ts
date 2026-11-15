@@ -172,7 +172,11 @@ export const segments: SegmentRecord[] = [
   },
 ];
 
-export const data = () => createMemoryAssistantData({ documents, meetings, segments });
+/** Display names (Bob has none: his recordings fall back to "Recorder"). */
+export const userNames = { [users.alice]: { name: 'Alice Liddell', email: 'alice@team.test' } };
+
+export const data = () =>
+  createMemoryAssistantData({ documents, meetings, segments, users: userNames });
 
 export function toolContext(
   userId: string,

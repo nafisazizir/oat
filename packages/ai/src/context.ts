@@ -55,8 +55,16 @@ export interface BuildMeetingContextInput {
   meeting: ContextMeeting;
   /** Everyone on the invite (may include the note-taker). */
   attendees: readonly ContextPerson[];
-  /** The note-taker. Falls back to the attendee marked `me: true`. Their email domain defines "colleague". */
+  /**
+   * The note-taker (whoever recorded: their mic lines are labelled with this name). Falls back to the attendee
+   * marked `me: true`. Their email domain defines "colleague".
+   */
   me?: { name: string; email?: string | null } | null;
+  /**
+   * The person using the context when it is **not** the note-taker (a note-scoped chat over a teammate's
+   * meeting). Omit when the note-taker is the user (enhance, chat on your own note).
+   */
+  asker?: { name: string } | null;
   /** The note body (TipTap JSON). `null` = no notes. */
   notesDoc: NotesDoc | null;
   segments: readonly ContextSegment[];
@@ -111,6 +119,8 @@ export interface MeetingContext {
     timeZone: string;
   };
   me: { name: string; email: string | null };
+  /** Set only when the user isn't the note-taker (see {@link BuildMeetingContextInput.asker}). */
+  asker?: { name: string };
   people: {
     colleagues: PersonEntry[];
     externals: PersonEntry[];
@@ -537,6 +547,9 @@ export function buildMeetingContext(input: BuildMeetingContextInput): MeetingCon
     email: emailDomain(myEmail) ? field(myEmail!, 254) : null,
   };
 
+  const askerName = input.asker ? field(input.asker.name, MAX_NAME_CHARS) || 'Someone else' : '';
+  const asker = askerName ? { name: askerName } : null;
+
   const started = toDate(input.meeting.startedAt);
   const ended = toDate(input.meeting.endedAt);
   const durationMs =
@@ -574,6 +587,7 @@ export function buildMeetingContext(input: BuildMeetingContextInput): MeetingCon
       timeZone,
     },
     me,
+    ...(asker ? { asker } : {}),
     people: splitPeople(input.attendees, me),
     aboutMe,
     vocabulary: cleanVocabulary(input.vocabulary),
@@ -626,6 +640,12 @@ export function renderMeetingContext(ctx: MeetingContext): string {
       ctx.me.email ? ` <${ctx.me.email}>` : ''
     }`,
   ];
+  if (ctx.asker) {
+    people.push(
+      `Asking now: ${ctx.asker.name}, who is not the note-taker ("I", "me" and "you" in the conversation ` +
+        `mean ${ctx.asker.name}; any about-me profile describes them)`,
+    );
+  }
   if (ctx.people.colleagues.length) {
     people.push(`Colleagues (same organisation):\n${ctx.people.colleagues.map(person).join('\n')}`);
   }

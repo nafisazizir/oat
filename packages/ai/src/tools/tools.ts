@@ -133,8 +133,37 @@ async function visibleDocument(ctx: ToolContext, id: string): Promise<DocumentRe
 
 const iso = (date: Date | null) => (date ? date.toISOString() : null);
 
-function speaker(segment: Pick<SegmentRecord, 'source' | 'speakerLabel'>): string {
-  if (segment.source === 'mic') return 'Me';
+/** Label of mic lines whose recorder has no display name. */
+export const RECORDER_FALLBACK = 'Recorder';
+
+/**
+ * How mic lines are labelled per document: the recorder (the meeting note's owner) is "Me" only when they are
+ * the one asking; otherwise their display name (or {@link RECORDER_FALLBACK}), so a teammate's own lines are
+ * never attributed to the asker.
+ */
+export async function recorderLabels(
+  ctx: ToolContext,
+  docs: readonly Pick<DocumentRecord, 'id' | 'ownerId'>[],
+): Promise<Map<string, string>> {
+  const others = [...new Set(docs.map((d) => d.ownerId))].filter(
+    (id) => id !== ctx.permissions.userId,
+  );
+  const users = new Map((others.length ? await ctx.data.users(others) : []).map((u) => [u.id, u]));
+  return new Map(
+    docs.map((d) => [
+      d.id,
+      d.ownerId === ctx.permissions.userId
+        ? 'Me'
+        : label(users.get(d.ownerId)?.name?.trim() || RECORDER_FALLBACK, 80),
+    ]),
+  );
+}
+
+function speaker(
+  segment: Pick<SegmentRecord, 'source' | 'speakerLabel'>,
+  recorder: string,
+): string {
+  if (segment.source === 'mic') return recorder;
   return segment.speakerLabel ? label(segment.speakerLabel, 80) : 'Them';
 }
 
@@ -229,6 +258,13 @@ export async function searchMeetings(
     }
   }
 
+  const recorders = await recorderLabels(
+    ctx,
+    [...new Set(visible.filter((h) => h.ref.source === 'transcript').map((h) => h.documentId))].map(
+      (id) => docs.get(id)!,
+    ),
+  );
+
   const results: SearchMeetingsResult[] = [];
   for (const hit of visible) {
     const doc = docs.get(hit.documentId)!;
@@ -243,7 +279,7 @@ export async function searchMeetings(
         .map((s) => ({
           cite: segCite(s.id),
           at: clock(s.startMs),
-          speaker: speaker(s),
+          speaker: speaker(s, recorders.get(hit.documentId) ?? RECORDER_FALLBACK),
           text: fence('excerpt', cap(s.text, TOOL_LIMITS.excerptChars), true),
         }));
     } else {
@@ -373,6 +409,7 @@ export async function getTranscript(
   const doc = await visibleDocument(ctx, meeting.documentId);
   if (!doc) return notFound('Meeting');
 
+  const recorder = (await recorderLabels(ctx, [doc])).get(doc.id)!;
   const fromMs = Math.max(0, Math.trunc(input.fromMs ?? 0));
   const toMs = input.toMs === undefined ? undefined : Math.trunc(input.toMs);
   const rows = await ctx.data.segments(
@@ -384,7 +421,7 @@ export async function getTranscript(
   let used = 0;
   let next: number | null = null;
   for (const [i, s] of rows.entries()) {
-    const line = `${segCite(s.id)} [${clock(s.startMs)}] ${speaker(s)}: ${defuse(oneLine(s.text))}`;
+    const line = `${segCite(s.id)} [${clock(s.startMs)}] ${speaker(s, recorder)}: ${defuse(oneLine(s.text))}`;
     const cost = estimateTokens(line) + 1;
     if (i >= TOOL_LIMITS.transcriptSegments || used + cost > TOOL_LIMITS.transcriptTokens) {
       next = s.startMs;

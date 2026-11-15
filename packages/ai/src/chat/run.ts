@@ -20,7 +20,7 @@ import {
   renderProfileContext,
 } from '../context.ts';
 import { createAssistantTools } from '../tools/ai-tools.ts';
-import { canSee } from '../tools/tools.ts';
+import { canSee, RECORDER_FALLBACK } from '../tools/tools.ts';
 import type { EditProposal, ToolContext } from '../tools/types.ts';
 import { citationTransform, CitationFilter, CitationRegistry, CitationStats } from './citations.ts';
 import { buildChatInstructions } from './prompt.ts';
@@ -95,7 +95,10 @@ function blockIds(doc: unknown, out: string[] = []): string[] {
 }
 
 export interface DocumentContextOptions {
-  /** The note-taker, as the context names them. */
+  /**
+   * The user asking. They are the note-taker when they own the note; otherwise the owner is (named via
+   * `AssistantData.users`, else "Recorder") and the asker is named separately.
+   */
   me: { name: string; email?: string | null };
   locale?: string;
   timeZone?: string;
@@ -124,6 +127,13 @@ export async function loadDocumentContext(
   const meeting =
     doc.kind === 'meeting' ? await ctx.data.meeting({ documentId: doc.id }) : undefined;
   const segments = meeting ? await ctx.data.segments(meeting.id, {}, 5_000) : [];
+  // The note-taker is the note's owner. When someone else asks (a teammate's shared note), the owner's mic
+  // lines carry the owner's name and the asker is named separately, so they're never mixed up.
+  const asker = ctx.permissions.userId !== doc.ownerId ? options.me : undefined;
+  const [owner] = asker ? await ctx.data.users([doc.ownerId]) : [];
+  const noteTaker = asker
+    ? { name: owner?.name?.trim() || RECORDER_FALLBACK, email: owner?.email ?? null }
+    : options.me;
   const context = buildMeetingContext({
     meeting: {
       title: doc.title,
@@ -132,7 +142,8 @@ export async function loadDocumentContext(
       platform: meeting?.platform ?? null,
     },
     attendees: meeting?.participants ?? [],
-    me: options.me,
+    me: noteTaker,
+    ...(asker ? { asker: { name: asker.name } } : {}),
     notesDoc: doc.contentJson as Parameters<typeof buildMeetingContext>[0]['notesDoc'],
     segments,
     aboutMe: options.aboutMe ?? null,

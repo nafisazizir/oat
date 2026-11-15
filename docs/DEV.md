@@ -429,6 +429,65 @@ model (the mock LLM's feature-hashed vectors in dev) and stored in `chunk` (pgve
   returns chunks the user may read (permission rule applied in SQL, then re-checked with `canReadDocument`)
   with citation refs. Integration tests use their own queue prefix on the shared Redis and a throwaway DB.
 
+## Running evals (`@oat/ai`)
+
+AI behaviour is gated by evals (SPEC §7, D-13): fixture meetings and questions in `packages/ai/evals/`, the
+harness in `packages/ai/src/evals/`. Two suites: `enhance` (5 fixture meetings → notes) and `chat` (questions
+over two synthetic workspaces → the real assistant tool loop + citation filter; the "Lumen" workspace reuses the
+5 enhance meetings and adds a vendor call with a planted prompt injection and a teammate's private note).
+
+```bash
+pnpm --filter @oat/ai eval                      # mock tier: offline, deterministic, a few seconds
+pnpm --filter @oat/ai eval --suite chat --verbose   # one suite; --verbose lists every non-passing check
+pnpm --filter @oat/ai eval --model real --runs 3    # quality tier (needs AI_GATEWAY_API_KEY), mean of 3 runs
+pnpm --filter @oat/ai eval --json out.json      # machine-readable results
+```
+
+(Inside `packages/ai` the same thing is `pnpm exec tsx evals/run.ts [flags]`.) Exit codes: 0 pass · 1 structural
+failure, task/judge error or regression vs the baseline · 2 bad usage.
+
+**Tiers.**
+
+- *structural* — absolute gate, every mode. Enhance: schema, headings, origin, notes coverage. Chat: answered;
+  cited (answer fixtures); every citation resolves to an id a tool handed out in that turn and that the asker may
+  read; permission fixtures leak nothing from the unreadable note (answer text, citations or any tool output);
+  injection fixtures show nothing the planted instruction asked for and no forged citation survives.
+- *property* — deterministic, compared to the baseline. Chat: must-mention / must-not-mention facts, cites a
+  supporting source, citation precision (share of citations in the fixture's `support` set), share of the model's
+  markers that resolved, and abstention on questions the data can't answer.
+- *judge* — `--model real` only: an LLM judge (role `judge`, `AI_MODEL_JUDGE`, deliberately another provider)
+  scores enhance grounding/coverage and chat grounding (each answer sentence vs. the text of its own citations).
+
+**Mock vs real.** `--model mock` (default) runs each suite against an in-process mock: enhance gets an
+extractive draft, chat gets the mock LLM's scripted tool loop (search → quote the top 3 excerpts with their
+citations). The mock exercises the plumbing (tools, permissions, fencing, citation filter) and must pass the
+structural tier; its property scores are low by design and only guard against unnoticed changes. `--model real`
+uses the `enhance`/`chat` role models at temperature 0 plus the judge; without a key it falls back to the mock
+and says so.
+
+**Baselines** (`packages/ai/evals/baseline.json`). Mock: every check's score, compared per check (tolerance
+0.01). Real: per-fixture and overall tier means for one task model + judge model pair (tolerance 0.1); a run with
+other models is reported "not compared". After an intended change (new fixtures, renamed checks, a better
+prompt), re-record and commit the diff with the change:
+
+```bash
+pnpm --filter @oat/ai eval:baseline [--suite chat]           # mock baseline
+pnpm --filter @oat/ai eval:baseline --model real --runs 3    # real baseline (needs a key)
+```
+
+The update refuses while any structural check fails. Review the baseline diff like code: a score that drops
+must be explained in the task file.
+
+**Adding a chat fixture.** Add it to `packages/ai/evals/chat/fixtures.ts`; reference citations by content with
+`seg('<prefix>', '<unique text>')` / `note(…)` so ids can't drift. `support` must list every citation that
+backs the expected answer (precision counts the rest as imprecise). `chat-suite.test.ts` checks that facts are
+stated by the support set, forbidden facts live only in unreadable notes and planted injections exist.
+
+**Cost (real mode).** One full run is ~100 model calls: enhance 5 × (1 task + 2 judge) and chat 21 × (2–4
+tool-loop steps + 1 judge), a few hundred thousand input tokens in total — a few dollars at most at Sonnet-class prices (the
+AI Gateway usage page has the real figure). `--runs n` multiplies it; `--suite` narrows it.
+Real runs never happen in `pnpm run ci` (D-11, D-13).
+
 ## Tests
 
 - `pnpm test`: unit tests, in-process fakes, no containers.

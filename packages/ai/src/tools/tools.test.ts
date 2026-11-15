@@ -9,6 +9,7 @@ import {
   toolContext,
   users,
   meetings,
+  segments as worldSegments,
 } from './test-world.ts';
 import { createMemoryAssistantData } from './memory.ts';
 import {
@@ -230,6 +231,42 @@ describe('getTranscript', () => {
       toMs: 5_000,
     });
     expect(byMeeting).toMatchObject({ segments: 1 });
+  });
+
+  it('labels the recorder’s mic lines "Me" only for the recorder, else by name (fallback "Recorder")', async () => {
+    const mic = async (ctx: ReturnType<typeof toolContext>) => {
+      const out = await getTranscript(ctx, { documentId: 'd-standup', toMs: 5_000 });
+      if ('error' in out) throw new Error(out.message);
+      return out.transcript.split('\n')[1];
+    };
+    // d-standup is Alice's recording.
+    expect(await mic(toolContext(users.alice))).toBe(
+      '[[seg:seg-1]] [00:01] Me: Should we raise the starter price?',
+    );
+    expect(await mic(toolContext(users.bob))).toBe(
+      '[[seg:seg-1]] [00:01] Alice Liddell: Should we raise the starter price?',
+    );
+    const nameless = toolContext(users.bob, undefined, {
+      data: createMemoryAssistantData({ documents, meetings, segments: worldSegments }),
+    });
+    expect(await mic(nameless)).toBe(
+      '[[seg:seg-1]] [00:01] Recorder: Should we raise the starter price?',
+    );
+
+    // Same labels in search excerpts; other speakers keep their own labels.
+    const speakers = async (ctx: ReturnType<typeof toolContext>) => {
+      const out = await searchMeetings(ctx, { query: 'raise the starter price', limit: 12 });
+      if ('error' in out) throw new Error(out.message);
+      return out.results
+        .filter((r) => r.documentId === 'd-standup' && r.source === 'transcript')
+        .flatMap((r) => r.excerpts.map((e) => `${e.cite} ${e.speaker}`));
+    };
+    expect(await speakers(toolContext(users.alice))).toContain('[[seg:seg-1]] Me');
+    const bob = await speakers(toolContext(users.bob));
+    expect(bob).toContain('[[seg:seg-1]] Alice Liddell');
+    expect(bob).not.toContain('[[seg:seg-1]] Me');
+    expect(bob).toContain('[[seg:seg-2]] Dana');
+    expect(await speakers(nameless)).toContain('[[seg:seg-1]] Recorder');
   });
 
   it('deny: another member’s private meeting (by meeting or document id)', async () => {
