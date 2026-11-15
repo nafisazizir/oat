@@ -89,3 +89,66 @@ describe('signOut', () => {
     expect(new Headers(init?.headers).get('authorization')).toBe('Bearer tok.sig');
   });
 });
+
+describe('sync', () => {
+  const entry = {
+    version: 1,
+    op: 'delete' as const,
+    table: 'transcript_segment' as const,
+    id: 's1',
+  };
+
+  it('pushes to the sync origin with the bearer token and validates the answer', async () => {
+    const fetch = vi.fn(async () => json({ results: [{ version: 1, status: 'ok' }] }));
+    const api = createApiClient({
+      baseUrl: BASE,
+      syncBaseUrl: 'http://127.0.0.1:4444',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    });
+    expect(await api.syncPush('t.s', { entries: [entry] })).toEqual({
+      results: [{ version: 1, status: 'ok' }],
+    });
+    const [url, init] = (fetch.mock.calls[0] as unknown as [URL, RequestInit])!;
+    expect(String(url)).toBe('http://127.0.0.1:4444/api/sync/push');
+    expect(new Headers(init.headers).get('authorization')).toBe('Bearer t.s');
+    expect(JSON.parse(String(init.body))).toEqual({ entries: [entry] });
+
+    await expect(
+      client(() => json({ nope: true })).api.syncPush('t.s', { entries: [entry] }),
+    ).rejects.toMatchObject({ status: 502 });
+    await expect(
+      client(() => json({}, { status: 503 })).api.syncPush('t.s', { entries: [entry] }),
+    ).rejects.toMatchObject({ status: 503 });
+  });
+
+  it('pulls with the cursor and skips changes that don\u2019t match the protocol', async () => {
+    const skipped: string[] = [];
+    const fetch = vi.fn(async () =>
+      json({
+        changes: [
+          { op: 'delete', table: 'transcript_segment', id: 's1' },
+          { op: 'upsert', table: 'folder', row: { id: 'f' } },
+        ],
+        cursor: '5.6',
+        hasMore: false,
+        workspaceIds: ['w'],
+      }),
+    );
+    const api = createApiClient({
+      baseUrl: BASE,
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      onSkippedChange: (r) => skipped.push(r),
+    });
+    const page = await api.syncPull('t.s', '1.2');
+    expect(page.changes).toEqual([{ op: 'delete', table: 'transcript_segment', id: 's1' }]);
+    expect(page.cursor).toBe('5.6');
+    expect(skipped).toHaveLength(1);
+    const [url] = (fetch.mock.calls[0] as unknown as [URL])!;
+    expect(String(url)).toBe(`${BASE}/api/sync/pull?cursor=1.2`);
+    await api.syncPull('t.s', null);
+    expect(String((fetch.mock.calls[1] as unknown as [URL])[0])).toBe(`${BASE}/api/sync/pull`);
+    await expect(
+      client(() => json({}, { status: 409 })).api.syncPull('t.s', 'x'),
+    ).rejects.toBeInstanceOf(ApiError);
+  });
+});

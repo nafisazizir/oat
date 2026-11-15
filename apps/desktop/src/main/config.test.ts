@@ -55,7 +55,21 @@ describe('desktopConfigFromEnv', () => {
       allowDevHandoff: false,
       audio: { input: 'sidecar', fixture: null, synthetic: false, allowFixtures: false },
       sttUrl: undefined,
+      syncUrl: undefined,
     });
+  });
+
+  it('OAT_SYNC_URL: dev only, same rules as OAT_WEB_URL', () => {
+    expect(desktopConfigFromEnv({}, { isPackaged: false }).syncUrl).toBeUndefined();
+    expect(
+      desktopConfigFromEnv({ OAT_SYNC_URL: 'http://127.0.0.1:9/x' }, { isPackaged: false }).syncUrl,
+    ).toBe('http://127.0.0.1:9');
+    expect(() =>
+      desktopConfigFromEnv({ OAT_SYNC_URL: 'http://evil.example' }, { isPackaged: false }),
+    ).toThrow(/OAT_SYNC_URL/);
+    expect(
+      desktopConfigFromEnv({ OAT_SYNC_URL: 'https://evil.example' }, { isPackaged: true }).syncUrl,
+    ).toBeUndefined();
   });
 
   it('packaged: OAT_AUDIO_SOURCE / OAT_STT_URL are ignored (live capture, API-chosen STT)', () => {

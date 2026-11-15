@@ -7,7 +7,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { type AudioSource, FileSource, type FileSourceSpeed } from '@oat/audio';
+import {
+  type AudioRecordingStore,
+  type AudioSource,
+  FileSource,
+  type FileSourceSpeed,
+} from '@oat/audio';
 import type {
   RecordingSnapshot,
   RecordingStatus,
@@ -21,15 +26,18 @@ import {
   parseGroundTruth,
   type SttProvider,
 } from '@oat/stt';
+import { AudioIndex, LocalStore } from '@oat/local-store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TranscriptStore } from '../shared/transcript.ts';
 import type { Logger } from './ipc.ts';
+import { MeetingPersistence } from './meeting-persistence.ts';
 import {
   type InputSpec,
   type PowerEvents,
   RecordingService,
   RecordingServiceError,
+  type TranscriptPersistence,
 } from './recording-service.ts';
 
 const FIXTURES = fileURLToPath(new URL('../../../../fixtures/audio/', import.meta.url));
@@ -69,6 +77,8 @@ function setup({
   stt = (): Promise<SttProvider> => Promise.resolve(new FakeSttProvider({ segments: truth })),
   source,
   power,
+  persistence,
+  store,
 }: {
   speed?: FileSourceSpeed;
   startMs?: number;
@@ -76,6 +86,8 @@ function setup({
   stt?: () => Promise<SttProvider>;
   source?: (spec: InputSpec) => AudioSource;
   power?: PowerEvents;
+  persistence?: TranscriptPersistence;
+  store?: AudioRecordingStore;
 } = {}): Harness {
   const states: RecordingSnapshot[] = [];
   const batches: TranscriptBatch[] = [];
@@ -99,6 +111,8 @@ function setup({
         })),
     createStt: stt,
     ...(power ? { power } : {}),
+    ...(persistence ? { persistence } : {}),
+    ...(store ? { store } : {}),
     onState: (s) => states.push(s),
     onSegments: (b) => {
       batches.push(b);
@@ -474,6 +488,106 @@ describe('RecordingService: system sleep (review 2.5 #2)', () => {
     emit('resume');
     expect(h.service.status).toBe('paused');
     expect(h.service.snapshot().issues).toEqual([]);
+    await h.service.stop();
+  });
+});
+
+describe('RecordingService + local database (2.6)', () => {
+  function localDb(withWorkspace = true) {
+    const store = new LocalStore({ path: ':memory:' });
+    if (withWorkspace) {
+      store.applyPull(
+        {
+          changes: [
+            { op: 'upsert', table: 'workspace', row: { id: 'ws', name: 'Me', kind: 'personal' } },
+          ],
+          cursor: 'c',
+          hasMore: false,
+          workspaceIds: ['ws'],
+        },
+        null,
+      );
+    }
+    let kicks = 0;
+    const persistence = new MeetingPersistence({
+      store: () => store,
+      userId: () => 'u1',
+      workspaceTimeoutMs: 10,
+      sync: {
+        kick: () => void kicks++,
+        personalWorkspace: async () => store.personalWorkspaceId(),
+      },
+    });
+    return { store, persistence, kicks: () => kicks };
+  }
+
+  it('finals, the meeting and its audio rows land in SQLite as they happen; interims never do', async () => {
+    const db = localDb();
+    const audio = new AudioIndex({ path: ':memory:' });
+    const h = setup({ persistence: db.persistence, store: audio });
+    const { meetingId } = await h.service.start({ spec: fixture });
+    const meetingRow = db.store.meeting(meetingId)!;
+    expect(meetingRow.startedAt).not.toBeNull();
+    expect(db.store.document(meetingRow.documentId)).toMatchObject({
+      kind: 'meeting',
+      workspaceId: 'ws',
+      ownerId: 'u1',
+      visibility: 'private',
+    });
+    await h.waitFor('idle');
+    await h.service.stop();
+
+    const finals = h.service
+      .transcript()
+      .segments.filter((s) => s.isFinal)
+      .map((s) => [s.id, s.text])
+      .sort();
+    const stored = db.store
+      .segments(meetingId)
+      .map((s) => [s.id, s.text])
+      .sort();
+    expect(finals.length).toBeGreaterThan(5);
+    expect(stored).toEqual(finals);
+    expect(db.store.meeting(meetingId)!.endedAt).not.toBeNull();
+    const rows = await audio.list({ meetingId });
+    expect(rows.map((a) => [a.source, a.status])).toEqual([
+      ['mic', 'complete'],
+      ['system', 'complete'],
+    ]);
+    // Everything is queued for the server: document, meeting, every final.
+    const queued = db.store.outbox();
+    expect(queued.filter((e) => e.table === 'transcript_segment')).toHaveLength(stored.length);
+    expect(queued.map((e) => e.table)).toEqual(expect.arrayContaining(['document', 'meeting']));
+    expect(db.kicks()).toBeGreaterThan(stored.length);
+    db.store.close();
+  });
+
+  it('no workspace known (fresh cache, offline): the start fails visibly', async () => {
+    const db = localDb(false);
+    const h = setup({ persistence: db.persistence });
+    await expect(h.service.start({ spec: fixture })).rejects.toMatchObject({
+      code: 'unavailable',
+      message: expect.stringMatching(/connect once/),
+    });
+    expect(h.service.status).toBe('idle');
+    db.store.close();
+  });
+
+  it('a store failure becomes an issue; recording and the live transcript carry on', async () => {
+    const failing: TranscriptPersistence = {
+      beginMeeting: async () => {},
+      saveSegment: () => {
+        throw new Error('disk I/O error');
+      },
+      endMeeting: () => {},
+    };
+    const h = setup({ persistence: failing });
+    await h.service.start({ spec: fixture });
+    await h.waitFor('idle');
+    const issues = h.service.snapshot().issues.filter((i) => i.code === 'transcript_store_failed');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.count).toBeGreaterThan(1);
+    expect(h.service.transcript().segments.length).toBeGreaterThan(5);
     await h.service.stop();
   });
 });

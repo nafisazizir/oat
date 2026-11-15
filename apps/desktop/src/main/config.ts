@@ -30,6 +30,11 @@ export interface DesktopConfig {
    * (e2e points it at a dead port to test "transcription down, recording continues").
    */
   sttUrl: string | undefined;
+  /**
+   * `OAT_SYNC_URL` (dev only): send sync (`/api/sync/*`) to this origin instead of `webUrl` (e2e points it
+   * at a port that is down, then up, to test offline → drain). Same rules as `OAT_WEB_URL`.
+   */
+  syncUrl: string | undefined;
 }
 
 export interface AudioInputConfig {
@@ -104,6 +109,7 @@ export function desktopConfigFromEnv(
       allowDevHandoff: false,
       audio: { input: 'sidecar', fixture: null, synthetic: false, allowFixtures: false },
       sttUrl: undefined,
+      syncUrl: undefined,
     };
   }
   const e2e = env.OAT_E2E === '1';
@@ -121,5 +127,6 @@ export function desktopConfigFromEnv(
     allowDevHandoff: true,
     audio: parseAudioSource(env.OAT_AUDIO_SOURCE),
     sttUrl: blank(env.OAT_STT_URL),
+    syncUrl: blank(env.OAT_SYNC_URL) && parseWebUrl(blank(env.OAT_SYNC_URL)!, 'OAT_SYNC_URL'),
   };
 }

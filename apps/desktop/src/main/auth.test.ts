@@ -1,5 +1,6 @@
 import { desktopCallbackUrl, pkceChallenge, randomDesktopValue } from '@oat/auth/desktop-link';
 import type { DesktopUser } from '@oat/core/bridge';
+import type { SyncPushRequest } from '@oat/core/sync';
 import { describe, expect, it, vi } from 'vitest';
 
 import { type ApiClient, ApiError } from './api-client.ts';
@@ -34,6 +35,14 @@ function fakeWeb() {
     sttToken: vi.fn(async (token: string) => {
       if (!sessions.has(token)) throw new ApiError(401, 'ended');
       return { accessToken: `stt-${token}`, expiresIn: 60, listenUrl: 'ws://localhost:1/listen' };
+    }),
+    syncPush: vi.fn(async (token: string, _body: SyncPushRequest) => {
+      if (!sessions.has(token)) throw new ApiError(401, 'ended');
+      return { results: [] };
+    }),
+    syncPull: vi.fn(async (token: string, _cursor: string | null) => {
+      if (!sessions.has(token)) throw new ApiError(401, 'ended');
+      return { changes: [], cursor: null, hasMore: false, workspaceIds: [] };
     }),
     signOut: vi.fn(async (token: string) => void sessions.delete(token)),
   } satisfies ApiClient;
@@ -316,5 +325,35 @@ describe('STT grant (2.5)', () => {
     await auth.restore();
     await expect(auth.sttGrant()).rejects.toMatchObject({ status: 503 });
     expect(store.state.auth.status).toBe('signed-in');
+  });
+});
+
+describe('withSession (sync, 2.6)', () => {
+  it('passes the token to the call; signed out is a 401', async () => {
+    const { auth, web, opened } = setup();
+    await auth.restore();
+    await expect(auth.withSession(async () => 1)).rejects.toMatchObject({ status: 401 });
+    await auth.beginSignIn();
+    await auth.handleDeepLink(web.issue(opened[0]!));
+    expect(await auth.withSession((t) => web.api.syncPull(t, null))).toMatchObject({
+      hasMore: false,
+    });
+    expect(web.api.syncPull).toHaveBeenCalledWith('session1.signature', null);
+  });
+
+  it('a 401 from the call signs out; other failures keep the session', async () => {
+    const { auth, store, web } = setup({ stored: { token: 't.s', user: ADA } });
+    web.api.me.mockRejectedValue(new ApiError(0, 'offline'));
+    await auth.restore();
+    await expect(
+      auth.withSession(() => Promise.reject(new ApiError(503, 'down'))),
+    ).rejects.toMatchObject({ status: 503 });
+    expect(store.state.auth.status).toBe('signed-in');
+    await expect(
+      auth.withSession((t) => web.api.syncPush(t, { entries: [] })),
+    ).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(store.state.auth.status).toBe('signed-out');
   });
 });

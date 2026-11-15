@@ -6,3 +6,4 @@ export * from './types.ts';
 export * from './permissions.ts';
 export * from './calendar.ts';
 export * from './bridge.ts';
+export * from './sync.ts';

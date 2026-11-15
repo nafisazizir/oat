@@ -3,15 +3,22 @@
  * `OAT_AUDIO_SOURCE`) through the real pipeline — RecordingController → DeepgramProvider ×2 against the
  * Deepgram-compatible mock (token from the web app's `POST /api/stt/token`) + the Opus archive — and
  * shows the live transcript. No microphone, no real capture, no external service.
+ *
+ * Task 2.6: the finals are persisted in the app's SQLite database and synced (outbox → `POST
+ * /api/sync/push`) into the e2e server's Postgres, queried here; with the sync API down (`OAT_SYNC_URL`
+ * at a dead port) the outbox grows, and once a proxy brings it back it drains without duplicates.
  */
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { uniqueAddress } from '@oat/testkit';
 import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
+import postgres from 'postgres';
 
+import { databaseUrlFile } from '../../web/e2e/paths';
 import { evidence, launchApp, scaled, signInDesktop, writeEvidence } from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
@@ -52,18 +59,97 @@ let userDataDir: string;
 let app: ElectronApplication | undefined;
 let page: Page;
 let webUrl: string;
+/** The e2e server's throwaway Postgres (written by apps/web's `e2e/web-server.ts`). */
+let sql: postgres.Sql;
 
 test.beforeAll(async ({ baseURL }) => {
   webUrl = baseURL!;
   userDataDir = mkdtempSync(join(tmpdir(), 'oat-desktop-rec-'));
+  sql = postgres(readFileSync(databaseUrlFile(new URL(webUrl).port), 'utf8').trim(), {
+    max: 1,
+    onnotice: () => {},
+  });
   // `next dev` compiles a route on its first request: do it now, not during the latency measurement.
   await fetch(`${webUrl}/api/stt/token`, { method: 'POST', headers: { origin: webUrl } });
+  await fetch(`${webUrl}/api/sync/pull`);
+  await fetch(`${webUrl}/api/sync/push`, { method: 'POST', headers: { origin: webUrl } });
 });
 
 test.afterAll(async () => {
   await app?.close();
+  await sql?.end();
   rmSync(userDataDir, { recursive: true, force: true });
 });
+
+const mainState = (p: Page) =>
+  p.evaluate(async () => {
+    const r = await window.oat.invoke('state:get');
+    if (!r.ok) throw new Error(r.error.message);
+    return r.value.state;
+  });
+
+const syncNow = (p: Page) =>
+  p.evaluate(async () => {
+    const r = await window.oat.invoke('sync:now');
+    if (!r.ok) throw new Error(r.error.message);
+    return r.value;
+  });
+
+/** Final segments of a meeting in Postgres, as `[id, text]` sorted by id. */
+const serverSegments = async (meetingId: string) =>
+  (
+    await sql<{ id: string; text: string }[]>`
+      select id, text from transcript_segment where meeting_id = ${meetingId} and is_final`
+  )
+    .map((r) => [r.id, r.text])
+    .sort((a, b) => (a[0]! < b[0]! ? -1 : a[0]! > b[0]! ? 1 : 0));
+
+const sortedFinals = (segments: { id: string; text: string; isFinal: boolean }[]) =>
+  segments
+    .filter((s) => s.isFinal && s.text !== '')
+    .map((s) => [s.id, s.text])
+    .sort((a, b) => (a[0]! < b[0]! ? -1 : a[0]! > b[0]! ? 1 : 0));
+
+/** A tiny HTTP proxy to the web app: the "sync API is back" switch for the offline test. */
+async function startProxy(port: number, target: string): Promise<Server> {
+  const server = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(chunk as Buffer);
+    const headers = new Headers();
+    for (const [name, value] of Object.entries(req.headers)) {
+      if (['host', 'connection', 'content-length', 'transfer-encoding'].includes(name)) continue;
+      if (typeof value === 'string') headers.set(name, value);
+    }
+    try {
+      const upstream = await fetch(`${target}${req.url}`, {
+        method: req.method,
+        headers,
+        body: chunks.length ? Buffer.concat(chunks) : undefined,
+      });
+      const out: Record<string, string> = {};
+      upstream.headers.forEach((value, name) => {
+        if (!['content-encoding', 'content-length', 'transfer-encoding'].includes(name)) {
+          out[name] = value;
+        }
+      });
+      res.writeHead(upstream.status, out);
+      res.end(Buffer.from(await upstream.arrayBuffer()));
+    } catch {
+      res.writeHead(502).end();
+    }
+  });
+  await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve));
+  return server;
+}
+
+/** A port nothing listens on (yet). */
+async function freePort(): Promise<number> {
+  const probe = createServer();
+  await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve));
+  const { port } = probe.address() as { port: number };
+  await new Promise((resolve) => probe.close(resolve));
+  return port;
+}
 
 async function launch(env: Record<string, string>) {
   await app?.close();
@@ -246,6 +332,20 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   for (const f of files) expect(f.bytes).toBeGreaterThan(5_000);
   await evidence(page, 'finished', '2.5');
 
+  // 2.6: the finals went to the local database and through sync into Postgres, ids and text intact.
+  expect(await syncNow(page)).toMatchObject({ state: 'idle', pending: 0 });
+  await expect(page.getByTestId('sync-status')).toHaveAttribute('data-state', 'idle');
+  await expect(page.getByTestId('sync-status')).toHaveText('All changes synced');
+  const expected = sortedFinals(final.segments);
+  expect(expected.length).toBeGreaterThan(5);
+  expect(await serverSegments(meetingId)).toEqual(expected);
+  const [doc] = await sql<{ kind: string; visibility: string; title: string }[]>`
+    select d.kind, d.visibility, d.title from meeting m join document d on d.id = m.document_id
+    where m.id = ${meetingId} and m.ended_at is not null`;
+  expect(doc).toMatchObject({ kind: 'meeting', visibility: 'private' });
+  expect(doc!.title).toMatch(/^Meeting, /);
+  await evidence(page, 'synced', '2.6');
+
   writeEvidence(
     'latency.json',
     {
@@ -314,4 +414,57 @@ test('transcription down: the error is shown and recording + archive carry on', 
   expect(
     done.ok && done.value.audio.every((a) => a.status === 'complete' && a.durationMs > 3_000),
   ).toBe(true);
+});
+
+test('sync API down: the outbox grows while recording, then drains into Postgres without duplicates', async () => {
+  test.setTimeout(scaled(120_000));
+  const port = await freePort();
+  // Same signed-in profile (its workspace is already known locally); sync points at a dead port.
+  await launch({ OAT_AUDIO_SOURCE: `file:${FIXTURE}`, OAT_SYNC_URL: `http://127.0.0.1:${port}` });
+  await expect(page.getByTestId('signed-in-email')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Start recording' }).click();
+  await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
+  const meetingId = (await recordingState(page)).meetingId!;
+  // Let a few finals arrive, then stop.
+  await expect
+    .poll(async () => (await transcript(page)).segments.filter((s) => s.isFinal).length, {
+      timeout: scaled(30_000),
+    })
+    .toBeGreaterThanOrEqual(4);
+  const stopped = await page.evaluate(() => window.oat.invoke('recording:stop'));
+  expect(stopped.ok).toBe(true);
+
+  const finals = sortedFinals((await transcript(page)).segments);
+  const offline = (await mainState(page)).sync;
+  expect(offline.state).toBe('offline');
+  // The document, the meeting and every final are waiting in the outbox.
+  expect(offline.pending).toBeGreaterThanOrEqual(finals.length + 2);
+  await expect(page.getByTestId('sync-status')).toHaveAttribute('data-state', 'offline');
+  await expect(page.getByTestId('sync-status')).toContainText('saved on this Mac');
+  await evidence(page, 'offline', '2.6');
+  expect(await serverSegments(meetingId)).toEqual([]);
+  expect((await sql`select 1 from meeting where id = ${meetingId}`).length).toBe(0);
+
+  // Back online: the outbox drains and Postgres gets exactly the local finals.
+  const proxy = await startProxy(port, webUrl);
+  try {
+    expect(await syncNow(page)).toMatchObject({ state: 'idle', pending: 0 });
+    expect(await serverSegments(meetingId)).toEqual(finals);
+    // Syncing again changes nothing (nothing re-sent, nothing duplicated).
+    expect(await syncNow(page)).toMatchObject({ state: 'idle', pending: 0 });
+    const [counts] = await sql<{ n: number; ids: number }[]>`
+      select count(*)::int as n, count(distinct id)::int as ids from transcript_segment
+      where meeting_id = ${meetingId}`;
+    expect(counts).toEqual({ n: finals.length, ids: finals.length });
+    await expect(page.getByTestId('sync-status')).toHaveText('All changes synced');
+    await evidence(page, 'drained', '2.6');
+    writeEvidence(
+      'sync.json',
+      { meetingId, finals: finals.length, pendingWhileOffline: offline.pending, at: new Date() },
+      '2.6',
+    );
+  } finally {
+    await new Promise((resolve) => proxy.close(resolve));
+  }
 });

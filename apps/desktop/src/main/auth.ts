@@ -210,6 +210,25 @@ export class AuthController {
     }
   }
 
+  /**
+   * Runs an API call with the session token (sync, 2.6). Signed out → `ApiError(401)`; a session the
+   * server rejects signs the app out, as in `me()`. The token never leaves the main process.
+   */
+  async withSession<T>(fn: (token: string) => Promise<T>): Promise<T> {
+    const token = this.#token;
+    if (!token) throw new ApiError(401, 'Not signed in.');
+    try {
+      return await fn(token);
+    } catch (error) {
+      if (error instanceof ApiError && error.unauthorized && this.#token === token) {
+        this.#token = null;
+        await this.#o.tokens.clear();
+        this.#setSignedOut(MESSAGES.expired);
+      }
+      throw error;
+    }
+  }
+
   #clearPending() {
     this.#pending = null;
     this.#cancelTimer?.();

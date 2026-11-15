@@ -1,0 +1,27 @@
+{
+  "name": "@oat/local-store",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Desktop SQLite cache (node:sqlite): schema + migrations with wipe-and-resync, trigger-filled outbox, push/pull apply and the SyncEngine loop (D-19).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts",
+    "./*.test": null
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:int": "vitest run --mode int --passWithNoTests"
+  },
+  "dependencies": {
+    "@oat/audio": "workspace:*",
+    "@oat/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

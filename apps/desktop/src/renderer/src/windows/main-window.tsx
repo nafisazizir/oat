@@ -1,4 +1,10 @@
-import type { AppInfo, AuthState, DesktopUser, InvokeResponse } from '@oat/core/bridge';
+import type {
+  AppInfo,
+  AuthState,
+  DesktopUser,
+  InvokeResponse,
+  SyncStatusSnapshot,
+} from '@oat/core/bridge';
 import { Button } from '@oat/ui/components/button';
 import {
   Card,
@@ -13,17 +19,22 @@ import { Label } from '@oat/ui/components/label';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import {
   CheckCircle2Icon,
+  CloudCheckIcon,
+  CloudOffIcon,
+  CloudUploadIcon,
   ExternalLinkIcon,
   Loader2Icon,
   LogOutIcon,
   PanelTopIcon,
   RefreshCwIcon,
+  TriangleAlertIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { BridgeCallError, call } from '../bridge.ts';
 import { useMainState } from '../main-state.ts';
 import { useRecording, useTranscript } from '../recording-state.ts';
+import { syncLabel, type SyncTone } from '../sync-status.ts';
 import { IssueBanner, RecordingBar } from '../recording/recording-controls.tsx';
 import { TranscriptPanel } from '../recording/transcript-panel.tsx';
 import { Wordmark } from '../wordmark.tsx';
@@ -58,7 +69,7 @@ export default function MainWindow() {
       {signedIn ? (
         <main className="flex min-h-0 flex-1" data-testid="shell">
           <aside className="flex w-64 shrink-0 flex-col border-r bg-sidebar p-3">
-            <SignedInCard user={signedIn} />
+            <SignedInCard user={signedIn} sync={state!.sync} />
           </aside>
           <MeetingView />
         </main>
@@ -253,7 +264,7 @@ function SigningInCard({ allowPaste }: { allowPaste: boolean }) {
 }
 
 /** Account panel in the sidebar: who is signed in, connection check, widget, sign out. */
-function SignedInCard({ user }: { user: DesktopUser }) {
+function SignedInCard({ user, sync }: { user: DesktopUser; sync?: SyncStatusSnapshot }) {
   const check = useAction();
   const other = useAction();
   const [me, setMe] = useState<InvokeResponse<'api:me'> | null>(null);
@@ -316,9 +327,10 @@ function SignedInCard({ user }: { user: DesktopUser }) {
           {check.error ?? other.error}
         </p>
       </div>
+      <SyncLine status={sync} />
       <Button
         variant="ghost"
-        className="mt-auto w-full justify-start text-muted-foreground"
+        className="w-full justify-start text-muted-foreground"
         disabled={other.pending}
         onClick={() => void other.run(() => call('auth:sign-out'))}
       >
@@ -326,6 +338,34 @@ function SignedInCard({ user }: { user: DesktopUser }) {
         Sign out
       </Button>
     </div>
+  );
+}
+
+const SYNC_ICONS: Record<SyncTone, { icon: typeof CloudCheckIcon; className: string }> = {
+  ok: { icon: CloudCheckIcon, className: 'text-success' },
+  busy: { icon: Loader2Icon, className: 'animate-spin' },
+  waiting: { icon: CloudUploadIcon, className: '' },
+  offline: { icon: CloudOffIcon, className: 'text-warning' },
+  problem: { icon: TriangleAlertIcon, className: 'text-destructive' },
+};
+
+/** Sync status (2.6): caught up, syncing, waiting, or offline with how much is kept on this Mac. */
+function SyncLine({ status }: { status: SyncStatusSnapshot | undefined }) {
+  const label = status && syncLabel(status);
+  if (!status || !label) return <div className="mt-auto" />;
+  const { icon: Icon, className } = SYNC_ICONS[label.tone];
+  return (
+    <p
+      role="status"
+      className="mt-auto flex items-center gap-1.5 px-2.5 text-xs text-muted-foreground"
+      data-testid="sync-status"
+      data-state={status.state}
+      data-pending={status.pending}
+      title={status.error ?? undefined}
+    >
+      <Icon className={`size-3.5 shrink-0 ${className}`} />
+      <span className="truncate">{label.text}</span>
+    </p>
   );
 }
 

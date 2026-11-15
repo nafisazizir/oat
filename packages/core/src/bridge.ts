@@ -191,6 +191,28 @@ export const recordingOptionsSchema = z.object({
 });
 export type RecordingOptions = z.infer<typeof recordingOptionsSchema>;
 
+// ---------------------------------------------------------------------------------------------------
+// Sync (task 2.6, D-19)
+// ---------------------------------------------------------------------------------------------------
+
+/**
+ * `idle` = caught up (or between runs); `syncing` = a run is in flight; `offline` = the server can't be
+ * reached (changes stay on this Mac, retried with backoff); `error` = the server refused or failed
+ * (retried); `stopped` = signed out.
+ */
+export const SYNC_STATES = ['idle', 'syncing', 'offline', 'error', 'stopped'] as const;
+export const syncStatusSchema = z.object({
+  state: z.enum(SYNC_STATES),
+  /** Local changes the server hasn't acknowledged yet. */
+  pending: z.number().int().nonnegative(),
+  /** Changes that couldn't be sent as they are: kept on this Mac and retried later (D-28). */
+  parked: z.number().int().nonnegative(),
+  /** Wall clock (Unix ms) of the last complete sync. */
+  lastSyncedAt: z.number().nullable(),
+  error: z.string().max(500).nullable(),
+});
+export type SyncStatusSnapshot = z.infer<typeof syncStatusSchema>;
+
 /**
  * Small cross-window live state owned by the main process. Volatile: rebuilt on every launch (auth is
  * restored from the stored token; recording and meeting start idle).
@@ -201,6 +223,8 @@ export const mainStateSchema = z.object({
   recording: z.object({ status: recordingStatusSchema }),
   /** The meeting being recorded (or the last one recorded since launch). */
   activeMeetingId: z.string().nullable(),
+  /** Desktop sync (2.6). */
+  sync: syncStatusSchema,
 });
 export type MainState = z.infer<typeof mainStateSchema>;
 
@@ -275,6 +299,8 @@ export const bridgeContract = {
     },
     'recording:get': { request: none, response: recordingSnapshotSchema },
     'transcript:get': { request: none, response: transcriptSnapshotSchema },
+    /** Sync now (push the outbox, then pull); resolves with the status after the run. */
+    'sync:now': { request: none, response: syncStatusSchema },
     'window:open-widget': { request: none, response: none },
     'window:close-widget': { request: none, response: none },
   },
@@ -365,5 +391,6 @@ export function initialMainState(): MainState {
     auth: { status: 'restoring' },
     recording: { status: 'idle' },
     activeMeetingId: null,
+    sync: { state: 'stopped', pending: 0, parked: 0, lastSyncedAt: null, error: null },
   };
 }

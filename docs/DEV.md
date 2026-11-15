@@ -359,10 +359,25 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   `file:<fixture>` (replays `fixtures/audio/<fixture>.wav` in real time through `FileSource`; against the
   local mock the transcript is the fixture's ground truth; the e2e default). `OAT_STT_URL` replaces the
   live-transcription websocket the API names (e2e points it at a closed port to test "transcription down").
+  `OAT_SYNC_URL` sends `/api/sync/*` to another origin than `OAT_WEB_URL` (same https/loopback rules; e2e
+  points it at a dead port, then starts a proxy there, to test offline → drain).
 - **Recording (2.5).** Start/pause/stop in the main window (or Stop in the widget); the transcript is live
   (mic = "me", system = "them"). STT tokens come from `POST /api/stt/token` (the mock in dev, Deepgram with
   `DEEPGRAM_API_KEY`), audio goes to `<userData>/audio/<meeting>/{mic,system}.opus`. Sleep pauses the
   recording, quitting stops it gracefully first. Details: `docs/tasks/2.5-transcript-panel.md`.
+- **Local database + sync (2.6, D-19, D-28).** `<userData>/oat-<userId>.sqlite` (one per account; audio rows in the never-wiped `<userData>/audio-index.sqlite`) (`@oat/local-store`, Node's built-in
+  `node:sqlite`: no native module, nothing to rebuild for Electron; WAL, one writer in main). It mirrors
+  `workspace`, `document`, `meeting`, `participant`, `transcript_segment` (+ local-only `audio_recording`);
+  triggers queue every local write in `outbox`. A recording creates its `meeting` document (private, in the
+  personal workspace) before the audio starts and stores each final segment as it arrives. The sync engine
+  pushes the outbox to `POST /api/sync/push` (debounced after each write, parents first, acked per outbox
+  version) and then pulls `GET /api/sync/pull?cursor=` (change log, D-22); offline it backs off (1 s → 60 s)
+  and the sidebar says how many changes are saved on this Mac. The file is a cache: corrupt, written by a
+  newer app, or failing a migration for a non-transient reason → it is wiped and rebuilt from the server
+  (unsynced changes are lost and logged); busy/disk-full/I/O errors never wipe (retried). Another account
+  gets its own file; switching waits for a recording to end. Entries the server refuses are parked (sidebar
+  count, retried every 15 min or when edited). Inspect with `sqlite3 "<userData>/oat-<userId>.sqlite"` (dev
+  profile: `~/Library/Application Support/Oat Dev/`). Details: `docs/tasks/2.6-persist-segments.md`.
 - **Packaging (9.1).** `src/build/fuses.ts` (`OAT_FUSES`, `applyFuses`) holds the fuse settings to flip on
   the packaged binary: no run-as-node, no `NODE_OPTIONS`/`--inspect`, asar-only + integrity, cookie
   encryption.
@@ -371,7 +386,7 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   the app with a temp profile against `next dev` on a throwaway database (apps/web's `e2e/web-server.ts`,
   `E2E_PORT`, default 3100). `shell.openExternal` is stubbed and deep links are delivered by emitting
   `open-url`, so no browser opens and nothing is registered with the OS. The web half of sign-in runs in
-  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/` and `2.5/` (screenshots, `cold-start.json`, `latency.json`). Other
+  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/`, `2.5/` and `2.6/` (screenshots, `cold-start.json`, `latency.json`, `sync.json`). Other
   platforms skip it.
 
 ## Database (`@oat/db`)

@@ -31,6 +31,7 @@ describe('bridge contract', () => {
       auth: { status: 'restoring' },
       recording: { status: 'idle' },
       activeMeetingId: null,
+      sync: { state: 'stopped', pending: 0, parked: 0, lastSyncedAt: null, error: null },
     });
   });
 

@@ -41,6 +41,7 @@ import {
 import type {
   ArchivedAudio,
   AudioLevel,
+  LiveSegment,
   RecordingIssue,
   RecordingSnapshot,
   RecordingStatus,
@@ -56,6 +57,18 @@ import type { Logger } from './ipc.ts';
 import { TranscriptBuffer } from './transcript-buffer.ts';
 
 export type InputSpec = { input: 'sidecar' } | { input: 'file'; fixture: string };
+
+/**
+ * Where the meeting and its final segments are stored (2.6: the local SQLite cache, synced). Segments are
+ * on the meeting clock; an empty final is a retraction.
+ */
+export interface TranscriptPersistence {
+  /** Before the audio starts (new or resumed meeting). A rejection fails the start with its message. */
+  beginMeeting(meetingId: string, startedAt: number): Promise<void>;
+  saveSegment(meetingId: string, segment: LiveSegment): void;
+  /** After a recording session's files are closed. */
+  endMeeting(meetingId: string, endedAt: number): void;
+}
 
 export interface SttContext {
   meetingId: string;
@@ -73,8 +86,10 @@ export interface RecordingServiceOptions {
    * without a transcript.
    */
   createStt: (context: SttContext) => Promise<SttProvider>;
-  /** `audio_recording` rows (SQLite arrives with 2.6). Default in memory. */
+  /** `audio_recording` rows (SQLite in the app, 2.6). Default in memory. */
   store?: AudioRecordingStore;
+  /** Meeting + final segments to the local database (2.6). Without it the transcript lives in memory. */
+  persistence?: TranscriptPersistence;
   onState?: (snapshot: RecordingSnapshot) => void;
   onSegments?: (batch: TranscriptBatch) => void;
   /** Coarse status for the main store (every window). */
@@ -281,6 +296,19 @@ export class RecordingService {
     this.#sleptAt = undefined;
 
     const meetingId = requested ?? (this.#o.newMeetingId ?? (() => uuidv7()))();
+    if (this.#o.persistence) {
+      try {
+        await this.#o.persistence.beginMeeting(meetingId, this.#now());
+      } catch (error) {
+        this.#o.log.error('recording: could not create the meeting', error);
+        throw new RecordingServiceError(
+          'unavailable',
+          error instanceof Error && error.name === 'PersistenceError'
+            ? error.message
+            : 'Recording couldn’t start: the meeting can’t be saved on this Mac.',
+        );
+      }
+    }
     if (this.#transcript.meetingId !== meetingId) this.#transcript.reset(meetingId);
     const offsetMs = this.#meetingEnds.get(meetingId) ?? 0;
 
@@ -451,6 +479,11 @@ export class RecordingService {
         session.stt.finish(),
       ]);
       this.#transcript.flush();
+      try {
+        this.#o.persistence?.endMeeting(session.meetingId, this.#now());
+      } catch (error) {
+        this.#o.log.error('recording: could not stamp the meeting end', error);
+      }
       const sessionMs = Math.max(
         0,
         ...rows.map((r) => r.durationMs),
@@ -534,14 +567,30 @@ export class RecordingService {
     if (this.#session !== session || session.originUs === undefined) return;
     const toMeeting = (ms: number) =>
       Math.max(0, Math.round(ms - session.originUs! / 1000 + session.offsetMs));
-    this.#transcript.push({
+    const live: LiveSegment = {
       id: segment.id,
       source: segment.source,
       startMs: toMeeting(segment.startMs),
       endMs: toMeeting(segment.endMs),
       text: segment.text,
       isFinal: segment.isFinal,
-    });
+    };
+    this.#transcript.push(live);
+    if (live.isFinal && this.#o.persistence) {
+      try {
+        this.#o.persistence.saveSegment(session.meetingId, live);
+      } catch (error) {
+        this.#o.log.error('recording: could not save a transcript segment', error);
+        this.#issue({
+          scope: 'archive',
+          code: 'transcript_store_failed',
+          message:
+            'The transcript can’t be saved on this Mac right now. Recording continues; the live transcript is still shown.',
+          source: null,
+          fatal: false,
+        });
+      }
+    }
   }
 
   #audioIssue(error: RecordingError): void {

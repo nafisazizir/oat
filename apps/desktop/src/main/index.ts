@@ -9,6 +9,8 @@ import { fileURLToPath } from 'node:url';
 
 import { DESKTOP_SCHEME, findDeepLinkArg } from '@oat/auth/desktop-link';
 import type { SubscribeChannel, SubscribePayload } from '@oat/core/bridge';
+import { InMemoryAudioRecordingStore } from '@oat/audio/node';
+import { AudioIndex, SyncTransportError } from '@oat/local-store';
 import {
   app,
   BrowserWindow,
@@ -21,10 +23,11 @@ import {
   type WebContents,
 } from 'electron';
 
-import { createApiClient } from './api-client.ts';
+import { ApiError, createApiClient } from './api-client.ts';
 import { AuthController } from './auth.ts';
 import { desktopConfigFromEnv } from './config.ts';
 import { BridgeError, createBridge, type Logger, subscribePayload } from './ipc.ts';
+import { MeetingPersistence } from './meeting-persistence.ts';
 import { RecordingService, RecordingServiceError } from './recording-service.ts';
 import { createRecordingSetup, InputError } from './recording-setup.ts';
 import { mimeType, resolveRendererFile } from './renderer-files.ts';
@@ -39,6 +42,7 @@ import {
 } from './security.ts';
 import { MainStore } from './store.ts';
 import { SttCredentials } from './stt-credentials.ts';
+import { SyncService } from './sync-service.ts';
 import { TokenStore } from './token-store.ts';
 import { createWindowFactory } from './windows.ts';
 
@@ -172,7 +176,9 @@ async function start() {
   const store = new MainStore();
   const api = createApiClient({
     baseUrl: config.webUrl,
+    ...(config.syncUrl ? { syncBaseUrl: config.syncUrl } : {}),
     userAgent: `Oat-Desktop/${app.getVersion()} (${process.platform})`,
+    onSkippedChange: (reason) => log.warn(`sync: skipped a pulled change (${reason})`),
   });
   const tokens = new TokenStore({
     file: join(app.getPath('userData'), 'session.bin'),
@@ -202,7 +208,13 @@ async function start() {
     coldStartMs,
   }));
   bridge.handle('state:get', () => store.snapshot());
-  bridge.handle('auth:sign-in', () => auth.beginSignIn());
+  bridge.handle('auth:sign-in', () => {
+    // D-28: no account switch while recording (the meeting belongs to the account that started it).
+    if (auth.signedIn && recording.busy) {
+      throw new BridgeError('invalid_state', 'Stop the recording before switching accounts.');
+    }
+    return auth.beginSignIn();
+  });
   bridge.handle('auth:cancel-sign-in', () => auth.cancelSignIn());
   bridge.handle('auth:complete-from-link', async ({ url }) => {
     // Dev only: in a release, sign-in codes arrive by deep link, never by copy & paste (phishing).
@@ -222,6 +234,34 @@ async function start() {
   bridge.handle('window:close-widget', () => {
     widgetWindow?.close();
   });
+  // --- Local databases + sync (2.6, D-19, D-28) ---
+  // Audio rows: one never-wiped index for every account, next to the audio folder.
+  let audioIndex: AudioIndex | InMemoryAudioRecordingStore;
+  try {
+    audioIndex = new AudioIndex({ path: join(app.getPath('userData'), 'audio-index.sqlite'), log });
+  } catch (error) {
+    log.error('audio index unavailable; audio rows of this session stay in memory', error);
+    audioIndex = new InMemoryAudioRecordingStore();
+  }
+  const viaSession = <T>(fn: (token: string) => Promise<T>): Promise<T> =>
+    auth.withSession(fn).catch((error: unknown) => {
+      throw error instanceof ApiError ? new SyncTransportError(error.status, error.message) : error;
+    });
+  const sync: SyncService = new SyncService({
+    dir: app.getPath('userData'),
+    isRecording: (): boolean => recording.busy,
+    onUnauthorized: () => void auth.me().catch(() => {}),
+    transport: {
+      push: (request) => viaSession((token) => api.syncPush(token, request)),
+      pull: (cursor) => viaSession((token) => api.syncPull(token, cursor)),
+    },
+    onStatus: (status) => store.update((s) => ({ ...s, sync: status })),
+    log,
+  });
+  bridge.handle('sync:now', () => sync.syncNow());
+  const signedInUser = () =>
+    store.state.auth.status === 'signed-in' ? store.state.auth.user.id : null;
+
   // --- Recording + live transcript (2.5) ---
   const credentials = new SttCredentials({ fetchGrant: () => auth.sttGrant() });
   const setup = createRecordingSetup({
@@ -234,22 +274,30 @@ async function start() {
     credentials,
     log,
   });
-  const recording = new RecordingService({
+  const recording: RecordingService = new RecordingService({
     baseDir: app.getPath('userData'),
+    store: audioIndex,
+    persistence: new MeetingPersistence({ store: () => sync.store, sync, userId: signedInUser }),
     createSource: setup.createSource,
     createStt: setup.createStt,
     log,
     power: powerMonitor,
     onState: (snapshot) => broadcast('recording:state', snapshot),
     onSegments: (batch) => broadcast('transcript:segments', batch),
-    onStatus: (status, meetingId) =>
+    onStatus: (status, meetingId) => {
       store.update((s) =>
         s.recording.status === status && s.activeMeetingId === meetingId
           ? s
           : { ...s, recording: { status }, activeMeetingId: meetingId },
-      ),
+      );
+      if (status === 'idle') queueMicrotask(() => void sync.recordingEnded());
+    },
   });
   stopRecordingOnQuit(recording);
+  app.once('will-quit', () => {
+    void sync.shutdown();
+    if (audioIndex instanceof AudioIndex) audioIndex.close();
+  });
   const recordingCall = async <T>(fn: () => T | Promise<T>): Promise<T> => {
     try {
       return await fn();
@@ -297,6 +345,8 @@ async function start() {
   store.subscribe((snapshot) => {
     broadcast('state:changed', snapshot);
     if (snapshot.state.auth.status === 'signed-out') credentials.clear();
+    // After this change has reached every listener (sync's own status updates go through the store).
+    queueMicrotask(() => void sync.setUser(signedInUser()));
   });
   openMainWindow();
   await auth.restore();

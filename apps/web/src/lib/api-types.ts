@@ -111,7 +111,9 @@ export type ApiErrorCode =
   | 'notion_reconnect'
   | 'notion_busy'
   | 'notion_error'
-  | 'stt_unavailable';
+  | 'stt_unavailable'
+  /** Sync pull (2.6, D-19): the cursor can't be continued; pull again from the beginning. */
+  | 'stale_cursor';
 
 /** `POST /api/stt/token` (2.5, D-17): a short-lived live-transcription credential for the desktop. */
 export type SttTokenResponse = {
