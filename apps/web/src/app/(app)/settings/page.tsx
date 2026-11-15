@@ -53,6 +53,26 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>About me</CardTitle>
+          <CardDescription>
+            Your role, what you care about, and names to spell right. The AI uses it when it writes
+            your notes and answers questions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Row label="Profile" hint="Only you see it.">
+            <Button variant="outline" asChild>
+              <Link href="/settings/profile" data-testid="settings-profile-link">
+                Edit About me
+                <ChevronRightIcon data-icon="inline-end" />
+              </Link>
+            </Button>
+          </Row>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Appearance</CardTitle>
           <CardDescription>Choose how Oat looks on this device.</CardDescription>
         </CardHeader>

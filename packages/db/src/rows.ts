@@ -3,6 +3,8 @@ import type * as s from './schema/index.ts';
 
 export type UserRow = typeof s.user.$inferSelect;
 export type NewUserRow = typeof s.user.$inferInsert;
+export type UserProfileRow = typeof s.userProfile.$inferSelect;
+export type NewUserProfileRow = typeof s.userProfile.$inferInsert;
 export type WorkspaceRow = typeof s.workspace.$inferSelect;
 export type NewWorkspaceRow = typeof s.workspace.$inferInsert;
 export type MembershipRow = typeof s.membership.$inferSelect;
@@ -23,6 +25,8 @@ export type TemplateRow = typeof s.template.$inferSelect;
 export type NewTemplateRow = typeof s.template.$inferInsert;
 export type EnhancementRow = typeof s.enhancement.$inferSelect;
 export type NewEnhancementRow = typeof s.enhancement.$inferInsert;
+export type DocumentSnapshotRow = typeof s.documentSnapshot.$inferSelect;
+export type NewDocumentSnapshotRow = typeof s.documentSnapshot.$inferInsert;
 export type ChunkRow = typeof s.chunk.$inferSelect;
 export type NewChunkRow = typeof s.chunk.$inferInsert;
 export type ChatThreadRow = typeof s.chatThread.$inferSelect;

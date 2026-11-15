@@ -99,7 +99,9 @@ export {
   type MeetingContext,
   MEETING_CONTEXT_RULES,
   neutralizeTags,
+  type ProfileContextInput,
   renderMeetingContext,
+  renderProfileContext,
   sectionBudget,
   segmentIdForRef,
 } from './context.ts';

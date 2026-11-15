@@ -2,6 +2,7 @@
  * `POST /api/stt/token` (2.5) with a real in-process Better Auth (bearer and cookie sessions, revoked
  * sessions) against the compose stack's Deepgram-compatible mock (`MOCKS_URL`, D-11).
  */
+import { saveUserProfile } from '@oat/db';
 import { testEnv } from '@oat/testkit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -9,6 +10,7 @@ import type { SttTokenResponse } from '@/lib/api-types';
 
 import { denies } from './api/authz-markers';
 import { BASE, createHarness, type Harness, type TestUser } from './api/test-harness';
+import { profileKeyterms } from './profile';
 import { createSttTokenRoute } from './stt-token';
 
 let h: Harness;
@@ -23,6 +25,7 @@ beforeAll(async () => {
     getSession: (headers) => h.auth.api.getSession({ headers }),
     allowedOrigins: () => [BASE],
     env: () => ({ MOCKS_URL: mocks }),
+    keyterms: (userId) => profileKeyterms(h.db, userId),
   });
 }, 60_000);
 
@@ -39,6 +42,26 @@ describe('POST /api/stt/token', () => {
     expect(body.accessToken).toMatch(/^mock-dg-/);
     expect(body.expiresIn).toBe(60);
     expect(body.listenUrl).toBe(`${mocks.replace(/^http/, 'ws')}/stt/v1/listen`);
+    expect(body.keyterms).toEqual([]);
+  });
+
+  it('offers my "About me" vocabulary as keyterms, never someone else’s (4.6)', async () => {
+    await saveUserProfile(h.db, user.id, {
+      name: 'Stt User',
+      role: '',
+      team: '',
+      about: '',
+      vocabulary: ['Brightsmile', 'DentaCore'],
+    });
+    const mine = (await (
+      await post({ authorization: `Bearer ${user.bearer}` })
+    ).json()) as SttTokenResponse;
+    expect(mine.keyterms).toEqual(['Brightsmile', 'DentaCore']);
+    const other = await h.signUp('stt-other');
+    const theirs = (await (
+      await post({ authorization: `Bearer ${other.bearer}` })
+    ).json()) as SttTokenResponse;
+    expect(theirs.keyterms).toEqual([]);
   });
 
   it('web cookie session from our origin works too', async () => {

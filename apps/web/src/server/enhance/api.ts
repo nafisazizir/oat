@@ -12,6 +12,11 @@ import {
   startEnhancement,
   streamEnhancement,
 } from './service';
+import {
+  getEnhancementVersion,
+  listEnhancementVersions,
+  restoreEnhancementVersion,
+} from './versions';
 
 const Id = z.string().min(1).max(100);
 
@@ -23,6 +28,11 @@ const StartBody = z.strictObject({
     .regex(/^[\w.:-]+$/, 'Use letters, digits and -_.: only.'),
   templateId: Id.optional(),
   timeZone: z.string().min(1).max(64).optional(),
+});
+
+const RestoreBody = z.strictObject({
+  baseVersion: z.number().int().min(0),
+  target: z.enum(['output', 'notes']),
 });
 
 /** First language tag of `Accept-Language` (`de-CH,de;q=0.9` → `de-CH`); en-US without one. */
@@ -55,6 +65,30 @@ export function createEnhanceApi(deps: ApiDeps, enhance: EnhanceDeps) {
           headers: { 'cache-control': 'no-store' },
         });
       }),
+    },
+    /** `/api/documents/[id]/enhancements` (4.5) */
+    documentVersions: {
+      GET: apiRoute<IdParams>(deps, async ({ db, actor, params }) =>
+        listEnhancementVersions(db, actor, params.id),
+      ),
+    },
+    /** `/api/enhancements/[id]` (4.5) */
+    enhancementVersion: {
+      GET: apiRoute<IdParams>(deps, async ({ db, actor, params }) =>
+        getEnhancementVersion(db, actor, params.id),
+      ),
+    },
+    /** `/api/enhancements/[id]/restore` (4.5) */
+    enhancementRestore: {
+      POST: apiRoute<IdParams>(deps, async ({ db, actor, params, request }) =>
+        restoreEnhancementVersion(
+          db,
+          enhance,
+          actor,
+          params.id,
+          await readJson(request, RestoreBody),
+        ),
+      ),
     },
     /** `/api/enhancements/[id]/stream` */
     enhancementStream: {

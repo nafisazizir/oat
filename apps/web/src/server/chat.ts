@@ -19,7 +19,7 @@ import {
 } from '@oat/ai/tools';
 import type { RateLimiter } from '@oat/auth';
 import { canReadDocument, roleIn } from '@oat/core';
-import { chatMessage, chatThread, type Db, document, newId, user } from '@oat/db';
+import { chatMessage, chatThread, type Db, document, newId } from '@oat/db';
 import { searchChunks } from '@oat/indexing/retrieval';
 import { consumeStream, type LanguageModel, type UIMessage } from 'ai';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
@@ -38,6 +38,7 @@ import type { Actor } from './actor';
 import { ApiError, badRequest, notFound, staleVersion } from './api/errors';
 import { type ApiDeps, apiRoute, readJson } from './api/route';
 import { getDocument, updateDocument } from './documents';
+import { aiProfile } from './profile';
 
 /*
  * The assistant API (tasks 6.2/6.3, SPEC §4 Assistant, §7 grounding, D-7). Threads are private to the user
@@ -334,14 +335,14 @@ export async function chat(
     data: createDbAssistantData(db, { search: deps.search(db) }),
     scope,
   };
+  // The user's name and "About me" (4.6), as data in the context (D-20: same as enhance).
+  const profile = await aiProfile(db, actor.userId);
   let documentContext: string | undefined;
   if (scope.kind === 'document') {
-    const [me] = await db
-      .select({ name: user.name, email: user.email })
-      .from(user)
-      .where(eq(user.id, actor.userId));
     const loaded = await loadDocumentContext(tools, registry, {
-      me: { name: me?.name || 'Me', email: me?.email ?? null },
+      me: profile.me,
+      aboutMe: profile.aboutMe,
+      vocabulary: profile.vocabulary,
       ...(input.timeZone ? { timeZone: input.timeZone } : {}),
     });
     if (!loaded) throw notFound();
@@ -354,7 +355,9 @@ export async function chat(
     tools,
     messages: history,
     registry,
-    ...(documentContext ? { documentContext } : {}),
+    ...(documentContext
+      ? { documentContext }
+      : { profile: { aboutMe: profile.aboutMe, vocabulary: profile.vocabulary } }),
     ...(input.timeZone ? { timeZone: input.timeZone } : {}),
     abortSignal: request.signal,
   });

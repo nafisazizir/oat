@@ -13,7 +13,7 @@ import { isTrustedWrite } from './api/route';
  *   - otherwise the Deepgram-compatible mock at `${MOCKS_URL}/stt` (dev, tests; D-11).
  * Each call asks the provider for a fresh token: tokens are never cached or shared between users.
  *
- *   200 { accessToken, expiresIn, listenUrl } · 401 no session · 403 cross-site cookie request
+ *   200 { accessToken, expiresIn, listenUrl, keyterms } · 401 no session · 403 cross-site cookie request
  *   · 503 stt_unavailable (no provider configured in production, or the grant failed)
  */
 
@@ -30,7 +30,37 @@ export type SttTokenDeps = {
   env(): Env;
   fetch?: typeof globalThis.fetch;
   onError?: (message: string, error?: unknown) => void;
+  /**
+   * The user's "About me" vocabulary, offered to the client as STT keyterms (4.6, D-17). Best effort: a
+   * failure here never costs the user their token.
+   */
+  keyterms?: (userId: string) => Promise<string[]>;
 };
+
+/**
+ * Keyterm budget: each term becomes a `keyterm=` query parameter on the live websocket URL, and Deepgram caps
+ * keyterm prompting (~500 tokens), so a long profile vocabulary must not break the connection.
+ */
+export const KEYTERM_LIMITS = { terms: 50, termChars: 40, queryBytes: 2048 } as const;
+
+/** The first terms that fit the budget (over-long terms skipped, duplicates dropped, order kept). */
+export function capKeyterms(terms: readonly string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  let bytes = 0;
+  for (const raw of terms) {
+    const term = raw.replace(/\s+/g, ' ').trim();
+    const key = term.toLowerCase();
+    if (!term || term.length > KEYTERM_LIMITS.termChars || seen.has(key)) continue;
+    const cost = `&keyterm=${encodeURIComponent(term)}`.length;
+    if (bytes + cost > KEYTERM_LIMITS.queryBytes) break;
+    seen.add(key);
+    out.push(term);
+    bytes += cost;
+    if (out.length === KEYTERM_LIMITS.terms) break;
+  }
+  return out;
+}
 
 const unavailable = () =>
   new ApiError(503, 'stt_unavailable', 'Live transcription is unavailable right now.');
@@ -91,10 +121,19 @@ export function createSttTokenRoute(deps: SttTokenDeps): (request: Request) => P
         typeof body.expires_in === 'number' && body.expires_in > 0
           ? body.expires_in
           : STT_TOKEN_TTL_SECONDS;
+      let keyterms: string[] = [];
+      if (deps.keyterms) {
+        try {
+          keyterms = capKeyterms(await deps.keyterms(session.user.id));
+        } catch (error) {
+          onError('stt-token: could not read the profile vocabulary', error);
+        }
+      }
       const payload: SttTokenResponse = {
         accessToken: body.access_token,
         expiresIn,
         listenUrl: endpoints.listenUrl,
+        keyterms,
       };
       return Response.json(payload, { headers: { 'cache-control': 'no-store' } });
     } catch (error) {

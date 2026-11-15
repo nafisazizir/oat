@@ -227,5 +227,8 @@ export function useAutosave({
     base.current = { ...base.current, contentJson: doc.contentJson };
   }, []);
 
-  return { state, error, queue, retry, flush, discard, settle, adopt };
+  /** The version the next save is based on (e.g. a restore's `baseVersion`). */
+  const currentVersion = useCallback(() => versionRef.current, []);
+
+  return { state, error, queue, retry, flush, discard, settle, adopt, currentVersion };
 }

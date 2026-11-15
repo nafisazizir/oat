@@ -18,7 +18,7 @@ import { migrate } from '@oat/db';
 import { gcalProvider, llmProvider, notionProvider, startMocks } from '@oat/mocks';
 import { createTestDatabase } from '@oat/testkit';
 
-import { databaseUrlFile } from './paths';
+import { databaseUrlFile, mocksUrlFile } from './paths';
 
 const port = process.env.E2E_PORT ?? '3000';
 // A `.next/dev` left by an earlier `next dev` whose sources changed since (formatting, edits) sometimes
@@ -39,6 +39,7 @@ const mocks = await startMocks({
 // Specs that need rows the API can't create yet (e.g. transcript segments) write them here directly.
 mkdirSync(new URL('./.auth/', import.meta.url), { recursive: true });
 writeFileSync(databaseUrlFile(port), db.url);
+writeFileSync(mocksUrlFile(port), mocks.url);
 console.log(`[e2e] database ${db.name} ready; starting next dev on :${port}`);
 
 const child = spawn('pnpm', ['exec', 'next', 'dev', '--port', port], {

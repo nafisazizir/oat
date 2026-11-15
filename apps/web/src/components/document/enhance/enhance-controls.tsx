@@ -9,25 +9,45 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@oat/ui/components/dropdown-menu';
-import { AlertCircleIcon, ChevronDownIcon, Loader2Icon, SparklesIcon } from 'lucide-react';
+import {
+  AlertCircleIcon,
+  ChevronDownIcon,
+  Loader2Icon,
+  RefreshCwIcon,
+  SparklesIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 
 import type { TemplateDto, TemplateList } from '@/lib/templates';
 
 import type { Enhancement } from './use-enhancement';
 
+type StartInput = Parameters<Enhancement['start']>[0];
+
 /**
  * "Enhance" for meeting notes: one click uses the meeting's template (or General); the chevron picks another.
- * Shows progress while a run is going.
+ * Shows progress while a run is going. Once the note has been enhanced it reads "Regenerate" (4.5), and the
+ * caller routes starts through `onStart` (to confirm first when that would replace edits) and adds its own
+ * menu items (`children`: history, original notes, undo).
  */
 export function EnhanceButton({
   enhancement,
   workspaceId,
+  regenerate = false,
+  onStart,
+  children,
 }: {
   enhancement: Enhancement;
   workspaceId: string;
+  /** The note was enhanced before: label the action "Regenerate". */
+  regenerate?: boolean;
+  /** Starts a run (default: `enhancement.start`). `undefined` input = the default template. */
+  onStart?: (input?: StartInput) => void;
+  /** Extra menu items, after the templates. */
+  children?: React.ReactNode;
 }) {
-  const { state, start } = enhancement;
+  const { state } = enhancement;
+  const start = onStart ?? ((input?: StartInput) => void enhancement.start(input));
   const busy = state.phase === 'starting' || state.phase === 'streaming';
   const [templates, setTemplates] = useState<TemplateList | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -44,7 +64,7 @@ export function EnhanceButton({
     <DropdownMenuItem
       key={t.id}
       data-testid="enhance-template"
-      onSelect={() => void start({ templateId: t.id })}
+      onSelect={() => start({ templateId: t.id })}
     >
       {t.name}
     </DropdownMenuItem>
@@ -56,22 +76,24 @@ export function EnhanceButton({
         size="sm"
         data-testid="enhance-button"
         disabled={busy}
-        onClick={() => void start()}
+        onClick={() => start()}
         className="rounded-r-none"
       >
         {busy ? (
           <Loader2Icon data-icon="inline-start" className="animate-spin" />
+        ) : regenerate ? (
+          <RefreshCwIcon data-icon="inline-start" />
         ) : (
           <SparklesIcon data-icon="inline-start" />
         )}
-        {busy ? 'Enhancing…' : 'Enhance'}
+        {busy ? 'Enhancing…' : regenerate ? 'Regenerate' : 'Enhance'}
       </Button>
       <DropdownMenu onOpenChange={loadTemplates}>
         <DropdownMenuTrigger asChild>
           <Button
             size="icon-sm"
             disabled={busy}
-            aria-label="Enhance with a template"
+            aria-label={regenerate ? 'Regenerate with a template' : 'Enhance with a template'}
             data-testid="enhance-template-menu"
             className="rounded-l-none border-l border-l-primary-foreground/20"
           >
@@ -79,7 +101,9 @@ export function EnhanceButton({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-52">
-          <DropdownMenuLabel>Enhance with template</DropdownMenuLabel>
+          <DropdownMenuLabel>
+            {regenerate ? 'Regenerate with template' : 'Enhance with template'}
+          </DropdownMenuLabel>
           <DropdownMenuSeparator />
           {loadError ? (
             <DropdownMenuItem disabled>Couldn’t load templates</DropdownMenuItem>
@@ -95,6 +119,7 @@ export function EnhanceButton({
               {templates.custom.map(item)}
             </>
           )}
+          {children}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

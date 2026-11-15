@@ -92,6 +92,41 @@ describe('streamAssistant (mock LLM tool loop)', () => {
     ).toBeUndefined();
   });
 
+  it('passes the user profile into document and workspace chats, fenced as data', async () => {
+    const profile = {
+      aboutMe: 'Role: PM\nWhat I care about:\nPricing',
+      vocabulary: ['Brightsmile'],
+    };
+    const docCtx = toolContext(users.bob, {
+      kind: 'document',
+      workspaceId: TEAM,
+      documentId: 'd-standup',
+    });
+    const loaded = await loadDocumentContext(docCtx, new CitationRegistry(), {
+      me: { name: 'Bob' },
+      ...profile,
+    });
+    expect(loaded?.rendered).toContain('<oat:about_me>\nRole: PM\nWhat I care about:\nPricing\n');
+    expect(loaded?.rendered).toContain('Correct spellings of names and terms: Brightsmile');
+
+    const seen: string[] = [];
+    const model = createMockModel({
+      handler: (call) => {
+        seen.push(JSON.stringify(call.prompt));
+        return 'ok';
+      },
+    });
+    const run = await streamAssistant({
+      model,
+      tools: toolContext(users.bob),
+      profile,
+      messages: [user('hi')],
+    });
+    await run.result.text;
+    expect(seen.join('')).toContain('<oat:about_me>');
+    expect(seen.join('')).toContain('Brightsmile');
+  });
+
   it('collects updateDocument proposals without writing', async () => {
     const run = await streamAssistant({
       model: createMockChatModel(),

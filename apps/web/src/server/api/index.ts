@@ -7,6 +7,7 @@ import { notionConfig, serverEnv } from '@/lib/env';
 import { getAuth, getAuthConfig } from '../auth';
 import { getDb } from '../db';
 import type { NotionDeps } from '../notion';
+import { createProfileApi, profileKeyterms } from '../profile';
 import { createSttTokenRoute } from '../stt-token';
 import { createApi } from './handlers';
 import { createNotionApi } from './notion';
@@ -56,4 +57,8 @@ export const sttToken = createSttTokenRoute({
   getSession: apiDeps.getSession,
   allowedOrigins: apiDeps.allowedOrigins,
   env: () => process.env,
+  keyterms: (userId) => profileKeyterms(getDb(), userId),
 });
+
+/** "About me" (4.6). */
+export const profileApi = createProfileApi(apiDeps);

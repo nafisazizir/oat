@@ -71,6 +71,35 @@ export const enhancement = pgTable(
   ],
 );
 
+/** Why a snapshot was taken: the body was about to be replaced by a regenerate or a restore/undo/redo. */
+export const SNAPSHOT_REASONS = ['regenerate', 'restore'] as const;
+export type SnapshotReason = (typeof SNAPSHOT_REASONS)[number];
+
+/**
+ * A note body that was about to be replaced by an enhancement or a restore (4.5, "never lose text"): kept only
+ * when it matched no stored output, input notes or earlier snapshot of the note, i.e. the user's own edits.
+ * Immutable; listed in Note history and restorable like a version. Server-only (not synced).
+ */
+export const documentSnapshot = pgTable(
+  'document_snapshot',
+  {
+    id: id(),
+    documentId: text('document_id')
+      .notNull()
+      .references(() => document.id, { onDelete: 'cascade' }),
+    contentJson: jsonb('content_json').notNull(),
+    /** The note version this body had. */
+    documentVersion: integer('document_version').notNull(),
+    reason: text('reason').$type<SnapshotReason>().notNull(),
+    createdBy: text('created_by').references(() => user.id, { onDelete: 'set null' }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('document_snapshot_document_created_idx').on(t.documentId, t.createdAt.desc()),
+    check('document_snapshot_reason_ck', sql`${t.reason} in ('regenerate', 'restore')`),
+  ],
+);
+
 /**
  * A retrieval chunk of a document (notes and/or transcript) with its embedding. Written only by the indexer
  * (`@oat/indexing`, 6.1): derived data, never synced, rebuilt by `index:backfill`. Readers join `document` for

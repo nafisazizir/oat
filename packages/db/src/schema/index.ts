@@ -4,6 +4,7 @@
  */
 export * from './enums.ts';
 export * from './auth.ts';
+export * from './profile.ts';
 export * from './workspace.ts';
 export * from './documents.ts';
 export * from './meetings.ts';

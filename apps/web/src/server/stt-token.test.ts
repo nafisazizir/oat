@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createSttTokenRoute, STT_TOKEN_TTL_SECONDS, type SttTokenDeps } from './stt-token';
+import {
+  capKeyterms,
+  createSttTokenRoute,
+  KEYTERM_LIMITS,
+  STT_TOKEN_TTL_SECONDS,
+  type SttTokenDeps,
+} from './stt-token';
 
 const BASE = 'http://localhost:3000';
 const signedIn = async () => ({ user: { id: 'u1' } });
@@ -42,12 +48,40 @@ describe('POST /api/stt/token', () => {
       accessToken: 'tok-1',
       expiresIn: 60,
       listenUrl: 'ws://localhost:14010/stt/v1/listen',
+      keyterms: [],
     });
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('http://localhost:14010/stt/v1/auth/grant');
     expect(init.method).toBe('POST');
     expect(JSON.parse(String(init.body))).toEqual({ ttl_seconds: STT_TOKEN_TTL_SECONDS });
     expect(new Headers(init.headers).has('authorization')).toBe(false);
+  });
+
+  it('adds the session user’s profile vocabulary as keyterms; a lookup failure only drops them', async () => {
+    const keyterms = vi.fn(async (userId: string) => (userId === 'u1' ? ['Brightsmile'] : []));
+    const ok = await route({ keyterms }).handler(bearerRequest());
+    expect(((await ok.json()) as { keyterms: string[] }).keyterms).toEqual(['Brightsmile']);
+    expect(keyterms).toHaveBeenCalledWith('u1');
+
+    const { handler, onError } = route({ keyterms: () => Promise.reject(new Error('db down')) });
+    const res = await handler(bearerRequest());
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { keyterms: string[] }).keyterms).toEqual([]);
+    expect(onError).toHaveBeenCalled();
+  });
+
+  it('caps keyterms to a safe budget (count, length, query size)', () => {
+    expect(capKeyterms(['Brightsmile', ' brightsmile ', '', 'x'.repeat(41), 'Mei  Lin'])).toEqual([
+      'Brightsmile',
+      'Mei Lin',
+    ]);
+    const many = Array.from({ length: 100 }, (_, i) => `term${i}`);
+    expect(capKeyterms(many)).toHaveLength(KEYTERM_LIMITS.terms);
+    const long = Array.from({ length: 50 }, (_, i) => `${'ü'.repeat(38)}${i}`);
+    const capped = capKeyterms(long);
+    const bytes = capped.map((t) => `&keyterm=${encodeURIComponent(t)}`).join('').length;
+    expect(capped.length).toBeLessThan(50);
+    expect(bytes).toBeLessThanOrEqual(KEYTERM_LIMITS.queryBytes);
   });
 
   it('uses real Deepgram with the server-side key when DEEPGRAM_API_KEY is set', async () => {

@@ -123,6 +123,11 @@ export type SttTokenResponse = {
   expiresIn: number;
   /** Deepgram-compatible live websocket URL the token is valid for. */
   listenUrl: string;
+  /**
+   * The user's "About me" vocabulary (4.6, D-17): names and terms to boost as STT keyterms. Optional for
+   * clients; empty when the profile has none.
+   */
+  keyterms: string[];
 };
 
 // Request bodies -------------------------------------------------------------------------------------

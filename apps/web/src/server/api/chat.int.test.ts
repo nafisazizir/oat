@@ -8,7 +8,14 @@
 import { createMockChatModel } from '@oat/ai/chat/testing';
 import { createMemoryRateLimiter, type RateLimiter } from '@oat/auth';
 import { createMockEmbeddingModel, createMockModel } from '@oat/ai/testing';
-import { chatMessage, meeting, membership, newId, transcriptSegment } from '@oat/db';
+import {
+  chatMessage,
+  meeting,
+  membership,
+  newId,
+  saveUserProfile,
+  transcriptSegment,
+} from '@oat/db';
 import { indexDocument } from '@oat/indexing/indexer';
 import { searchChunks } from '@oat/indexing/retrieval';
 import { waitFor } from '@oat/testkit';
@@ -358,6 +365,46 @@ describe('POST /api/chat', () => {
         citations: [],
         dropped: [`[[seg:${segIds.secret[0]}]]`, '[[block:made-up]]'],
       });
+    } finally {
+      model = () => createMockChatModel();
+    }
+  });
+});
+
+describe('About me (4.6)', () => {
+  it('gives the model my profile in note and workspace chats, fenced as data', async () => {
+    await saveUserProfile(h.db, alice.id, {
+      name: 'Alice',
+      role: 'Product lead',
+      team: '',
+      about: 'Launch dates.',
+      vocabulary: ['Brightsmile'],
+    });
+    const prompts: string[] = [];
+    model = () =>
+      createMockModel({
+        handler: (call) => {
+          prompts.push(JSON.stringify(call.prompt));
+          return 'Noted.';
+        },
+      });
+    try {
+      await ask(alice, {
+        scope: { kind: 'document', documentId: standup.id },
+        messages: message('What matters to me here?'),
+      });
+      await ask(alice, { scope: workspaceScope(), messages: message('Anything for me?') });
+      await ask(bob, { scope: workspaceScope(), messages: message('Anything for me?') });
+      expect(prompts).toHaveLength(3);
+      for (const prompt of prompts.slice(0, 2)) {
+        expect(prompt).toContain(
+          '<oat:about_me>\\nRole: Product lead\\nWhat I care about:\\nLaunch dates.',
+        );
+        expect(prompt).toContain('Correct spellings of names and terms: Brightsmile');
+      }
+      // Bob's chat never carries Alice's profile.
+      expect(prompts[2]).not.toContain('Brightsmile');
+      expect(prompts[2]).not.toContain('<oat:about_me>');
     } finally {
       model = () => createMockChatModel();
     }

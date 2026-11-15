@@ -25,9 +25,8 @@ import {
   participant,
   template,
   transcriptSegment,
-  user,
 } from '@oat/db';
-import type { JSONContent } from '@oat/editor';
+import { ensureBlockIds, type JSONContent } from '@oat/editor';
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import type {
@@ -41,8 +40,10 @@ import type {
 import type { Actor } from '../actor';
 import { ApiError, badRequest, forbidden, notFound } from '../api/errors';
 import { prepareContent } from '../documents';
+import { aiProfile } from '../profile';
 import type { Queryable } from '../folders';
 import { ensureBuiltinTemplates } from '../templates/service';
+import { snapshotBeforeReplace } from './versions';
 import { type EnhanceBroker, isTerminal } from './broker';
 
 /*
@@ -221,7 +222,7 @@ async function gatherInput(
   // Built-ins, or a custom template of the note's own workspace; anything else looks unknown.
   if (!tpl || (!tpl.isBuiltin && tpl.workspaceId !== doc.workspaceId)) throw notFound('Template');
 
-  const [segments, people, [me]] = await Promise.all([
+  const [segments, people, profile] = await Promise.all([
     m
       ? db
           .select()
@@ -236,7 +237,8 @@ async function gatherInput(
           .where(eq(participant.meetingId, m.id))
           .orderBy(asc(participant.createdAt))
       : [],
-    db.select({ name: user.name, email: user.email }).from(user).where(eq(user.id, actor.userId)),
+    // The note-taker's name and "About me" (4.6): data in the prompt, like the notes.
+    aiProfile(db, actor.userId),
   ]);
 
   const enhanceInput: EnhanceInput = {
@@ -258,7 +260,9 @@ async function gatherInput(
       endMs: s.endMs,
       text: s.text,
     })),
-    me: { name: me?.name?.trim() || me?.email.split('@')[0] || 'Me', email: me?.email ?? null },
+    me: profile.me,
+    aboutMe: profile.aboutMe,
+    vocabulary: profile.vocabulary,
     locale,
     ...(input.timeZone ? { timeZone: input.timeZone } : {}),
   };
@@ -275,6 +279,7 @@ async function gatherInput(
     segments: segments.map((s) => [s.id, s.text]),
     template: [tpl.id, tpl.updatedAt.toISOString()],
     people: people.map((p) => [p.name, p.email]),
+    profile: [profile.me.name, profile.aboutMe, profile.vocabulary],
   });
   return { prepared, templateId: tpl.id, inputHash };
 }
@@ -344,7 +349,11 @@ export async function startEnhancement(
         model: modelId,
         inputHash,
         // The user's own lines only (an enhanced body's AI blocks are not "my notes").
-        inputNotesJson: prepared.notesDoc ?? { type: 'doc', content: [] },
+        // Block ids as every stored body has them, so an undo writes exactly this doc (and history can tell
+        // that the body is these notes).
+        inputNotesJson: prepared.notesDoc
+          ? ensureBlockIds(prepared.notesDoc)
+          : { type: 'doc', content: [] },
         status: 'generating',
         idempotencyKey,
       })
@@ -391,7 +400,7 @@ export async function startEnhancement(
     await markFailed(db, row.id, 'busy');
     throw new ApiError(409, 'enhance_busy', MESSAGES.busy);
   }
-  deps.runInBackground(() => runJob(db, deps, row, prepared, model, doc.version));
+  deps.runInBackground(() => runJob(db, deps, row, prepared, model, doc.version, actor.userId));
   return { enhancement: toEnhancementDto(row), attached: false };
 }
 
@@ -403,6 +412,8 @@ export async function runJob(
   prepared: PreparedEnhance,
   model: LanguageModel,
   baseVersion: number,
+  /** Who started the run (recorded on a snapshot of the replaced body). */
+  userId: string | null = null,
 ): Promise<void> {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), timeoutMs(deps));
@@ -428,6 +439,9 @@ export async function runJob(
     const content = prepareContent(doc);
 
     const done = await db.transaction(async (tx) => {
+      // Never lose text: the body this run replaces is saved first if it is stored nowhere (the user edited
+      // the AI notes, or typed after an undo). Same row lock and version as the UPDATE below.
+      await snapshotBeforeReplace(tx, row.documentId, baseVersion, 'regenerate', userId);
       const [updated] = await tx
         .update(document)
         .set({ ...content, version: sql`${document.version} + 1` })

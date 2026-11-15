@@ -15,7 +15,9 @@ import {
   buildMeetingContext,
   estimateTokens,
   type MeetingContext,
+  type ProfileContextInput,
   renderMeetingContext,
+  renderProfileContext,
 } from '../context.ts';
 import { createAssistantTools } from '../tools/ai-tools.ts';
 import { canSee } from '../tools/tools.ts';
@@ -97,6 +99,9 @@ export interface DocumentContextOptions {
   me: { name: string; email?: string | null };
   locale?: string;
   timeZone?: string;
+  /** The user's "about me" profile and vocabulary (4.6), fenced as data like the rest. */
+  aboutMe?: string | null;
+  vocabulary?: readonly string[];
 }
 
 export interface DocumentContext {
@@ -130,6 +135,8 @@ export async function loadDocumentContext(
     me: options.me,
     notesDoc: doc.contentJson as Parameters<typeof buildMeetingContext>[0]['notesDoc'],
     segments,
+    aboutMe: options.aboutMe ?? null,
+    vocabulary: options.vocabulary ?? [],
     locale: options.locale ?? 'en-US',
     timeZone: options.timeZone ?? 'UTC',
     maxTranscriptTokens: CHAT_LIMITS.contextTranscriptTokens,
@@ -153,6 +160,11 @@ export interface StreamAssistantOptions {
   registry?: CitationRegistry;
   /** Document chats: the rendered context (see {@link loadDocumentContext}). */
   documentContext?: string;
+  /**
+   * Workspace chats: the user's profile (4.6), rendered with `renderProfileContext`. Document chats get it
+   * inside `documentContext` instead (pass it to {@link loadDocumentContext}).
+   */
+  profile?: ProfileContextInput;
   now?: Date;
   timeZone?: string;
   maxSteps?: number;
@@ -174,11 +186,13 @@ export async function streamAssistant(options: StreamAssistantOptions) {
     },
   };
   const tools = createAssistantTools(toolCtx);
+  const context =
+    options.documentContext ?? (options.profile ? renderProfileContext(options.profile) : '');
   const instructions = buildChatInstructions({
     scope: options.tools.scope.kind,
     now: options.now ?? new Date(),
     ...(options.timeZone ? { timeZone: options.timeZone } : {}),
-    ...(options.documentContext ? { context: options.documentContext } : {}),
+    ...(context ? { context } : {}),
   });
   const result = streamText({
     model: options.model,

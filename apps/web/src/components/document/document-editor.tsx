@@ -27,9 +27,11 @@ import type { DocumentDetail } from '@/lib/api-types';
 import { formatDay } from '@/lib/format';
 import { documentNode } from '@/lib/tree';
 
-import { EnhanceButton, EnhanceError } from './enhance/enhance-controls';
+import { EnhanceError } from './enhance/enhance-controls';
 import { EnhancePreview } from './enhance/enhance-preview';
+import { EnhanceToolbar } from './enhance/enhance-toolbar';
 import { useEnhancement } from './enhance/use-enhancement';
+import { noteToastId, useNoteVersions } from './enhance/use-note-versions';
 import { ShareDialog } from './share-dialog';
 import { type SaveState, useAutosave } from './use-autosave';
 
@@ -73,6 +75,8 @@ export function DocumentEditor({
     enabled: editable,
     onSaved: (saved, patch) => {
       setUpdatedAt(saved.updatedAt);
+      // The note changed: an "Undo"/"Redo" toast from before no longer means what it says.
+      if (patch.contentJson !== undefined) toast.dismiss(noteToastId(doc.id));
       // The sidebar, breadcrumbs and tab title show the title: re-render the shell.
       if (patch.title !== undefined) router.refresh();
     },
@@ -98,19 +102,42 @@ export function DocumentEditor({
   }, [autosave.state, doc.id, reload]);
 
   const isMeeting = doc.kind === 'meeting';
+  /** The server wrote a new body (enhancement applied, version restored, undo): show it, save on top of it. */
+  const showServerBody = (next: {
+    version: number;
+    contentJson: JSONContent;
+    updatedAt: string;
+  }) => {
+    autosave.adopt(next);
+    setContent(next.contentJson);
+    setUpdatedAt(next.updatedAt);
+    announceDocumentChange({ id: doc.id, version: next.version, title });
+  };
+  // Versions, restore and undo (4.5): editors only.
+  const versions = useNoteVersions({
+    documentId: doc.id,
+    enabled: isMeeting && editable,
+    settle: autosave.settle,
+    currentVersion: autosave.currentVersion,
+    onRestored: showServerBody,
+  });
   const enhancement = useEnhancement({
     documentId: doc.id,
     loadedVersion: doc.version,
     enabled: isMeeting && !trashed,
     beforeStart: autosave.settle,
     onCompleted: ({ enhancement: run, doc: enhanced }) => {
+      void versions.refresh();
       if (run.applied && run.documentVersion !== null) {
-        autosave.adopt({ version: run.documentVersion, contentJson: enhanced });
-        setContent(enhanced);
-        setUpdatedAt(run.completedAt ?? new Date().toISOString());
-        announceDocumentChange({ id: doc.id, version: run.documentVersion, title });
+        showServerBody({
+          version: run.documentVersion,
+          contentJson: enhanced,
+          updatedAt: run.completedAt ?? new Date().toISOString(),
+        });
         toast.success('Notes enhanced', {
+          id: noteToastId(doc.id),
           description: 'Your own lines stay in full ink; what the AI added is softer.',
+          ...(editable ? { action: { label: 'Undo', onClick: () => versions.undo() } } : {}),
         });
         return;
       }
@@ -190,7 +217,11 @@ export function DocumentEditor({
           {!trashed && (
             <div className="ml-auto flex flex-wrap items-center gap-2">
               {editable && isMeeting && (
-                <EnhanceButton enhancement={enhancement} workspaceId={doc.workspaceId} />
+                <EnhanceToolbar
+                  enhancement={enhancement}
+                  versions={versions}
+                  workspaceId={doc.workspaceId}
+                />
               )}
               <NotionExportButton documentId={doc.id} beforeSend={autosave.flush} />
               <ShareDialog documentId={doc.id} />

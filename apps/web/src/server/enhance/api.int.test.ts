@@ -463,7 +463,9 @@ describe('a run', () => {
 
     const row = await run(started.body.enhancement.id);
     expect(row.status).toBe('completed');
-    expect(row.inputNotesJson).toEqual(NOTES);
+    // My notes as they were (block ids added, as on every stored body).
+    expect(texts(row.inputNotesJson as JSONContent)).toEqual(texts(NOTES));
+    expect(JSON.stringify(row.inputNotesJson)).toContain('"bold"');
     const stored = row.outputJson as Extract<StoredOutput, { output: unknown }>;
     expect(stored).toMatchObject({
       v: 1,

@@ -644,14 +644,35 @@ export function renderMeetingContext(ctx: MeetingContext): string {
   );
   parts.push(block('people', people.join('\n')));
 
-  if (ctx.aboutMe) parts.push(block('about_me', ctx.aboutMe));
-  if (ctx.vocabulary.length) {
-    parts.push(
-      block('vocabulary', `Correct spellings of names and terms: ${ctx.vocabulary.join(', ')}`),
-    );
-  }
+  const profile = renderProfileContext({ aboutMe: ctx.aboutMe, vocabulary: ctx.vocabulary });
+  if (profile) parts.push(profile);
   parts.push(block('notes', ctx.notes.markdown || '(none)'));
   parts.push(block('transcript', ctx.transcript.text || '(empty)'));
+  return parts.join('\n\n');
+}
+
+export interface ProfileContextInput {
+  /** Free-text "about me" profile (4.6). */
+  aboutMe?: string | null;
+  /** Names and terms to spell correctly. */
+  vocabulary?: readonly string[];
+}
+
+/**
+ * Just the profile blocks (`<oat:about_me>`, `<oat:vocabulary>`), cleaned and fenced exactly as in
+ * {@link renderMeetingContext}: for prompts without a meeting (workspace-wide chat). Empty string when the
+ * profile is empty. Pair it with {@link MEETING_CONTEXT_RULES}.
+ */
+export function renderProfileContext(input: ProfileContextInput): string {
+  const parts: string[] = [];
+  const aboutMe = neutralizeTags(input.aboutMe?.trim() ?? '').slice(0, MAX_ABOUT_ME_CHARS);
+  if (aboutMe) parts.push(block('about_me', aboutMe));
+  const vocabulary = cleanVocabulary(input.vocabulary);
+  if (vocabulary.length) {
+    parts.push(
+      block('vocabulary', `Correct spellings of names and terms: ${vocabulary.join(', ')}`),
+    );
+  }
   return parts.join('\n\n');
 }
 
