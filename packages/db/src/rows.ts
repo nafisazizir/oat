@@ -41,3 +41,7 @@ export type ActionItemRow = typeof s.actionItem.$inferSelect;
 export type NewActionItemRow = typeof s.actionItem.$inferInsert;
 export type ChangeLogRow = typeof s.changeLog.$inferSelect;
 export type NewChangeLogRow = typeof s.changeLog.$inferInsert;
+export type PipelineRunRow = typeof s.pipelineRun.$inferSelect;
+export type NewPipelineRunRow = typeof s.pipelineRun.$inferInsert;
+export type PipelineSettingRow = typeof s.pipelineSetting.$inferSelect;
+export type NewPipelineSettingRow = typeof s.pipelineSetting.$inferInsert;

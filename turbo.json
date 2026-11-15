@@ -36,7 +36,9 @@
         "OAUTH_*",
         "GOOGLE_CALENDAR_*",
         "NOTION_*",
-        "OAT_*"
+        "OAT_*",
+        "WORKFLOW_POSTGRES_*",
+        "EVE_*"
       ]
     },
     "eval": {
@@ -59,7 +61,9 @@
         "OAUTH_*",
         "GOOGLE_CALENDAR_*",
         "NOTION_*",
-        "OAT_*"
+        "OAT_*",
+        "WORKFLOW_POSTGRES_*",
+        "EVE_*"
       ]
     }
   }

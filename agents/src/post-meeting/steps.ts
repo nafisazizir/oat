@@ -6,41 +6,65 @@
  * updates the page it created before (`document_export`).
  */
 import { getAi } from '@oat/ai/provider';
+import { canEditDocument } from '@oat/core';
 import { document, enhancement, type EnhancementRow, integration, meeting } from '@oat/db';
 import { runJob } from '@oat/indexing';
+import { loadActor } from '@oat/services/actor';
+import { startEnhancement } from '@oat/services/enhance/service';
+import { ApiError } from '@oat/services/errors';
+import { sendToNotion } from '@oat/services/notion';
+import { pipelineSwitches } from '@oat/services/pipeline';
 import { and, desc, eq } from 'drizzle-orm';
 
 import type { StepContext } from './context.ts';
-import { type Busy, MeetingNotFound, type MeetingRef, type StepRecord } from './types.ts';
-import { ApiError, loadActor, sendToNotion, startEnhancement } from './web.ts';
+import {
+  type Busy,
+  MeetingNotFound,
+  type MeetingRef,
+  OwnerNoAccess,
+  type StepRecord,
+} from './types.ts';
 
 const now = () => new Date().toISOString();
 
 /**
  * The meeting and its note. `workspaceId` is the workspace the caller authorised the user against (D-29): a
- * meeting whose note lives elsewhere is reported exactly like a missing one.
+ * meeting whose note lives elsewhere is reported exactly like a missing one. The pipeline acts as the note's
+ * owner, so an owner who can no longer edit the note (left the workspace, now a viewer) stops it for good
+ * ({@link OwnerNoAccess}) — unless `checkOwner: false` (the jobs route only checks the ids).
  */
 export async function loadMeeting(
   ctx: StepContext,
   meetingId: string,
   workspaceId: string,
+  options: { checkOwner?: boolean } = {},
 ): Promise<MeetingRef> {
   const [row] = await ctx.db
-    .select({
-      meetingId: meeting.id,
-      documentId: document.id,
-      workspaceId: document.workspaceId,
-      ownerId: document.ownerId,
-      deletedAt: document.deletedAt,
-    })
+    .select({ doc: document, endedAt: meeting.endedAt })
     .from(meeting)
     .innerJoin(document, eq(document.id, meeting.documentId))
     .where(eq(meeting.id, meetingId));
-  if (!row || row.deletedAt || row.workspaceId !== workspaceId) {
+  if (!row || row.doc.deletedAt || row.doc.workspaceId !== workspaceId) {
     throw new MeetingNotFound(`meeting ${meetingId} not found in workspace ${workspaceId}`);
   }
-  const { deletedAt: _deleted, ...ref } = row;
-  return ref;
+  if (options.checkOwner !== false) {
+    const owner = await loadActor(ctx.db, row.doc.ownerId);
+    if (!canEditDocument(owner.ctx, row.doc)) {
+      throw new OwnerNoAccess(`the owner of meeting ${meetingId} can no longer edit its note`);
+    }
+  }
+  return {
+    meetingId,
+    documentId: row.doc.id,
+    workspaceId: row.doc.workspaceId,
+    ownerId: row.doc.ownerId,
+    endedAt: row.endedAt?.toISOString() ?? null,
+  };
+}
+
+/** The owner's access was refused mid-step (it changed since the run started). */
+function ownerAccessError(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 403 || error.code === 'not_found');
 }
 
 async function enhancementByKey(
@@ -52,7 +76,8 @@ async function enhancementByKey(
 }
 
 /**
- * (1) Enhance the note unless it already has a completed enhancement. Runs the web app's enhance job as the
+ * (1) Enhance the note unless it already has a completed enhancement, or the owner switched "Auto-enhance after
+ * meetings" off for this workspace (8.3). The template is the meeting's, else the default (`startEnhancement`). Runs the web app's enhance job as the
  * note's owner, under an idempotency key derived from the workflow run: a replayed step finds the run it
  * started instead of starting another. A key whose run failed is chained (`…:<failed run id>`), so a fresh
  * attempt starts a fresh run, deterministically.
@@ -67,13 +92,20 @@ export async function ensureEnhanced(
   m: MeetingRef,
   runId: string,
 ): Promise<StepRecord | Busy> {
+  const { autoEnhance } = await pipelineSwitches(ctx.db, m.ownerId, m.workspaceId);
+  if (!autoEnhance) {
+    return { step: 'enhance', outcome: 'skipped', reason: 'auto-enhance off', at: now() };
+  }
   const [latest] = await ctx.db
     .select()
     .from(enhancement)
     .where(eq(enhancement.documentId, m.documentId))
     .orderBy(desc(enhancement.createdAt))
     .limit(1);
-  if (latest?.status === 'completed') {
+  // Done already *for this end of the meeting*: a resumed meeting that ended again (D-24) is enhanced again, so
+  // the notes cover the whole transcript (re-enhancing works from the user's own lines, like Regenerate).
+  const coversEnd = !m.endedAt || (latest && latest.createdAt.getTime() >= Date.parse(m.endedAt));
+  if (latest?.status === 'completed' && coversEnd) {
     return {
       step: 'enhance',
       outcome: 'skipped',
@@ -112,6 +144,7 @@ export async function ensureEnhanced(
       if (error instanceof ApiError && (error.status === 409 || error.status === 503)) {
         return { busy: `enhance: ${error.code}` };
       }
+      if (ownerAccessError(error)) throw new OwnerNoAccess(`enhance: ${(error as ApiError).code}`);
       throw error;
     }
     // Our run (this call started it): its generation runs right here, inside the step.
@@ -169,7 +202,7 @@ export async function indexNotes(ctx: StepContext, m: MeetingRef): Promise<StepR
   };
 }
 
-/** Notion connection settings this step reads (8.3 adds `autoPush` to the web app's settings schema + UI). */
+/** The Notion connection's "Auto-send meeting notes" switch (`@oat/services/notion` settings, 8.3). */
 interface AutoPushSettings {
   autoPush?: unknown;
 }
@@ -213,6 +246,7 @@ export async function pushToNotion(ctx: StepContext, m: MeetingRef): Promise<Ste
       if (error.code === 'notion_busy' || error.code === 'rate_limited') {
         return { busy: `notion: ${error.code}` };
       }
+      if (ownerAccessError(error)) throw new OwnerNoAccess(`notion: ${error.code}`);
       if (
         error.code === 'notion_not_connected' ||
         error.code === 'notion_no_target' ||

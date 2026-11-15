@@ -1,0 +1,35 @@
+{
+  "name": "@oat/services",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Server-side domain services shared by the web app and the background agents (8.3, D-29 layering): documents/folders access, enhance jobs, note history, templates, tasks, Notion push, the post-meeting pipeline run log, plus the client-safe API shapes in dto/.",
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts",
+    "./*.test": null
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:int": "vitest run --mode int --passWithNoTests"
+  },
+  "dependencies": {
+    "@oat/ai": "workspace:*",
+    "@oat/auth": "workspace:*",
+    "@oat/core": "workspace:*",
+    "@oat/db": "workspace:*",
+    "@oat/editor": "workspace:*",
+    "@oat/indexing": "workspace:*",
+    "@oat/integrations-notion": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "redis": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@oat/testkit": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

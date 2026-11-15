@@ -1,8 +1,12 @@
 /**
- * The post-meeting pipeline as a durable eve workflow (8.2 spike; production wiring is 8.3):
+ * The post-meeting pipeline as a durable eve workflow (8.2 spike → 8.3 production wiring, D-29):
  *
- *   load meeting (in the caller's workspace) → (1) enhance unless done → (2) index the notes →
- *   [durable wait] → (3) Notion auto-push → (4) record the run
+ *   load meeting (in the caller's workspace, current attempt) → (1) enhance unless done or switched off →
+ *   (2) index the notes + action items → [durable wait] → (3) Notion auto-send → record the outcome
+ *
+ * Started by the jobs route / the backstop sweep (`start-job.ts`) for one `pipeline_run` attempt. Every step
+ * records itself on that row (`@oat/services/pipeline`: current step, then its result; writes fenced on the
+ * attempt), which is what the meeting header shows.
  *
  * The body is replayed after every wait, crash or redeploy, so it only orchestrates; each `"use step"`
  * function runs once, and its result is recorded by the Workflow world and replayed afterwards. Steps are
@@ -12,24 +16,27 @@
  *   sleeps (durable, holds no compute) and calls the step again until `busyDeadlineMs` — beyond D-26's
  *   staleness, so even our own run orphaned by a crash mid-generation is settled and replaced — then fails
  *   with a clear message. Errors would spend the step's retry budget (3 retries) within seconds.
- * - A missing meeting, or one outside the caller's workspace → `FatalError` (no retries).
- * - Anything else → the step's normal retries with backoff.
+ * - A missing meeting, one outside the caller's workspace, or a superseded attempt → `FatalError` (no retries).
+ * - Anything else → the step's normal retries with backoff; once exhausted the run fails (retry from the UI).
  */
+import { OWNER_NO_ACCESS } from '@oat/services/dto/pipeline';
+import { finishPipelineRun, isCurrentAttempt, type PipelineRunRef } from '@oat/services/pipeline';
 import { FatalError, getWorkflowMetadata, sleep } from 'eve/workflow';
 
 import { stepContext } from '../../src/post-meeting/context.ts';
-import { recordRun } from '../../src/post-meeting/run-log.ts';
 import {
   ensureEnhanced,
   indexNotes,
   loadMeeting,
   pushToNotion,
 } from '../../src/post-meeting/steps.ts';
+import { tracked } from '../../src/post-meeting/track.ts';
 import {
   type Busy,
   isBusy,
   MeetingNotFound,
   type MeetingRef,
+  OwnerNoAccess,
   type PostMeetingInput,
   type PostMeetingRun,
   type StepOutcome,
@@ -39,6 +46,7 @@ import {
 export async function postMeetingWorkflow(input: PostMeetingInput): Promise<PostMeetingRun> {
   'use workflow';
   const meta = getWorkflowMetadata();
+  const ref: PipelineRunRef = { pipelineRunId: input.pipelineRunId, attempt: input.attempt };
   const steps: StepRecord[] = [];
   let meetingRef: MeetingRef | undefined;
   const run = (
@@ -46,6 +54,8 @@ export async function postMeetingWorkflow(input: PostMeetingInput): Promise<Post
     error?: string,
   ): Omit<PostMeetingRun, 'finishedAt'> => ({
     runId: meta.workflowRunId,
+    pipelineRunId: input.pipelineRunId,
+    attempt: input.attempt,
     meetingId: input.meetingId,
     documentId: meetingRef?.documentId ?? null,
     status,
@@ -54,33 +64,41 @@ export async function postMeetingWorkflow(input: PostMeetingInput): Promise<Post
     ...(error ? { error } : {}),
   });
   try {
-    const m = await loadMeetingStep(input.meetingId, input.workspaceId);
+    const m = await loadMeetingStep(input);
     meetingRef = m;
-    steps.push(await untilNotBusy(() => enhanceStep(m, meta.workflowRunId)));
-    steps.push(await indexStep(m));
+    steps.push(await untilNotBusy((since) => enhanceStep(ref, m, meta.workflowRunId, since)));
+    steps.push(await indexStep(ref, m));
     if (input.pushDelayMs && input.pushDelayMs > 0) await sleep(input.pushDelayMs);
-    steps.push(await untilNotBusy(() => notionStep(m)));
+    steps.push(await untilNotBusy((since) => notionStep(ref, m, since)));
+    // Inside the try: if recording the success fails for good, the run is recorded as failed (and if even
+    // that fails, the stuck-run sweep settles the row from the world's record).
+    return await finishStep(ref, run('completed'));
   } catch (error) {
-    await recordRunStep(run('failed', error instanceof Error ? error.message : String(error)));
+    await finishStep(ref, run('failed', error instanceof Error ? error.message : String(error)));
     throw error;
   }
-  return recordRunStep(run('completed'));
+}
+
+/** Errors no retry of the step can fix end the run at once (`FatalError`); the rest get the step's retries. */
+function fatal(error: unknown): unknown {
+  if (error instanceof OwnerNoAccess) return new FatalError(`${OWNER_NO_ACCESS}: ${error.message}`);
+  if (error instanceof MeetingNotFound) return new FatalError(error.message);
+  return error;
 }
 
 /**
  * Calls a step until it isn't busy, sleeping durably in between; fails once the deadline has passed since the
  * first busy answer. Times come from the steps' recorded answers (wall clock, so downtime counts), never from
- * the replayed body. A step that waited reports it as `detail.waitedMs`.
+ * the replayed body. The step gets the first busy time, so the record it writes says how long it waited
+ * (`detail.waitedMs`).
  */
-async function untilNotBusy(call: () => Promise<StepOutcome>): Promise<StepRecord> {
+async function untilNotBusy(
+  call: (busySince: number | undefined) => Promise<StepOutcome>,
+): Promise<StepRecord> {
   let firstBusyAt: number | undefined;
   for (;;) {
-    const result = await call();
-    if (!isBusy(result)) {
-      if (firstBusyAt === undefined) return result;
-      const waitedMs = Math.max(0, Date.parse(result.at) - firstBusyAt);
-      return { ...result, detail: { ...result.detail, waitedMs } };
-    }
+    const result = await call(firstBusyAt);
+    if (!isBusy(result)) return result;
     firstBusyAt ??= result.at;
     const waited = result.at - firstBusyAt;
     if (waited >= result.deadlineMs) {
@@ -99,36 +117,102 @@ function withPolicy(
   return { ...result, retryAfterMs: busyRetryMs, deadlineMs: busyDeadlineMs, at: Date.now() };
 }
 
-async function loadMeetingStep(meetingId: string, workspaceId: string): Promise<MeetingRef> {
+async function loadMeetingStep(input: PostMeetingInput): Promise<MeetingRef> {
   'use step';
+  const ctx = stepContext();
   try {
-    return await loadMeeting(stepContext(), meetingId, workspaceId);
+    if (!(await isCurrentAttempt(ctx.db, input))) {
+      throw new MeetingNotFound(
+        `pipeline run ${input.pipelineRunId} attempt ${input.attempt} is gone`,
+      );
+    }
+    return await loadMeeting(ctx, input.meetingId, input.workspaceId);
   } catch (error) {
-    if (error instanceof MeetingNotFound) throw new FatalError(error.message);
-    throw error;
+    throw fatal(error);
   }
 }
 
-async function enhanceStep(m: MeetingRef, runId: string): Promise<StepOutcome> {
+async function enhanceStep(
+  ref: PipelineRunRef,
+  m: MeetingRef,
+  runId: string,
+  busySince: number | undefined,
+): Promise<StepOutcome> {
   'use step';
   const ctx = stepContext();
-  return withPolicy(await ensureEnhanced(ctx, m, runId), ctx.config);
+  try {
+    return withPolicy(
+      await tracked(ref, 'enhance', () => ensureEnhanced(ctx, m, runId), busySince),
+      ctx.config,
+    );
+  } catch (error) {
+    throw fatal(error);
+  }
 }
 
-async function indexStep(m: MeetingRef): Promise<StepRecord> {
+async function indexStep(ref: PipelineRunRef, m: MeetingRef): Promise<StepRecord> {
   'use step';
-  return indexNotes(stepContext(), m);
+  try {
+    return await tracked(ref, 'index', () => indexNotes(stepContext(), m));
+  } catch (error) {
+    throw fatal(error);
+  }
 }
 
-async function notionStep(m: MeetingRef): Promise<StepOutcome> {
+async function notionStep(
+  ref: PipelineRunRef,
+  m: MeetingRef,
+  busySince: number | undefined,
+): Promise<StepOutcome> {
   'use step';
   const ctx = stepContext();
-  return withPolicy(await pushToNotion(ctx, m), ctx.config);
+  try {
+    return withPolicy(
+      await tracked(ref, 'notion', () => pushToNotion(ctx, m), busySince),
+      ctx.config,
+    );
+  } catch (error) {
+    throw fatal(error);
+  }
 }
 
-async function recordRunStep(run: Omit<PostMeetingRun, 'finishedAt'>): Promise<PostMeetingRun> {
+/** Records the outcome on `pipeline_run` (also after a failure) and returns the run summary. */
+async function finishStep(
+  ref: PipelineRunRef,
+  run: Omit<PostMeetingRun, 'finishedAt'>,
+): Promise<PostMeetingRun> {
   'use step';
   const done: PostMeetingRun = { ...run, finishedAt: new Date().toISOString() };
-  await recordRun(stepContext(), done);
+  await finishPipelineRun(
+    stepContext().db,
+    ref,
+    done.status === 'completed'
+      ? { status: 'completed' }
+      : done.error?.includes(OWNER_NO_ACCESS)
+        ? {
+            status: 'failed',
+            error: 'The note’s owner can no longer edit it, so its post-meeting steps can’t run.',
+            code: OWNER_NO_ACCESS,
+          }
+        : { status: 'failed', error: userFacingError(done.error) },
+  );
   return done;
+}
+
+/** What the meeting header shows for a failed run (the raw message stays in the workflow record / logs). */
+function userFacingError(message: string | undefined): string {
+  if (!message) return 'The post-meeting steps failed.';
+  if (message.startsWith('gave up after waiting')) {
+    return message.includes('notion')
+      ? 'Sending to Notion stayed blocked by another send. Try again.'
+      : 'Another enhancement of this note kept running. Try again.';
+  }
+  // A step whose retries ran out names itself ("Step \"…//enhanceStep\" exceeded max retries").
+  if (/enhanceStep|enhance failed/.test(message)) return 'Enhancing the notes failed. Try again.';
+  if (/indexStep/.test(message)) return 'Indexing the notes failed. Try again.';
+  if (/notionStep/.test(message)) return 'Sending the notes to Notion failed. Try again.';
+  if (/not found in workspace|is gone/.test(message)) {
+    return 'This meeting is no longer available to the pipeline.';
+  }
+  return 'The post-meeting steps failed. Try again.';
 }

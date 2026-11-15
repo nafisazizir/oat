@@ -32,6 +32,24 @@ export default defineConfig(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
       ],
       '@typescript-eslint/consistent-type-imports': 'error',
+      // Layering (D-29, 8.3): apps sit on top. Packages, tools and the background agents (`agents/`) never import
+      // app code (relative paths into `apps/`, or the apps' package names); shared server logic lives in
+      // `@oat/services`. Every package config extends this file, so the rule applies everywhere.
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '(^|/)apps/',
+              message: 'Do not import app code (D-29 layering): move shared logic into a package.',
+            },
+            {
+              group: ['@oat/web', '@oat/web/*', '@oat/desktop', '@oat/desktop/*'],
+              message: 'Do not import app code (D-29 layering): move shared logic into a package.',
+            },
+          ],
+        },
+      ],
     },
   },
   {

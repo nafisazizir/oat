@@ -49,3 +49,14 @@ export const chatMessageRoleEnum = pgEnum('chat_message_role', CHAT_MESSAGE_ROLE
 export const integrationProviderEnum = pgEnum('integration_provider', INTEGRATION_PROVIDERS);
 export const changeOpEnum = pgEnum('change_op', CHANGE_OPS);
 export const chunkSourceEnum = pgEnum('chunk_source', CHUNK_SOURCES);
+
+/** Post-meeting pipeline run states (8.3; lifecycle on `pipeline_run`). */
+export const PIPELINE_RUN_STATUSES = [
+  'waiting',
+  'queued',
+  'running',
+  'completed',
+  'failed',
+] as const;
+export type PipelineRunStatus = (typeof PIPELINE_RUN_STATUSES)[number];
+export const pipelineRunStatusEnum = pgEnum('pipeline_run_status', PIPELINE_RUN_STATUSES);

@@ -19,6 +19,7 @@ import {
   syncPushRequestSchema,
 } from '@oat/core';
 
+import type { Actor } from '../actor';
 import { badRequest } from '../api/errors';
 import { type ApiDeps, apiRoute, readJson } from '../api/route';
 import { backfillDocument } from './backfill';
@@ -47,6 +48,8 @@ export function createSyncApi(
     rateLimiter?: () => RateLimiter;
     connectsPerMinute?: number;
     maxStreamsPerUser?: number;
+    /** A push ended a meeting (8.3: the post-meeting pipeline); called after the push committed. */
+    onMeetingEnded?: (actor: Actor, meetingId: string) => void;
   } = {},
 ) {
   const eventTimings = options.events ?? {};
@@ -56,7 +59,10 @@ export function createSyncApi(
     push: {
       POST: apiRoute(deps, async ({ db, actor, request }) => {
         const { entries, device } = await readJson(request, syncPushRequestSchema);
-        return pushChanges(db, actor, entries, device ?? null);
+        const onMeetingEnded = options.onMeetingEnded;
+        return pushChanges(db, actor, entries, device ?? null, {
+          ...(onMeetingEnded ? { onMeetingEnded: (id) => onMeetingEnded(actor, id) } : {}),
+        });
       }),
     },
     /** `/api/sync/pull` */

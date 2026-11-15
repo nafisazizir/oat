@@ -58,19 +58,32 @@ process.stdin.on('close', stop).on('end', stop).resume();
 server.on('exit', (code, signal) => process.exit(signal ? 1 : (code ?? 0)));
 `;
 
-/** Starts the built server and resolves once `/eve/v1/health` answers. */
-export async function startAgent(env: Record<string, string>, port: number): Promise<AgentServer> {
+/**
+ * Starts the built server and resolves once `/eve/v1/health` answers. `schedules: true` lets it fire its
+ * schedules (the post-meeting backstop sweep, every minute) like `eve start` does.
+ */
+export async function startAgent(
+  env: Record<string, string>,
+  port: number,
+  options: { schedules?: boolean } = {},
+): Promise<AgentServer> {
   const childEnv: NodeJS.ProcessEnv = {
     ...process.env,
     ...env,
     EVE_TELEMETRY_DISABLED: '1',
-    EVE_SCHEDULES_DISABLED: '1',
+    ...(options.schedules ? {} : { EVE_SCHEDULES_DISABLED: '1' }),
     HOST: '127.0.0.1',
     NITRO_HOST: '127.0.0.1',
     PORT: String(port),
     NITRO_PORT: String(port),
   };
-  for (const name of ['TEST', 'CI', 'SERVER_SHUTDOWN_TIMEOUT', 'NITRO_UNIX_SOCKET']) {
+  for (const name of [
+    'TEST',
+    'CI',
+    'SERVER_SHUTDOWN_TIMEOUT',
+    'NITRO_UNIX_SOCKET',
+    ...(options.schedules ? ['EVE_SCHEDULES_DISABLED'] : []),
+  ]) {
     delete childEnv[name];
   }
   const child: ChildProcess = spawn(

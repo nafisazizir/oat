@@ -15,7 +15,7 @@ services. The desktop app and the Swift sidecar run natively on macOS and talk t
 ```bash
 pnpm install
 pnpm dev:up      # creates .env from .env.example if missing, starts the stack, waits until healthy
-pnpm dev         # app dev servers (everything except the mocks, which already run in Docker)
+pnpm dev         # app dev servers + index worker + agents server (the mocks already run in Docker)
 ```
 
 The first `dev:up` pulls images and builds three small local images (postgres, oauth, mocks), so it needs
@@ -31,8 +31,8 @@ network once; after that everything works offline.
 | `pnpm dev:reset` | `down --volumes`: also wipes Postgres, Redis and Mailpit data (dev data only).   |
 | `pnpm dev:logs`  | Follows logs. `pnpm dev:logs mocks` for one service.                             |
 | `pnpm dev:ps`    | Service status and health.                                                       |
-| `pnpm dev:app`   | Profile `app`: builds the `web` + `migrate` + `worker` images from *this* checkout, runs migrations, starts the web app on <http://localhost:3000> and the index worker, and waits until web is healthy. See "Web app in Docker". |
-| `pnpm dev:app:stop` | Stops and removes the `web`, `worker` and `migrate` containers (frees :3000); the rest of the stack keeps running. |
+| `pnpm dev:app`   | Profile `app`: builds the `web` + `migrate` + `worker` + `agents` images from *this* checkout, runs migrations, starts the web app on <http://localhost:3000>, the index worker and the agents server (loopback :3100), and waits until they are healthy. See "Web app in Docker". |
+| `pnpm dev:app:stop` | Stops and removes the `web`, `worker`, `agents` and `migrate` containers (frees :3000/:3100); the rest of the stack keeps running. |
 
 Extra arguments are passed to `docker compose` (e.g. `pnpm dev:up postgres`). The scripts live in
 `scripts/dev.mjs`. The compose project is always called `oat`, so all git worktrees share one stack; run plain
@@ -450,6 +450,52 @@ model (the mock LLM's feature-hashed vectors in dev) and stored in `chunk` (pgve
 - **Search.** `searchChunks({ db, permissions }, query, { k, scope: { documentId } | { workspaceId } })`
   returns chunks the user may read (permission rule applied in SQL, then re-checked with `canReadDocument`)
   with citation refs. Integration tests use their own queue prefix on the shared Redis and a throwaway DB.
+
+## Post-meeting pipeline (`agents/`, 8.3)
+
+When a meeting ends, its notes are finished in the background: **enhance** (unless done, or the owner switched
+"Auto-enhance after meetings" off) → **index** (retrieval chunks + action items) → **Notion** (if the owner's
+Notion connection has "Auto-send meeting notes" on). It runs as a durable eve workflow (D-29) in the agents
+server; the web app only asks for it and shows it.
+
+```
+desktop sync push sets meeting.ended_at ─▶ web: authorise (owner/editor) → pipeline_run row (one per meeting)
+   (or POST /api/documents/:id/pipeline)        └─▶ POST <OAT_AGENTS_URL>/jobs/post-meeting  (service token)
+agents server (eve, Postgres Workflow world in `oat_workflow`) ─▶ steps write status into pipeline_run
+meeting header polls GET /api/documents/:id/pipeline: "Post-meeting: enhancing… / done / failed — Retry"
+```
+
+- **Run it.** `pnpm dev` starts it (`@oat/agents` `dev` = `eve dev --no-ui` on 127.0.0.1:3100, after creating and
+  migrating the `oat_workflow` database if needed). Alone: `pnpm --filter @oat/agents dev`, or the production
+  form `pnpm --filter @oat/agents agent:build && pnpm --filter @oat/agents agent:start` (this one also fires the
+  schedules). `pnpm dev:app` runs it in the `agents` container (`agents/Dockerfile`; the web container reaches it
+  as `http://agents:3100` with a compose-only token, since the image runs `NODE_ENV=production`, where the dev
+  token is refused).
+- **Env** (`.env.example`, "Background agents"): web side `OAT_AGENTS_URL` (default `http://127.0.0.1:3100`) +
+  `OAT_AGENTS_TOKEN`; agents side the same token (+ `OAT_AGENTS_TOKEN_PREVIOUS` while rotating),
+  `OAT_AGENTS_HOST`/`OAT_AGENTS_PORT`, `WORKFLOW_POSTGRES_URL` (its own database, never the app's), and the app's
+  `DATABASE_URL`, `REDIS_URL`, `AI_*`, `NOTION_*`, `BETTER_AUTH_SECRET(S)` (it decrypts Notion tokens with the
+  same secret config, `@oat/auth` `secretSourceFromEnv`). Every eve command runs with `EVE_TELEMETRY_DISABLED=1`.
+- **Agents down?** Nothing breaks: the run is `waiting` ("waiting for the pipeline") and is handed over later,
+  with backoff, by the agents' minute schedule (`agent/schedules/post-meeting-sweep.ts`, fires under
+  `eve start`, not `eve dev`) or by the next status read of that meeting (the header polls). One hand-over per
+  attempt: the web claims the row first; the agents start one workflow per `(run, attempt)`.
+- **States** (`pipeline_run.status`): `waiting` → `queued` → `running` (`current_step`) → `completed` |
+  `failed` (the header's "Retry" = next `attempt`, owner/editor only; none when `error_code` says a retry can't
+  help, e.g. `owner_no_access`). A meeting resumed and ended again runs again (next attempt; `ended_at`,
+  `rerun_requested`). The minute schedule also settles runs quiet for 10 min (`OAT_AGENTS_STUCK_AFTER_MS`) from
+  the Workflow world's record. `steps` holds each step's result
+  (`ran` / `skipped` + reason). Settings: `GET`/`PUT /api/settings/pipeline` (Settings → Integrations).
+- **Inspect.** `docker compose exec postgres psql -U oat -c "select status, attempt, current_step, steps, error,
+  dispatch_error from pipeline_run order by created_at desc limit 5"`; the agents' own view of one run:
+  `curl -H "authorization: Bearer $OAT_AGENTS_TOKEN" localhost:3100/jobs/post-meeting/runs/<workflowRunId>`.
+- **Layering** (D-29): `agents/` and every package import shared server code from `@oat/services`
+  (documents, enhance, Notion, pipeline…), never from `apps/*`; ESLint (`no-restricted-imports`, root config)
+  enforces it. `apps/web/src/server/*` keeps thin re-exports of the moved modules.
+- **Tests.** `pnpm --filter @oat/agents test:int` (real `eve build` + server, ~2–3 min: contract, full run,
+  switches, failure + retry, agents down → sweep, SIGKILL mid-generation/mid-wait); the web side is
+  `apps/web/src/server/pipeline/api.int.test.ts`; the web e2e server starts this checkout's agents too
+  (`e2e/pipeline.spec.ts`).
 
 ## Running evals (`@oat/ai`)
 

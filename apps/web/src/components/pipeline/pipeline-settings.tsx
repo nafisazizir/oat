@@ -1,0 +1,68 @@
+'use client';
+
+import { Label } from '@oat/ui/components/label';
+import { Switch } from '@oat/ui/components/switch';
+import { useId, useState } from 'react';
+import { toast } from 'sonner';
+
+import { pipelineApi } from '@/lib/api-client';
+import type { PipelineSettingsDto, UpdatePipelineSettingsInput } from '@/lib/pipeline';
+
+type Key = 'autoEnhance' | 'autoSendToNotion';
+
+/**
+ * One post-meeting switch (8.3) for the user's own settings in a workspace: saved right away through
+ * `PUT /api/settings/pipeline`, rolled back with a toast if that fails.
+ */
+export function PipelineSwitch({
+  workspaceId,
+  setting,
+  initial,
+  label,
+  description,
+}: {
+  workspaceId: string;
+  setting: Key;
+  initial: boolean;
+  label: string;
+  description: { on: string; off: string };
+}) {
+  const id = useId();
+  const [checked, setChecked] = useState(initial);
+  const [pending, setPending] = useState(false);
+
+  async function change(next: boolean) {
+    setChecked(next);
+    setPending(true);
+    try {
+      const input: UpdatePipelineSettingsInput = { workspaceId, [setting]: next };
+      const saved: PipelineSettingsDto = await pipelineApi.updateSettings(input);
+      setChecked(saved[setting] === true);
+    } catch (error) {
+      setChecked(!next);
+      toast.error('Couldn’t save that setting', {
+        description: error instanceof Error ? error.message : 'Please try again.',
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-lg border px-3 py-2.5">
+      <div className="flex flex-col gap-0.5">
+        <Label htmlFor={id}>{label}</Label>
+        <span className="text-xs text-muted-foreground">
+          {checked ? description.on : description.off}
+        </span>
+      </div>
+      <Switch
+        id={id}
+        data-testid={`pipeline-${setting}`}
+        checked={checked}
+        disabled={pending}
+        onCheckedChange={(next) => void change(next)}
+      />
+    </div>
+  );
+}

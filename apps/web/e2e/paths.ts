@@ -67,6 +67,11 @@ export const EVIDENCE_6_4 = fileURLToPath(
 export const mocksUrlFile = (port: string | number) =>
   fileURLToPath(new URL(`./.auth/mocks-url-${port}`, import.meta.url));
 
+/** Evidence screenshots for task 8.3 (written only with `E2E_SCREENSHOTS=1`). */
+export const EVIDENCE_8_3 = fileURLToPath(
+  new URL('../../../docs/tasks/evidence/8.3/', import.meta.url),
+);
+
 /** Evidence screenshots for task 4.5/4.6 (written only with `E2E_SCREENSHOTS=1`). */
 export const EVIDENCE_4_5 = fileURLToPath(
   new URL('../../../docs/tasks/evidence/4.5/', import.meta.url),

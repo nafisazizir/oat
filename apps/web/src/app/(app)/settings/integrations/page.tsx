@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@oat/ui/components/card';
+import { getPipelineSettings } from '@oat/services/pipeline';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import {
   ArrowLeftIcon,
@@ -15,6 +16,7 @@ import {
   CircleCheckIcon,
   ExternalLinkIcon,
   NotebookTextIcon,
+  SparklesIcon,
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -30,6 +32,7 @@ import {
   NotionTargetPicker,
 } from '@/components/notion/notion-actions';
 import { PageContainer, PageHeader } from '@/components/page';
+import { PipelineSwitch } from '@/components/pipeline/pipeline-settings';
 import type { NotionConnectionInfo } from '@/lib/api-types';
 import { calendarConnectErrorMessage } from '@/lib/calendar-errors';
 import { integrationModes, serverEnv } from '@/lib/env';
@@ -80,6 +83,10 @@ export default async function IntegrationsPage({
           </Link>
         }
       />
+
+      <Suspense fallback={<Skeleton className="h-32 w-full rounded-xl" />}>
+        <AfterMeetingsSection userId={session.user.id} />
+      </Suspense>
 
       <Card>
         <CardHeader>
@@ -167,6 +174,39 @@ export default async function IntegrationsPage({
   );
 }
 
+/** The post-meeting pipeline (8.3): what happens on its own when a meeting ends, for the active workspace. */
+async function AfterMeetingsSection({ userId }: { userId: string }) {
+  const notion = notionDeps();
+  const [shell, actor] = await Promise.all([getShellData(), loadActor(notion.db, userId)]);
+  const settings = await getPipelineSettings(notion.db, actor, shell.workspace.id);
+  return (
+    <Card data-testid="after-meetings-card">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <SparklesIcon className="size-4 text-muted-foreground" />
+          After a meeting
+        </CardTitle>
+        <CardDescription>
+          When a meeting you recorded in {shell.workspace.name} ends, Oat finishes the notes in the
+          background. The meeting’s header shows how it’s going.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <PipelineSwitch
+          workspaceId={shell.workspace.id}
+          setting="autoEnhance"
+          initial={settings.autoEnhance}
+          label="Auto-enhance after meetings"
+          description={{
+            on: 'Your notes are enhanced with the meeting’s template (or the default one).',
+            off: 'Notes stay as you wrote them until you press Enhance.',
+          }}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
 async function NotionSection({
   userId,
   connected,
@@ -178,11 +218,15 @@ async function NotionSection({
 }) {
   const notion = notionDeps();
   const [shell, actor] = await Promise.all([getShellData(), loadActor(notion.db, userId)]);
-  const connection = notion.config
-    ? await getNotionConnection(notion, actor, shell.workspace.id)
-    : null;
+  const [connection, settings] = notion.config
+    ? await Promise.all([
+        getNotionConnection(notion, actor, shell.workspace.id),
+        getPipelineSettings(notion.db, actor, shell.workspace.id),
+      ])
+    : [null, null];
   return (
     <NotionCard
+      autoSend={settings?.autoSendToNotion ?? null}
       configured={notion.config !== null}
       mock={notion.config?.mode === 'mock'}
       workspace={shell.workspace}
@@ -198,6 +242,7 @@ async function NotionSection({
  * happens on the note itself ("Send to Notion").
  */
 function NotionCard({
+  autoSend,
   configured,
   mock,
   workspace,
@@ -205,6 +250,8 @@ function NotionCard({
   justConnected,
   error,
 }: {
+  /** "Auto-send meeting notes to Notion" (8.3); null without a connection. */
+  autoSend: boolean | null;
   configured: boolean;
   mock: boolean;
   workspace: { id: string; name: string };
@@ -298,6 +345,18 @@ function NotionCard({
             </div>
             {!reconnect && (
               <NotionTargetPicker workspaceId={workspace.id} target={connection.target} />
+            )}
+            {!reconnect && autoSend !== null && (
+              <PipelineSwitch
+                workspaceId={workspace.id}
+                setting="autoSendToNotion"
+                initial={autoSend}
+                label="Auto-send meeting notes to Notion"
+                description={{
+                  on: 'When a meeting ends, its notes go to the page or database above.',
+                  off: 'Send notes yourself with “Send to Notion” on the note.',
+                }}
+              />
             )}
             {connection.target?.url && !reconnect && (
               <a

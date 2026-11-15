@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { useTreeActions } from '@/components/app-shell/tree-actions';
 import { useRegisterOpenDocument } from '@/components/assistant/open-document';
 import { NotionExportButton } from '@/components/notion/notion-export-button';
+import { PipelineStatus } from '@/components/pipeline/pipeline-status';
 import { useTaskAssignees } from '@/components/tasks/tasks-client';
 import { PageContainer } from '@/components/page';
 import { announceDocumentChange } from '@/lib/api-client';
@@ -238,6 +239,13 @@ export function DocumentEditor({
           )}
           {!trashed && (
             <div className="ml-auto flex flex-wrap items-center gap-2">
+              {isMeeting && (
+                <PipelineStatus
+                  documentId={doc.id}
+                  canRun={editable}
+                  onEnhancing={enhancement.follow}
+                />
+              )}
               {editable && isMeeting && (
                 <EnhanceToolbar
                   enhancement={enhancement}

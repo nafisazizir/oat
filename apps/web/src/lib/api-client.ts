@@ -16,6 +16,11 @@ import type {
   UpdateDocumentInput,
   UpdateSharingInput,
 } from './api-types';
+import type {
+  PipelineRunResponse,
+  PipelineSettingsDto,
+  UpdatePipelineSettingsInput,
+} from './pipeline';
 
 export class ApiRequestError extends Error {
   override readonly name = 'ApiRequestError';
@@ -109,3 +114,16 @@ export function announceDocumentChange(doc: DocumentChangedDetail) {
     }),
   );
 }
+
+/** Post-meeting pipeline (8.3, `src/server/pipeline/api.ts`). */
+export const pipelineApi = {
+  run: (documentId: string) =>
+    request<PipelineRunResponse>('GET', `/api/documents/${enc(documentId)}/pipeline`),
+  /** Start (meeting ended, no run yet) or retry a failed run. */
+  start: (documentId: string) =>
+    request<PipelineRunResponse>('POST', `/api/documents/${enc(documentId)}/pipeline`),
+  settings: (workspaceId: string) =>
+    request<PipelineSettingsDto>('GET', `/api/settings/pipeline?workspaceId=${enc(workspaceId)}`),
+  updateSettings: (input: UpdatePipelineSettingsInput) =>
+    request<PipelineSettingsDto>('PUT', '/api/settings/pipeline', input),
+};

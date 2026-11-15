@@ -12,3 +12,4 @@ export * from './ai.ts';
 export * from './integrations.ts';
 export * from './tasks.ts';
 export * from './sync.ts';
+export * from './pipeline.ts';

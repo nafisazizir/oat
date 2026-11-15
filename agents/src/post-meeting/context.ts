@@ -4,29 +4,20 @@
  * Every external service comes from env (D-11): the compose Postgres/Redis and the mocks in dev and tests.
  */
 import { getAi } from '@oat/ai/provider';
-import { type Auth, authConfigFromEnv, createAuth, type RateLimiter } from '@oat/auth';
+import { type RateLimiter, secretSourceFromEnv } from '@oat/auth';
 import { createDb, type Db } from '@oat/db';
 import { resolveNotionConfig } from '@oat/integrations-notion';
-import { createClient } from 'redis';
+import { createRedisBroker } from '@oat/services/enhance/broker';
+import type { EnhanceDeps } from '@oat/services/enhance/service';
+import type { NotionDeps } from '@oat/services/notion';
 
 import { type AgentsConfig, agentsConfig } from '../env.ts';
-import { createRedisBroker, type EnhanceDeps, type NotionDeps } from './web.ts';
-
-async function connectRedis(url: string) {
-  const client = createClient({ url });
-  client.on('error', (error) => console.warn('[post-meeting] redis error', error));
-  await client.connect();
-  return client;
-}
-
-export type RunLogRedis = Awaited<ReturnType<typeof connectRedis>>;
 
 export interface StepContext {
   config: AgentsConfig;
   db: Db;
   enhance: Omit<EnhanceDeps, 'runInBackground'>;
   notion: NotionDeps;
-  redis(): Promise<RunLogRedis>;
 }
 
 const unlimited: RateLimiter = {
@@ -40,15 +31,9 @@ export function stepContext(env: Record<string, string | undefined> = process.en
   if (current) return current;
   const config = agentsConfig(env);
   const db = createDb(config.databaseUrl, { max: 4 });
-  let auth: Auth | undefined;
-  // Only `$context` (the secret config that decrypts the stored Notion token) is used; built lazily.
-  const secrets = {
-    get $context() {
-      auth ??= createAuth({ db, config: authConfigFromEnv(env) });
-      return auth.$context;
-    },
-  };
-  let redis: Promise<RunLogRedis> | undefined;
+  // The stored Notion token is decrypted with the auth secret config, built from env like the web app's
+  // Better Auth instance builds it (`BETTER_AUTH_SECRET` / `BETTER_AUTH_SECRETS`); no auth instance here.
+  let secrets: ReturnType<typeof secretSourceFromEnv> | undefined;
   const ctx: StepContext = {
     config,
     db,
@@ -65,7 +50,12 @@ export function stepContext(env: Record<string, string | undefined> = process.en
     },
     notion: {
       db,
-      auth: secrets,
+      auth: {
+        get $context() {
+          secrets ??= secretSourceFromEnv(env);
+          return secrets.$context;
+        },
+      },
       config: resolveNotionConfig(env),
       appUrl: config.appUrl,
       // Signs the interactive OAuth state cookie; the pipeline never connects, so any value works.
@@ -74,13 +64,6 @@ export function stepContext(env: Record<string, string | undefined> = process.en
       // (one per run, plus busy retries until the deadline); counting those retries would turn a held lease
       // into `rate_limited`.
       rateLimiter: unlimited,
-    },
-    redis: () => {
-      redis ??= connectRedis(config.redisUrl).catch((error: unknown) => {
-        redis = undefined;
-        throw error;
-      });
-      return redis;
     },
   };
   current = ctx;
@@ -93,6 +76,5 @@ export async function closeStepContext(): Promise<void> {
   current = undefined;
   if (!ctx) return;
   await ctx.enhance.broker.close().catch(() => undefined);
-  (await ctx.redis().catch(() => undefined))?.destroy();
   await ctx.db.$client.end();
 }

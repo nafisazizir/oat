@@ -1,16 +1,11 @@
 /** Shapes shared by the post-meeting workflow (agent/lib), its steps (src) and the jobs route. All JSON. */
+import type { PipelineStepName, PipelineStepRecord } from '@oat/services/dto/pipeline';
+import type { PostMeetingJob } from '@oat/services/pipeline';
 
-export interface PostMeetingInput {
-  meetingId: string;
+export interface PostMeetingInput extends PostMeetingJob {
   /**
-   * The workspace the caller (the web app) authorised the user against (D-29). The run fails if the meeting's
-   * note is not in it: defence in depth against a caller passing someone else's meeting id.
-   */
-  workspaceId: string;
-  /**
-   * Durable wait before the Notion push (`sleep` in the workflow: holds no compute, survives restarts). A
-   * product knob for 8.3 ("give the user a few minutes to fix the notes before auto-push"); the int test uses it
-   * to kill the server mid-run.
+   * Durable wait before the Notion push (`sleep` in the workflow: holds no compute, survives restarts). Not set
+   * by the web app today; the int test uses it to kill the server mid-run.
    */
   pushDelayMs?: number;
 }
@@ -20,23 +15,20 @@ export interface MeetingRef {
   meetingId: string;
   documentId: string;
   workspaceId: string;
-  /** The note's owner: the pipeline acts as this user (their permissions, their Notion connection). */
+  /** The note's owner: the pipeline acts as this user (their permissions, settings and Notion connection). */
   ownerId: string;
+  /** The meeting's end when the run started (ISO); an enhancement from before it doesn't count as done. */
+  endedAt: string | null;
 }
 
-export type StepName = 'enhance' | 'index' | 'notion';
+export type StepName = PipelineStepName;
+export type StepRecord = PipelineStepRecord;
 
-export interface StepRecord {
-  step: StepName;
-  /** `ran`: did work. `skipped`: nothing to do or not configured (`reason`). */
-  outcome: 'ran' | 'skipped';
-  reason?: string;
-  detail?: Record<string, string | number | boolean | null>;
-  at: string;
-}
-
+/** The workflow's return value (also recorded on `pipeline_run`). */
 export interface PostMeetingRun {
   runId: string;
+  pipelineRunId: string;
+  attempt: number;
   meetingId: string;
   documentId: string | null;
   status: 'completed' | 'failed';
@@ -68,9 +60,17 @@ export type StepOutcome =
 export const isBusy = (r: StepRecord | Busy): r is Busy => 'busy' in r;
 
 /**
- * The meeting is gone, never existed, or isn't in the workspace the caller named: retrying can't help.
- * Becomes `FatalError` in the workflow.
+ * The meeting is gone, never existed, isn't in the workspace the caller named, or this attempt was superseded:
+ * retrying can't help. Becomes `FatalError` in the workflow.
  */
 export class MeetingNotFound extends Error {
   override name = 'MeetingNotFound';
+}
+
+/**
+ * The note's owner (whom the pipeline acts as) can no longer edit the note: no attempt can succeed until that
+ * changes, so the run fails without the step's retries and without offering Retry (`owner_no_access`).
+ */
+export class OwnerNoAccess extends Error {
+  override name = 'OwnerNoAccess';
 }

@@ -55,6 +55,13 @@ export function useEnhancement({
   useEffect(() => {
     completed.current = onCompleted;
   });
+  /** Runs this page already followed, and when it mounted (`follow` picks up only later runs). */
+  const followed = useRef(new Set<string>());
+  const [mountedAt] = useState(() => Date.now());
+  const phase = useRef(state.phase);
+  useEffect(() => {
+    phase.current = state.phase;
+  });
 
   const detach = useCallback(() => {
     source.current?.close();
@@ -64,6 +71,7 @@ export function useEnhancement({
   const attach = useCallback(
     (enhancementId: string) => {
       detach();
+      followed.current.add(enhancementId);
       setState({ phase: 'streaming', enhancementId, preview: null });
       const es = enhanceClient.stream(enhancementId);
       source.current = es;
@@ -174,6 +182,27 @@ export function useEnhancement({
     [attach, beforeStart, documentId, state.phase],
   );
 
+  /**
+   * Picks up a run started elsewhere while this page is open (8.3: the post-meeting pipeline enhancing the note):
+   * follows it live while it generates, or shows its result if it already finished and was applied.
+   */
+  const follow = useCallback(() => {
+    if (!enabled || phase.current === 'starting' || phase.current === 'streaming') return;
+    enhanceClient
+      .latest(documentId)
+      .then(({ latest }) => {
+        if (!latest || followed.current.has(latest.id)) return;
+        if (phase.current === 'starting' || phase.current === 'streaming') return;
+        const finishedSince =
+          latest.status === 'completed' &&
+          latest.applied === true &&
+          latest.completedAt !== null &&
+          Date.parse(latest.completedAt) >= mountedAt;
+        if (latest.status === 'generating' || finishedSince) attach(latest.id);
+      })
+      .catch(() => undefined);
+  }, [attach, documentId, enabled, mountedAt]);
+
   /** Follow the same run again (after a lost connection). */
   const reattach = useCallback(() => {
     if (state.phase === 'failed' && state.enhancementId) attach(state.enhancementId);
@@ -184,7 +213,7 @@ export function useEnhancement({
 
   const dismiss = useCallback(() => setState({ phase: 'idle' }), []);
 
-  return { state, start, retry, reattach, dismiss };
+  return { state, start, retry, reattach, dismiss, follow };
 }
 
 export type Enhancement = ReturnType<typeof useEnhancement>;

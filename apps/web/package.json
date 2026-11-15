@@ -26,6 +26,7 @@
     "@oat/indexing": "workspace:*",
     "@oat/integrations-notion": "workspace:*",
     "@oat/meeting-ui": "workspace:*",
+    "@oat/services": "workspace:*",
     "@oat/stt": "workspace:*",
     "@oat/ui": "workspace:*",
     "ai": "catalog:",
@@ -43,6 +44,7 @@
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "catalog:",
+    "@oat/agents": "workspace:*",
     "@oat/local-store": "workspace:*",
     "@oat/mocks": "workspace:*",
     "@oat/testkit": "workspace:*",

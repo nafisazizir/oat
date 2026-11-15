@@ -3,12 +3,7 @@
   "compilerOptions": {
     "types": ["node"],
     // @oat/editor's serializer type-checks against TipTap's DOM-typed sources.
-    "lib": ["ES2023", "DOM"],
-    // Spike seam (8.2): the post-meeting steps reuse apps/web's enhance and Notion services, whose modules use
-    // the web app's `@/` alias. 8.3 moves those services into a package and drops this mapping.
-    "paths": {
-      "@/*": ["../apps/web/src/*"]
-    }
+    "lib": ["ES2023", "DOM"]
   },
   "include": ["agent", "src", "vitest.config.ts", "eslint.config.js"]
 }

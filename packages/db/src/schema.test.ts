@@ -58,6 +58,8 @@ describe('schema', () => {
         'meeting',
         'membership',
         'participant',
+        'pipeline_run',
+        'pipeline_setting',
         'session',
         'sync_receipt',
         'template',

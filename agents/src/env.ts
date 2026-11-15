@@ -1,4 +1,4 @@
-/** Agents runtime configuration from the environment (`.env.example`, docs/tasks/8.2-eve-evaluation.md, D-29). */
+/** Agents runtime configuration from the environment (`.env.example`, docs/tasks/8.2 + 8.3, D-29). */
 
 type Env = Record<string, string | undefined>;
 
@@ -8,7 +8,8 @@ const value = (env: Env, name: string) => env[name]?.trim() || undefined;
 export const DEFAULT_DATABASE_URL = 'postgres://oat:oat@localhost:54329/oat';
 export const DEFAULT_WORKFLOW_DATABASE_URL = 'postgres://oat:oat@localhost:54329/oat_workflow';
 export const DEFAULT_REDIS_URL = 'redis://localhost:63790';
-export const DEFAULT_RUN_LOG_PREFIX = 'oat:agents';
+/** The agents server's port (eve's defaults, 3000/2000, clash with the web app / other tools). */
+export const DEFAULT_AGENTS_PORT = 3100;
 /**
  * D-29: a process that died mid-delivery holds its job lock until this window passes (the world's default is
  * 300 s, Graphile Worker's own 4 h). 30 s is well above the world's lock renewal interval, so a long LLM step
@@ -32,8 +33,8 @@ export interface AgentsConfig {
    */
   workflowDatabaseUrl: string;
   redisUrl: string;
-  /** `OAT_AGENTS_RUN_LOG_PREFIX`: Redis prefix of the post-meeting run log. */
-  runLogPrefix: string;
+  /** `OAT_AGENTS_PORT`: where the server listens (on `OAT_AGENTS_HOST`, default 127.0.0.1). */
+  port: number;
   /**
    * Accepted bearer tokens for `/jobs/*`: `OAT_AGENTS_TOKEN` and, during a rotation, `OAT_AGENTS_TOKEN_PREVIOUS`.
    * Values shorter than {@link MIN_JOBS_TOKEN_LENGTH} (and the dev token in production) are dropped, so a
@@ -46,6 +47,11 @@ export interface AgentsConfig {
   busyRetryMs: number;
   /** After this long busy, the run fails (beyond D-26's staleness, so a crashed run is always taken over). */
   busyDeadlineMs: number;
+  /**
+   * `OAT_AGENTS_STUCK_AFTER_MS`: a `queued`/`running` run untouched this long is checked against the Workflow
+   * world by the minute sweep (default 10 min; busy waits touch the row every few seconds).
+   */
+  stuckAfterMs: number;
   /** Test knobs only (`OAT_AGENTS_ENHANCE_STALE_MS`/`…_TIMEOUT_MS`): in production the web app's D-26 values. */
   enhanceStaleMs: number | undefined;
   enhanceTimeoutMs: number | undefined;
@@ -71,12 +77,13 @@ export function agentsConfig(env: Env = process.env): AgentsConfig {
     databaseUrl: value(env, 'DATABASE_URL') ?? DEFAULT_DATABASE_URL,
     workflowDatabaseUrl: value(env, 'WORKFLOW_POSTGRES_URL') ?? DEFAULT_WORKFLOW_DATABASE_URL,
     redisUrl: value(env, 'REDIS_URL') ?? DEFAULT_REDIS_URL,
-    runLogPrefix: value(env, 'OAT_AGENTS_RUN_LOG_PREFIX') ?? DEFAULT_RUN_LOG_PREFIX,
+    port: positiveInt(env, 'OAT_AGENTS_PORT') ?? DEFAULT_AGENTS_PORT,
     jobsTokens: [...new Set(tokens)],
     appUrl: (value(env, 'BETTER_AUTH_URL') ?? 'http://localhost:3000').replace(/\/+$/, ''),
     busyRetryMs: positiveInt(env, 'OAT_AGENTS_BUSY_RETRY_MS') ?? 5_000,
     busyDeadlineMs:
       positiveInt(env, 'OAT_AGENTS_BUSY_DEADLINE_MS') ?? (enhanceStaleMs ?? D26_STALE_MS) + 60_000,
+    stuckAfterMs: positiveInt(env, 'OAT_AGENTS_STUCK_AFTER_MS') ?? 10 * 60_000,
     enhanceStaleMs,
     enhanceTimeoutMs: positiveInt(env, 'OAT_AGENTS_ENHANCE_TIMEOUT_MS'),
   };

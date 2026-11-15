@@ -3,14 +3,16 @@
  * context for enhance and chat. Always the session user's own row: the API takes no user id, so there is no
  * way to address someone else's profile.
  */
-import { type Db, getUserProfile, profileAboutMe, saveUserProfile, user } from '@oat/db';
-import { eq } from 'drizzle-orm';
+import { getUserProfile, saveUserProfile } from '@oat/db';
 import { z } from 'zod';
 
 import { PROFILE_LIMITS, type ProfileDto } from '@/lib/profile';
 
 import { notFound } from './api/errors';
 import { type ApiDeps, apiRoute, readJson } from './api/route';
+
+/** The profile as AI context lives in `@oat/services` (8.3: the background agents use it too). */
+export { type AiProfile, aiProfile, profileKeyterms } from '@oat/services/profile';
 
 const text = (max: number, label: string) =>
   z.string().max(max, `${label}: keep it under ${max} characters.`);
@@ -32,39 +34,6 @@ const ProfileBody = z.strictObject({
       `Terms: at most ${PROFILE_LIMITS.vocabularyTerms} names and terms.`,
     ),
 });
-
-/** What enhance and chat pass to `buildMeetingContext` / the assistant for the acting user. */
-export type AiProfile = {
-  me: { name: string; email: string | null };
-  aboutMe: string | null;
-  vocabulary: string[];
-};
-
-/** The acting user's name, profile text and vocabulary for AI prompts (empty profile → nulls). */
-export async function aiProfile(db: Db, userId: string): Promise<AiProfile> {
-  const profile = await getUserProfile(db, userId);
-  if (!profile) {
-    const [row] = await db.select({ email: user.email }).from(user).where(eq(user.id, userId));
-    return {
-      me: { name: row?.email.split('@')[0] || 'Me', email: row?.email ?? null },
-      aboutMe: null,
-      vocabulary: [],
-    };
-  }
-  return {
-    me: {
-      name: profile.name.trim() || profile.email.split('@')[0] || 'Me',
-      email: profile.email,
-    },
-    aboutMe: profileAboutMe(profile),
-    vocabulary: profile.vocabulary,
-  };
-}
-
-/** The profile vocabulary (STT keyterms); empty for an unknown user. */
-export async function profileKeyterms(db: Db, userId: string): Promise<string[]> {
-  return (await getUserProfile(db, userId))?.vocabulary ?? [];
-}
 
 export function createProfileApi(deps: ApiDeps) {
   return {

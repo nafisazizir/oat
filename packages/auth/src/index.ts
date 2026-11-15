@@ -77,7 +77,13 @@ export {
   type RateLimiter,
   type RateLimitResult,
 } from './rate-limit.ts';
-export { decryptSecret, encryptSecret, type SecretSource } from './secrets.ts';
+export {
+  decryptSecret,
+  encryptSecret,
+  secretConfigFromEnv,
+  type SecretSource,
+  secretSourceFromEnv,
+} from './secrets.ts';
 export {
   BLOCKED_ORGANIZATION_PATHS,
   DISABLED_AUTH_PATHS,

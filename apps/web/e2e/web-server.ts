@@ -14,11 +14,17 @@
  * And the index worker (6.1/8.4), in-process against the same database, with its own Redis queue prefix and a
  * short debounce: it follows `change_log` like in production, so action items ("My tasks") and retrieval chunks
  * appear a moment after a write. Embeddings come from the in-process mock LLM.
+ *
+ * And the background agents (8.3): this checkout's eve app, built and started on a free port with a throwaway
+ * Workflow-world database (`@oat/agents` test harness), so a meeting that ends runs the post-meeting pipeline
+ * against the same database and mocks. The web app reaches it at `OAT_AGENTS_URL` with a random token.
  */
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 
+import { bootstrapWorld } from '@oat/agents/cli/bootstrap-world';
+import { buildAgent, devEnv, freePort, startAgent } from '@oat/agents/post-meeting/int-server';
 import { createAi } from '@oat/ai/provider';
 import { createDb, migrate } from '@oat/db';
 import { connectRedis, createIndexQueue, createIndexWorker, indexingConfig } from '@oat/indexing';
@@ -57,6 +63,28 @@ const worker = createIndexWorker({
   },
 });
 worker.start();
+// The agents server (8.3): its own Workflow-world database, this checkout's build.
+const worldDb = await createTestDatabase();
+bootstrapWorld(worldDb.url, { quiet: true });
+buildAgent();
+const agentsToken = randomBytes(32).toString('base64url');
+const agents = await startAgent(
+  {
+    ...devEnv(),
+    DATABASE_URL: db.url,
+    WORKFLOW_POSTGRES_URL: worldDb.url,
+    REDIS_URL: indexingConfig().redisUrl,
+    MOCKS_URL: mocks.url,
+    AI_BASE_URL: `${mocks.url}/llm/v1`,
+    AI_GATEWAY_API_KEY: '',
+    NOTION_BASE_URL: `${mocks.url}/notion`,
+    NOTION_OAUTH_CLIENT_ID: '',
+    NOTION_OAUTH_CLIENT_SECRET: '',
+    BETTER_AUTH_URL: `http://localhost:${port}`,
+    OAT_AGENTS_TOKEN: agentsToken,
+  },
+  await freePort(),
+);
 // Specs that need rows the API can't create yet (e.g. transcript segments) write them here directly.
 mkdirSync(new URL('./.auth/', import.meta.url), { recursive: true });
 writeFileSync(databaseUrlFile(port), db.url);
@@ -77,6 +105,8 @@ const child = spawn('pnpm', ['exec', 'next', 'dev', '--port', port], {
     NOTION_BASE_URL: `${mocks.url}/notion`,
     NOTION_OAUTH_CLIENT_ID: '',
     NOTION_OAUTH_CLIENT_SECRET: '',
+    OAT_AGENTS_URL: agents.url,
+    OAT_AGENTS_TOKEN: agentsToken,
   },
 });
 
@@ -88,15 +118,18 @@ async function shutdown(code: number) {
     child.kill('SIGTERM');
     await new Promise((resolve) => child.once('exit', resolve));
   }
+  await agents.stop().catch(() => undefined);
   await worker.stop().catch(() => undefined);
   await queue.clear().catch(() => undefined);
   redis.destroy();
   await workerDb.$client.end({ timeout: 5 }).catch(() => undefined);
   await mocks.close().catch(() => undefined);
-  try {
-    await db.drop();
-  } catch (error) {
-    console.error(`[e2e] could not drop ${db.name}:`, error);
+  for (const each of [db, worldDb]) {
+    try {
+      await each.drop();
+    } catch (error) {
+      console.error(`[e2e] could not drop ${each.name}:`, error);
+    }
   }
   process.exit(code);
 }

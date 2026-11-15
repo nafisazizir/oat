@@ -22,3 +22,6 @@ native/**/.swiftpm
 fixtures/audio/*.wav
 fixtures/audio/*.opus
 fixtures/audio/*.m4a
+# eve build output of the agents package (the agents image builds its own).
+agents/.eve
+agents/.output

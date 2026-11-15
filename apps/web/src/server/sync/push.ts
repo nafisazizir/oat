@@ -115,14 +115,21 @@ export function toSyncDocument(row: DocumentRow): SyncDocumentRow {
 /** Name stored on conflicted copies when the pushing client didn't say. */
 const UNKNOWN_DEVICE = 'Another device';
 
+/** What the caller learns about a push once it committed. */
+export type PushHooks = {
+  /** A meeting's `ended_at` went from unset to set (8.3: start its post-meeting pipeline). */
+  onMeetingEnded?: (meetingId: string) => void;
+};
+
 /** Validates entries one by one, then applies the valid ones (see the module comment). */
 export async function pushChanges(
   db: Db,
   actor: Actor,
   raw: readonly { version: number }[],
   device: { name: string } | null = null,
+  hooks: PushHooks = {},
 ): Promise<SyncPushResponse> {
-  const ctx: PushContext = { actor, deviceName: device?.name ?? UNKNOWN_DEVICE };
+  const ctx: PushContext = { actor, deviceName: device?.name ?? UNKNOWN_DEVICE, ended: [] };
   const results = new Map<number, SyncPushResult>();
   const valid: Entry[] = [];
   for (const item of raw) {
@@ -168,6 +175,8 @@ export async function pushChanges(
       for (const r of await applySegments(tx, actor, meetingId, entries)) results.set(r.version, r);
     }
   });
+  // Only after the commit, and after this push's segments landed (the pipeline reads the transcript).
+  for (const meetingId of ctx.ended) hooks.onMeetingEnded?.(meetingId);
 
   return { results: raw.map((e) => results.get(e.version)!).filter(dedupe()) };
 }
@@ -249,7 +258,12 @@ function pgErrorCode(error: unknown): string | undefined {
   return undefined;
 }
 
-type PushContext = { actor: Actor; deviceName: string };
+type PushContext = {
+  actor: Actor;
+  deviceName: string;
+  /** Meetings this push ended (see {@link PushHooks}). */
+  ended: string[];
+};
 
 function applyOne(tx: Tx, ctx: PushContext, entry: Entry): Promise<SyncPushResult> {
   const { actor } = ctx;
@@ -258,7 +272,7 @@ function applyOne(tx: Tx, ctx: PushContext, entry: Entry): Promise<SyncPushResul
     case 'document':
       return upsertDocument(tx, ctx, entry);
     case 'meeting':
-      return upsertMeeting(tx, actor, entry);
+      return upsertMeeting(tx, ctx, entry);
     case 'participant':
       return upsertParticipant(tx, actor, entry);
     case 'transcript_segment':
@@ -412,7 +426,11 @@ async function addReceipt(tx: Tx, doc: DocumentRow): Promise<void> {
 
 // --- meetings + participants ---------------------------------------------------------------------------
 
-async function upsertMeeting(tx: Tx, actor: Actor, entry: MeetingEntry): Promise<SyncPushResult> {
+async function upsertMeeting(
+  tx: Tx,
+  { actor, ended }: PushContext,
+  entry: MeetingEntry,
+): Promise<SyncPushResult> {
   const { row } = entry;
   const doc = requireEditable(actor, await loadDocument(tx, row.documentId));
   if (doc.kind !== 'meeting') throw new Reject('invalid', 'Not a meeting document.');
@@ -424,6 +442,10 @@ async function upsertMeeting(tx: Tx, actor: Actor, entry: MeetingEntry): Promise
         or (${meeting.documentId} = ${row.documentId} and ${meeting.id} <> ${row.id})`,
     );
   if (clash) throw new Reject('invalid', 'Meeting and document don’t match.');
+  const [before] = await tx
+    .select({ endedAt: meeting.endedAt })
+    .from(meeting)
+    .where(eq(meeting.id, row.id));
   const values = {
     calendarEventId: row.calendarEventId,
     startedAt: row.startedAt ? new Date(row.startedAt) : null,
@@ -438,6 +460,7 @@ async function upsertMeeting(tx: Tx, actor: Actor, entry: MeetingEntry): Promise
       set: { ...values, updatedAt: new Date() },
       setWhere: eq(meeting.documentId, row.documentId),
     });
+  if (values.endedAt && !before?.endedAt) ended.push(row.id);
   return { version: entry.version, status: 'ok' };
 }
 

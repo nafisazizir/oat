@@ -153,6 +153,10 @@ services:
       AI_BASE_URL: ${AI_BASE_URL:-}
       DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
       DEEPGRAM_BASE_URL: ${DEEPGRAM_BASE_URL:-}
+      # The post-meeting pipeline (8.3): the `agents` service. Without it, runs wait ("waiting for the
+      # pipeline") until it is up.
+      OAT_AGENTS_URL: http://agents:3100
+      OAT_AGENTS_TOKEN: ${OAT_AGENTS_COMPOSE_TOKEN:-oat-compose-agents-token-local-only-0123456789}
     ports:
       - '127.0.0.1:3000:3000'
     depends_on:
@@ -199,6 +203,50 @@ services:
       OAT_INDEX_DEBOUNCE_MS: ${OAT_INDEX_DEBOUNCE_MS:-}
       OAT_INDEX_CONCURRENCY: ${OAT_INDEX_CONCURRENCY:-}
       OAT_INDEX_MAX_CHUNKS: ${OAT_INDEX_MAX_CHUNKS:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mocks:
+        condition: service_healthy
+    restart: unless-stopped
+
+  agents:
+    # @oat/agents (8.3, D-29): the eve server running the post-meeting pipeline (enhance → index → Notion) on
+    # the Postgres Workflow world (its own database `oat_workflow`, created on start) and its minute backstop
+    # sweep. Never public: published on loopback only; the web container reaches it as http://agents:3100.
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: agents/Dockerfile
+    image: oat-agents:dev
+    init: true
+    environment:
+      DATABASE_URL: postgres://oat:oat@postgres:5432/oat
+      WORKFLOW_POSTGRES_URL: postgres://oat:oat@postgres:5432/oat_workflow
+      REDIS_URL: redis://redis:6379
+      # Notion page links are built from the Host the mock is called with: keep the host's form (see
+      # docker/agents/entrypoint.mjs).
+      OAT_LOCALHOST_FORWARDS: 14010=mocks:14010
+      MOCKS_URL: http://localhost:14010
+      # Links back to notes, and the secret config that decrypts Notion tokens (must match the web app).
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-oat-dev-secret-not-for-production-0123456789}
+      BETTER_AUTH_SECRETS: ${BETTER_AUTH_SECRETS:-}
+      # Shared with the web service below. Not the .env.example dev token: this image runs NODE_ENV=production,
+      # where that one is refused.
+      OAT_AGENTS_TOKEN: ${OAT_AGENTS_COMPOSE_TOKEN:-oat-compose-agents-token-local-only-0123456789}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+      AI_GATEWAY_BASE_URL: ${AI_GATEWAY_BASE_URL:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      NOTION_OAUTH_CLIENT_ID: ${NOTION_OAUTH_CLIENT_ID:-}
+      NOTION_OAUTH_CLIENT_SECRET: ${NOTION_OAUTH_CLIENT_SECRET:-}
+      NOTION_BASE_URL: ${NOTION_BASE_URL:-}
+    ports:
+      - '127.0.0.1:3100:3100'
     depends_on:
       migrate:
         condition: service_completed_successfully

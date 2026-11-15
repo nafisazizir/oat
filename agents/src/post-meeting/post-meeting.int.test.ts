@@ -1,18 +1,22 @@
 /**
- * The post-meeting spike (8.2) end to end, offline (D-11): the real eve server (`eve build` + `eve start`) on the
- * Postgres Workflow world, a throwaway app database, the compose Redis, and an in-process mocks server for the
- * LLM (enhance + embeddings) and Notion. The workflow is started over the jobs route and read back from the
- * Workflow world; side effects are checked in Postgres and the mocks' request log. Includes a SIGKILL of the
- * server *during a (slowed) enhance generation* and during a durable wait: the restarted server settles the
- * orphaned generation once it is stale (D-26), starts a fresh one and finishes both runs; and a run kept busy
- * past its deadline fails with a clear message. The server runs with the D-29 defaults (30 s lock-stale window),
- * so the crash case takes ~2 min.
+ * The post-meeting pipeline (8.2 spike → 8.3) end to end, offline (D-11): the real eve server (`eve build` +
+ * the server `eve start` runs, with its schedules) on the Postgres Workflow world, a throwaway app database, the
+ * compose Redis, and an in-process mocks server for the LLM (enhance + embeddings) and Notion. Runs are requested
+ * the way the web app does (`@oat/services/pipeline` `requestPostMeeting` → HTTP `POST /jobs/post-meeting`) and
+ * read back from `pipeline_run`; side effects are checked in Postgres and the mocks' request log.
+ *
+ * Covers: the /jobs contract (token rotation, workspace check, attempt fencing, dedupe); a full run and an
+ * idempotent second attempt; auto-send off / not connected / auto-enhance off; a failing step → failed → retry;
+ * the agents being down (run waits, the server's minute sweep hands it over once it is back); and a SIGKILL
+ * *during a (slowed) enhance generation* and during a durable wait (the restarted server settles the orphaned
+ * generation once stale, D-26, and finishes both runs), plus a run kept busy past its deadline. The server
+ * runs with the D-29 defaults (30 s lock-stale window), so the crash case takes ~2 min.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, request as httpRequest, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
-import { authConfigFromEnv, createAuth, encryptSecret } from '@oat/auth';
+import { encryptSecret, secretSourceFromEnv } from '@oat/auth';
 import {
   actionItem,
   chunk,
@@ -27,15 +31,26 @@ import {
   migrate,
   newId,
   participant,
+  pipelineRun,
+  type PipelineRunRow,
+  pipelineSetting,
   transcriptSegment,
   user,
   workspace,
 } from '@oat/db';
 import { extractActionItems } from '@oat/indexing';
 import { NOTION_MOCK_IDS, type RunningMocks, startMocks } from '@oat/mocks';
+import { loadActor } from '@oat/services/actor';
+import {
+  createAgentsDispatcher,
+  type PipelineDeps,
+  type PostMeetingJob,
+  requestPostMeeting,
+  retryPostMeeting,
+  toPipelineRunDto,
+} from '@oat/services/pipeline';
 import { createTestDatabase, type TestDatabase, waitFor } from '@oat/testkit';
-import { eq } from 'drizzle-orm';
-import { createClient } from 'redis';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { bootstrapWorld } from '../cli/bootstrap-world.ts';
@@ -52,15 +67,15 @@ let port: number;
 /** ≥ 32 characters (D-29); the previous one is still accepted during a rotation. */
 const token = randomBytes(32).toString('base64url');
 const previousToken = randomBytes(32).toString('base64url');
-const runLogPrefix = `oat-test:agents:${randomUUID()}`;
 /** D-26 staleness for the server under test: longer than a restart takes (≈ 30–45 s), so the busy loop runs. */
 const STALE_MS = 75_000;
 
 /**
- * A pass-through in front of the mock LLM. While `slow.on`, chat completions get the mock's `slow` scenario
- * (the generation hangs), so the server can be killed in the middle of one.
+ * A pass-through in front of the mock LLM. While `llm.slow`, chat completions get the mock's `slow` scenario
+ * (the generation hangs, so the server can be killed in the middle of one); while `llm.fail`, they fail (400,
+ * so the AI SDK doesn't retry).
  */
-const slow = { on: false, seen: 0 };
+const llm = { slow: false, fail: false, seen: 0 };
 let proxy: Server;
 
 function startLlmProxy(target: string): Promise<string> {
@@ -70,10 +85,15 @@ function startLlmProxy(target: string): Promise<string> {
       ...req.headers,
       host: url.host,
     };
-    if (slow.on && req.method === 'POST' && url.pathname.endsWith('/chat/completions')) {
-      slow.seen += 1;
-      headers['x-mock-scenario'] = 'slow';
-      headers['x-mock-delay-ms'] = '60000';
+    if (req.method === 'POST' && url.pathname.endsWith('/chat/completions')) {
+      if (llm.slow) {
+        llm.seen += 1;
+        headers['x-mock-scenario'] = 'slow';
+        headers['x-mock-delay-ms'] = '60000';
+      } else if (llm.fail) {
+        headers['x-mock-scenario'] = 'error';
+        headers['x-mock-status'] = '400';
+      }
     }
     const upstream = httpRequest(url, { method: req.method, headers }, (r) => {
       res.writeHead(r.statusCode ?? 502, r.headers);
@@ -90,6 +110,13 @@ function startLlmProxy(target: string): Promise<string> {
   );
 }
 
+/** The web app's side: requests go to the agents over HTTP, exactly like `apps/web` does. */
+const pipeline = (): PipelineDeps => ({
+  db,
+  dispatcher: createAgentsDispatcher({ url: server.url, token, timeoutMs: 5_000 }),
+  logError: () => {},
+});
+
 beforeAll(async () => {
   [appDb, worldDb, mocks] = await Promise.all([
     createTestDatabase(),
@@ -97,10 +124,10 @@ beforeAll(async () => {
     startMocks(),
   ]);
   await migrate(appDb.url);
-  bootstrapWorld(worldDb.url);
+  bootstrapWorld(worldDb.url, { quiet: true });
   db = createDb(appDb.url, { max: 4 });
   buildAgent();
-  const llm = await startLlmProxy(mocks.url);
+  const llmUrl = await startLlmProxy(mocks.url);
   const dev = devEnv();
   serverEnv = {
     ...dev,
@@ -111,38 +138,28 @@ beforeAll(async () => {
     WORKFLOW_POSTGRES_MAX_POOL_SIZE: '10',
     REDIS_URL: process.env.REDIS_URL || dev.REDIS_URL || 'redis://localhost:63790',
     MOCKS_URL: mocks.url,
-    AI_BASE_URL: `${llm}/llm/v1`,
+    AI_BASE_URL: `${llmUrl}/llm/v1`,
     AI_GATEWAY_API_KEY: '',
     VERCEL: '',
     VERCEL_OIDC_TOKEN: '',
     NOTION_BASE_URL: `${mocks.url}/notion`,
     NOTION_OAUTH_CLIENT_ID: '',
+    BETTER_AUTH_SECRETS: '',
     OAT_AGENTS_TOKEN: token,
     OAT_AGENTS_TOKEN_PREVIOUS: previousToken,
-    OAT_AGENTS_RUN_LOG_PREFIX: runLogPrefix,
     OAT_AGENTS_BUSY_RETRY_MS: '1000',
     // Test knobs for D-26 (production uses the web app's 2 min / 3 min); deadline = stale + 60 s.
     OAT_AGENTS_ENHANCE_STALE_MS: String(STALE_MS),
     OAT_AGENTS_ENHANCE_TIMEOUT_MS: '20000',
   };
   port = await freePort();
-  server = await startAgent(serverEnv, port);
+  server = await startAgent(serverEnv, port, { schedules: true });
 }, 180_000);
 
 afterAll(async () => {
   await server?.stop();
   proxy?.closeAllConnections();
   await new Promise((resolve) => (proxy ? proxy.close(resolve) : resolve(undefined)));
-  const redis = createClient({ url: serverEnv?.REDIS_URL });
-  await redis
-    .connect()
-    .then(async () => {
-      for await (const keys of redis.scanIterator({ MATCH: `${runLogPrefix}:*` })) {
-        if (keys.length) await redis.del(keys);
-      }
-    })
-    .catch(() => undefined)
-    .finally(() => redis.destroy());
   await db?.$client.end();
   await mocks?.close();
   await appDb?.drop();
@@ -182,8 +199,10 @@ const SEGMENTS = [
   'Sam owns the onboarding plan for the clinic staff.',
 ];
 
-/** A team workspace, its owner, a meeting note with notes + transcript, and a Notion connection. */
-async function seedMeeting(options: { autoPush?: boolean } = {}) {
+/** A team workspace, its owner, an ended meeting note with notes + transcript, and a Notion connection. */
+async function seedMeeting(
+  options: { autoPush?: boolean; autoEnhance?: boolean; editor?: boolean } = {},
+) {
   const ownerId = newId();
   await db.insert(user).values({ id: ownerId, email: `${ownerId}@example.test`, name: 'Ada' });
   const workspaceId = newId();
@@ -202,15 +221,17 @@ async function seedMeeting(options: { autoPush?: boolean } = {}) {
     ownerId,
     kind: 'meeting',
     title: 'Clinic pilot sync',
-    visibility: 'private',
+    // With an editor: shared with the workspace, so the editor can end/run it.
+    visibility: options.editor ? 'workspace' : 'private',
     contentJson: NOTES,
   });
   const meetingId = newId();
   await db.insert(meeting).values({
     id: meetingId,
     documentId,
-    startedAt: new Date('2026-11-16T10:00:00Z'),
-    endedAt: new Date('2026-11-16T10:30:00Z'),
+    // Ended a minute ago (enhancements made by the run come after the end).
+    startedAt: new Date(Date.now() - 31 * 60_000),
+    endedAt: new Date(Date.now() - 60_000),
     platform: 'zoom',
   });
   await db.insert(participant).values({ meetingId, name: 'Dana', source: 'manual' });
@@ -225,12 +246,15 @@ async function seedMeeting(options: { autoPush?: boolean } = {}) {
     })),
   );
   if (options.autoPush !== undefined) {
-    const auth = createAuth({ db, config: authConfigFromEnv(serverEnv) });
+    // Encrypted like the web app does (its Better Auth secret config, rebuilt from the same env).
     await db.insert(integration).values({
       workspaceId,
       userId: ownerId,
       provider: 'notion',
-      secretEncrypted: await encryptSecret(auth, `ntn_mock_${randomUUID()}`),
+      secretEncrypted: await encryptSecret(
+        secretSourceFromEnv(serverEnv),
+        `ntn_mock_${randomUUID()}`,
+      ),
       settingsJson: {
         notionWorkspaceId: NOTION_MOCK_IDS.workspace,
         targetType: 'page',
@@ -240,21 +264,42 @@ async function seedMeeting(options: { autoPush?: boolean } = {}) {
       },
     });
   }
-  return { ownerId, workspaceId, documentId, meetingId };
+  if (options.autoEnhance !== undefined) {
+    await db
+      .insert(pipelineSetting)
+      .values({ workspaceId, userId: ownerId, autoEnhance: options.autoEnhance });
+  }
+  let editorId: string | null = null;
+  if (options.editor) {
+    editorId = newId();
+    await db.insert(user).values({ id: editorId, email: `${editorId}@example.test`, name: 'Ed' });
+    await db.insert(membership).values({ workspaceId, userId: editorId, role: 'member' });
+  }
+  return { ownerId, workspaceId, documentId, meetingId, editorId };
 }
 
+type Seeded = Awaited<ReturnType<typeof seedMeeting>>;
+
 // ---------------------------------------------------------------------------------------------------------
-// Jobs API
+// The web app's side and the jobs API
 
-const auth = { authorization: `Bearer ${token}` };
+/** What the web app does when the owner ends the meeting. */
+async function request(m: Seeded, deps = pipeline()) {
+  return requestPostMeeting(deps, await loadActor(db, m.ownerId), m.meetingId);
+}
 
-/** The ids the web app sends (D-29: the meeting and the workspace it authorised the user against). */
-const ids = (m: { meetingId: string; workspaceId: string }) => ({
-  meetingId: m.meetingId,
-  workspaceId: m.workspaceId,
-});
+/** A run that exists but wasn't handed over (agents "not configured"), for posting jobs by hand. */
+async function waitingJob(m: Seeded): Promise<PostMeetingJob> {
+  const run = await request(m, { db, dispatcher: null });
+  return {
+    pipelineRunId: run.id,
+    attempt: run.attempt,
+    meetingId: m.meetingId,
+    workspaceId: m.workspaceId,
+  };
+}
 
-function post(body: unknown, bearer = token) {
+function postJob(body: unknown, bearer = token) {
   return fetch(`${server.url}/jobs/post-meeting`, {
     method: 'POST',
     headers: { authorization: `Bearer ${bearer}`, 'content-type': 'application/json' },
@@ -262,11 +307,40 @@ function post(body: unknown, bearer = token) {
   });
 }
 
-async function startRun(body: Record<string, unknown>): Promise<string> {
-  const res = await post(body);
-  expect(res.status, server.output()).toBe(202);
-  return ((await res.json()) as { runId: string }).runId;
+const runRow = async (meetingId: string): Promise<PipelineRunRow> =>
+  (await db.select().from(pipelineRun).where(eq(pipelineRun.meetingId, meetingId)))[0]!;
+
+/** Waits until the meeting's run is finished (completed/failed), at `attempt` if given. */
+async function finished(meetingId: string, timeout = 60_000, attempt?: number) {
+  return waitFor(
+    async () => {
+      const row = await runRow(meetingId);
+      const done = row && (row.status === 'completed' || row.status === 'failed');
+      return done && (attempt === undefined || row.attempt === attempt) ? row : undefined;
+    },
+    { timeout, interval: 250 },
+  ).catch(async (error: unknown) => {
+    console.error(
+      '[8.3] run did not finish:',
+      JSON.stringify(await runRow(meetingId)),
+      '\nserver output (tail):\n',
+      server.output().slice(-6000),
+    );
+    throw error;
+  });
 }
+
+type RunView = { runId: string; status: string; result: PostMeetingRun | null };
+
+async function workflowRun(runId: string): Promise<RunView> {
+  const res = await fetch(`${server.url}/jobs/post-meeting/runs/${runId}`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  return (await res.json()) as RunView;
+}
+
+const outcomes = (row: { steps: { step: string; outcome: string; reason?: string }[] }) =>
+  Object.fromEntries(row.steps.map((s) => [s.step, s.reason ?? s.outcome]));
 
 const enhancementsOf = (documentId: string) =>
   db.select().from(enhancement).where(eq(enhancement.documentId, documentId));
@@ -277,79 +351,73 @@ const hasNotesChunks = async (documentId: string) =>
     (c) => c.source === 'notes',
   ) || undefined;
 
-type RunView = { runId: string; status: string; result: PostMeetingRun | null };
-
-async function waitForRun(runId: string, timeout = 60_000): Promise<RunView> {
-  return waitFor(
-    async () => {
-      const res = await fetch(`${server.url}/jobs/post-meeting/runs/${runId}`, { headers: auth });
-      if (!res.ok) return undefined;
-      const view = (await res.json()) as RunView;
-      return ['completed', 'failed', 'cancelled'].includes(view.status) ? view : undefined;
-    },
-    { timeout, interval: 250 },
-  );
-}
-
-async function runLog(meetingId: string): Promise<PostMeetingRun[]> {
-  const res = await fetch(`${server.url}/jobs/post-meeting/${meetingId}`, { headers: auth });
-  expect(res.status).toBe(200);
-  return ((await res.json()) as { runs: PostMeetingRun[] }).runs;
-}
-
-const outcomes = (run: PostMeetingRun | null) =>
-  Object.fromEntries((run?.steps ?? []).map((s) => [s.step, s.reason ?? s.outcome]));
-
 const notionCreates = () =>
   mocks.log
     .list({ provider: 'notion' })
     .filter((r) => r.method === 'POST' && r.path === '/notion/v1/pages');
 
+/** Sets a finished run back to `failed`, so the owner can run it again (a second attempt). */
+async function markFailed(meetingId: string) {
+  await db
+    .update(pipelineRun)
+    .set({ status: 'failed', error: 'test' })
+    .where(eq(pipelineRun.meetingId, meetingId));
+}
+
 // ---------------------------------------------------------------------------------------------------------
 
-describe('post-meeting workflow on eve (offline)', () => {
-  it('jobs contract (D-29): token, workspace check, body shape', async () => {
+describe('post-meeting pipeline on eve (offline)', () => {
+  it('jobs contract (D-29): token, workspace, attempt fencing, one workflow per attempt', async () => {
     const m = await seedMeeting();
     const other = await seedMeeting();
+    const job = await waitingJob(m);
     // Only the current or the previous service token.
-    expect((await post(ids(m), 'x'.repeat(43))).status).toBe(401);
+    expect((await postJob(job, 'x'.repeat(43))).status).toBe(401);
     expect((await fetch(`${server.url}/jobs/post-meeting/x`)).status).toBe(401);
-    // The workspace is required, and must be the meeting's (unknown meetings look the same).
-    expect((await post({ meetingId: m.meetingId })).status).toBe(400);
-    expect((await post({ meetingId: m.meetingId, workspaceId: other.workspaceId })).status).toBe(
-      404,
-    );
-    expect(
-      (await post({ meetingId: `missing-${randomUUID()}`, workspaceId: m.workspaceId })).status,
-    ).toBe(404);
-    // The previous token still works during a rotation.
-    const res = await post(ids(m), previousToken);
-    expect(res.status).toBe(202);
-    const view = await waitForRun(((await res.json()) as { runId: string }).runId);
-    expect(view.status).toBe('completed');
+    // Every field is required; the workspace must be the meeting's and the run's; the attempt the current one.
+    expect((await postJob({ ...job, workspaceId: undefined })).status).toBe(400);
+    expect((await postJob({ ...job, workspaceId: other.workspaceId })).status).toBe(404);
+    expect((await postJob({ ...job, meetingId: other.meetingId })).status).toBe(404);
+    expect((await postJob({ ...job, pipelineRunId: newId() })).status).toBe(404);
+    expect((await postJob({ ...job, attempt: 2 })).status).toBe(409);
+    // The previous token still works during a rotation; a repeat gets the same Workflow run.
+    const first = await postJob(job, previousToken);
+    expect(first.status).toBe(202);
+    const { runId } = (await first.json()) as { runId: string };
+    const repeat = await postJob(job);
+    expect(repeat.status).toBe(202);
+    expect(((await repeat.json()) as { runId: string }).runId).toBe(runId);
+    const row = await finished(m.meetingId);
+    expect(row).toMatchObject({ status: 'completed', workflowRunId: runId });
     expect(await enhancementsOf(other.documentId)).toEqual([]);
   });
 
-  it('enhances, indexes, pushes to Notion and records the run; a second run changes nothing', async () => {
+  it('enhances, indexes, pushes to Notion and records each step; a second attempt changes nothing', async () => {
     const m = await seedMeeting({ autoPush: true });
     const llmBefore = mocks.log.list({ provider: 'llm' }).length;
     const [seeded] = await db.select().from(document).where(eq(document.id, m.documentId));
 
-    const runId = await startRun(ids(m));
-    const view = await waitForRun(runId);
-    expect(view.status, server.output()).toBe('completed');
-    expect(view.result).toMatchObject({ runId, meetingId: m.meetingId, documentId: m.documentId });
-    expect(outcomes(view.result)).toEqual({ enhance: 'ran', index: 'ran', notion: 'ran' });
+    const requested = await request(m);
+    expect(requested.status).toBe('queued');
+    // Asking again (a second "meeting ended") returns the same run.
+    expect((await request(m)).id).toBe(requested.id);
 
-    // (1) the web app's enhance job ran as the owner and applied the enhanced body.
-    const runs = await db
-      .select()
-      .from(enhancement)
-      .where(eq(enhancement.documentId, m.documentId));
+    const row = await finished(m.meetingId);
+    expect(row.status, server.output()).toBe('completed');
+    expect(row).toMatchObject({ attempt: 1, currentStep: null, error: null });
+    expect(row.startedAt).toBeInstanceOf(Date);
+    expect(row.finishedAt).toBeInstanceOf(Date);
+    expect(outcomes(row)).toEqual({ enhance: 'ran', index: 'ran', notion: 'ran' });
+    const view = await workflowRun(row.workflowRunId!);
+    expect(view.status).toBe('completed');
+    expect(view.result).toMatchObject({ pipelineRunId: row.id, documentId: m.documentId });
+
+    // (1) the enhance job ran as the owner and applied the enhanced body.
+    const runs = await enhancementsOf(m.documentId);
     expect(runs).toHaveLength(1);
     expect(runs[0]).toMatchObject({
       status: 'completed',
-      idempotencyKey: `${m.ownerId}:${m.documentId}:post-meeting:${runId}`,
+      idempotencyKey: `${m.ownerId}:${m.documentId}:post-meeting:${row.workflowRunId}`,
     });
     expect((runs[0]!.outputJson as { applied: boolean }).applied).toBe(true);
     const [doc] = await db.select().from(document).where(eq(document.id, m.documentId));
@@ -358,59 +426,167 @@ describe('post-meeting workflow on eve (offline)', () => {
     // …through the mock LLM, over HTTP.
     expect(mocks.log.list({ provider: 'llm' }).length).toBeGreaterThan(llmBefore);
 
-    // (2) the enhanced notes and the transcript are in the retrieval index.
+    // (2) the enhanced notes and the transcript are in the retrieval index, the action items in `action_item`.
     const chunks = await db.select().from(chunk).where(eq(chunk.documentId, m.documentId));
     expect(chunks.some((c) => c.source === 'notes')).toBe(true);
     expect(chunks.some((c) => c.source === 'transcript')).toBe(true);
-    // …and the note's action items (8.4) are in `action_item`, matching what the enhanced body holds.
     const expected = extractActionItems(doc!.contentJson);
     const items = await db.select().from(actionItem).where(eq(actionItem.documentId, m.documentId));
     expect(items.map((i) => i.text).sort()).toEqual(expected.map((i) => i.text).sort());
-    const firstIndex = view.result!.steps.find((s) => s.step === 'index')!;
     expect(expected.length).toBeGreaterThan(0);
-    expect(firstIndex.detail).toMatchObject({ actionItemsWritten: expected.length });
+    expect(row.steps.find((s) => s.step === 'index')!.detail).toMatchObject({
+      actionItemsWritten: expected.length,
+    });
 
     // (3) one Notion page, recorded on document_export.
-    const [exp] = await db
-      .select()
-      .from(documentExport)
-      .where(eq(documentExport.documentId, m.documentId));
+    const [exp] = await exportsOf(m.documentId);
     expect(exp?.externalId).toBeTruthy();
     expect(exp?.pushedVersion).toBe(doc!.version);
 
-    // (4) the per-meeting run log.
-    const log = await runLog(m.meetingId);
-    expect(log.map((r) => [r.runId, r.status])).toEqual([[runId, 'completed']]);
-
-    // Again: enhance is skipped, nothing is re-embedded, the same Notion page is updated.
+    // A second attempt: enhance is skipped, nothing is re-embedded, the same Notion page is updated.
     const creates = notionCreates().length;
-    const again = await waitForRun(await startRun(ids(m)));
+    await markFailed(m.meetingId);
+    const retried = await retryPostMeeting(
+      pipeline(),
+      await loadActor(db, m.ownerId),
+      m.documentId,
+    );
+    expect(retried.run).toMatchObject({ attempt: 2, steps: [] });
+    const again = await finished(m.meetingId, 60_000, 2);
     expect(again.status).toBe('completed');
-    expect(outcomes(again.result)).toEqual({
-      enhance: 'already enhanced',
-      index: 'ran',
-      notion: 'ran',
+    expect(outcomes(again)).toEqual({ enhance: 'already enhanced', index: 'ran', notion: 'ran' });
+    expect(again.steps.find((s) => s.step === 'index')!.detail).toMatchObject({
+      inserted: 0,
+      deleted: 0,
+      actionItemsWritten: 0,
     });
-    const index = again.result!.steps.find((s) => s.step === 'index')!;
-    expect(index.detail).toMatchObject({ inserted: 0, deleted: 0, actionItemsWritten: 0 });
-    const notion = again.result!.steps.find((s) => s.step === 'notion')!;
-    expect(notion.detail).toMatchObject({ created: false });
+    expect(again.steps.find((s) => s.step === 'notion')!.detail).toMatchObject({ created: false });
     expect(notionCreates().length).toBe(creates);
-    expect((await runLog(m.meetingId)).map((r) => r.runId)).toEqual([again.runId, runId]);
+    expect(await enhancementsOf(m.documentId)).toHaveLength(1);
   });
 
-  it('skips the Notion push when auto-push is off or Notion is not connected', async () => {
+  it('a meeting resumed and ended again runs again: re-enhanced, re-indexed, the same Notion page updated', async () => {
+    const m = await seedMeeting({ autoPush: true });
+    await request(m);
+    const first = await finished(m.meetingId);
+    expect(outcomes(first)).toEqual({ enhance: 'ran', index: 'ran', notion: 'ran' });
+
+    // Resumed (D-24): ended_at cleared, more transcript, ended again.
+    await db.update(meeting).set({ endedAt: null }).where(eq(meeting.id, m.meetingId));
+    await db.insert(transcriptSegment).values({
+      id: `${m.meetingId}-s9`,
+      meetingId: m.meetingId,
+      source: 'mic',
+      startMs: 60_000,
+      endMs: 64_000,
+      text: 'One more thing: Sam will book the clinic visit for Tuesday.',
+    });
+    await db.update(meeting).set({ endedAt: new Date() }).where(eq(meeting.id, m.meetingId));
+    const creates = notionCreates().length;
+    expect((await request(m)).attempt).toBe(2);
+    const second = await finished(m.meetingId, 60_000, 2);
+    expect(second.status).toBe('completed');
+    // The earlier enhancement predates this end: enhanced again (with the new part of the transcript).
+    expect(outcomes(second)).toEqual({ enhance: 'ran', index: 'ran', notion: 'ran' });
+    const done = (await enhancementsOf(m.documentId)).filter((e) => e.status === 'completed');
+    expect(done).toHaveLength(2);
+    expect(second.steps.find((s) => s.step === 'notion')!.detail).toMatchObject({ created: false });
+    expect(notionCreates().length).toBe(creates);
+  });
+
+  it('an owner who can no longer edit the note stops the run for good (no step retries, no Retry)', async () => {
+    const m = await seedMeeting({ editor: true });
+    await db
+      .update(membership)
+      .set({ role: 'viewer' })
+      .where(and(eq(membership.workspaceId, m.workspaceId), eq(membership.userId, m.ownerId)));
+    // The editor ends it (they may), but the pipeline acts as the owner.
+    await requestPostMeeting(pipeline(), await loadActor(db, m.editorId!), m.meetingId);
+    const row = await finished(m.meetingId);
+    expect(row).toMatchObject({ status: 'failed', errorCode: 'owner_no_access', steps: [] });
+    expect(toPipelineRunDto(row)).toMatchObject({ retryable: false });
+    expect(row.error).toMatch(/owner can no longer edit/);
+    expect(await enhancementsOf(m.documentId)).toEqual([]);
+  });
+
+  it('runs whose workflow stopped or finished unrecorded are settled by the sweep; retry then works', async () => {
+    const lost = await seedMeeting({ autoPush: false });
+    const unrecorded = await seedMeeting({ autoPush: false });
+    await Promise.all([request(lost), request(unrecorded)]);
+    const [a, b] = await Promise.all([finished(lost.meetingId), finished(unrecorded.meetingId)]);
+    expect([a.status, b.status]).toEqual(['completed', 'completed']);
+    // (a) Looks live, but the world has no such run (wiped world, eve upgrade); (b) the world completed it but
+    // the finish step's write never landed. Both quiet for 20 min.
+    await db.execute(sql`update pipeline_run set status = 'running', current_step = 'enhance',
+      workflow_run_id = ${`wrun_gone_${randomUUID()}`},
+      updated_at = now() - interval '20 minutes' where id = ${a.id}`);
+    await db.execute(sql`update pipeline_run set status = 'running', finished_at = null,
+      updated_at = now() - interval '20 minutes' where id = ${b.id}`);
+    // The server's minute sweep settles both.
+    const settledA = await finished(lost.meetingId, 90_000);
+    expect(settledA).toMatchObject({
+      status: 'failed',
+      error: 'The post-meeting steps stopped. Try again.',
+    });
+    expect(toPipelineRunDto(settledA)).toMatchObject({ retryable: true });
+    expect((await finished(unrecorded.meetingId, 90_000)).status).toBe('completed');
+    // Retry runs the next attempt to the end.
+    const retried = await retryPostMeeting(
+      pipeline(),
+      await loadActor(db, lost.ownerId),
+      lost.documentId,
+    );
+    expect(retried.run).toMatchObject({ attempt: 2 });
+    expect((await finished(lost.meetingId, 60_000, 2)).status).toBe('completed');
+  }, 180_000);
+
+  it('respects the switches: Notion auto-send off / not connected, auto-enhance off', async () => {
     const off = await seedMeeting({ autoPush: false });
     const none = await seedMeeting();
-    const [a, b] = await Promise.all([
-      waitForRun(await startRun(ids(off))),
-      waitForRun(await startRun(ids(none))),
+    const raw = await seedMeeting({ autoPush: true, autoEnhance: false });
+    await Promise.all([request(off), request(none), request(raw)]);
+    const [a, b, c] = await Promise.all([
+      finished(off.meetingId),
+      finished(none.meetingId),
+      finished(raw.meetingId),
     ]);
-    expect(outcomes(a.result)).toEqual({ enhance: 'ran', index: 'ran', notion: 'auto-push off' });
-    expect(outcomes(b.result)).toEqual({ enhance: 'ran', index: 'ran', notion: 'not connected' });
+    expect(outcomes(a)).toEqual({ enhance: 'ran', index: 'ran', notion: 'auto-push off' });
+    expect(outcomes(b)).toEqual({ enhance: 'ran', index: 'ran', notion: 'not connected' });
+    // Not enhanced: the notes as written are indexed and sent.
+    expect(outcomes(c)).toEqual({ enhance: 'auto-enhance off', index: 'ran', notion: 'ran' });
+    expect(await enhancementsOf(raw.documentId)).toEqual([]);
+    expect(await exportsOf(raw.documentId)).toHaveLength(1);
+    expect(await exportsOf(off.documentId)).toEqual([]);
   });
 
-  it('survives a SIGKILL mid-generation and mid-wait; a run busy past its deadline fails clearly', async () => {
+  it('a step that keeps failing fails the run with a clear message; retry runs it again', async () => {
+    const m = await seedMeeting({ autoPush: true });
+    llm.fail = true;
+    try {
+      await request(m);
+      const failed = await finished(m.meetingId);
+      expect(failed).toMatchObject({ status: 'failed', attempt: 1, currentStep: null });
+      expect(failed.error).toBe('Enhancing the notes failed. Try again.');
+      expect(failed.steps).toEqual([]);
+      // Every attempt of the step was a fresh, failed enhancement (no half-applied note); nothing was sent.
+      const tries = await enhancementsOf(m.documentId);
+      expect(tries.length).toBeGreaterThan(1);
+      expect(tries.every((t) => t.status === 'failed')).toBe(true);
+      expect(await exportsOf(m.documentId)).toEqual([]);
+    } finally {
+      llm.fail = false;
+    }
+    await retryPostMeeting(pipeline(), await loadActor(db, m.ownerId), m.documentId);
+    const ok = await finished(m.meetingId, 60_000, 2);
+    expect(ok.status).toBe('completed');
+    expect(outcomes(ok)).toEqual({ enhance: 'ran', index: 'ran', notion: 'ran' });
+    expect(
+      (await enhancementsOf(m.documentId)).filter((e) => e.status === 'completed'),
+    ).toHaveLength(1);
+    expect(await exportsOf(m.documentId)).toHaveLength(1);
+  });
+
+  it('survives a SIGKILL mid-generation and mid-wait; a run asked for while down waits for the sweep; a busy run fails at its deadline', async () => {
     // (c) Busy forever: another push holds this note's Notion lease. Started first, it fails last.
     const leased = await seedMeeting({ autoPush: true });
     const [integ] = await db
@@ -423,30 +599,32 @@ describe('post-meeting workflow on eve (offline)', () => {
       leaseId: 'someone-else',
       leaseUntil: new Date(Date.now() + 60 * 60_000),
     });
-    const leasedRun = await startRun(ids(leased));
+    await request(leased);
 
     // (b) In the durable wait between indexing and the push when the server dies.
     const waiting = await seedMeeting({ autoPush: true });
-    const waitingRun = await startRun({ ...ids(waiting), pushDelayMs: 8_000 });
+    const waitingJobBody = await waitingJob(waiting);
+    expect((await postJob({ ...waitingJobBody, pushDelayMs: 8_000 })).status).toBe(202);
     await waitFor(() => hasNotesChunks(waiting.documentId), { timeout: 30_000, interval: 100 });
     await new Promise((r) => setTimeout(r, 1_000)); // the index step's result is recorded; now sleeping
 
     // (a) In the middle of its enhance generation when the server dies (the mock LLM hangs).
     const generating = await seedMeeting({ autoPush: true });
-    slow.on = true;
-    const seen = slow.seen;
-    const generatingRun = await startRun(ids(generating));
+    llm.slow = true;
+    const seen = llm.seen;
+    await request(generating);
     const [orphan] = await waitFor(
       async () => {
         const rows = await enhancementsOf(generating.documentId);
-        return slow.seen > seen && rows[0]?.status === 'generating' ? rows : undefined;
+        return llm.seen > seen && rows[0]?.status === 'generating' ? rows : undefined;
       },
       { timeout: 30_000, interval: 100 },
     );
+    expect((await runRow(generating.meetingId)).currentStep).toBe('enhance');
     await new Promise((r) => setTimeout(r, 500));
 
     await server.kill();
-    slow.on = false;
+    llm.slow = false;
     // Really gone (the new server below must not be confused with a survivor on the same port).
     await expect(fetch(`${server.url}/eve/v1/health`)).rejects.toThrow();
     expect(await exportsOf(waiting.documentId)).toEqual([]); // killed before the push
@@ -454,24 +632,26 @@ describe('post-meeting workflow on eve (offline)', () => {
       'generating',
     ]);
 
-    server = await startAgent(serverEnv, port);
+    // (d) The meeting ends while the agents are down: the run waits ("waiting for the pipeline").
+    const late = await seedMeeting({ autoPush: true });
+    const lateRun = await request(late);
+    expect(lateRun.status).toBe('waiting');
+    expect((await runRow(late.meetingId)).dispatchError).toMatch(/unreachable/);
+
+    server = await startAgent(serverEnv, port, { schedules: true });
+
+    // (d) The server's minute sweep hands it over (nobody else asks), and it completes.
+    const d = await finished(late.meetingId, 150_000);
+    expect(d.status).toBe('completed');
+    expect(outcomes(d)).toEqual({ enhance: 'ran', index: 'ran', notion: 'ran' });
+    expect(d.dispatchAttempts).toBe(2); // the failed hand-over + the sweep's
 
     // (a) The orphaned generation stays `generating` until D-26 staleness: the step answers busy, the workflow
     // sleeps and asks again; once stale it is settled as failed and a fresh run is applied.
-    const a = await waitForRun(generatingRun, 180_000).catch(async (error: unknown) => {
-      // Diagnostics for a timeout: the note's enhancement runs and the server's recent output.
-      const rows = await enhancementsOf(generating.documentId);
-      console.error(
-        '[8.2 crash case] enhancements:',
-        JSON.stringify(rows.map((r) => [r.status, r.idempotencyKey, r.startedAt, r.outputJson])),
-        '\nserver output (tail):\n',
-        server.output().slice(-6000),
-      );
-      throw error;
-    });
+    const a = await finished(generating.meetingId, 180_000);
     expect(a.status, server.output()).toBe('completed');
-    expect(outcomes(a.result)).toEqual({ enhance: 'ran', index: 'ran', notion: 'ran' });
-    const enhance = a.result!.steps.find((s) => s.step === 'enhance')!;
+    expect(outcomes(a)).toEqual({ enhance: 'ran', index: 'ran', notion: 'ran' });
+    const enhance = a.steps.find((s) => s.step === 'enhance')!;
     expect(Number(enhance.detail?.waitedMs)).toBeGreaterThan(0);
     const runs = await enhancementsOf(generating.documentId);
     expect(runs.map((r) => r.status).sort()).toEqual(['completed', 'failed']);
@@ -483,18 +663,18 @@ describe('post-meeting workflow on eve (offline)', () => {
     expect(await exportsOf(generating.documentId)).toHaveLength(1);
 
     // (b) Completed steps were not repeated: one enhancement, one push after the restart.
-    const b = await waitForRun(waitingRun, 60_000);
+    const b = await finished(waiting.meetingId, 60_000);
     expect(b.status).toBe('completed');
-    expect(outcomes(b.result)).toEqual({ enhance: 'ran', index: 'ran', notion: 'ran' });
+    expect(outcomes(b)).toEqual({ enhance: 'ran', index: 'ran', notion: 'ran' });
     expect(await enhancementsOf(waiting.documentId)).toHaveLength(1);
     expect((await exportsOf(waiting.documentId))[0]?.externalId).toBeTruthy();
 
-    // (c) Busy past the deadline (stale + 60 s): failed with the reason, and logged.
-    const c = await waitForRun(leasedRun, 120_000);
+    // (c) Busy past the deadline (stale + 60 s): failed with the reason, steps so far kept.
+    const c = await finished(leased.meetingId, 120_000);
     expect(c.status).toBe('failed');
-    const [entry] = await runLog(leased.meetingId);
-    expect(entry).toMatchObject({ status: 'failed', documentId: leased.documentId });
-    expect(entry!.steps.map((s) => s.step)).toEqual(['enhance', 'index']);
-    expect(entry!.error).toMatch(/gave up after waiting \d+ s: notion: notion_busy/);
-  }, 360_000);
+    expect(c.steps.map((s) => s.step)).toEqual(['enhance', 'index']);
+    expect(c.error).toBe('Sending to Notion stayed blocked by another send. Try again.');
+    const view = await workflowRun(c.workflowRunId!);
+    expect(view.status).toBe('failed');
+  }, 420_000);
 });

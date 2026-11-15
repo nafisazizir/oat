@@ -326,6 +326,9 @@ importers:
       '@oat/integrations-notion':
         specifier: workspace:*
         version: link:../packages/integrations-notion
+      '@oat/services':
+        specifier: workspace:*
+        version: link:../packages/services
       '@workflow/world-postgres':
         specifier: 'catalog:'
         version: 5.2.0(@types/pg@8.23.1)(kysely@0.29.9)(postgres@3.4.9)(typescript@5.9.3)
@@ -357,6 +360,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
+      eslint:
+        specifier: 'catalog:'
+        version: 10.15.0(jiti@2.7.0)
       tsx:
         specifier: 'catalog:'
         version: 4.23.15
@@ -493,6 +499,9 @@ importers:
       '@oat/meeting-ui':
         specifier: workspace:*
         version: link:../../packages/meeting-ui
+      '@oat/services':
+        specifier: workspace:*
+        version: link:../../packages/services
       '@oat/stt':
         specifier: workspace:*
         version: link:../../packages/stt
@@ -539,6 +548,9 @@ importers:
       '@next/eslint-plugin-next':
         specifier: 'catalog:'
         version: 16.4.6(eslint@10.15.0(jiti@2.7.0))
+      '@oat/agents':
+        specifier: workspace:*
+        version: link:../../agents
       '@oat/local-store':
         specifier: workspace:*
         version: link:../../packages/local-store
@@ -1034,6 +1046,52 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.3.1(react@19.3.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@24.19.2)(@vitest/coverage-v8@5.1.0)(happy-dom@21.0.4)(jsdom@31.0.1(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
+  packages/services:
+    dependencies:
+      '@oat/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@oat/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@oat/core':
+        specifier: workspace:*
+        version: link:../core
+      '@oat/db':
+        specifier: workspace:*
+        version: link:../db
+      '@oat/editor':
+        specifier: workspace:*
+        version: link:../editor
+      '@oat/indexing':
+        specifier: workspace:*
+        version: link:../indexing
+      '@oat/integrations-notion':
+        specifier: workspace:*
+        version: link:../integrations-notion
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.4(@types/pg@8.23.1)(kysely@0.29.9)(pg@8.23.1)(postgres@3.4.9)
+      redis:
+        specifier: 'catalog:'
+        version: 6.3.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+    devDependencies:
+      '@oat/testkit':
+        specifier: workspace:*
+        version: link:../testkit
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
