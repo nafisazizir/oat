@@ -1,0 +1,35 @@
+/** Row types inferred from the schema: `XRow` (select) and `NewXRow` (insert). */
+import type * as s from './schema/index.ts';
+
+export type UserRow = typeof s.user.$inferSelect;
+export type NewUserRow = typeof s.user.$inferInsert;
+export type WorkspaceRow = typeof s.workspace.$inferSelect;
+export type NewWorkspaceRow = typeof s.workspace.$inferInsert;
+export type MembershipRow = typeof s.membership.$inferSelect;
+export type NewMembershipRow = typeof s.membership.$inferInsert;
+export type InviteRow = typeof s.invite.$inferSelect;
+export type NewInviteRow = typeof s.invite.$inferInsert;
+export type FolderRow = typeof s.folder.$inferSelect;
+export type NewFolderRow = typeof s.folder.$inferInsert;
+export type DocumentRow = typeof s.document.$inferSelect;
+export type NewDocumentRow = typeof s.document.$inferInsert;
+export type MeetingRow = typeof s.meeting.$inferSelect;
+export type NewMeetingRow = typeof s.meeting.$inferInsert;
+export type ParticipantRow = typeof s.participant.$inferSelect;
+export type NewParticipantRow = typeof s.participant.$inferInsert;
+export type TranscriptSegmentRow = typeof s.transcriptSegment.$inferSelect;
+export type NewTranscriptSegmentRow = typeof s.transcriptSegment.$inferInsert;
+export type TemplateRow = typeof s.template.$inferSelect;
+export type NewTemplateRow = typeof s.template.$inferInsert;
+export type EnhancementRow = typeof s.enhancement.$inferSelect;
+export type NewEnhancementRow = typeof s.enhancement.$inferInsert;
+export type ChunkRow = typeof s.chunk.$inferSelect;
+export type NewChunkRow = typeof s.chunk.$inferInsert;
+export type ChatThreadRow = typeof s.chatThread.$inferSelect;
+export type NewChatThreadRow = typeof s.chatThread.$inferInsert;
+export type ChatMessageRow = typeof s.chatMessage.$inferSelect;
+export type NewChatMessageRow = typeof s.chatMessage.$inferInsert;
+export type IntegrationRow = typeof s.integration.$inferSelect;
+export type NewIntegrationRow = typeof s.integration.$inferInsert;
+export type ChangeLogRow = typeof s.changeLog.$inferSelect;
+export type NewChangeLogRow = typeof s.changeLog.$inferInsert;

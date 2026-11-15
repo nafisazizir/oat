@@ -13,9 +13,24 @@
     "typecheck": "tsc",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:int": "vitest run --mode int --passWithNoTests"
+    "test:int": "vitest run --mode int",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/cli/migrate.ts",
+    "db:seed": "tsx src/cli/seed.ts",
+    "db:reset": "tsx src/cli/reset.ts",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@oat/core": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "postgres": "catalog:"
   },
   "devDependencies": {
+    "@oat/testkit": "workspace:*",
+    "@types/node": "catalog:",
+    "better-auth": "catalog:",
+    "drizzle-kit": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

@@ -9,3 +9,5 @@ coverage/
 docs/
 research/
 CLAUDE.md
+# drizzle-kit owns generated migrations and snapshots.
+packages/db/drizzle/

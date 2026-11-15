@@ -150,6 +150,20 @@ already exported in the shell win). Compose only uses it for interpolation (it h
 read it yet: `apps/web` (1.6/1.9) and `apps/desktop` must load the root `.env` themselves when they are wired
 up (Next.js on its own only reads `apps/web/.env*`). Until then, editing `.env` affects tests only.
 
+## Database (`@oat/db`)
+
+All take `DATABASE_URL` (root `.env`, default the compose `oat` database):
+
+| Command                                      | What it does                                                         |
+| -------------------------------------------- | -------------------------------------------------------------------- |
+| `pnpm --filter @oat/db db:migrate`           | Applies pending migrations (idempotent, safe to run concurrently).   |
+| `pnpm --filter @oat/db db:seed`              | Inserts demo data (`demo@oat.local`); idempotent. Local DBs only.    |
+| `pnpm --filter @oat/db db:reset [--seed]`    | Drops and recreates the database, then migrates (and seeds). Loopback hosts only, no override. Use it when unreleased migrations were rewritten on `main` (`db:migrate` then fails on existing tables). Kills open connections to that database. |
+| `pnpm --filter @oat/db db:generate`          | Generates a migration from schema changes (`packages/db/drizzle/`).  |
+| `pnpm --filter @oat/db db:studio`            | Drizzle Studio against `DATABASE_URL`.                               |
+
+`db:reset` only touches the one database in `DATABASE_URL`; test databases (`oat_test_*`) are separate.
+
 ## Tests
 
 - `pnpm test`: unit tests, in-process fakes, no containers.

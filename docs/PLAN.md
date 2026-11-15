@@ -28,7 +28,7 @@ with sign-in working (magic link via Mailpit, Google via mock OAuth).
 - [x] 1.3 `packages/ui`: shadcn init, token file (colour, type, radius, spacing, motion), light/dark, base components · deps: 1.1
 - [ ] 1.4 `apps/web`: Next.js App Router shell, app layout (sidebar, workspace switcher, content) · deps: 1.3
 - [x] 1.10 Dev environment (D-11): `docker-compose.yml` (postgres+pgvector, redis, mailpit, mock-oauth2, mocks), `tools/mocks` skeleton with health route, `pnpm dev:up/down/reset/logs`, `.env.example` defaults, `docs/DEV.md` (new machine in 3 commands), per-run test DB helper · deps: 1.1
-- [ ] 1.5 `packages/db` Drizzle schema (SPEC §6) + migrations + seed, against compose Postgres (Neon is prod-only, 9.6) · deps: 1.1, 1.10
+- [x] 1.5 `packages/db` Drizzle schema (SPEC §6) + migrations + seed, against compose Postgres (Neon is prod-only, 9.6) · deps: 1.1, 1.10
 - [ ] 1.6 Better Auth: magic link (SMTP → Mailpit in dev) + Google (mock OAuth in dev), organization plugin → workspaces; personal workspace on sign-up · deps: 1.5, 1.4
 - [x] 1.7 `packages/core/permissions.ts` + tests (owner/workspace/link/deny cases) · deps: 1.5
 - [ ] 1.8 `apps/desktop`: electron-vite shell, one renderer bundle with route-per-window, typed preload bridge (invoke/send/subscribe) from a contract in `packages/core`, sender-origin check on every handler, hardened fuses, small main-owned sequenced store for cross-window live state; renderer uses `packages/ui`; deep-link auth (`oat://`), token in Keychain (safeStorage) · deps: 1.4, 1.6
