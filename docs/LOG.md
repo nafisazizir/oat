@@ -124,3 +124,5 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - 9.2 + 9.3b implementer handed back (branch task/9.2-onboarding, ci ok; 16/19 punch-list items fixed, 2 deferred, 1 partial). Fresh reviewer spawned.
 - 3.9 implementer started in parallel, branched from task/9.2-onboarding (will re-merge main once 9.2 lands).
 - 2026-11-15 · 9.2 · shipped: desktop onboarding + 9.3b desktop design pass (squash-merged).
+- 9.3b shipped with 9.2 (same squash 8f3c91b). Reviewer non-blocking notes (follow-ups, not blocking): calendar "Allow" while status "unknown" is a no-op; "Ask about this note" one-frame jump (useLayoutEffect); reopened Setup shows previous test-recording result; e2e permission guard in desktop index.ts lacks a unit test.
+- Waiting on human (added): run the real macOS "Allow" prompts in onboarding on a packaged build (steps in docs/tasks/9.2-onboarding.md → Verification).
