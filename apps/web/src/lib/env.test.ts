@@ -3,7 +3,7 @@ import { parseEnv as parseDotenv } from 'node:util';
 
 import { describe, expect, it } from 'vitest';
 
-import { EnvError, integrationModes, parseEnv } from './env';
+import { desktopDevHandoff, EnvError, integrationModes, parseEnv } from './env';
 
 const example = parseDotenv(
   readFileSync(new URL('../../../../.env.example', import.meta.url), 'utf8'),
@@ -59,5 +59,23 @@ describe('integrationModes', () => {
       OAUTH_GOOGLE_ISSUER: 'https://accounts.google.com',
     });
     expect(integrationModes(env)).toEqual({ ai: 'real', stt: 'real', oauth: 'real' });
+  });
+});
+
+describe('desktopDevHandoff', () => {
+  it('offers the copy-link fallback only outside production', () => {
+    expect(desktopDevHandoff(parseEnv(example))).toBe(true);
+    expect(desktopDevHandoff(parseEnv({ ...example, OAT_DESKTOP_DEV_HANDOFF: '0' }))).toBe(false);
+    expect(desktopDevHandoff(parseEnv({ ...example, NODE_ENV: 'production' }))).toBe(false);
+    expect(desktopDevHandoff({ NODE_ENV: 'production', OAT_DESKTOP_DEV_HANDOFF: '1' })).toBe(false);
+  });
+
+  it('refuses OAT_DESKTOP_DEV_HANDOFF=1 in production', () => {
+    expect(() =>
+      parseEnv({ ...example, NODE_ENV: 'production', OAT_DESKTOP_DEV_HANDOFF: '1' }),
+    ).toThrow(/OAT_DESKTOP_DEV_HANDOFF/);
+    expect(() => parseEnv({ ...example, OAT_DESKTOP_DEV_HANDOFF: 'yes' })).toThrow(
+      /OAT_DESKTOP_DEV_HANDOFF/,
+    );
   });
 });

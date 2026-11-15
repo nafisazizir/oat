@@ -37,6 +37,10 @@ export default function config(phase: string): NextConfig {
     // `node_modules/.pnpm` store are included. `next dev` and Vercel ignore it.
     output: 'standalone',
     outputFileTracingRoot: findRepoRoot(),
+    // Default `.next`. The desktop e2e (apps/desktop/playwright.config.ts) runs its own `next dev` with
+    // `OAT_NEXT_DIST_DIR=.next-desktop-e2e`: a `.next/dev` left behind by that server made the web e2e's
+    // `next dev` reload-loop when the two ran back to back in `pnpm run ci`.
+    distDir: process.env.OAT_NEXT_DIST_DIR || '.next',
     reactStrictMode: true,
     typedRoutes: true,
     // D-15: every @oat/* dependency is TypeScript source; Next compiles them (derived from package.json).

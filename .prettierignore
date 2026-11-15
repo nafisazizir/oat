@@ -4,6 +4,7 @@ node_modules/
 dist/
 out/
 .next/
+.next-*/
 coverage/
 # Agent-maintained prose, edited concurrently by the orchestrator; not reformatted by Prettier.
 docs/

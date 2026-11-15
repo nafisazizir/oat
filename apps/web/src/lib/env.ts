@@ -21,34 +21,51 @@ const optional = z
 
 const url = z.url();
 
-export const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+export const envSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
-  DATABASE_URL: url,
-  REDIS_URL: url,
+    DATABASE_URL: url,
+    REDIS_URL: url,
 
-  BETTER_AUTH_SECRET: z.string().min(32),
-  BETTER_AUTH_URL: url,
-  BETTER_AUTH_TRUSTED_ORIGINS: optional,
-  AUTH_MAX_TEAM_WORKSPACES: optional.pipe(z.string().regex(/^\d+$/).optional()),
+    BETTER_AUTH_SECRET: z.string().min(32),
+    BETTER_AUTH_URL: url,
+    BETTER_AUTH_TRUSTED_ORIGINS: optional,
+    AUTH_MAX_TEAM_WORKSPACES: optional.pipe(z.string().regex(/^\d+$/).optional()),
 
-  SMTP_HOST: z.string().min(1),
-  SMTP_PORT: z.coerce.number().int().positive(),
-  SMTP_USER: optional,
-  SMTP_PASSWORD: optional,
-  SMTP_FROM: z.string().min(1),
-  MAILPIT_URL: url.optional(),
+    SMTP_HOST: z.string().min(1),
+    SMTP_PORT: z.coerce.number().int().positive(),
+    SMTP_USER: optional,
+    SMTP_PASSWORD: optional,
+    SMTP_FROM: z.string().min(1),
+    MAILPIT_URL: url.optional(),
 
-  OAUTH_GOOGLE_ISSUER: url,
-  OAUTH_GOOGLE_CLIENT_ID: z.string().min(1),
-  OAUTH_GOOGLE_CLIENT_SECRET: z.string().min(1),
+    OAUTH_GOOGLE_ISSUER: url,
+    OAUTH_GOOGLE_CLIENT_ID: z.string().min(1),
+    OAUTH_GOOGLE_CLIENT_SECRET: z.string().min(1),
 
-  MOCKS_URL: url,
-  AI_GATEWAY_API_KEY: optional,
-  AI_GATEWAY_BASE_URL: optional.pipe(url.optional()),
-  DEEPGRAM_API_KEY: optional,
-  DEEPGRAM_BASE_URL: optional.pipe(url.optional()),
-});
+    MOCKS_URL: url,
+    AI_GATEWAY_API_KEY: optional,
+    AI_GATEWAY_BASE_URL: optional.pipe(url.optional()),
+    DEEPGRAM_API_KEY: optional,
+    DEEPGRAM_BASE_URL: optional.pipe(url.optional()),
+
+    /**
+     * Desktop sign-in (1.8): the "copy the link for the app" fallback on `/desktop/sign-in`, for dev builds
+     * whose Electron binary isn't the registered `oat://` handler. On by default outside production,
+     * `0` turns it off; never in production (setting `1` there is refused).
+     */
+    OAT_DESKTOP_DEV_HANDOFF: optional.pipe(z.enum(['0', '1']).optional()),
+  })
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV === 'production' && env.OAT_DESKTOP_DEV_HANDOFF === '1') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OAT_DESKTOP_DEV_HANDOFF'],
+        message: 'must not be enabled in production (a copyable sign-in code invites phishing)',
+      });
+    }
+  });
 
 export type ServerEnv = z.infer<typeof envSchema>;
 
@@ -74,6 +91,14 @@ let cached: ServerEnv | undefined;
 export function serverEnv(): ServerEnv {
   cached ??= parseEnv(process.env);
   return cached;
+}
+
+/**
+ * Whether `/desktop/sign-in` offers the copy-link fallback. Never in production: a sign-in code someone
+ * can be talked into copying and pasting elsewhere is an account-takeover path (1.8 security review).
+ */
+export function desktopDevHandoff(env: Pick<ServerEnv, 'NODE_ENV' | 'OAT_DESKTOP_DEV_HANDOFF'>) {
+  return env.NODE_ENV !== 'production' && env.OAT_DESKTOP_DEV_HANDOFF !== '0';
 }
 
 /** Which integrations talk to a real provider vs the local mock (key set → real). */

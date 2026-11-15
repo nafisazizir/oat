@@ -215,7 +215,8 @@ tests run only when their key is set.
 **Who reads the root `.env`.** Integration tests do: `vitest.shared.ts` loads it in `--mode int` (variables
 already exported in the shell win). `apps/web` does in `next dev`/`next build` (`next.config.ts`). Compose uses
 it only for interpolation: the `web` container takes the provider keys and Google issuer/client from it, and
-nothing else (see "Web app in Docker"). `apps/desktop` must load it itself when it is wired up.
+nothing else (see "Web app in Docker"). `apps/desktop` loads it itself in dev builds (main process,
+`process.loadEnvFile`, shell vars win); a packaged app never reads it.
 
 ## Signing in locally (`@oat/auth`)
 
@@ -237,8 +238,8 @@ Better Auth (D-9) runs inside `apps/web` at `/api/auth/*`; its config lives in `
   reserved.
 - Protected pages (`/home`, `/d/*`, `/settings`, `/templates`) redirect to `/sign-in?next=…` without a
   session: `src/proxy.ts` checks the cookie, `(app)/layout.tsx` validates it.
-- The desktop app (1.8) will authenticate with `Authorization: Bearer <token>` (the signed token from the
-  `set-auth-token` response header); unsigned tokens are rejected.
+- The desktop app (1.8) authenticates with `Authorization: Bearer <token>` (the signed token from the
+  `set-auth-token` response header); unsigned tokens are rejected. How it gets one: "Desktop app" below.
 
 **Web e2e** (`pnpm --filter @oat/web e2e`, needs `pnpm dev:up`) starts `next dev` through
 `apps/web/e2e/web-server.ts`, which creates a throwaway `oat_test_*` database, migrates it, and drops it on
@@ -246,6 +247,53 @@ exit, so e2e sign-ups never land in the shared `oat` database. Pick a free port 
 `E2E_PORT=3107`. A `setup` project signs one user in by magic link and the other specs reuse its cookies;
 `auth.spec.ts` covers both sign-in methods with fresh users. `E2E_SCREENSHOTS=1 … playwright test auth`
 writes the 1.6 evidence screenshots.
+
+## Desktop app (`apps/desktop`)
+
+Electron + electron-vite (D-5), macOS first. `pnpm --filter @oat/desktop dev` starts the Vite dev server for
+the renderer and launches Electron (it is also part of `pnpm dev`); `pnpm --filter @oat/desktop build`
+writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the web app too (`pnpm dev` or
+`pnpm dev:app`): the desktop signs in against it and calls its API.
+
+- **Layout.** `src/main` (main process: windows, IPC handlers, main-owned state store, sign-in, API client),
+  `src/preload` (exposes `window.oat`), `src/renderer` (React + `@oat/ui`; one bundle, the URL hash picks the
+  window: `#/main`, `#/widget`). Built renderer files are served from `app://oat/` (CSP header, no
+  `file://`); in dev from the Vite server.
+- **IPC.** The contract is `packages/core/src/bridge.ts` (zod schemas for `invoke` / `send` / `subscribe`
+  channels). Add a channel there, then register it in `src/main/index.ts` with `bridge.handle`/`bridge.on`
+  (`src/main/ipc.ts` checks the sender is our renderer's main frame and validates the payload) and call it
+  from the renderer with `call('<channel>')` (`src/renderer/src/bridge.ts`). Invoke results are
+  `{ ok: true, value } | { ok: false, error: { code, message } }`.
+- **Shared live state.** `MainStore` in main (auth status, recording placeholder, active meeting) with a
+  `seq` per change, pushed to every window; components read it with `useMainState()`.
+- **Sign-in.** "Sign in with your browser" opens `${OAT_WEB_URL}/desktop/sign-in?state=…&challenge=…`; after
+  the normal web sign-in, "Continue to the app" opens `oat://auth?code=…&state=…`; main checks `state`,
+  exchanges the code + PKCE verifier at `/api/auth/desktop/token` for a bearer token and stores it with
+  `safeStorage` (`<userData>/session.bin`; Keychain key "Oat Dev Safe Storage" in dev). The renderer never
+  sees the token. Sign out revokes the session on the server. Details: `docs/tasks/1.8-desktop-shell.md`.
+- **`oat://` in dev.** The dev app registers the Electron binary + this checkout as the `oat://` handler
+  while it runs and unregisters on quit (`OAT_REGISTER_PROTOCOL=0` turns that off). On macOS the stock
+  Electron.app doesn't declare the scheme, so the browser may not hand the link over; then use "Copy link
+  for the app (dev)" on the web page and paste it into the app's "Paste the link" field (same checks). Both
+  are **development only**: the web page offers the copy button only outside production (`NODE_ENV`, and
+  `OAT_DESKTOP_DEV_HANDOFF=0` turns it off; `=1` is refused in production), and only an unpackaged app shows
+  (and accepts) the paste field. A copyable sign-in code is a phishing target, so releases never have one.
+- **Env (dev builds only; a packaged app ignores all of them).** `OAT_WEB_URL` (default `BETTER_AUTH_URL`,
+  then `http://localhost:3000`; https required except on localhost), `OAT_USER_DATA_DIR` (separate profile;
+  also gives a separate single-instance lock), `OAT_E2E=1` (windows don't take focus, no protocol
+  registration), `OAT_DEVTOOLS=1` (devtools in a built renderer; forced off when packaged). Dev builds are named "Oat Dev" (own
+  userData folder and Keychain key). `OAT_AUDIO_BIN` is honoured only when not packaged
+  (`src/main/sidecar.ts`).
+- **Packaging (9.1).** `src/build/fuses.ts` (`OAT_FUSES`, `applyFuses`) holds the fuse settings to flip on
+  the packaged binary: no run-as-node, no `NODE_OPTIONS`/`--inspect`, asar-only + integrity, cookie
+  encryption.
+- **Tests.** `pnpm --filter @oat/desktop test` (main-process logic and renderer helpers, no Electron).
+  `pnpm --filter @oat/desktop e2e` (macOS; needs `pnpm dev:up`): builds, then Playwright `_electron.launch`s
+  the app with a temp profile against `next dev` on a throwaway database (apps/web's `e2e/web-server.ts`,
+  `E2E_PORT`, default 3100). `shell.openExternal` is stubbed and deep links are delivered by emitting
+  `open-url`, so no browser opens and nothing is registered with the OS. The web half of sign-in runs in
+  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/` (screenshots + `cold-start.json`). Other
+  platforms skip it.
 
 ## Database (`@oat/db`)
 
@@ -294,7 +342,7 @@ others still run so you see every failure at once (`--bail` stops at the first).
 | `stack`           | No-op when every compose service is running and healthy; otherwise `pnpm dev:up` (builds local images only if missing, never rebuilds). Never `down`/`reset`/`build`. |
 | `migrate`         | Creates a throwaway `oat_test_*` database, runs `@oat/db db:migrate` against it twice, checks applied = journal entries, drops it |
 | `test:int`        | `pnpm test:int`                                                                                 |
-| `e2e`             | `pnpm --filter <pkg> run e2e` for every package that defines an `e2e` script, one at a time, each with a free port in `E2E_PORT` (Playwright `webServer` should listen there). Skipped while no package has one. |
+| `e2e`             | `pnpm --filter <pkg> run e2e` for every package that defines an `e2e` script, one at a time, each with a free port in `E2E_PORT` (Playwright `webServer` should listen there): today `@oat/web` and `@oat/desktop` (macOS only; skips elsewhere). Skipped while no package has one. |
 | `swift:build`     | macOS only: `swift build` in `native/oat-audio`                                                 |
 | `swift:test`      | macOS only: `swift test`                                                                        |
 | `swift:synthetic` | macOS only: `oat-audio capture --synthetic --duration 2 \| check-frames.mjs --expect-seconds 2` (no hardware, no prompts) |

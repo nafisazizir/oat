@@ -18,6 +18,7 @@ import { and, count, eq } from 'drizzle-orm';
 
 import { ac, roles } from './access.ts';
 import type { AuthConfig } from './config.ts';
+import { desktopAuth } from './desktop.ts';
 import { createSmtpMailer, type Mailer, magicLinkEmail } from './email.ts';
 import { magicLinkConfirmUrl } from './magic-link.ts';
 import { GOOGLE_PROVIDER_ID } from './providers.ts';
@@ -233,6 +234,8 @@ export function createAuth({
           },
         },
       }),
+      // Desktop sign-in hand-off (1.8): one-time code from the browser → PKCE exchange → new session.
+      desktopAuth({ db }),
       // Desktop (1.8) sends `Authorization: Bearer <token>`; only signed tokens are accepted.
       bearer({ requireSignature: true }),
       // Lets Server Actions set auth cookies. A no-op outside Next.js. Must stay last.

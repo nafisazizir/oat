@@ -1,0 +1,46 @@
+{
+  "name": "@oat/desktop",
+  "productName": "Oat",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Oat desktop app: Electron + electron-vite shell (main, preload bridge, React renderer).",
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:int": "vitest run --mode int --passWithNoTests",
+    "e2e": "electron-vite build && playwright test"
+  },
+  "dependencies": {
+    "@oat/auth": "workspace:*",
+    "@oat/core": "workspace:*",
+    "@oat/ui": "workspace:*",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@electron/fuses": "catalog:",
+    "@oat/testkit": "workspace:*",
+    "@playwright/test": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "electron": "catalog:",
+    "electron-vite": "catalog:",
+    "eslint-plugin-react-hooks": "catalog:",
+    "globals": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

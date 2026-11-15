@@ -1,0 +1,31 @@
+/*
+ * Desktop renderer styles: everything (Tailwind v4, tokens, fonts) comes from @oat/ui. Only window glue
+ * lives here.
+ */
+@import '@oat/ui/styles.css';
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    /* Native-app feel: no rubber-band overscroll, no accidental selection of window chrome. */
+    overscroll-behavior: none;
+    user-select: none;
+  }
+  input,
+  textarea,
+  [data-selectable] {
+    user-select: text;
+  }
+}
+
+/* Frameless / hidden-title-bar windows: drag by the marked regions; controls inside stay clickable. */
+@utility app-drag {
+  -webkit-app-region: drag;
+}
+@utility app-no-drag {
+  -webkit-app-region: no-drag;
+}

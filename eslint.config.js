@@ -12,6 +12,7 @@ export default defineConfig(
       '**/dist/**',
       '**/out/**',
       '**/.next/**',
+      '**/.next-*/**',
       '**/.turbo/**',
       '**/coverage/**',
       'research/**',

@@ -54,6 +54,9 @@ export default defineConfig({
       SMTP_PORT: '11025',
       SMTP_USER: '',
       SMTP_PASSWORD: '',
+      // /desktop/sign-in renders as in production: no copyable sign-in link (1.8 review). The desktop
+      // e2e runs its own server with the dev default (on).
+      OAT_DESKTOP_DEV_HANDOFF: '0',
     },
     stdout: 'ignore',
     stderr: 'pipe',

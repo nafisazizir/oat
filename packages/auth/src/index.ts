@@ -12,6 +12,8 @@ export {
   type OidcProviderConfig,
   type SmtpConfig,
 } from './config.ts';
+export { DESKTOP_CODE_TTL_SECONDS, desktopAuth, desktopCodeIdentifier } from './desktop.ts';
+export * from './desktop-link.ts';
 export {
   createSmtpMailer,
   escapeHtml,
