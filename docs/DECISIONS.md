@@ -165,4 +165,5 @@ Better Auth is disabled; workspace deletion will be a soft-delete path of our ow
 ## D-23 · 2026-11-14 · accepted · agent
 Block `origin` editing rule (from 3.1): a newly created block is `me`; an `ai` block keeps `ai` while the user
 edits words inside it; if the user deletes all of an AI block's text and writes their own, it becomes `me`.
+Joining two blocks of different origin yields `me` (never relabel the user's words as AI).
 Revisit with real use (an "edited" state could be added later without a migration — it's an attribute).
