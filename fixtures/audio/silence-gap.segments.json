@@ -1,0 +1,26 @@
+[
+  {
+    "source": "mic",
+    "startMs": 500,
+    "endMs": 4791,
+    "text": "Okay, can you hear me now? I think my connection dropped for a second."
+  },
+  {
+    "source": "system",
+    "startMs": 5241,
+    "endMs": 8349,
+    "text": "Yes, you're back. Let me share my screen."
+  },
+  {
+    "source": "mic",
+    "startMs": 18349,
+    "endMs": 22181,
+    "text": "Sorry, I was on mute the whole time. Can you see the dashboard?"
+  },
+  {
+    "source": "system",
+    "startMs": 22581,
+    "endMs": 25767,
+    "text": "Yes, it looks good. Let's go through the numbers."
+  }
+]

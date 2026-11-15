@@ -1,0 +1,14 @@
+[
+  {
+    "speaker": "me",
+    "text": "Okay, can you hear me now? I think my connection dropped for a second.",
+    "gapMs": 500
+  },
+  { "speaker": "them", "text": "Yes, you're back. Let me share my screen.", "gapMs": 450 },
+  {
+    "speaker": "me",
+    "text": "Sorry, I was on mute the whole time. Can you see the dashboard?",
+    "gapMs": 10000
+  },
+  { "speaker": "them", "text": "Yes, it looks good. Let's go through the numbers.", "gapMs": 400 }
+]

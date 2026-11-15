@@ -1,0 +1,25 @@
+{
+  "name": "@oat/audio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AudioSource interface, FileSource for WAV fixtures, WAV/level/resample utilities.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts",
+    "./*.test": null
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:int": "vitest run --mode int --passWithNoTests",
+    "fixtures": "node scripts/make-fixtures.ts",
+    "fixtures:check": "node scripts/make-fixtures.ts --check"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

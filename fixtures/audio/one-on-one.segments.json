@@ -1,0 +1,68 @@
+[
+  {
+    "source": "system",
+    "startMs": 400,
+    "endMs": 3695,
+    "text": "Hey, thanks for making time. How was the week?"
+  },
+  {
+    "source": "mic",
+    "startMs": 4145,
+    "endMs": 9603,
+    "text": "Pretty good. The search rewrite landed on Tuesday, and latency dropped by about forty percent."
+  },
+  {
+    "source": "system",
+    "startMs": 10003,
+    "endMs": 13012,
+    "text": "That's a big win. Any problems since the release?"
+  },
+  {
+    "source": "mic",
+    "startMs": 13512,
+    "endMs": 18812,
+    "text": "One customer reported missing results for old documents, so I'm backfilling the index tonight."
+  },
+  {
+    "source": "system",
+    "startMs": 19162,
+    "endMs": 21786,
+    "text": "Okay. Let's make sure support knows."
+  },
+  {
+    "source": "mic",
+    "startMs": 21486,
+    "endMs": 22357,
+    "text": "Already done."
+  },
+  {
+    "source": "system",
+    "startMs": 22857,
+    "endMs": 28941,
+    "text": "Perfect. I also wanted to talk about next quarter. Would you like to lead the mobile sync project?"
+  },
+  {
+    "source": "mic",
+    "startMs": 29541,
+    "endMs": 33513,
+    "text": "I'd love that, but I'd need someone to pick up on-call for the first month."
+  },
+  {
+    "source": "system",
+    "startMs": 33913,
+    "endMs": 37093,
+    "text": "Fair. I'll ask Priya and come back to you by Friday."
+  },
+  {
+    "source": "system",
+    "startMs": 37543,
+    "endMs": 41039,
+    "text": "One more thing: the design review moved to Thursday at two."
+  },
+  {
+    "source": "mic",
+    "startMs": 41389,
+    "endMs": 44053,
+    "text": "Got it. I'll update the invite. Thanks."
+  }
+]

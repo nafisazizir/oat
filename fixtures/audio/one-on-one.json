@@ -1,0 +1,37 @@
+[
+  { "speaker": "them", "text": "Hey, thanks for making time. How was the week?", "gapMs": 400 },
+  {
+    "speaker": "me",
+    "text": "Pretty good. The search rewrite landed on Tuesday, and latency dropped by about forty percent.",
+    "gapMs": 450
+  },
+  { "speaker": "them", "text": "That's a big win. Any problems since the release?", "gapMs": 400 },
+  {
+    "speaker": "me",
+    "text": "One customer reported missing results for old documents, so I'm backfilling the index tonight.",
+    "gapMs": 500
+  },
+  { "speaker": "them", "text": "Okay. Let's make sure support knows.", "gapMs": 350 },
+  { "speaker": "me", "text": "Already done.", "gapMs": -300 },
+  {
+    "speaker": "them",
+    "text": "Perfect. I also wanted to talk about next quarter. Would you like to lead the mobile sync project?",
+    "gapMs": 500
+  },
+  {
+    "speaker": "me",
+    "text": "I'd love that, but I'd need someone to pick up on-call for the first month.",
+    "gapMs": 600
+  },
+  {
+    "speaker": "them",
+    "text": "Fair. I'll ask Priya and come back to you by Friday.",
+    "gapMs": 400
+  },
+  {
+    "speaker": "them",
+    "text": "One more thing: the design review moved to Thursday at two.",
+    "gapMs": 450
+  },
+  { "speaker": "me", "text": "Got it. I'll update the invite. Thanks.", "gapMs": 350 }
+]

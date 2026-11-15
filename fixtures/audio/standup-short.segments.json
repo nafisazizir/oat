@@ -1,0 +1,50 @@
+[
+  {
+    "source": "mic",
+    "startMs": 500,
+    "endMs": 4335,
+    "text": "Morning, everyone. Let's keep this quick. I'll go first."
+  },
+  {
+    "source": "mic",
+    "startMs": 4685,
+    "endMs": 8184,
+    "text": "Yesterday I finished the export button and opened a pull request."
+  },
+  {
+    "source": "system",
+    "startMs": 8634,
+    "endMs": 11729,
+    "text": "Nice. I can review that right after lunch."
+  },
+  {
+    "source": "mic",
+    "startMs": 12129,
+    "endMs": 16323,
+    "text": "Thanks. Today I'm fixing the flaky login test. No blockers."
+  },
+  {
+    "source": "system",
+    "startMs": 16923,
+    "endMs": 24449,
+    "text": "On my side, the billing migration is running in staging. I'm waiting on finance to confirm the new tax rates before we ship it."
+  },
+  {
+    "source": "mic",
+    "startMs": 24799,
+    "endMs": 26561,
+    "text": "Do you want me to ping them about it?"
+  },
+  {
+    "source": "system",
+    "startMs": 26961,
+    "endMs": 30672,
+    "text": "Yes, please. That would help. That's all from me."
+  },
+  {
+    "source": "mic",
+    "startMs": 31172,
+    "endMs": 32762,
+    "text": "Great. See you tomorrow."
+  }
+]

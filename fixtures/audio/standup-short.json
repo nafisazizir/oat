@@ -1,0 +1,26 @@
+[
+  {
+    "speaker": "me",
+    "text": "Morning, everyone. Let's keep this quick. I'll go first.",
+    "gapMs": 500
+  },
+  {
+    "speaker": "me",
+    "text": "Yesterday I finished the export button and opened a pull request.",
+    "gapMs": 350
+  },
+  { "speaker": "them", "text": "Nice. I can review that right after lunch.", "gapMs": 450 },
+  {
+    "speaker": "me",
+    "text": "Thanks. Today I'm fixing the flaky login test. No blockers.",
+    "gapMs": 400
+  },
+  {
+    "speaker": "them",
+    "text": "On my side, the billing migration is running in staging. I'm waiting on finance to confirm the new tax rates before we ship it.",
+    "gapMs": 600
+  },
+  { "speaker": "me", "text": "Do you want me to ping them about it?", "gapMs": 350 },
+  { "speaker": "them", "text": "Yes, please. That would help. That's all from me.", "gapMs": 400 },
+  { "speaker": "me", "text": "Great. See you tomorrow.", "gapMs": 500 }
+]
