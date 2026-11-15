@@ -231,3 +231,56 @@ reports. Participant `status` uses EKParticipantStatus names (`unknown` · `pend
 · `tentative` · `delegated` · `completed` · `in_process`), `type` EKParticipantType names (`person` · `room` ·
 `resource` · `group` · `unknown`); `url` (`mailto:…`) may replace `email`. Event `status`: `none` ·
 `confirmed` · `tentative` · `cancelled`.
+
+## Mic apps (`oat-audio mic-apps …`)
+
+Task 7.2 (D-21). Which processes are **running audio input** right now, from Core Audio process objects
+(`kAudioHardwarePropertyProcessObjectList` → per process `kAudioProcessPropertyIsRunningInput`,
+`kAudioProcessPropertyPID`, `kAudioProcessPropertyBundleID`; macOS 14.2+). Metadata reads only: no capture,
+no tap, no IO. Like `calendar`, stdout is **JSON lines**, logs go to stderr, `protocol` is unchanged and
+consumers ignore unknown fields and `type`s. The sidecar reports processes **unfiltered**; the allowlist,
+helper → app mapping and every prompt rule live in `@oat/detection` (`SidecarMicAppsSource` in
+`@oat/detection/node`).
+
+| command                                          | stdout                                                                               |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `mic-apps list [--fixture f]`                    | one `{"type":"apps","apps":[…]}` line                                                |
+| `mic-apps watch [--interval-ms n] [--fixture f]` | `{"type":"ready","source":"coreaudio"\|"fixture","intervalMs":n}`, then `apps` lines |
+
+- `watch` polls every `--interval-ms` (default 1000, 10…60000) and prints an `apps` line on the first poll and
+  whenever the list changes (full list each time, never a diff). A failing poll prints
+  `{"type":"error","code":"poll_failed","message":…}` once (until a poll succeeds again) and keeps polling.
+  It stops on stdin EOF (pipe/TTY), `{"cmd":"stop"}`, SIGINT or SIGTERM, exit 0.
+- Exit codes: `0` ok · `1` failure (unreadable/invalid fixture, Core Audio error in `list`) · `64` usage.
+- Process entries are sorted by `pid`, duplicates removed:
+
+```json
+{ "pid": 700, "bundleId": "com.google.Chrome.helper", "appBundleId": "com.google.Chrome" }
+```
+
+- `bundleId`: the process's own bundle id (Core Audio), null if unknown (e.g. a bare CLI).
+- `appBundleId`: bundle id of the **outermost** `.app` around the executable (`proc_pidpath` → path → that
+  bundle's Info.plist), so a helper `.app` nested inside `Google Chrome.app` names Chrome. Null when there is
+  no enclosing `.app` (XPC services, daemons) or it equals `bundleId`.
+- **Prompts:** Apple does not document whether these reads can trigger a TCC prompt (none is expected — no
+  audio is read). Until the human checkpoint confirms it, agents and tests run `mic-apps` **only with
+  `--fixture`**.
+
+### Mic-apps fixtures (`--fixture <file.json>`)
+
+A detection timeline (`fixtures/detection/*.json`, schema `DetectionTimelineSchema` in `@oat/detection`).
+The sidecar reads only `steps[].at` (ms since the replay started, non-decreasing) and `steps[].micApps`; other
+step keys (`events`, `recording`, `silenced`, `promptClosed`) and `expect` are for the Node reducer tests.
+The replay clock starts when the command starts; each poll reports the `micApps` of the last step whose `at`
+has passed (empty before the first one), so a step shorter than the poll interval can be missed — as with
+real polling. Example: `fixtures/detection/sidecar-replay.json`.
+
+```json
+{
+  "steps": [
+    { "at": 0, "micApps": [] },
+    { "at": 200, "micApps": [{ "pid": 501, "bundleId": "us.zoom.xos" }] },
+    { "at": 3400, "micApps": [] }
+  ]
+}
+```

@@ -1,0 +1,100 @@
+{
+  "description": "At most one prompt per 2 minutes, across apps. A Slack huddle prompts once it has held the mic 15 s (messaging-app minimum hold); a Zoom call 25 s after that prompt is deferred and leaves before the limit expires — no prompt, but it still ends as a (non-prompted) meeting; Zoom after the window prompts. A prompt the user acted on (promptClosed) is not dismissed later.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "micApps": [
+        {
+          "pid": 610,
+          "bundleId": "com.tinyspeck.slackmacgap.helper"
+        }
+      ]
+    },
+    {
+      "at": 20000,
+      "promptClosed": true
+    },
+    {
+      "at": 30000,
+      "micApps": []
+    },
+    {
+      "at": 40000,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 50000,
+      "micApps": []
+    },
+    {
+      "at": 200000,
+      "micApps": [
+        {
+          "pid": 502,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 210000,
+      "promptClosed": true
+    },
+    {
+      "at": 220000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 15000,
+      "type": "prompt",
+      "app": "slack",
+      "event": null
+    },
+    {
+      "at": 32000,
+      "type": "meetingEnded",
+      "apps": ["slack"],
+      "startedAt": 0,
+      "endedAt": 30000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": true,
+      "event": null
+    },
+    {
+      "at": 52000,
+      "type": "meetingEnded",
+      "apps": ["zoom"],
+      "startedAt": 40000,
+      "endedAt": 50000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": false,
+      "event": null
+    },
+    {
+      "at": 202000,
+      "type": "prompt",
+      "app": "zoom",
+      "event": null
+    },
+    {
+      "at": 222000,
+      "type": "meetingEnded",
+      "apps": ["zoom"],
+      "startedAt": 200000,
+      "endedAt": 220000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": true,
+      "event": null
+    }
+  ]
+}

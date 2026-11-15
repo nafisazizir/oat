@@ -1,0 +1,79 @@
+{
+  "description": "A browser meeting with a calendar event: Arc takes the mic 4 min before 'Weekly sync' and waits; the prompt comes when the event's window opens (90 s before start) and names the event. Zoom joining the same event later does not prompt again (one prompt per event).",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "weekly-sync",
+          "title": "Weekly sync",
+          "start": "2026-11-16T17:05:00Z",
+          "end": "2026-11-16T17:35:00Z",
+          "others": 2
+        }
+      ]
+    },
+    {
+      "at": 60000,
+      "micApps": [
+        {
+          "pid": 800,
+          "bundleId": "company.thebrowser.Browser.helper",
+          "appBundleId": "company.thebrowser.Browser"
+        }
+      ]
+    },
+    {
+      "at": 300000,
+      "promptClosed": true
+    },
+    {
+      "at": 600000,
+      "micApps": [
+        {
+          "pid": 800,
+          "bundleId": "company.thebrowser.Browser.helper",
+          "appBundleId": "company.thebrowser.Browser"
+        },
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 700000,
+      "micApps": [
+        {
+          "pid": 800,
+          "bundleId": "company.thebrowser.Browser.helper",
+          "appBundleId": "company.thebrowser.Browser"
+        }
+      ]
+    },
+    {
+      "at": 2000000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 210000,
+      "type": "prompt",
+      "app": "arc",
+      "event": "weekly-sync"
+    },
+    {
+      "at": 2002000,
+      "type": "meetingEnded",
+      "apps": ["arc", "zoom"],
+      "startedAt": 60000,
+      "endedAt": 2000000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": true,
+      "event": "weekly-sync"
+    }
+  ]
+}

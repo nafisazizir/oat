@@ -1,0 +1,102 @@
+{
+  "description": "Helper processes fold into their app: Teams' module host and main process are one Teams presence (one prompt); the main process leaving while the helper keeps the mic changes nothing. A Discord helper resolves to Discord via its bundle-id prefix and, as a messaging app, prompts only after holding the mic 15 s.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "micApps": [
+        {
+          "pid": 900,
+          "bundleId": "com.microsoft.teams2.modulehost"
+        },
+        {
+          "pid": 901,
+          "bundleId": "com.microsoft.teams2"
+        },
+        {
+          "pid": 902,
+          "bundleId": null
+        },
+        {
+          "pid": 903,
+          "bundleId": "com.apple.VoiceMemos"
+        }
+      ]
+    },
+    {
+      "at": 3000,
+      "promptClosed": true
+    },
+    {
+      "at": 10000,
+      "micApps": [
+        {
+          "pid": 900,
+          "bundleId": "com.microsoft.teams2.modulehost"
+        },
+        {
+          "pid": 902,
+          "bundleId": null
+        }
+      ]
+    },
+    {
+      "at": 20000,
+      "micApps": []
+    },
+    {
+      "at": 200000,
+      "micApps": [
+        {
+          "pid": 1200,
+          "bundleId": "com.hnc.Discord.helper"
+        }
+      ]
+    },
+    {
+      "at": 500000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 2000,
+      "type": "prompt",
+      "app": "teams",
+      "event": null
+    },
+    {
+      "at": 22000,
+      "type": "meetingEnded",
+      "apps": ["teams"],
+      "startedAt": 0,
+      "endedAt": 20000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": true,
+      "event": null
+    },
+    {
+      "at": 215000,
+      "type": "prompt",
+      "app": "discord",
+      "event": null
+    },
+    {
+      "at": 335000,
+      "type": "dismiss",
+      "reason": "timeout"
+    },
+    {
+      "at": 502000,
+      "type": "meetingEnded",
+      "apps": ["discord"],
+      "startedAt": 200000,
+      "endedAt": 500000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": true,
+      "event": null
+    }
+  ]
+}

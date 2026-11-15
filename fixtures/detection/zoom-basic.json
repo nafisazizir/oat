@@ -1,0 +1,47 @@
+{
+  "description": "A Zoom call: prompt 2 s after Zoom takes the mic; when Zoom releases it, the prompt is dismissed and the meeting ends 2 s later (debounce), reporting the real release time.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "micApps": []
+    },
+    {
+      "at": 1000,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 60000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 3000,
+      "type": "prompt",
+      "app": "zoom",
+      "event": null
+    },
+    {
+      "at": 62000,
+      "type": "dismiss",
+      "reason": "app_gone"
+    },
+    {
+      "at": 62000,
+      "type": "meetingEnded",
+      "apps": ["zoom"],
+      "startedAt": 1000,
+      "endedAt": 60000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": true,
+      "event": null
+    }
+  ]
+}

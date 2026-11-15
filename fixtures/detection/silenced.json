@@ -1,0 +1,61 @@
+{
+  "description": "Per-app silence: a silenced Slack huddle never prompts (it still counts towards the meeting once it has held the mic 15 s); Zoom still prompts; silencing Zoom while its prompt is up dismisses it.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "silenced": ["slack"],
+      "micApps": [
+        {
+          "pid": 600,
+          "bundleId": "com.tinyspeck.slackmacgap"
+        }
+      ]
+    },
+    {
+      "at": 10000,
+      "micApps": [
+        {
+          "pid": 600,
+          "bundleId": "com.tinyspeck.slackmacgap"
+        },
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 15000,
+      "silenced": ["slack", "zoom"]
+    },
+    {
+      "at": 20000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 12000,
+      "type": "prompt",
+      "app": "zoom",
+      "event": null
+    },
+    {
+      "at": 15000,
+      "type": "dismiss",
+      "reason": "silenced"
+    },
+    {
+      "at": 22000,
+      "type": "meetingEnded",
+      "apps": ["zoom", "slack"],
+      "startedAt": 0,
+      "endedAt": 20000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": true,
+      "event": null
+    }
+  ]
+}

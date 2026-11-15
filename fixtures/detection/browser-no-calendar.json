@@ -1,0 +1,62 @@
+{
+  "description": "Browsers prompt only with a calendar event (D-21). Chrome (helper process) and Safari (WebKit GPU process) hold the mic for 5 min with no usable event — declined, cancelled, all-day, started more than 15 min ago, or hours away — so nothing prompts and no meeting span opens (no meetingEnded for 7.5 to act on).",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "design-crit",
+          "title": "Design crit",
+          "start": "2026-11-16T17:00:00Z",
+          "end": "2026-11-16T18:00:00Z",
+          "others": 2,
+          "declined": true
+        },
+        {
+          "id": "standup",
+          "title": "Standup",
+          "start": "2026-11-16T17:00:00Z",
+          "end": "2026-11-16T17:15:00Z",
+          "status": "cancelled"
+        },
+        {
+          "id": "offsite",
+          "title": "Offsite",
+          "start": "2026-11-16T00:00:00Z",
+          "end": "2026-11-17T00:00:00Z",
+          "allDay": true
+        },
+        {
+          "id": "kickoff",
+          "title": "Kickoff",
+          "start": "2026-11-16T16:40:00Z",
+          "end": "2026-11-16T17:40:00Z"
+        },
+        {
+          "id": "retro",
+          "title": "Retro",
+          "start": "2026-11-16T19:00:00Z",
+          "end": "2026-11-16T20:00:00Z",
+          "others": 3
+        }
+      ],
+      "micApps": [
+        {
+          "pid": 700,
+          "bundleId": "com.google.Chrome.helper",
+          "appBundleId": "com.google.Chrome"
+        },
+        {
+          "pid": 710,
+          "bundleId": "com.apple.WebKit.GPU"
+        }
+      ]
+    },
+    {
+      "at": 300000,
+      "micApps": []
+    }
+  ],
+  "expect": []
+}

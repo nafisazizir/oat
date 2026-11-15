@@ -65,6 +65,26 @@ through EventKit and print JSON lines ([`PROTOCOL.md`](PROTOCOL.md) → _Calenda
   real-capture human checkpoint** too. Packaging (9.1): same keys in the Electron app's `Info.plist`, plus the
   hardened-runtime entitlement `com.apple.security.personal-information.calendars` (see below).
 
+## Mic apps (meeting detection)
+
+```sh
+oat-audio mic-apps watch --interval-ms 50 --fixture ../../fixtures/detection/sidecar-replay.json
+oat-audio mic-apps list --fixture ../../fixtures/detection/helpers.json
+```
+
+`mic-apps list` / `watch [--interval-ms]` report which processes are running audio input (Core Audio process
+objects: pid, bundle id, containing app's bundle id) as JSON lines ([`PROTOCOL.md`](PROTOCOL.md) → _Mic
+apps_); `watch` polls (default 1 s) and prints only changes. Node side: `SidecarMicAppsSource` +
+`Detector` in `@oat/detection` (task 7.2, D-21), which owns the allowlist and the prompt rules.
+
+- **`--fixture <timeline.json>`** replays a detection timeline's `steps[].micApps` and touches no Core Audio.
+  Use it in every automated test (Swift tests inject a `MicAppsProvider` instead).
+- **Without `--fixture`** it reads Core Audio process-object metadata only (no capture/tap/IO). Apple does not
+  document whether that can prompt, so the first real run is a **human checkpoint**: start a Zoom/Meet call,
+  run `oat-audio mic-apps watch`, confirm no permission dialog appears, the call app's process shows up within
+  ~1 s of unmuting/joining and disappears after leaving, and note the bundle ids seen (helpers!) so
+  `packages/detection/src/apps.ts` can be corrected. Also check `oat-audio permissions` is unchanged after.
+
 ## Echo cancellation
 
 On speakers the mic hears the far side, which would put "them" into the "me" transcript. The mic path
@@ -123,6 +143,8 @@ Sources/OatAudioCore/          testable logic
   Calendar/                    CalendarModel (raw EventKit-shaped + normalised event), CalendarNormalizer,
                                ConferenceLinks, CalendarStore (protocol, FixtureCalendarStore, file watch),
                                EventKitCalendarStore, Debouncer, CalendarCLI (args + CalendarRunner)
+  MicApps/                     MicApps (model, provider protocol, FixtureMicAppsProvider, differ, runner,
+                               CLI args), CoreAudioMicAppsProvider (process objects)
 Sources/oat-audio/main.swift   CLI entry point
 Sources/oat-audio/Info.plist   embedded usage descriptions (Calendars)
 Tests/OatAudioCoreTests/       Swift Testing

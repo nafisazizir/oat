@@ -1,0 +1,145 @@
+{
+  "description": "The calendar names the meeting: joining 1 min into 'Product review' names it; joining 'Planning' 20 min late gets a generic prompt; joining 75 s before '1:1 with Sam' names it, preferred over the overlapping solo 'Focus time' block. An unanswered prompt times out after 2 min.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "product-review",
+          "title": "Product review",
+          "start": "2026-11-16T17:00:00Z",
+          "end": "2026-11-16T17:30:00Z",
+          "others": 3
+        },
+        {
+          "id": "planning",
+          "title": "Planning",
+          "start": "2026-11-16T18:00:00Z",
+          "end": "2026-11-16T19:00:00Z",
+          "others": 4
+        },
+        {
+          "id": "focus",
+          "title": "Focus time",
+          "start": "2026-11-16T19:20:00Z",
+          "end": "2026-11-16T20:00:00Z",
+          "others": 0
+        },
+        {
+          "id": "one-on-one",
+          "title": "1:1 with Sam",
+          "start": "2026-11-16T19:30:00Z",
+          "end": "2026-11-16T20:00:00Z",
+          "others": 1
+        }
+      ]
+    },
+    {
+      "at": 60000,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 70000,
+      "promptClosed": true
+    },
+    {
+      "at": 1800000,
+      "micApps": []
+    },
+    {
+      "at": 4800000,
+      "micApps": [
+        {
+          "pid": 502,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 4900000,
+      "micApps": []
+    },
+    {
+      "at": 8925000,
+      "micApps": [
+        {
+          "pid": 503,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 9600000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 62000,
+      "type": "prompt",
+      "app": "zoom",
+      "event": "product-review"
+    },
+    {
+      "at": 1802000,
+      "type": "meetingEnded",
+      "apps": ["zoom"],
+      "startedAt": 60000,
+      "endedAt": 1800000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": true,
+      "event": "product-review"
+    },
+    {
+      "at": 4802000,
+      "type": "prompt",
+      "app": "zoom",
+      "event": null
+    },
+    {
+      "at": 4902000,
+      "type": "dismiss",
+      "reason": "app_gone"
+    },
+    {
+      "at": 4902000,
+      "type": "meetingEnded",
+      "apps": ["zoom"],
+      "startedAt": 4800000,
+      "endedAt": 4900000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": true,
+      "event": null
+    },
+    {
+      "at": 8927000,
+      "type": "prompt",
+      "app": "zoom",
+      "event": "one-on-one"
+    },
+    {
+      "at": 9047000,
+      "type": "dismiss",
+      "reason": "timeout"
+    },
+    {
+      "at": 9602000,
+      "type": "meetingEnded",
+      "apps": ["zoom"],
+      "startedAt": 8925000,
+      "endedAt": 9600000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": true,
+      "event": "one-on-one"
+    }
+  ]
+}

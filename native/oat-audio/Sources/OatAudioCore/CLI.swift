@@ -25,6 +25,7 @@ public enum CLICommand: Equatable, Sendable {
     case capture(CaptureOptions)
     case permissions
     case calendar(CalendarCommand)
+    case micApps(MicAppsCommand)
     case version
     case help
 }
@@ -55,6 +56,12 @@ public enum CLI {
       oat-audio calendar watch [--debounce-ms <ms>] [--fixture <file>]
           {"type":"ready"} then a {"type":"changed"} line per (debounced) calendar change. Stops on stdin EOF.
           --fixture serves a JSON file instead of EventKit and needs no permission (see PROTOCOL.md).
+      oat-audio mic-apps list [--fixture <file>]
+          Processes running audio input now (Core Audio process objects) as one {"type":"apps"} line.
+      oat-audio mic-apps watch [--interval-ms <ms>] [--fixture <file>]
+          {"type":"ready"}, then an {"type":"apps"} line at start and whenever the list changes (polled every
+          --interval-ms, default 1000). Stops on stdin EOF. --fixture replays a detection timeline's
+          steps[].micApps instead of Core Audio (see PROTOCOL.md).
       oat-audio version       Print {"version","protocol"} as JSON.
     """
 
@@ -69,6 +76,8 @@ public enum CLI {
             return .permissions
         case "calendar":
             return .calendar(try parseCalendar(rest))
+        case "mic-apps":
+            return .micApps(try parseMicApps(rest))
         case "version", "--version":
             try expectNoArgs(rest, sub)
             return .version

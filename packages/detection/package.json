@@ -1,0 +1,29 @@
+{
+  "name": "@oat/detection",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Meeting detection (D-21): meeting-app allowlist, pure detect() reducer, Detector, MicAppsSource (fixture; sidecar in the Node entry over `oat-audio mic-apps`).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts",
+    "./*": "./src/*.ts",
+    "./*.test": null
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:int": "vitest run --mode int --passWithNoTests"
+  },
+  "dependencies": {
+    "@oat/audio": "workspace:*",
+    "@oat/core": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

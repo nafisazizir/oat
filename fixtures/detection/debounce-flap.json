@@ -1,0 +1,80 @@
+{
+  "description": "Asymmetric debounce: Zoom drops the mic for 1.5 s and comes back (with a new pid) — same presence, no dismiss, no new prompt. Gone for 2 s ends the meeting; coming back later is a new presence whose prompt is deferred by the 2-min rate limit, and it leaves before the limit expires, so it never prompts.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 10000,
+      "micApps": []
+    },
+    {
+      "at": 11500,
+      "micApps": [
+        {
+          "pid": 502,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 20000,
+      "micApps": []
+    },
+    {
+      "at": 30000,
+      "micApps": [
+        {
+          "pid": 503,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 40000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 2000,
+      "type": "prompt",
+      "app": "zoom",
+      "event": null
+    },
+    {
+      "at": 22000,
+      "type": "dismiss",
+      "reason": "app_gone"
+    },
+    {
+      "at": 22000,
+      "type": "meetingEnded",
+      "apps": ["zoom"],
+      "startedAt": 0,
+      "endedAt": 20000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": true,
+      "event": null
+    },
+    {
+      "at": 42000,
+      "type": "meetingEnded",
+      "apps": ["zoom"],
+      "startedAt": 30000,
+      "endedAt": 40000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": false,
+      "event": null
+    }
+  ]
+}

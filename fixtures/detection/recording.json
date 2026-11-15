@@ -1,0 +1,115 @@
+{
+  "description": "No prompt while recording: recording starting inside the prompt delay drops the prompt; recording starting while a prompt is up dismisses it; an app appearing during a recording never prompts. meetingEnded says whether recording started during the meeting: true when notes were started for the call, false for a FaceTime call during an in-person recording (7.5 must not stop that recording).",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 1000,
+      "recording": true
+    },
+    {
+      "at": 30000,
+      "micApps": []
+    },
+    {
+      "at": 40000,
+      "recording": false
+    },
+    {
+      "at": 200000,
+      "micApps": [
+        {
+          "pid": 900,
+          "bundleId": "com.microsoft.teams2"
+        }
+      ]
+    },
+    {
+      "at": 210000,
+      "recording": true
+    },
+    {
+      "at": 300000,
+      "micApps": []
+    },
+    {
+      "at": 320000,
+      "recording": false
+    },
+    {
+      "at": 400000,
+      "recording": true
+    },
+    {
+      "at": 401000,
+      "micApps": [
+        {
+          "pid": 77,
+          "bundleId": "com.apple.avconferenced"
+        }
+      ]
+    },
+    {
+      "at": 410000,
+      "micApps": []
+    },
+    {
+      "at": 420000,
+      "recording": false
+    }
+  ],
+  "expect": [
+    {
+      "at": 32000,
+      "type": "meetingEnded",
+      "apps": ["zoom"],
+      "startedAt": 0,
+      "endedAt": 30000,
+      "recording": true,
+      "recordingStartedDuringMeeting": true,
+      "prompted": false,
+      "event": null
+    },
+    {
+      "at": 202000,
+      "type": "prompt",
+      "app": "teams",
+      "event": null
+    },
+    {
+      "at": 210000,
+      "type": "dismiss",
+      "reason": "recording"
+    },
+    {
+      "at": 302000,
+      "type": "meetingEnded",
+      "apps": ["teams"],
+      "startedAt": 200000,
+      "endedAt": 300000,
+      "recording": true,
+      "recordingStartedDuringMeeting": true,
+      "prompted": true,
+      "event": null
+    },
+    {
+      "at": 412000,
+      "type": "meetingEnded",
+      "apps": ["facetime"],
+      "startedAt": 401000,
+      "endedAt": 410000,
+      "recording": true,
+      "recordingStartedDuringMeeting": false,
+      "prompted": false,
+      "event": null
+    }
+  ]
+}

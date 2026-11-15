@@ -1,0 +1,41 @@
+{
+  "description": "Zoom holds the mic for 1.5 s (shorter than the 2 s prompt delay): no prompt and no meeting (a grab that never became eligible does not open a meeting span). Non-meeting processes (Voice Memos, a bundle-less CLI such as oat-audio itself) are ignored however long they hold the mic.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "micApps": [
+        {
+          "pid": 300,
+          "bundleId": "com.apple.VoiceMemos"
+        },
+        {
+          "pid": 301,
+          "bundleId": null
+        },
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 1500,
+      "micApps": [
+        {
+          "pid": 300,
+          "bundleId": "com.apple.VoiceMemos"
+        },
+        {
+          "pid": 301,
+          "bundleId": null
+        }
+      ]
+    },
+    {
+      "at": 20000,
+      "micApps": []
+    }
+  ],
+  "expect": []
+}

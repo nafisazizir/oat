@@ -1,0 +1,85 @@
+{
+  "description": "Temporary gates defer, they don't cancel: a Slack huddle prompts at 17:00:15; the scheduled Zoom call joins at 17:01:40, inside the 2-min rate limit, so its prompt waits until the limit expires (17:02:15) — and then names the calendar event, which has started by then.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "planning",
+          "title": "Planning",
+          "start": "2026-11-16T17:02:00Z",
+          "end": "2026-11-16T17:30:00Z",
+          "others": 3
+        }
+      ],
+      "micApps": [
+        {
+          "pid": 600,
+          "bundleId": "com.tinyspeck.slackmacgap"
+        }
+      ]
+    },
+    {
+      "at": 20000,
+      "promptClosed": true
+    },
+    {
+      "at": 25000,
+      "micApps": []
+    },
+    {
+      "at": 100000,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 140000,
+      "promptClosed": true
+    },
+    {
+      "at": 1800000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 15000,
+      "type": "prompt",
+      "app": "slack",
+      "event": null
+    },
+    {
+      "at": 27000,
+      "type": "meetingEnded",
+      "apps": ["slack"],
+      "startedAt": 0,
+      "endedAt": 25000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": true,
+      "event": null
+    },
+    {
+      "at": 135000,
+      "type": "prompt",
+      "app": "zoom",
+      "event": "planning"
+    },
+    {
+      "at": 1802000,
+      "type": "meetingEnded",
+      "apps": ["zoom"],
+      "startedAt": 100000,
+      "endedAt": 1800000,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": true,
+      "event": "planning"
+    }
+  ]
+}

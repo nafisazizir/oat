@@ -1,0 +1,69 @@
+{
+  "description": "Short timeline (≈5.5 s) replayed through the real sidecar (`oat-audio mic-apps watch --fixture`) in the Node integration test and checked by the Swift tests: Zoom prompts, a Chrome helper joins briefly (no calendar event: never part of the meeting), both leave together.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "micApps": []
+    },
+    {
+      "at": 200,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        },
+        {
+          "pid": 300,
+          "bundleId": "com.apple.VoiceMemos"
+        }
+      ]
+    },
+    {
+      "at": 2800,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        },
+        {
+          "pid": 300,
+          "bundleId": "com.apple.VoiceMemos"
+        },
+        {
+          "pid": 700,
+          "bundleId": "com.google.Chrome.helper",
+          "appBundleId": "com.google.Chrome"
+        }
+      ]
+    },
+    {
+      "at": 3400,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 2200,
+      "type": "prompt",
+      "app": "zoom",
+      "event": null
+    },
+    {
+      "at": 5400,
+      "type": "dismiss",
+      "reason": "app_gone"
+    },
+    {
+      "at": 5400,
+      "type": "meetingEnded",
+      "apps": ["zoom"],
+      "startedAt": 200,
+      "endedAt": 3400,
+      "recording": false,
+      "recordingStartedDuringMeeting": false,
+      "prompted": true,
+      "event": null
+    }
+  ]
+}

@@ -143,6 +143,59 @@ func runCalendar(_ command: CalendarCommand) -> Never {
     }
 }
 
+/// Exit codes: 0 ok · 1 failure (bad fixture, Core Audio error) · 64 usage.
+func runMicApps(_ command: MicAppsCommand) -> Never {
+    func provider(_ options: MicAppsOptions) throws -> (MicAppsProvider, String) {
+        if let fixture = options.fixture { return (try FixtureMicAppsProvider(path: fixture), "fixture") }
+        return (CoreAudioMicAppsProvider(), "coreaudio")
+    }
+    do {
+        switch command {
+        case .list(let options):
+            let (p, _) = try provider(options)
+            writeStdout(MicAppsRunner.appsLine(MicAppsDiffer.normalize(try p.snapshot())) + "\n")
+            exit(0)
+
+        case .watch(let options):
+            let (p, source) = try provider(options)
+            signal(SIGPIPE, SIG_IGN)
+            // `.workItem`: drain autoreleased ObjC objects (Bundle lookups) after every poll of a days-long watch.
+            let queue = DispatchQueue(label: "oat-audio.mic-apps", autoreleaseFrequency: .workItem)
+            var poller = MicAppsRunner.Poller(provider: p)
+            writeStdout(MicAppsRunner.readyLine(source: source, intervalMs: options.intervalMs) + "\n")
+            let timer = DispatchSource.makeTimerSource(queue: queue)
+            timer.schedule(deadline: .now(), repeating: .milliseconds(options.intervalMs),
+                           leeway: .milliseconds(max(1, options.intervalMs / 20)))
+            timer.setEventHandler {
+                for line in poller.poll() { writeStdout(line + "\n") }
+            }
+            timer.resume()
+            var signalSources: [DispatchSourceSignal] = []
+            for sig in [SIGINT, SIGTERM] {
+                signal(sig, SIG_IGN)
+                let src = DispatchSource.makeSignalSource(signal: sig, queue: .global())
+                src.setEventHandler { exit(0) }
+                src.resume()
+                signalSources.append(src)
+            }
+            let stdin = StdinControl(
+                mode: StdinMode.detect(),
+                onCommand: { if $0 == .stop { exit(0) } },
+                onInvalid: { Log.info("mic-apps watch: ignoring stdin line: \($0)") },
+                onEOF: { exit(0) })
+            stdin.start()
+            Log.info("mic-apps watch: source=\(source) interval=\(options.intervalMs)ms")
+            withExtendedLifetime((timer, signalSources, stdin)) {
+                RunLoop.main.run()
+            }
+            exit(0)
+        }
+    } catch {
+        FileHandle.standardError.write(Data("oat-audio: mic-apps: \(error)\n".utf8))
+        exit(error is CLIError ? 64 : 1)
+    }
+}
+
 let args = Array(CommandLine.arguments.dropFirst())
 do {
     switch try CLI.parse(args) {
@@ -154,6 +207,8 @@ do {
         printJSON(Permissions.json())
     case .calendar(let command):
         runCalendar(command)
+    case .micApps(let command):
+        runMicApps(command)
     case .capture(let options):
         runCapture(options)
     }

@@ -1,0 +1,94 @@
+{
+  "description": "Voice notes are not calls: while an in-person meeting is being recorded, a 5 s WhatsApp voice note, an 8 s Slack clip and 20 s of Chrome dictation (no calendar event) neither prompt nor open a meeting span, so nothing tells 7.5 that a call ended. A real WhatsApp call later prompts after its 15 s minimum hold; notes started from it make its end a recording-started-during-meeting end.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "recording": true
+    },
+    {
+      "at": 60000,
+      "micApps": [
+        {
+          "pid": 1300,
+          "bundleId": "net.whatsapp.WhatsApp"
+        }
+      ]
+    },
+    {
+      "at": 65000,
+      "micApps": []
+    },
+    {
+      "at": 120000,
+      "micApps": [
+        {
+          "pid": 600,
+          "bundleId": "com.tinyspeck.slackmacgap"
+        }
+      ]
+    },
+    {
+      "at": 128000,
+      "micApps": []
+    },
+    {
+      "at": 150000,
+      "micApps": [
+        {
+          "pid": 700,
+          "bundleId": "com.google.Chrome.helper",
+          "appBundleId": "com.google.Chrome"
+        }
+      ]
+    },
+    {
+      "at": 170000,
+      "micApps": []
+    },
+    {
+      "at": 300000,
+      "recording": false
+    },
+    {
+      "at": 400000,
+      "micApps": [
+        {
+          "pid": 1300,
+          "bundleId": "net.whatsapp.WhatsApp"
+        }
+      ]
+    },
+    {
+      "at": 420000,
+      "promptClosed": true
+    },
+    {
+      "at": 425000,
+      "recording": true
+    },
+    {
+      "at": 600000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 415000,
+      "type": "prompt",
+      "app": "whatsapp",
+      "event": null
+    },
+    {
+      "at": 602000,
+      "type": "meetingEnded",
+      "apps": ["whatsapp"],
+      "startedAt": 400000,
+      "endedAt": 600000,
+      "recording": true,
+      "recordingStartedDuringMeeting": true,
+      "prompted": true,
+      "event": null
+    }
+  ]
+}
