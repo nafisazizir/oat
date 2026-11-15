@@ -39,15 +39,22 @@ export interface AudioRecording {
   readonly durationMs: number;
   readonly bytes: number;
   readonly status: AudioRecordingStatus;
+  /**
+   * The account that recorded it (D-30); `null`/absent = unknown (rows from before D-30 that no account has
+   * claimed yet). Storage settings and retention only act on the signed-in account's rows.
+   */
+  readonly userId?: string | null;
 }
 
 export type AudioRecordingPatch = Partial<
-  Pick<AudioRecording, 'part' | 'path' | 'durationMs' | 'bytes' | 'status'>
+  Pick<AudioRecording, 'part' | 'path' | 'durationMs' | 'bytes' | 'status' | 'userId'>
 >;
 
 export interface AudioRecordingFilter {
   readonly meetingId?: string;
   readonly status?: AudioRecordingStatus | readonly AudioRecordingStatus[];
+  /** Rows of this account; `null` = rows with no account (unknown). */
+  readonly userId?: string | null;
 }
 
 export interface AudioRecordingStore {
@@ -94,6 +101,7 @@ export class InMemoryAudioRecordingStore implements AudioRecordingStore {
     const rows = [...this.#rows.values()]
       .filter((r) => filter.meetingId === undefined || r.meetingId === filter.meetingId)
       .filter((r) => !statuses || statuses.has(r.status))
+      .filter((r) => filter.userId === undefined || (r.userId ?? null) === filter.userId)
       .sort(
         (a, b) => a.startedAt - b.startedAt || a.part - b.part || a.source.localeCompare(b.source),
       )

@@ -393,6 +393,13 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   open transaction holds back every change-log reader (D-22); a pull that is held back answers
   `lagging: true` (the app retries in 2 s, doubling) and the server logs the long transactions (≤ every
   30 s). Details: `docs/tasks/3.5-sync.md`.
+- **Storage settings (3.8, D-10).** Sidebar → Settings → Storage: total audio size, every meeting's audio
+  (sort by date/size), "Show in Finder", "Delete audio" (files + rows marked `deleted`; transcript and notes
+  untouched; refused while that meeting records) and the retention policy (keep forever / older than N days /
+  cap at N GB, oldest first) with a dry run. The policy lives in `<userData>/audio-retention.json` (per Mac,
+  like the audio index); the sweeper runs on launch, after each recording and every 6 h, and never deletes the
+  active recording or audio from the last hour. `storage:audio-status` gives the meeting view's "Audio
+  deleted" / "Audio on another device" hint. Details: `docs/tasks/3.8-storage-settings.md`.
 - **Packaging (9.1).** `src/build/fuses.ts` (`OAT_FUSES`, `applyFuses`) holds the fuse settings to flip on
   the packaged binary: no run-as-node, no `NODE_OPTIONS`/`--inspect`, asar-only + integrity, cookie
   encryption.
@@ -401,7 +408,7 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   the app with a temp profile against `next dev` on a throwaway database (apps/web's `e2e/web-server.ts`,
   `E2E_PORT`, default 3100). `shell.openExternal` is stubbed and deep links are delivered by emitting
   `open-url`, so no browser opens and nothing is registered with the OS. The web half of sign-in runs in
-  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/`, `2.5/`, `2.6/` and `3.5/` (screenshots, `cold-start.json`, `latency.json`, `sync.json`). Other
+  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/`, `2.5/`, `2.6/`, `3.5/` and `3.8/` (screenshots, `cold-start.json`, `latency.json`, `sync.json`, `storage.json`). Other
   platforms skip it.
 
 ## Database (`@oat/db`)

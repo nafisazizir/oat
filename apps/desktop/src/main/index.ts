@@ -24,6 +24,7 @@ import {
 } from 'electron';
 
 import { ApiError, createApiClient } from './api-client.ts';
+import { AudioStorage, StorageError } from './audio-storage.ts';
 import { AuthController } from './auth.ts';
 import { desktopConfigFromEnv } from './config.ts';
 import { BridgeError, createBridge, type Logger, subscribePayload } from './ipc.ts';
@@ -356,6 +357,8 @@ async function start() {
   const recording: RecordingService = new RecordingService({
     baseDir: app.getPath('userData'),
     store: audioIndex,
+    // D-30: audio rows name the account that recorded them.
+    userId: signedInUser,
     persistence: new MeetingPersistence({
       store: () => sync.store,
       sync,
@@ -374,11 +377,67 @@ async function start() {
           ? s
           : { ...s, recording: { status }, activeMeetingId: meetingId },
       );
-      if (status === 'idle') queueMicrotask(() => void sync.recordingEnded());
+      if (status === 'idle') {
+        queueMicrotask(() => {
+          void sync.recordingEnded();
+          storage.recordingEnded();
+        });
+      }
     },
   });
   quitGracefully(recording, () => notesFlush.request());
+
+  // --- Audio archive storage + retention (3.8, D-10) ---
+  let storageSeq = 0;
+  let storageUser: string | null = null;
+  const storage = new AudioStorage({
+    baseDir: app.getPath('userData'),
+    store: audioIndex,
+    settingsFile: join(app.getPath('userData'), 'audio-retention.json'),
+    // D-30: only the signed-in account's audio, once its database is the open one.
+    currentUser: () => {
+      const user = signedInUser();
+      return user && sync.store && sync.storeUser === user ? user : null;
+    },
+    activeMeeting: () => recording.busyMeetingId,
+    meetingInfo: (meetingId) => {
+      const local = sync.store;
+      const user = signedInUser();
+      const meeting = local?.meeting(meetingId);
+      if (!local || !meeting || !user || sync.storeUser !== user) return null;
+      const doc = local.document(meeting.documentId);
+      return {
+        title: doc && !doc.deletedAt ? doc.title : null,
+        recorded: meeting.startedAt !== null,
+        owned: doc?.ownerId === user,
+      };
+    },
+    reveal: (path) => shell.showItemInFolder(path),
+    onChanged: () => broadcast('storage:changed', { seq: ++storageSeq }),
+    log,
+  });
+  const storageCall = async <T>(fn: () => Promise<T>): Promise<T> => {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error instanceof StorageError) throw new BridgeError(error.code, error.message);
+      throw error;
+    }
+  };
+  bridge.handle('storage:list', () => storage.summary());
+  bridge.handle('storage:delete-audio', ({ meetingId }) =>
+    storageCall(() => storage.deleteAudio(meetingId)),
+  );
+  bridge.handle('storage:show', ({ meetingId }) => storageCall(() => storage.show(meetingId)));
+  bridge.handle('storage:preview-policy', ({ policy }) => storage.preview(policy));
+  bridge.handle('storage:set-policy', ({ policy }) => storageCall(() => storage.setPolicy(policy)));
+  bridge.handle('storage:audio-status', ({ meetingId }) =>
+    storageCall(() => storage.audioStatus(meetingId)),
+  );
+  storage.start();
+
   app.once('will-quit', () => {
+    storage.stop();
     void sync.shutdown();
     if (audioIndex instanceof AudioIndex) audioIndex.close();
   });
@@ -435,7 +494,17 @@ async function start() {
     broadcast('state:changed', snapshot);
     if (snapshot.state.auth.status === 'signed-out') credentials.clear();
     // After this change has reached every listener (sync's own status updates go through the store).
-    queueMicrotask(() => void sync.setUser(signedInUser()));
+    queueMicrotask(() => {
+      const user = signedInUser();
+      void sync.setUser(user).then(() => {
+        // 3.8 / D-30: the storage view and the sweeper follow the account whose database is open.
+        const current = sync.storeUser;
+        if (current !== storageUser) {
+          storageUser = current;
+          storage.accountChanged();
+        }
+      });
+    });
   });
   openMainWindow();
   await auth.restore();

@@ -110,6 +110,8 @@ export interface RecordingArchiveOptions {
   /** Data directory (desktop: `app.getPath('userData')`); files go under `<baseDir>/audio/`. */
   baseDir: string;
   meetingId: string;
+  /** The recording account, stored on the rows (D-30). */
+  userId?: string | null;
   /**
    * Where this session starts on the meeting clock, in ms (0 for the meeting's first recording; for a
    * resumed meeting, the meeting-clock time its transcript segments continue from).
@@ -251,6 +253,7 @@ export class RecordingArchive {
       durationMs: 0,
       bytes: 0,
       status: 'recording',
+      userId: this.#options.userId ?? null,
     });
     for (let attempt = 0; ; attempt++) {
       try {

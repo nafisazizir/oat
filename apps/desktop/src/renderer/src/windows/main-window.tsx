@@ -28,6 +28,7 @@ import {
   LogOutIcon,
   PanelTopIcon,
   RefreshCwIcon,
+  SettingsIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
@@ -43,6 +44,7 @@ import { syncLabel, type SyncTone } from '../sync-status.ts';
 import { defaultInputChoice, startRequest } from '../recording/recording-controls.tsx';
 import { ConflictsPanel } from '../sync/conflicts-panel.tsx';
 import { LocalSearch } from '../sync/local-search.tsx';
+import { SettingsView } from '../settings/settings-view.tsx';
 import { Wordmark } from '../wordmark.tsx';
 
 /**
@@ -287,6 +289,8 @@ function SignedInShell({
   const snapshot = useRecording();
   const notes = useMeetingNotes(true);
   const [selected, setSelected] = useState<string | null>(null);
+  // 3.8: Settings replaces the meeting view (a recording keeps running); opening a note closes it.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [options, setOptions] = useState<InvokeResponse<'recording:options'> | null>(null);
   const [choice, setChoice] = useState<string | null>(null);
   const input = choice ?? defaultInputChoice(options);
@@ -319,14 +323,15 @@ function SignedInShell({
         <LocalSearch refreshKey={sync.lastSyncedAt} />
         <ConflictsPanel refreshKey={sync.lastSyncedAt} />
         <div className="flex min-h-0 flex-1 flex-col">
-          <SignedInCard user={user} sync={sync}>
+          <SignedInCard user={user} sync={sync} onOpenSettings={() => setSettingsOpen(true)}>
             <div className="flex min-h-0 flex-1 flex-col gap-3">
               <NewMeetingButton
                 disabled={recording || !snapshot}
                 pending={starting.pending}
-                onClick={() =>
-                  void starting.run(() => call('recording:start', startRequest(input)))
-                }
+                onClick={() => {
+                  setSettingsOpen(false);
+                  void starting.run(() => call('recording:start', startRequest(input)));
+                }}
               />
               {starting.error && (
                 <p role="status" className="px-1 text-xs text-destructive">
@@ -337,19 +342,26 @@ function SignedInShell({
                 notes={notes}
                 selected={selected}
                 recordingMeetingId={recording ? activeMeetingId : null}
-                onSelect={setSelected}
+                onSelect={(id) => {
+                  setSelected(id);
+                  setSettingsOpen(false);
+                }}
               />
             </div>
           </SignedInCard>
         </div>
       </aside>
-      <MeetingView
-        documentId={selected}
-        snapshot={snapshot}
-        options={options}
-        input={input}
-        onInputChange={setChoice}
-      />
+      {settingsOpen ? (
+        <SettingsView onClose={() => setSettingsOpen(false)} />
+      ) : (
+        <MeetingView
+          documentId={selected}
+          snapshot={snapshot}
+          options={options}
+          input={input}
+          onInputChange={setChoice}
+        />
+      )}
     </main>
   );
 }
@@ -359,10 +371,12 @@ function SignedInCard({
   user,
   sync,
   children,
+  onOpenSettings,
 }: {
   user: DesktopUser;
   sync?: SyncStatusSnapshot;
   children?: ReactNode;
+  onOpenSettings?: () => void;
 }) {
   const check = useAction();
   const other = useAction();
@@ -423,6 +437,12 @@ function SignedInCard({
           <PanelTopIcon data-icon="inline-start" />
           Show meeting widget
         </Button>
+        {onOpenSettings && (
+          <Button variant="ghost" className="w-full justify-start" onClick={onOpenSettings}>
+            <SettingsIcon data-icon="inline-start" />
+            Settings
+          </Button>
+        )}
         <p role="status" className="px-2.5 text-xs text-destructive empty:hidden">
           {check.error ?? other.error}
         </p>

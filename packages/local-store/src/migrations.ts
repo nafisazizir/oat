@@ -195,4 +195,10 @@ CREATE TABLE audio_recording (
 ) STRICT;
 CREATE INDEX audio_recording_meeting_idx ON audio_recording (meeting_id);
 `,
+  // D-30: the account that recorded each row. Existing rows stay NULL ("unknown") until the account whose
+  // local database owns the meeting claims them (desktop `AudioStorage`).
+  `
+ALTER TABLE audio_recording ADD COLUMN user_id TEXT;
+CREATE INDEX audio_recording_user_idx ON audio_recording (user_id);
+`,
 ];

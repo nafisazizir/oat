@@ -90,6 +90,8 @@ export interface RecordingServiceOptions {
   createStt: (context: SttContext) => Promise<SttProvider>;
   /** `audio_recording` rows (SQLite in the app, 2.6). Default in memory. */
   store?: AudioRecordingStore;
+  /** The signed-in account, stored on the audio rows (D-30). */
+  userId?: () => string | null;
   /** Meeting + final segments to the local database (2.6). Without it the transcript lives in memory. */
   persistence?: TranscriptPersistence;
   onState?: (snapshot: RecordingSnapshot) => void;
@@ -177,6 +179,8 @@ export class RecordingService {
   #session: Session | undefined;
   #nextSpec: InputSpec | undefined;
   #starting = false;
+  /** The meeting a start in progress records into, as soon as it is known (3.8: storage must not touch it). */
+  #startingMeetingId: string | undefined;
   #stopping = false;
   /** The stop in progress (a second stop, or quit, waits for the same one). */
   #stopPromise: Promise<{ meetingId: string | null; audio: ArchivedAudio[] }> | undefined;
@@ -246,6 +250,14 @@ export class RecordingService {
     return this.#session?.meetingId ?? this.#transcript.meetingId;
   }
 
+  /**
+   * The meeting whose audio is in use right now (starting, recording, stopping, files closing), else `null`.
+   * Unlike `meetingId`, it names a resumed meeting from the very start of `start()` (3.8).
+   */
+  get busyMeetingId(): string | null {
+    return this.#startingMeetingId ?? (this.busy ? this.meetingId : null);
+  }
+
   /** Audio rows of every session since launch (tests, 2.6). */
   get audioStore(): AudioRecordingStore {
     return this.#store;
@@ -284,10 +296,12 @@ export class RecordingService {
       throw new RecordingServiceError('invalid_state', 'Already recording.');
     }
     this.#starting = true;
+    this.#startingMeetingId = requested;
     try {
       return await this.#start(requested, spec);
     } finally {
       this.#starting = false;
+      this.#startingMeetingId = undefined;
     }
   }
 
@@ -320,6 +334,7 @@ export class RecordingService {
     this.#sleptAt = undefined;
 
     const meetingId = requested ?? (this.#o.newMeetingId ?? (() => uuidv7()))();
+    this.#startingMeetingId = meetingId;
     if (this.#o.persistence) {
       try {
         await this.#o.persistence.beginMeeting(meetingId, this.#now());
@@ -347,6 +362,7 @@ export class RecordingService {
       store: this.#store,
       baseDir: this.#o.baseDir,
       meetingId,
+      userId: this.#o.userId?.() ?? null,
       offsetMs,
       onError: (error) => this.#archiveIssue(error),
     });

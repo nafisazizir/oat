@@ -55,7 +55,7 @@ Exit: create/edit pages and meeting notes on desktop and web; content syncs; Mar
 - [x] 3.5 (incl. from 2.6 review: lost-ack false-conflict fix via sent-content hash; subtree backfill when a client first sees a document it gained access to; from 1.5 re-review: statement/idle timeouts vs xmin stalls, deletes on access loss) Desktop sync per D-19: outbox push w/ version acks, cursor pull, 409 → conflicted copy / full resync, SSE invalidation channel + poll backstop, offline property tests · deps: 2.6, 3.3
 - [x] 3.6 Full-text search: Postgres FTS (web/API) + desktop-local SQLite FTS5 (trigram) over notes and segments · deps: 3.3
 - [ ] 3.7 Audio playback in meeting view: player (mic/system/mixed), click segment → seek, highlight segment while playing; "audio on another device" state · deps: 2.8, 3.4
-- [ ] 3.8 Storage settings: retention policy (forever / N days / max GB), per-meeting delete, disk usage, show in Finder · deps: 2.8
+- [x] 3.8 Storage settings: retention policy (forever / N days / max GB), per-meeting delete, disk usage, show in Finder · deps: 2.8
 
 ## M4 — Enhance
 Exit: after a meeting, one click (or auto) produces structured notes from notes + transcript + template; evals pass.

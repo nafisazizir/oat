@@ -95,8 +95,8 @@ export class AudioIndex implements AudioRecordingStore {
   async insert(r: AudioRecording): Promise<void> {
     this.#db
       .prepare(
-        `INSERT INTO audio_recording (id, meeting_id, source, part, offset_ms, path, codec, sample_rate, started_at, duration_ms, bytes, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO audio_recording (id, meeting_id, source, part, offset_ms, path, codec, sample_rate, started_at, duration_ms, bytes, status, user_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         r.id,
@@ -111,6 +111,7 @@ export class AudioIndex implements AudioRecordingStore {
         r.durationMs,
         r.bytes,
         r.status,
+        r.userId ?? null,
       );
   }
 
@@ -123,9 +124,9 @@ export class AudioIndex implements AudioRecordingStore {
     } as AudioRecording;
     this.#db
       .prepare(
-        'UPDATE audio_recording SET part = ?, path = ?, duration_ms = ?, bytes = ?, status = ? WHERE id = ?',
+        'UPDATE audio_recording SET part = ?, path = ?, duration_ms = ?, bytes = ?, status = ?, user_id = ? WHERE id = ?',
       )
-      .run(next.part, next.path, next.durationMs, next.bytes, next.status, id);
+      .run(next.part, next.path, next.durationMs, next.bytes, next.status, next.userId ?? null, id);
     return next;
   }
 
@@ -145,6 +146,12 @@ export class AudioIndex implements AudioRecordingStore {
       const statuses = typeof filter.status === 'string' ? [filter.status] : [...filter.status];
       where.push(`status IN (${statuses.map(() => '?').join(', ') || 'NULL'})`);
       params.push(...statuses);
+    }
+    if (filter.userId === null) {
+      where.push('user_id IS NULL');
+    } else if (filter.userId !== undefined) {
+      where.push('user_id = ?');
+      params.push(filter.userId);
     }
     return (
       this.#db
@@ -171,5 +178,6 @@ function toAudio(r: Row): AudioRecording {
     durationMs: Number(r.duration_ms),
     bytes: Number(r.bytes),
     status: r.status as AudioRecording['status'],
+    userId: r.user_id === null || r.user_id === undefined ? null : String(r.user_id),
   };
 }

@@ -18,8 +18,10 @@ import {
   meetingSendChannels,
   meetingSubscribeChannels,
 } from './bridge-meetings.ts';
+import { storageInvokeChannels, storageSubscribeChannels } from './bridge-storage.ts';
 
 export * from './bridge-meetings.ts';
+export * from './bridge-storage.ts';
 
 /** Bumped when a channel changes incompatibly (renderer and preload ship together, so mostly a sanity check). */
 export const BRIDGE_VERSION = 1;
@@ -369,6 +371,8 @@ export const bridgeContract = {
     'window:close-widget': { request: none, response: none },
     /** Meeting note view (3.4). */
     ...meetingInvokeChannels,
+    /** Audio archive storage + retention (3.8), `bridge-storage.ts`. */
+    ...storageInvokeChannels,
   },
   send: {
     /** The window's UI has rendered (used for the cold-start measurement). */
@@ -384,6 +388,7 @@ export const bridgeContract = {
     /** Transcript deltas of the active meeting (batched). */
     'transcript:segments': transcriptBatchSchema,
     ...meetingSubscribeChannels,
+    ...storageSubscribeChannels,
   },
 } as const;
 

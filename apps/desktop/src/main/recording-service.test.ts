@@ -79,6 +79,7 @@ function setup({
   power,
   persistence,
   store,
+  userId,
 }: {
   speed?: FileSourceSpeed;
   startMs?: number;
@@ -88,6 +89,7 @@ function setup({
   power?: PowerEvents;
   persistence?: TranscriptPersistence;
   store?: AudioRecordingStore;
+  userId?: () => string | null;
 } = {}): Harness {
   const states: RecordingSnapshot[] = [];
   const batches: TranscriptBatch[] = [];
@@ -113,6 +115,7 @@ function setup({
     ...(power ? { power } : {}),
     ...(persistence ? { persistence } : {}),
     ...(store ? { store } : {}),
+    ...(userId ? { userId } : {}),
     onState: (s) => states.push(s),
     onSegments: (b) => {
       batches.push(b);
@@ -315,6 +318,26 @@ describe('RecordingService', () => {
     const segments = h.service.transcript().segments;
     expect(segments.length).toBe(firstCount * 2);
     expect(segments.slice(firstCount).every((s) => s.startMs >= 6_000)).toBe(true);
+  });
+
+  it('3.8/D-30: rows name the account; a resumed meeting is busy from the first moment of start()', async () => {
+    const h = setup({ durationMs: 2_000, userId: () => 'u1' });
+    const { meetingId } = await h.service.start({ spec: fixture });
+    expect(h.service.busyMeetingId).toBe(meetingId);
+    await h.waitFor('idle');
+    await h.service.stop();
+    expect(h.service.busyMeetingId).toBeNull();
+    expect((await h.service.audioStore.list({ meetingId })).map((r) => r.userId)).toEqual([
+      'u1',
+      'u1',
+    ]);
+    // Synchronously, before any await inside start(): storage must already see the meeting as in use.
+    const resumed = h.service.start({ meetingId, spec: fixture });
+    expect(h.service.busyMeetingId).toBe(meetingId);
+    await resumed;
+    await h.waitFor('idle');
+    await h.service.stop();
+    expect(h.service.busyMeetingId).toBeNull();
   });
 
   it('a new meeting starts a fresh transcript (seq restarts)', async () => {
