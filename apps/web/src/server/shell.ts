@@ -6,7 +6,9 @@ import {
   pickActiveWorkspace,
   type UserWorkspace,
 } from '@oat/auth';
-import { createPermissionContext } from '@oat/core';
+import { type CalendarEvent, createPermissionContext } from '@oat/core';
+import { meeting } from '@oat/db';
+import { eq } from 'drizzle-orm';
 import { cache } from 'react';
 
 import type { DocumentDetail, DocumentSummary, FolderSummary } from '@/lib/api-types';
@@ -25,6 +27,7 @@ import { workspaceIcon } from '@/lib/workspace';
 
 import type { Actor } from './actor';
 import { ApiError } from './api/errors';
+import { findCalendarEventByKey } from './calendar';
 import { getDb } from './db';
 import { getDocument, listDocuments, listRecentDocuments } from './documents';
 import { listFolders, readableFolder, toFolderSummary } from './folders';
@@ -186,6 +189,26 @@ export async function loadDocumentMeeting(id: string) {
     if (isNotFound(error)) return null;
     throw error;
   }
+}
+
+/**
+ * The calendar event a meeting note the user can read was started from (7.3: `meeting.calendar_event_id`), from
+ * the user's own connected calendar, while it still has the event; else `null` (9.3: the web shows the same
+ * "Scheduled … · Join" line as the desktop).
+ */
+export async function loadMeetingCalendarEvent(id: string): Promise<CalendarEvent | null> {
+  const { db, actor } = await getContext();
+  try {
+    await getDocument(db, actor, id); // read access, else 404
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
+  const [row] = await db
+    .select({ key: meeting.calendarEventId })
+    .from(meeting)
+    .where(eq(meeting.documentId, id));
+  return row?.key ? findCalendarEventByKey(actor.userId, row.key) : null;
 }
 
 /** The meeting transcript of a document the user can read (the `/d/[id]?t=…&seg=…` reader, 6.4). */

@@ -1,5 +1,20 @@
 import { cn } from '@oat/ui';
-import type { LucideIcon } from 'lucide-react';
+import { ChevronLeftIcon, type LucideIcon } from 'lucide-react';
+import type { Route } from 'next';
+import Link from 'next/link';
+
+/** "‹ Settings": the one way a sub-page links back to its parent (eyebrow above the title). */
+export function BackLink({ href, children }: { href: Route; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="-ml-1 inline-flex w-fit items-center gap-0.5 rounded-sm pr-1 text-xs text-muted-foreground transition-colors duration-fast hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+    >
+      <ChevronLeftIcon className="size-3.5" />
+      {children}
+    </Link>
+  );
+}
 
 /** Centered content column used by every app page (the note measure, `--content-width`). */
 export function PageContainer({ className, ...props }: React.ComponentProps<'div'>) {
@@ -54,12 +69,15 @@ export function EmptyState({
   description,
   children,
   className,
+  titleAs: Title = 'h3',
 }: {
   icon: LucideIcon;
   title: string;
   description: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
+  /** `h1` when the empty state is the whole page (not found, link unavailable): every page has an h1. */
+  titleAs?: 'h1' | 'h2' | 'h3';
 }) {
   return (
     <div
@@ -72,7 +90,7 @@ export function EmptyState({
         <Icon className="size-5" />
       </div>
       <div className="flex max-w-sm flex-col gap-1">
-        <h3 className="text-lg font-medium">{title}</h3>
+        <Title className="text-lg font-medium">{title}</Title>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       {children && (

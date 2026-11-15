@@ -247,15 +247,22 @@ test('below lg the panel is a modal sheet: focus stays inside, Escape closes', a
       'focus stays in the sheet',
     ).toBe(true);
   }
-  // From the question box (Tab may have left focus on a button whose tooltip would take the first Escape).
-  await page.getByTestId('chat-input').focus();
-  await page.mouse.move(0, 0);
-  // A tooltip opened by an earlier Tab (its open delay can land late under load) correctly takes the first
-  // Escape; the sheet must close within two presses.
+  // One Escape closes the sheet, even while a tooltip of the button in focus is showing (9.3: the tooltip
+  // used to swallow the first press, which made this test flaky under load).
+  const newChat = dialog.getByRole('button', { name: 'New chat' });
+  await newChat.focus();
+  await expect(page.locator('[data-slot="tooltip-content"]')).toBeVisible();
   await page.keyboard.press('Escape');
-  if (await dialog.isVisible()) await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect(page.getByTestId('assistant-toggle')).toBeFocused();
+
+  // The sheet isn't remembered below lg: another note opens without it (it would cover the note).
+  const other = await seedNote(page);
+  await page.getByTestId('assistant-toggle').click();
+  await expect(dialog).toBeVisible();
+  await page.goto(`/d/${other.doc.id}`);
+  await expect(page.getByTestId('assistant-toggle')).toBeVisible();
+  await expect(dialog).toBeHidden();
 });
 
 test.describe('with expected HTTP errors', () => {

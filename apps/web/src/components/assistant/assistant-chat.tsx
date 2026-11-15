@@ -153,7 +153,12 @@ export function AssistantChat({
   const activeThreadId = active.state === 'ready' ? active.threadId : active.key;
   const session =
     active.state === 'loading' ? (
-      <div className="flex flex-1 flex-col gap-3 p-4" aria-busy="true" aria-label="Loading">
+      <div
+        className="flex flex-1 flex-col gap-3 p-4"
+        role="status"
+        aria-busy="true"
+        aria-label="Loading"
+      >
         <Skeleton className="ml-auto h-8 w-2/3" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-5/6" />

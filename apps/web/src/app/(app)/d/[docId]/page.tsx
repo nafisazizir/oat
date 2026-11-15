@@ -14,6 +14,7 @@ import { Suspense } from 'react';
 
 import { BlockFocus } from '@/components/document/block-focus';
 import { DocumentAssistant } from '@/components/assistant/document-assistant';
+import { MeetingEventLine } from '@/components/calendar/meeting-event-line';
 import { ConflictBannerSlot } from '@/components/document/conflict-banner-slot';
 import { FolderActions } from '@/components/document/folder-actions';
 import { DocumentEditor } from '@/components/document/document-editor';
@@ -22,6 +23,7 @@ import { EmptyState, PageContainer, PageHeader } from '@/components/page';
 import { formatDay } from '@/lib/format';
 import { parseDeepLink, wantsTranscript } from '@/lib/transcript';
 import { titleOf } from '@/lib/tree';
+import { audienceLabel } from '@/lib/workspace';
 import {
   getShellData,
   loadDocumentMeeting,
@@ -99,12 +101,18 @@ export default async function DocumentPage({ params, searchParams }: Props) {
             <MeetingNote
               key={doc.id}
               document={doc}
-              workspaceName={workspace.name}
+              workspace={workspace}
               initial={meeting}
               focus={focus}
+              eventLine={
+                // Keyed: rendered among the client header's children (React warns otherwise).
+                <Suspense key="calendar-event" fallback={null}>
+                  <MeetingEventLine documentId={doc.id} />
+                </Suspense>
+              }
             />
           ) : (
-            <DocumentEditor key={doc.id} document={doc} workspaceName={workspace.name} />
+            <DocumentEditor key={doc.id} document={doc} workspace={workspace} />
           )}
         </DocumentAssistant>
         {/* `?block=<id>` links (My tasks): scroll to and highlight that block. */}
@@ -125,7 +133,7 @@ export default async function DocumentPage({ params, searchParams }: Props) {
           <>
             <Badge variant="secondary" className="gap-1">
               {isPrivate ? <LockIcon /> : <UsersIcon />}
-              {isPrivate ? 'Private folder' : `Shared with ${workspace.name}`}
+              {isPrivate ? 'Private folder' : audienceLabel(workspace)}
             </Badge>
             <span>Edited {formatDay(folder.updatedAt)}</span>
           </>
@@ -141,7 +149,11 @@ export default async function DocumentPage({ params, searchParams }: Props) {
           description="Add a page here, or drag pages onto the folder in the sidebar."
         />
       ) : (
-        <ul className="flex flex-col gap-1" data-testid="folder-contents">
+        // Same list treatment as Home and Search: one card, divided rows.
+        <ul
+          className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs"
+          data-testid="folder-contents"
+        >
           {children.map((child) => {
             const Icon =
               child.kind === 'folder'
@@ -153,14 +165,14 @@ export default async function DocumentPage({ params, searchParams }: Props) {
               <li key={child.id}>
                 <Link
                   href={`/d/${child.id}`}
-                  className="-mx-3 flex items-center gap-3 rounded-lg px-3 py-2 text-base transition-colors duration-fast hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                  className="flex items-center gap-3 px-4 py-3 transition-colors duration-fast hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
                 >
                   <Icon className="size-4 text-muted-foreground" />
-                  <span className="flex-1 truncate">{titleOf(child)}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{titleOf(child)}</span>
                   {child.visibility === 'private' && !isPrivate && (
                     <LockIcon className="size-3.5 text-muted-foreground" aria-label="Only you" />
                   )}
-                  <span className="text-xs text-muted-foreground">
+                  <span className="shrink-0 text-xs text-muted-foreground">
                     {formatDay(child.updatedAt)}
                   </span>
                 </Link>

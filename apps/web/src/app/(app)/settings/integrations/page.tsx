@@ -10,7 +10,6 @@ import {
 import { getPipelineSettings } from '@oat/services/pipeline';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import {
-  ArrowLeftIcon,
   CalendarDaysIcon,
   CircleAlertIcon,
   CircleCheckIcon,
@@ -19,7 +18,6 @@ import {
   SparklesIcon,
 } from 'lucide-react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { Suspense } from 'react';
 
 import {
@@ -31,10 +29,11 @@ import {
   DisconnectNotionButton,
   NotionTargetPicker,
 } from '@/components/notion/notion-actions';
-import { PageContainer, PageHeader } from '@/components/page';
+import { BackLink, PageContainer, PageHeader } from '@/components/page';
 import { PipelineSwitch } from '@/components/pipeline/pipeline-settings';
 import type { NotionConnectionInfo } from '@/lib/api-types';
 import { calendarConnectErrorMessage } from '@/lib/calendar-errors';
+import { formatDate } from '@/lib/format';
 import { integrationModes, serverEnv } from '@/lib/env';
 import { notionConnectErrorMessage } from '@/lib/notion-client';
 import { loadActor } from '@/server/actor';
@@ -45,13 +44,6 @@ import { getShellData } from '@/server/shell';
 import { requireSession } from '@/server/session';
 
 export const metadata: Metadata = { title: 'Integrations' };
-
-const connectedOn = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-});
 
 export default async function IntegrationsPage({
   searchParams,
@@ -73,15 +65,7 @@ export default async function IntegrationsPage({
       <PageHeader
         title="Integrations"
         description="Connect the tools Oat works alongside."
-        eyebrow={
-          <Link
-            href="/settings"
-            className="inline-flex items-center gap-1 rounded-sm transition-colors duration-fast hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            <ArrowLeftIcon className="size-3" />
-            Settings
-          </Link>
-        }
+        eyebrow={<BackLink href="/settings">Settings</BackLink>}
       />
 
       <Suspense fallback={<Skeleton className="h-32 w-full rounded-xl" />}>
@@ -136,7 +120,7 @@ export default async function IntegrationsPage({
                 <span className="text-xs text-muted-foreground">
                   {needsReconnect
                     ? 'Calendar access wasn’t granted. Connect again and allow it.'
-                    : `Read-only access · connected ${connectedOn.format(connection.connectedAt)}`}
+                    : `Read-only access · connected ${formatDate(connection.connectedAt)}`}
                 </span>
               </div>
               <div className="flex shrink-0 gap-2">
@@ -333,8 +317,7 @@ function NotionCard({
                     {connection.notionWorkspaceName ?? 'Notion workspace'}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    For {workspace.name} · connected{' '}
-                    {connectedOn.format(new Date(connection.connectedAt))}
+                    For {workspace.name} · connected {formatDate(connection.connectedAt)}
                   </span>
                 </div>
               </div>

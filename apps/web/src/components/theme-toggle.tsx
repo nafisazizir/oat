@@ -9,7 +9,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@oat/ui/components/dropdown-menu';
-import { Tabs, TabsList, TabsTrigger } from '@oat/ui/components/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@oat/ui/components/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
 
@@ -57,19 +57,29 @@ export function ThemeMenu() {
   );
 }
 
-/** Segmented light / dark / system control (Settings › Appearance). */
+/**
+ * Segmented light / dark / system control (Settings › Appearance). A radio-style toggle group, not tabs:
+ * there is no panel to switch, and an empty value (clicking the active item) is ignored.
+ */
 export function ThemeTabs() {
   const { theme, setTheme } = useTheme();
   return (
-    <Tabs value={theme} onValueChange={(value) => setTheme(parsePreference(value))}>
-      <TabsList aria-label="Theme">
-        {options.map(({ value, label, Icon }) => (
-          <TabsTrigger key={value} value={value} className="gap-1.5 px-3">
-            <Icon />
-            {label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
+    <ToggleGroup
+      type="single"
+      variant="segmented"
+      spacing={0.5}
+      aria-label="Theme"
+      value={theme}
+      onValueChange={(value) => {
+        if (value) setTheme(parsePreference(value));
+      }}
+    >
+      {options.map(({ value, label, Icon }) => (
+        <ToggleGroupItem key={value} value={value} className="gap-1.5 px-3">
+          <Icon />
+          {label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
   );
 }

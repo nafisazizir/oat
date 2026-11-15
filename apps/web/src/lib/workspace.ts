@@ -78,3 +78,14 @@ export function expiresIn(expiresAt: Date, now: Date = new Date()): string {
   const days = Math.round(ms / 86_400_000);
   return days === 1 ? 'in 1 day' : `in ${days} days`;
 }
+
+/** What visibility labels need to know about a document's workspace. */
+export type WorkspaceAudience = { name: string; kind: 'personal' | 'team' };
+
+/**
+ * Who "workspace" visibility reaches, for badges: "Only you" in a personal workspace (it has one member),
+ * else "Shared with <workspace>". Never "Shared with Personal" (9.3).
+ */
+export function audienceLabel(workspace: WorkspaceAudience): string {
+  return workspace.kind === 'personal' ? 'Only you' : `Shared with ${workspace.name}`;
+}

@@ -6,6 +6,7 @@ import { connection } from 'next/server';
 import { cache } from 'react';
 
 import { PageContainer, SectionHeading } from '@/components/page';
+import { formatDate } from '@/lib/format';
 import { getDb } from '@/server/db';
 import { loadSharedDocument, type SharedTranscriptLine } from '@/server/sharing';
 
@@ -29,13 +30,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // Minimal Open Graph: the title only (no excerpt, author or workspace).
   return { ...base, title, openGraph: { title, type: 'article', siteName: 'Oat' } };
 }
-
-const day = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-});
 
 function duration(start: Date | null, end: Date | null): string | null {
   if (!start || !end || end <= start) return null;
@@ -78,7 +72,7 @@ export default async function SharePage({ params }: Props) {
             {isMeeting ? <NotebookPenIcon /> : <FileTextIcon />}
             {isMeeting ? 'Meeting notes' : 'Page'}
           </Badge>
-          {when && <span data-testid="shared-meeting-date">{day.format(when)}</span>}
+          {when && <span data-testid="shared-meeting-date">{formatDate(when)}</span>}
           {length && (
             <>
               <span aria-hidden>·</span>
@@ -89,7 +83,7 @@ export default async function SharePage({ params }: Props) {
         <h1 className="font-heading text-3xl font-medium text-balance">{titleOf(shared.title)}</h1>
         <p className="text-sm text-muted-foreground">
           {shared.authorName ? `Shared by ${shared.authorName} · ` : ''}
-          Updated {day.format(shared.updatedAt)}
+          Edited {formatDate(shared.updatedAt)}
         </p>
       </header>
 

@@ -1,10 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@oat/ui/components/card';
 import { getUserProfile } from '@oat/db';
-import { ChevronLeftIcon } from 'lucide-react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 
-import { PageContainer, PageHeader } from '@/components/page';
+import { BackLink, PageContainer, PageHeader } from '@/components/page';
 import { ProfileForm } from '@/components/settings/profile-form';
 import { getDb } from '@/server/db';
 import { requireSession } from '@/server/session';
@@ -22,19 +20,11 @@ export default async function ProfileSettingsPage() {
 
   return (
     <PageContainer className="gap-8">
-      <div className="flex flex-col gap-6">
-        <Link
-          href="/settings"
-          className="-ml-1 flex w-fit items-center gap-1 rounded-sm text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
-        >
-          <ChevronLeftIcon className="size-3.5" />
-          Settings
-        </Link>
-        <PageHeader
-          title="About me"
-          description="Context the AI uses when it enhances your notes and answers your questions."
-        />
-      </div>
+      <PageHeader
+        title="About me"
+        description="Context the AI uses when it enhances your notes and answers your questions."
+        eyebrow={<BackLink href="/settings">Settings</BackLink>}
+      />
       <Card>
         <CardHeader>
           <CardTitle>

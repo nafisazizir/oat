@@ -20,8 +20,8 @@
  * against the same database and mocks. The web app reaches it at `OAT_AGENTS_URL` with a random token.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
-import { spawn } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { type ChildProcess, spawn } from 'node:child_process';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 
 import { bootstrapWorld } from '@oat/agents/cli/bootstrap-world';
 import { buildAgent, devEnv, freePort, startAgent } from '@oat/agents/post-meeting/int-server';
@@ -89,34 +89,46 @@ const agents = await startAgent(
 mkdirSync(new URL('./.auth/', import.meta.url), { recursive: true });
 writeFileSync(databaseUrlFile(port), db.url);
 writeFileSync(mocksUrlFile(port), mocks.url);
-console.log(`[e2e] database ${db.name} ready; starting next dev on :${port}`);
+/**
+ * `OAT_E2E_PROD=1` (`pnpm e2e:prod`): a production build (`next build` into its own dist dir) served by
+ * `next start`, for what only production shows (9.3: the share page's strict CSP without `'unsafe-eval'`).
+ * Production doesn't fall back to `.env.example` by itself (next.config.ts), so the dev defaults are loaded
+ * here; real variables and the overrides below still win.
+ */
+const prod = process.env.OAT_E2E_PROD === '1';
+if (prod) {
+  const example = new URL('../../../.env.example', import.meta.url);
+  const env = new URL('../../../.env', import.meta.url);
+  process.loadEnvFile(existsSync(env) ? env : example);
+}
+console.log(
+  `[e2e] database ${db.name} ready; starting ${prod ? 'next build + start' : 'next dev'} on :${port}`,
+);
 
-const child = spawn('pnpm', ['exec', 'next', 'dev', '--port', port], {
-  stdio: 'inherit',
-  env: {
-    ...process.env,
-    DATABASE_URL: db.url,
-    // Own rate-limit counters: parallel e2e servers share one dev Redis and all clients are 127.0.0.1.
-    OAT_RATE_LIMIT_NAMESPACE: `e2e-${db.name}`,
-    BETTER_AUTH_URL: `http://localhost:${port}`,
-    GOOGLE_CALENDAR_BASE_URL: `${mocks.url}/gcal`,
-    AI_BASE_URL: `${mocks.url}/llm/v1`,
-    AI_MOCK_CHUNK_DELAY_MS: process.env.AI_MOCK_CHUNK_DELAY_MS ?? '60',
-    NOTION_BASE_URL: `${mocks.url}/notion`,
-    NOTION_OAUTH_CLIENT_ID: '',
-    NOTION_OAUTH_CLIENT_SECRET: '',
-    OAT_AGENTS_URL: agents.url,
-    OAT_AGENTS_TOKEN: agentsToken,
-  },
-});
+const serverEnv = {
+  ...process.env,
+  DATABASE_URL: db.url,
+  // Own rate-limit counters: parallel e2e servers share one dev Redis and all clients are 127.0.0.1.
+  OAT_RATE_LIMIT_NAMESPACE: `e2e-${db.name}`,
+  BETTER_AUTH_URL: `http://localhost:${port}`,
+  GOOGLE_CALENDAR_BASE_URL: `${mocks.url}/gcal`,
+  AI_BASE_URL: `${mocks.url}/llm/v1`,
+  AI_MOCK_CHUNK_DELAY_MS: process.env.AI_MOCK_CHUNK_DELAY_MS ?? '60',
+  NOTION_BASE_URL: `${mocks.url}/notion`,
+  NOTION_OAUTH_CLIENT_ID: '',
+  NOTION_OAUTH_CLIENT_SECRET: '',
+  OAT_AGENTS_URL: agents.url,
+  OAT_AGENTS_TOKEN: agentsToken,
+};
 
+let child: ChildProcess | undefined;
 let stopping = false;
 async function shutdown(code: number) {
   if (stopping) return;
   stopping = true;
-  if (child.exitCode === null && child.signalCode === null) {
+  if (child && child.exitCode === null && child.signalCode === null) {
     child.kill('SIGTERM');
-    await new Promise((resolve) => child.once('exit', resolve));
+    await new Promise((resolve) => child!.once('exit', resolve));
   }
   await agents.stop().catch(() => undefined);
   await worker.stop().catch(() => undefined);
@@ -136,4 +148,20 @@ async function shutdown(code: number) {
 
 process.on('SIGTERM', () => void shutdown(0));
 process.on('SIGINT', () => void shutdown(0));
-child.on('exit', (code) => void shutdown(code ?? 1));
+
+/** Runs `next <args>` with the server env; the last one started is what `shutdown` stops. */
+function next(args: string[]): ChildProcess {
+  child = spawn('pnpm', ['exec', 'next', ...args], { stdio: 'inherit', env: serverEnv });
+  return child;
+}
+
+if (prod) {
+  const code = await new Promise<number | null>((resolve) =>
+    next(['build']).once('exit', (exitCode) => resolve(exitCode)),
+  );
+  if (code !== 0) {
+    console.error('[e2e] next build failed');
+    await shutdown(1);
+  }
+}
+next([prod ? 'start' : 'dev', '--port', port]).on('exit', (code) => void shutdown(code ?? 1));

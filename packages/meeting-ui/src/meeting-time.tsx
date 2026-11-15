@@ -43,7 +43,15 @@ export function MeetingTime({
       <ClockIcon aria-hidden className="size-3.5" />
       {when.label ? (
         <>
-          <time dateTime={startedAt ?? undefined}>{when.label}</time>
+          {/* Day and time get the same separator (and spacing) as the duration after them. */}
+          <time dateTime={startedAt ?? undefined} className="inline-flex flex-wrap gap-1.5">
+            {when.label.split(' · ').map((part, i) => (
+              <span key={i} className="inline-flex gap-1.5">
+                {i > 0 && <span aria-hidden>·</span>}
+                {part}
+              </span>
+            ))}
+          </time>
           {when.duration && (
             <>
               <span aria-hidden>·</span>

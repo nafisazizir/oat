@@ -59,7 +59,8 @@ export default defineConfig({
     command: 'pnpm exec tsx e2e/web-server.ts',
     url: `${baseURL}/api/health`,
     reuseExistingServer: false,
-    timeout: 120_000 * scale,
+    // `pnpm e2e:prod` (OAT_E2E_PROD=1) runs `next build` first.
+    timeout: (process.env.OAT_E2E_PROD === '1' ? 600_000 : 120_000) * scale,
     // Lets web-server.ts stop `next dev` and drop its database.
     gracefulShutdown: { signal: 'SIGTERM', timeout: 15_000 },
     // D-11: e2e never reaches real providers, whatever the local `.env` says (shell vars win over it).

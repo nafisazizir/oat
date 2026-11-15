@@ -70,10 +70,12 @@ export function DocumentAssistant({
   const router = useRouter();
   const pathname = usePathname();
   // `null` until the user toggles: then the remembered choice (read after hydration, so the server render
-  // and the first client render agree).
+  // and the first client render agree). Only the side column is remembered: below `lg` the panel is a modal
+  // sheet, and reopening it by itself on every note would cover the note the user just opened (9.3).
   const hydrated = useHydrated();
+  const wide = useWide();
   const [choice, setChoice] = useState<boolean | null>(null);
-  const open = available && (choice ?? (hydrated && rememberedOpen()));
+  const open = available && (choice ?? (hydrated && wide && rememberedOpen()));
 
   const panelRef = useRef<HTMLElement | null>(null);
   const toggleRef = useRef<HTMLButtonElement | null>(null);
@@ -85,13 +87,31 @@ export function DocumentAssistant({
       const value = next ?? !open;
       if (!value && panelRef.current?.contains(document.activeElement)) returnFocus.current = true;
       setChoice(value);
+      if (!wide) return; // the sheet isn't remembered (see `open`)
       try {
         window.localStorage.setItem(PANEL_KEY, value ? '1' : '0');
       } catch {
         // Not remembered; fine.
       }
     },
-    [open],
+    [open, wide],
+  );
+
+  /**
+   * Escape closes the panel from anywhere inside it, also while a tooltip of one of its buttons is showing
+   * (the tooltip is its own dismissable layer and takes the key first, which used to need a second press:
+   * the 6.4 sheet-Escape flake). Menus, listboxes and dialogs opened from the panel keep their own Escape.
+   */
+  const closeOnEscape = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      const target = event.target as HTMLElement;
+      const layer = target.closest('[role="menu"], [role="listbox"], [role="dialog"]');
+      if (layer && layer !== panelRef.current) return;
+      event.preventDefault();
+      toggle(false);
+    },
+    [toggle],
   );
 
   useEffect(() => {
@@ -168,7 +188,6 @@ export function DocumentAssistant({
   const focusId = transcript ? focusedLine(transcript, focus) : undefined;
   const showTranscript = transcript !== null && dismissedKey !== focusKey;
 
-  const wide = useWide();
   const chat = (
     <AssistantChat
       scope={{ kind: 'document', documentId }}
@@ -204,14 +223,8 @@ export function DocumentAssistant({
             ref={panelRef}
             aria-label="Assistant"
             data-testid="assistant-panel"
-            onKeyDown={(event) => {
-              // Escape closes the panel, unless it belongs to a menu or field inside it.
-              const target = event.target as HTMLElement;
-              if (event.key !== 'Escape' || event.defaultPrevented) return;
-              if (target.closest('[role="menu"], [role="listbox"], [role="dialog"]')) return;
-              event.preventDefault();
-              toggle(false);
-            }}
+            // Capture: runs before the focused element's handlers, whatever a tooltip did with the key.
+            onKeyDownCapture={closeOnEscape}
             className="sticky top-12 flex h-[calc(100svh-3rem)] w-96 shrink-0 flex-col border-l bg-background xl:w-[26rem]"
           >
             {chat}
@@ -228,6 +241,7 @@ export function DocumentAssistant({
             data-testid="assistant-panel"
             // Focus goes back to the toggle (our effect), not to whatever Radix remembered.
             onCloseAutoFocus={(event) => event.preventDefault()}
+            onKeyDownCapture={closeOnEscape}
             className="gap-0 bg-background p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-md"
           >
             <SheetTitle className="sr-only">Assistant</SheetTitle>

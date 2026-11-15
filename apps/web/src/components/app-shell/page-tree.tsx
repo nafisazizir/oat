@@ -250,7 +250,7 @@ function TreeRow({
           isActive={active}
           tooltip={title}
           style={indent}
-          className={cn(isFolder && hasChildren ? 'pr-12' : 'pr-7')}
+          className={cn(isFolder && hasChildren ? 'pr-14' : 'pr-8')}
         >
           <Link href={`/d/${node.id}` as Route}>
             <NodeIcon node={node} open={open} />

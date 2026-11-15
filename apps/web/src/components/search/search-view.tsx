@@ -96,7 +96,7 @@ function TranscriptRow({ hit }: { hit: TranscriptHit }) {
 
 function ResultsSkeleton() {
   return (
-    <div className="flex flex-col gap-2" aria-busy="true" aria-label="Searching">
+    <div className="flex flex-col gap-2" role="status" aria-busy="true" aria-label="Searching">
       {[0, 1, 2, 3].map((row) => (
         <Skeleton key={row} className="h-16 w-full rounded-lg" />
       ))}

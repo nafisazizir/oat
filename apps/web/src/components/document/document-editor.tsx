@@ -29,6 +29,7 @@ import { announceDocumentChange } from '@/lib/api-client';
 import type { DocumentDetail } from '@/lib/api-types';
 import { formatDay } from '@/lib/format';
 import { documentNode } from '@/lib/tree';
+import { audienceLabel, type WorkspaceAudience } from '@/lib/workspace';
 
 import { EnhanceError } from './enhance/enhance-controls';
 import { EnhancePreview } from './enhance/enhance-preview';
@@ -55,11 +56,12 @@ const isEmptyDoc = (doc: JSONContent) =>
  */
 export function DocumentEditor({
   document: doc,
-  workspaceName,
+  workspace,
   meta,
 }: {
   document: DocumentDetail;
-  workspaceName: string;
+  /** The document's workspace: who "workspace" visibility reaches. */
+  workspace: WorkspaceAudience;
   /** Shown under the title (the meeting header of a meeting note, 3.4). */
   meta?: React.ReactNode;
 }) {
@@ -214,7 +216,7 @@ export function DocumentEditor({
 
       <header className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <VisibilityBadge visibility={doc.visibility} workspaceName={workspaceName} />
+          <VisibilityBadge visibility={doc.visibility} workspace={workspace} />
           {trashed ? (
             <Badge variant="outline" className="gap-1">
               <Trash2Icon />
@@ -312,19 +314,19 @@ export function DocumentEditor({
 
 function VisibilityBadge({
   visibility,
-  workspaceName,
+  workspace,
 }: {
   visibility: DocumentDetail['visibility'];
-  workspaceName: string;
+  workspace: WorkspaceAudience;
 }) {
   const [Icon, label] =
     visibility === 'private'
       ? [LockIcon, 'Private']
       : visibility === 'link'
-        ? [LinkIcon, `Shared with ${workspaceName} + link`]
-        : [UsersIcon, `Shared with ${workspaceName}`];
+        ? [LinkIcon, `${audienceLabel(workspace)} + link`]
+        : [workspace.kind === 'personal' ? LockIcon : UsersIcon, audienceLabel(workspace)];
   return (
-    <Badge variant="secondary" className="gap-1">
+    <Badge variant="secondary" className="gap-1" data-testid="visibility-badge">
       <Icon />
       {label}
     </Badge>

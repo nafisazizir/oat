@@ -21,6 +21,7 @@ import {
 import { Sidebar, SidebarContent, SidebarProvider, SidebarTrigger } from './components/sidebar.tsx';
 import { Switch } from './components/switch.tsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/tabs.tsx';
+import { ToggleGroup, ToggleGroupItem } from './components/toggle-group.tsx';
 import { cn } from './lib/utils.ts';
 
 describe('cn', () => {
@@ -115,6 +116,31 @@ describe('Tabs', () => {
     expect(screen.getByRole('tabpanel').textContent).toBe('My notes');
     await user.click(screen.getByRole('tab', { name: 'Transcript' }));
     expect(screen.getByRole('tabpanel').textContent).toBe('Full transcript');
+  });
+});
+
+describe('ToggleGroup (segmented)', () => {
+  it('is a one-of-N radio choice with no tab panels (9.3)', async () => {
+    const user = userEvent.setup();
+    let value = 'light';
+    render(
+      <ToggleGroup
+        type="single"
+        variant="segmented"
+        aria-label="Theme"
+        defaultValue="light"
+        onValueChange={(next) => (value = next)}
+      >
+        <ToggleGroupItem value="light">Light</ToggleGroupItem>
+        <ToggleGroupItem value="dark">Dark</ToggleGroupItem>
+      </ToggleGroup>,
+    );
+    expect(screen.getByRole('radiogroup', { name: 'Theme' }).dataset.variant).toBe('segmented');
+    expect(screen.getByRole('radio', { name: 'Light' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByRole('tab')).toBeNull();
+    await user.click(screen.getByRole('radio', { name: 'Dark' }));
+    expect(value).toBe('dark');
+    expect(screen.getByRole('radio', { name: 'Dark' }).getAttribute('aria-checked')).toBe('true');
   });
 });
 

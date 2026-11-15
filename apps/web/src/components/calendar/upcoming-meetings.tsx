@@ -10,7 +10,7 @@ import { requireSession } from '@/server/session';
 
 import { UpcomingMeetingRow, type UpcomingMeetingView } from './upcoming-meeting-row';
 
-const CONFERENCE_LABELS: Record<ConferenceProvider, string> = {
+export const CONFERENCE_LABELS: Record<ConferenceProvider, string> = {
   google_meet: 'Google Meet',
   zoom: 'Zoom',
   teams: 'Microsoft Teams',

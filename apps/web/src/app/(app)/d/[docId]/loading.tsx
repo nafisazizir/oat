@@ -5,7 +5,7 @@ import { PageContainer } from '@/components/page';
 /** Document skeleton: eyebrow, title, then paragraph lines at the note measure. */
 export default function DocumentLoading() {
   return (
-    <PageContainer aria-busy="true" aria-label="Loading page">
+    <PageContainer role="status" aria-busy="true" aria-label="Loading page">
       <div className="flex flex-col gap-3">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-9 w-2/3" />

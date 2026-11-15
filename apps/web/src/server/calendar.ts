@@ -6,7 +6,7 @@ import {
   type GoogleCalendarConnection,
   googleCalendarTokenProvider,
 } from '@oat/auth';
-import { CalendarAccessError, mergeCalendarEvents } from '@oat/calendar';
+import { CalendarAccessError, calendarEventKey, mergeCalendarEvents } from '@oat/calendar';
 import { GoogleCalendarSource } from '@oat/calendar/google';
 import { type CalendarEvent, upcoming } from '@oat/core';
 
@@ -130,6 +130,33 @@ export async function findCalendarEvent(
       to: new Date(now.getTime() + 21 * 24 * 3_600_000),
     });
     return events.find((e) => e.id === eventId) ?? null;
+  } catch (error) {
+    if (!(error instanceof CalendarAccessError)) {
+      console.error('calendar: Google Calendar read failed:', error);
+    }
+    return null;
+  }
+}
+
+/**
+ * The event a meeting note was started from, by its meeting key (`meeting.calendar_event_id`,
+ * `calendarEventKey`), while the user's calendar still has it (yesterday to three weeks out, as above).
+ * `null` when not connected, not found or the calendar can't be read: the note simply shows no event line.
+ */
+export async function findCalendarEventByKey(
+  userId: string,
+  key: string,
+  options: { now?: Date } = {},
+): Promise<CalendarEvent | null> {
+  const now = options.now ?? new Date();
+  const connection = await getGoogleCalendarConnection(userId);
+  if (!connection?.hasCalendarScope) return null;
+  try {
+    const events = await googleSource(connection, userId).fetchEvents({
+      from: new Date(now.getTime() - 24 * 3_600_000),
+      to: new Date(now.getTime() + 21 * 24 * 3_600_000),
+    });
+    return events.find((e) => calendarEventKey(e) === key) ?? null;
   } catch (error) {
     if (!(error instanceof CalendarAccessError)) {
       console.error('calendar: Google Calendar read failed:', error);

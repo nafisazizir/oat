@@ -88,8 +88,14 @@ export function TemplateEditor(props: TemplateEditorProps) {
   const [saved, setSaved] = useState<TemplateFields>(props.initial);
   const [name, setName] = useState(props.initial.name);
   const [instructions, setInstructions] = useState(props.initial.instructions);
+  // First render: keys from the position, so the server and the client agree (the module counter keeps
+  // counting across server requests: a hydration mismatch of the section field ids, found in 9.3).
   const [sections, setSections] = useState<EditableSection[]>(() =>
-    withKeys(props.initial.sections),
+    props.initial.sections.map((s, i) => ({
+      heading: s.heading,
+      instructions: s.instructions,
+      key: `initial-${i}`,
+    })),
   );
   const [pending, startTransition] = useTransition();
   const [deleteOpen, setDeleteOpen] = useState(false);

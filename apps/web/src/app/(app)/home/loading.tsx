@@ -5,7 +5,7 @@ import { PageContainer } from '@/components/page';
 /** Home skeleton: header, the recent-notes panel and a few page rows. */
 export default function HomeLoading() {
   return (
-    <PageContainer aria-busy="true" aria-label="Loading home">
+    <PageContainer role="status" aria-busy="true" aria-label="Loading home">
       <div className="flex flex-col gap-3">
         <Skeleton className="h-9 w-32" />
         <Skeleton className="h-5 w-64" />

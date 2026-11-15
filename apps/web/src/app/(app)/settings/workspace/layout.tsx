@@ -1,8 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@oat/ui/components/card';
-import { ChevronLeftIcon, LockIcon } from 'lucide-react';
-import Link from 'next/link';
+import { LockIcon } from 'lucide-react';
 
-import { PageContainer, PageHeader } from '@/components/page';
+import { BackLink, PageContainer, PageHeader } from '@/components/page';
 import { CreateTeamButton } from '@/components/workspace/create-team-button';
 import { WorkspaceSettingsNav } from '@/components/workspace/settings-nav';
 import { WorkspaceAvatar } from '@/components/workspace/workspace-avatar';
@@ -21,13 +20,7 @@ export default async function WorkspaceSettingsLayout({ children }: { children: 
   return (
     <PageContainer className="gap-8">
       <div className="flex flex-col gap-6">
-        <Link
-          href="/settings"
-          className="-ml-1 flex w-fit items-center gap-1 rounded-sm text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
-        >
-          <ChevronLeftIcon className="size-3.5" />
-          Settings
-        </Link>
+        <BackLink href="/settings">Settings</BackLink>
         <div className="flex items-center gap-4">
           <WorkspaceAvatar workspace={workspace} size="lg" className="size-12" />
           <PageHeader

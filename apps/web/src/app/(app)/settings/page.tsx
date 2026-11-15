@@ -100,6 +100,7 @@ export default async function SettingsPage() {
             <Button asChild variant="outline">
               <Link href="/settings/workspace">
                 {currentWorkspace.kind === 'personal' ? 'About this workspace' : 'Manage workspace'}
+                <ChevronRightIcon data-icon="inline-end" />
               </Link>
             </Button>
           </Row>

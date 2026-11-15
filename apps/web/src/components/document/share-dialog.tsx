@@ -166,7 +166,12 @@ export function ShareDialog({ documentId }: { documentId: string }) {
             {loadError}
           </p>
         ) : !sharing ? (
-          <div className="flex flex-col gap-2" aria-busy aria-label="Loading sharing settings">
+          <div
+            className="flex flex-col gap-2"
+            role="status"
+            aria-busy
+            aria-label="Loading sharing settings"
+          >
             <Skeleton className="h-14 w-full" />
             <Skeleton className="h-14 w-full" />
             <Skeleton className="h-14 w-full" />

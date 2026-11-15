@@ -155,7 +155,7 @@ test('share via link → a stranger reads it, can’t edit; link off → 404; ba
   await evidence(page, 'share-dialog-link');
   await page.keyboard.press('Escape');
   // The page reflects the change, and the editor keeps saving (sharing doesn't touch the content version).
-  await expect(page.getByText(/\+ link/)).toBeVisible();
+  await expect(page.getByTestId('visibility-badge')).toHaveText('Only you + link');
   const title = page.getByTestId('document-title');
   await title.fill('Quarterly plan v2');
   await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', 'saved');
@@ -246,9 +246,11 @@ test('an unknown or malformed link is a 404 in the public layout', async ({ brow
     const res = await anon.page.goto(path);
     expect(res?.status()).toBe(404);
     await expect(
-      anon.page.getByRole('heading', { name: 'This link isn’t available' }),
+      anon.page.getByRole('heading', { level: 1, name: 'This link isn’t available' }),
     ).toBeVisible();
-    await expect(anon.page.getByText('Read-only', { exact: true })).toBeVisible();
+    // The public layout (header with "Try Oat"), minus the read-only badge: there is nothing to read (9.3).
+    await expect(anon.page.getByRole('link', { name: 'Try Oat' })).toBeVisible();
+    await expect(anon.page.getByText('Read-only', { exact: true })).toBeHidden();
     await expect(anon.page.getByTestId('app-sidebar')).toHaveCount(0);
   }
   await evidence(anon.page, 'share-view-unknown');

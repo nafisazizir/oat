@@ -68,6 +68,31 @@ describe('breadcrumbsFor(tree, pathname)', () => {
     expect(breadcrumbsFor(tree, '/templates/new').at(-1)).toEqual({ label: 'New template' });
   });
 
+  it('settings pages: workspace › Settings › page (9.3)', () => {
+    const settings = { label: 'Settings', href: '/settings' };
+    const studio = { label: 'Studio', href: '/home' };
+    expect(breadcrumbsFor(tree, '/settings/profile')).toEqual([
+      studio,
+      settings,
+      { label: 'About me' },
+    ]);
+    expect(breadcrumbsFor(tree, '/settings/integrations').at(-1)).toEqual({
+      label: 'Integrations',
+    });
+    expect(breadcrumbsFor(tree, '/settings/workspace')).toEqual([
+      studio,
+      settings,
+      { label: 'Workspace' },
+    ]);
+    expect(breadcrumbsFor(tree, '/settings/workspace/members')).toEqual([
+      studio,
+      settings,
+      { label: 'Workspace', href: '/settings/workspace' },
+      { label: 'Members' },
+    ]);
+    expect(breadcrumbsFor(tree, '/settings/unknown')).toEqual([studio, { label: 'Settings' }]);
+  });
+
   it('inSection matches a section and its sub-pages only', () => {
     expect(inSection('/templates', '/templates')).toBe(true);
     expect(inSection('/templates/abc', '/templates')).toBe(true);

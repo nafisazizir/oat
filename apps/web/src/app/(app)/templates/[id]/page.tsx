@@ -1,10 +1,9 @@
 import { Badge } from '@oat/ui/components/badge';
-import { ChevronLeftIcon, EyeIcon } from 'lucide-react';
+import { EyeIcon } from 'lucide-react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import { PageContainer, PageHeader, SectionHeading } from '@/components/page';
+import { BackLink, PageContainer, PageHeader, SectionHeading } from '@/components/page';
 import { DuplicateButton } from '@/components/templates/duplicate-button';
 import { TemplateEditor } from '@/components/templates/template-editor';
 import { TemplatePreview } from '@/components/templates/template-preview';
@@ -17,18 +16,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: (await loadTemplate(id))?.template.name ?? 'Template not found' };
 }
 
-function BackLink() {
-  return (
-    <Link
-      href="/templates"
-      className="-ml-1 inline-flex items-center gap-0.5 rounded-md pr-1 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-    >
-      <ChevronLeftIcon className="size-3.5" />
-      Templates
-    </Link>
-  );
-}
-
 export default async function TemplatePage({ params }: Props) {
   const { id } = await params;
   const detail = await loadTemplate(id);
@@ -38,8 +25,10 @@ export default async function TemplatePage({ params }: Props) {
   if (canEdit) {
     return (
       <PageContainer className="gap-6">
+        {/* The name field is the visible title; the page still needs a heading. */}
+        <h1 className="sr-only">Edit template</h1>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <BackLink />
+          <BackLink href="/templates">Templates</BackLink>
           <span aria-hidden>·</span>
           <span>
             {template.workspaceId !== workspace.id
@@ -73,7 +62,7 @@ export default async function TemplatePage({ params }: Props) {
         description={template.instructions}
         eyebrow={
           <>
-            <BackLink />
+            <BackLink href="/templates">Templates</BackLink>
             <span aria-hidden>·</span>
             {template.isBuiltin ? (
               <Badge variant="outline">Built-in</Badge>

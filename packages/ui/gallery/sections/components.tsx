@@ -85,6 +85,7 @@ import { Skeleton } from '@oat/ui/components/skeleton';
 import { Toaster } from '@oat/ui/components/sonner';
 import { Switch } from '@oat/ui/components/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@oat/ui/components/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@oat/ui/components/toggle-group';
 import { Textarea } from '@oat/ui/components/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 
@@ -247,6 +248,26 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
           <Separator orientation="vertical" />
           <span>3 people</span>
         </div>
+      </Specimen>
+
+      <Specimen name="toggle-group (segmented)">
+        <ToggleGroup
+          type="single"
+          variant="segmented"
+          spacing={0.5}
+          defaultValue="light"
+          aria-label="Theme"
+        >
+          <ToggleGroupItem value="light" className="px-3">
+            Light
+          </ToggleGroupItem>
+          <ToggleGroupItem value="dark" className="px-3">
+            Dark
+          </ToggleGroupItem>
+          <ToggleGroupItem value="system" className="px-3">
+            System
+          </ToggleGroupItem>
+        </ToggleGroup>
       </Specimen>
 
       <Specimen name="tabs">

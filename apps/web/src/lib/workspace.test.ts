@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  audienceLabel,
   expiresIn,
   ICON_CHOICES,
   isRole,
@@ -54,5 +55,12 @@ describe('expiresIn', () => {
     expect(expiresIn(at(25 * 3_600_000), now)).toBe('in 1 day');
     expect(expiresIn(at(36 * 3_600_000 + 1), now)).toBe('in 2 days');
     expect(expiresIn(at(7 * 86_400_000 - 5_000), now)).toBe('in 7 days');
+  });
+});
+
+describe('audienceLabel', () => {
+  it('never says "Shared with" a personal workspace', () => {
+    expect(audienceLabel({ kind: 'personal', name: 'Personal' })).toBe('Only you');
+    expect(audienceLabel({ kind: 'team', name: 'Acme' })).toBe('Shared with Acme');
   });
 });

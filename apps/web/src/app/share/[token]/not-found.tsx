@@ -8,10 +8,11 @@ import { EmptyState, PageContainer } from '@/components/page';
  */
 export default function ShareNotFound() {
   return (
-    <PageContainer>
+    <PageContainer data-share-missing="">
       <EmptyState
         icon={LinkIcon}
         title="This link isn’t available"
+        titleAs="h1"
         description="It may have been turned off or replaced with a new link. Ask the person who shared it for an up-to-date one."
         className="mt-6"
       />

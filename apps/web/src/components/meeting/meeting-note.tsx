@@ -30,6 +30,7 @@ import type { DocumentDetail } from '@/lib/api-types';
 import { appendLines, type MeetingInfo, meetingApi, participantError } from '@/lib/meeting';
 import { type DeepLinkFocus, focusedLine, segmentHref, wantsTranscript } from '@/lib/transcript';
 import { useHydrated } from '@/lib/use-hydrated';
+import type { WorkspaceAudience } from '@/lib/workspace';
 
 const OPEN_KEY = 'oat.transcript.open';
 const WIDTH_KEY = 'oat.transcript.width';
@@ -58,14 +59,17 @@ function maybeLive(info: MeetingInfo, now: number): boolean {
 
 export function MeetingNote({
   document: doc,
-  workspaceName,
+  workspace,
   initial,
   focus,
+  eventLine,
 }: {
   document: DocumentDetail;
-  workspaceName: string;
+  workspace: WorkspaceAudience;
   initial: MeetingInfo;
   focus: DeepLinkFocus;
+  /** The calendar event the note was started from ("Scheduled … · Join"), streamed in by the page. */
+  eventLine?: React.ReactNode;
 }) {
   const hydrated = useHydrated();
   const wide = useWide();
@@ -158,6 +162,7 @@ export function MeetingNote({
           </Button>
         )}
       </div>
+      {eventLine}
       <ParticipantChips
         participants={info.participants}
         editable={editable && hydrated}
@@ -188,7 +193,7 @@ export function MeetingNote({
   return (
     <div className="flex min-w-0 flex-1">
       <div className="min-w-0 flex-1">
-        <DocumentEditor document={doc} workspaceName={workspaceName} meta={header} />
+        <DocumentEditor document={doc} workspace={workspace} meta={header} />
         {open && !wide && (
           <section
             aria-label="Transcript"
@@ -290,7 +295,8 @@ function TranscriptBody({
         focusId={focusId}
         onSelect={onSelect}
         follow={live && !focusId}
-        className="min-h-0"
+        // Room below the last line for the floating "Ask about this note" button.
+        className="min-h-0 [&>[data-testid=transcript-scroll]]:pb-16"
       />
     </>
   );

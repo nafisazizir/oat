@@ -12,6 +12,12 @@ export const sections = {
   settings: { label: 'Settings', href: '/settings' },
 } as const;
 
+/** Settings sub-pages by path segment (`/settings/<segment>`), as their page titles name them. */
+const settingsPages: Record<string, string> = {
+  profile: 'About me',
+  integrations: 'Integrations',
+};
+
 /** Whether `pathname` is a section's page or one of its sub-pages (`/templates/…` → Templates). */
 export function inSection(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -27,7 +33,7 @@ export function breadcrumbsFor(
   pathname: string,
 ): Crumb[] {
   const workspace: Crumb = { label: tree.workspace.name, href: sections.home.href };
-  const [first, second] = pathname.split('/').filter(Boolean);
+  const [first, second, third] = pathname.split('/').filter(Boolean);
 
   for (const section of Object.values(sections)) {
     if (section.href === `/${first ?? ''}` && second === undefined) {
@@ -39,6 +45,23 @@ export function breadcrumbsFor(
   if (first === 'templates' && second) {
     const templates: Crumb = { label: sections.templates.label, href: sections.templates.href };
     return [workspace, templates, { label: second === 'new' ? 'New template' : 'Template' }];
+  }
+
+  // Settings pages: workspace › Settings › About me | Integrations | Workspace (› Members).
+  if (first === 'settings' && second) {
+    const settings: Crumb = { label: sections.settings.label, href: sections.settings.href };
+    if (second === 'workspace') {
+      return third === 'members'
+        ? [
+            workspace,
+            settings,
+            { label: 'Workspace', href: '/settings/workspace' },
+            { label: 'Members' },
+          ]
+        : [workspace, settings, { label: 'Workspace' }];
+    }
+    const label = settingsPages[second];
+    return label ? [workspace, settings, { label }] : [workspace, { label: settings.label }];
   }
 
   if (first === 'd' && second) {

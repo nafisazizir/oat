@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@oat/ui/components/select';
 import { Skeleton } from '@oat/ui/components/skeleton';
-import { Tabs, TabsList, TabsTrigger } from '@oat/ui/components/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@oat/ui/components/tabs';
 import { cn } from '@oat/ui/lib/utils';
 import {
   AlertCircleIcon,
@@ -174,25 +174,25 @@ export function TasksView({ workspaceId }: { workspaceId: string }) {
   const items = state.data?.items ?? [];
   const groups = groupByDocument(items);
 
+  // The view switcher is a real tab list: the task list below is its panel.
   return (
-    <div className="flex flex-col gap-6">
+    <Tabs
+      value={view}
+      onValueChange={(value) => {
+        const next = value as TaskView;
+        setView(next);
+        syncUrl({ view: next });
+      }}
+      className="gap-6"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Tabs
-          value={view}
-          onValueChange={(value) => {
-            const next = value as TaskView;
-            setView(next);
-            syncUrl({ view: next });
-          }}
-        >
-          <TabsList aria-label="Whose tasks">
-            {TASK_VIEWS.map((v) => (
-              <TabsTrigger key={v} value={v} data-testid={`tasks-view-${v}`}>
-                {TASK_VIEW_LABELS[v]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        <TabsList aria-label="Whose tasks">
+          {TASK_VIEWS.map((v) => (
+            <TabsTrigger key={v} value={v} data-testid={`tasks-view-${v}`}>
+              {TASK_VIEW_LABELS[v]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
         <div className="flex items-center gap-2">
           <Select
             value={status}
@@ -243,93 +243,95 @@ export function TasksView({ workspaceId }: { workspaceId: string }) {
         </div>
       </div>
 
-      {state.status === 'error' && !state.data ? (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm"
-        >
-          <AlertCircleIcon className="size-4 text-destructive" />
-          <span className="flex-1">{state.message}</span>
-          <Button size="sm" variant="outline" onClick={() => setAttempt((n) => n + 1)}>
-            Try again
-          </Button>
-        </div>
-      ) : state.status === 'loading' && !state.data ? (
-        <TasksSkeleton />
-      ) : groups.length === 0 ? (
-        <EmptyState
-          icon={status === 'done' ? CircleCheckBigIcon : ListTodoIcon}
-          title={
-            status === 'done'
-              ? 'Nothing done yet'
-              : due !== 'any'
-                ? `Nothing ${due === 'overdue' ? 'overdue' : 'due this week'}`
-                : EMPTY[view].title
-          }
-          description={
-            due !== 'any' || status === 'done'
-              ? 'Try another filter to see more.'
-              : EMPTY[view].description
-          }
-        />
-      ) : (
-        <div
-          className={cn(
-            'flex flex-col gap-8 transition-opacity duration-fast',
-            state.status === 'loading' && 'opacity-60',
-          )}
-          aria-busy={state.status === 'loading'}
-          data-testid="tasks-list"
-        >
-          {groups.map((group) => (
-            <section
-              key={group.document.id}
-              className="flex flex-col gap-2"
-              data-testid="task-group"
-            >
-              <header className="flex items-baseline gap-2 px-1">
-                {group.document.kind === 'meeting' ? (
-                  <NotebookPenIcon className="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-                ) : (
-                  <FileTextIcon className="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
-                )}
-                <Link
-                  href={`/d/${group.document.id}`}
-                  className="min-w-0 truncate font-medium hover:underline hover:underline-offset-4"
-                >
-                  {group.document.title || 'Untitled'}
-                </Link>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {formatDay(group.document.date)}
-                </span>
-              </header>
-              <ul className="divide-y rounded-xl border bg-card">
-                {group.items.map((item) => (
-                  <TaskRow
-                    key={item.id}
-                    item={item}
-                    done={current.done.get(item.id) ?? item.done}
-                    busy={pending.has(item.id)}
-                    today={today}
-                    onToggle={(done) => void toggle(item, done)}
-                  />
-                ))}
-              </ul>
-            </section>
-          ))}
-          {state.data?.truncated && (
-            <p
-              className="text-sm text-muted-foreground"
-              role="status"
-              data-testid="tasks-truncated"
-            >
-              Showing the first {TASK_LIST_LIMIT} tasks, newest meetings first. Narrow the filters
-              to see the rest.
-            </p>
-          )}
-        </div>
-      )}
-    </div>
+      <TabsContent value={view} className="flex flex-col gap-6">
+        {state.status === 'error' && !state.data ? (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm"
+          >
+            <AlertCircleIcon className="size-4 text-destructive" />
+            <span className="flex-1">{state.message}</span>
+            <Button size="sm" variant="outline" onClick={() => setAttempt((n) => n + 1)}>
+              Try again
+            </Button>
+          </div>
+        ) : state.status === 'loading' && !state.data ? (
+          <TasksSkeleton />
+        ) : groups.length === 0 ? (
+          <EmptyState
+            icon={status === 'done' ? CircleCheckBigIcon : ListTodoIcon}
+            title={
+              status === 'done'
+                ? 'Nothing done yet'
+                : due !== 'any'
+                  ? `Nothing ${due === 'overdue' ? 'overdue' : 'due this week'}`
+                  : EMPTY[view].title
+            }
+            description={
+              due !== 'any' || status === 'done'
+                ? 'Try another filter to see more.'
+                : EMPTY[view].description
+            }
+          />
+        ) : (
+          <div
+            className={cn(
+              'flex flex-col gap-8 transition-opacity duration-fast',
+              state.status === 'loading' && 'opacity-60',
+            )}
+            aria-busy={state.status === 'loading'}
+            data-testid="tasks-list"
+          >
+            {groups.map((group) => (
+              <section
+                key={group.document.id}
+                className="flex flex-col gap-2"
+                data-testid="task-group"
+              >
+                <header className="flex items-baseline gap-2 px-1">
+                  {group.document.kind === 'meeting' ? (
+                    <NotebookPenIcon className="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
+                  ) : (
+                    <FileTextIcon className="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
+                  )}
+                  <Link
+                    href={`/d/${group.document.id}`}
+                    className="min-w-0 truncate font-medium hover:underline hover:underline-offset-4"
+                  >
+                    {group.document.title || 'Untitled'}
+                  </Link>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formatDay(group.document.date)}
+                  </span>
+                </header>
+                <ul className="divide-y rounded-xl border bg-card">
+                  {group.items.map((item) => (
+                    <TaskRow
+                      key={item.id}
+                      item={item}
+                      done={current.done.get(item.id) ?? item.done}
+                      busy={pending.has(item.id)}
+                      today={today}
+                      onToggle={(done) => void toggle(item, done)}
+                    />
+                  ))}
+                </ul>
+              </section>
+            ))}
+            {state.data?.truncated && (
+              <p
+                className="text-sm text-muted-foreground"
+                role="status"
+                data-testid="tasks-truncated"
+              >
+                Showing the first {TASK_LIST_LIMIT} tasks, newest meetings first. Narrow the filters
+                to see the rest.
+              </p>
+            )}
+          </div>
+        )}
+      </TabsContent>
+    </Tabs>
   );
 }
 
@@ -412,7 +414,7 @@ function TaskRow({
 
 function TasksSkeleton() {
   return (
-    <div className="flex flex-col gap-3" aria-busy="true" aria-label="Loading tasks">
+    <div className="flex flex-col gap-3" role="status" aria-busy="true" aria-label="Loading tasks">
       <Skeleton className="h-5 w-48" />
       {[0, 1, 2].map((row) => (
         <Skeleton key={row} className="h-12 w-full rounded-lg" />

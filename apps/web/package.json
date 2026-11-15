@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:int": "vitest run --mode int --passWithNoTests",
     "e2e": "playwright test",
-    "e2e:screenshots": "E2E_SCREENSHOTS=1 playwright test screenshots"
+    "e2e:screenshots": "E2E_SCREENSHOTS=1 playwright test screenshots",
+    "e2e:prod": "OAT_E2E_PROD=1 OAT_NEXT_DIST_DIR=.next-e2e-prod playwright test share-csp"
   },
   "dependencies": {
     "@ai-sdk/react": "catalog:",
@@ -43,6 +44,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@axe-core/playwright": "catalog:",
     "@next/eslint-plugin-next": "catalog:",
     "@oat/agents": "workspace:*",
     "@oat/local-store": "workspace:*",

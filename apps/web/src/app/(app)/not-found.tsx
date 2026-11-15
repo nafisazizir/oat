@@ -10,6 +10,7 @@ export default function AppNotFound() {
       <EmptyState
         icon={FileQuestionIcon}
         title="Page not found"
+        titleAs="h1"
         description="It may have been moved or deleted, or you might not have access to it."
       >
         <Button asChild>
