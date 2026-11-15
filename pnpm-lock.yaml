@@ -396,6 +396,9 @@ importers:
       '@oat/editor':
         specifier: workspace:*
         version: link:../../packages/editor
+      '@oat/indexing':
+        specifier: workspace:*
+        version: link:../../packages/indexing
       '@oat/integrations-notion':
         specifier: workspace:*
         version: link:../../packages/integrations-notion
@@ -405,6 +408,9 @@ importers:
       '@oat/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      ai:
+        specifier: 'catalog:'
+        version: 7.0.173(zod@4.6.7)
       cmdk:
         specifier: 'catalog:'
         version: 1.1.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -490,12 +496,18 @@ importers:
       '@oat/core':
         specifier: workspace:*
         version: link:../core
+      '@oat/db':
+        specifier: workspace:*
+        version: link:../db
       '@oat/editor':
         specifier: workspace:*
         version: link:../editor
       ai:
         specifier: 'catalog:'
         version: 7.0.173(zod@4.6.7)
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.4(@types/pg@8.23.1)(kysely@0.29.9)(pg@8.23.1)(postgres@3.4.9)
       zod:
         specifier: 'catalog:'
         version: 4.6.7

@@ -94,6 +94,8 @@ export type ApiErrorCode =
   | 'private_folder'
   /** Templates: built-ins are read-only (duplicate them instead). */
   | 'builtin_read_only'
+  /** Chat (6.2): the edit proposal was already decided, or no longer applies. */
+  | 'proposal_closed'
   /** Enhance: no notes and no transcript yet. */
   | 'nothing_to_enhance'
   /** Enhance: the idempotency key belongs to another note's run. */

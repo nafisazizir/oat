@@ -31,7 +31,7 @@ export const api = createApi(apiDeps);
 const holder = globalThis as typeof globalThis & { __oatApiRateLimiter?: RateLimiter };
 
 /** Redis-backed (shared across instances) per-user limits for API routes. */
-function rateLimiter(): RateLimiter {
+export function apiRateLimiter(): RateLimiter {
   holder.__oatApiRateLimiter ??= createRateLimiter(serverEnv().REDIS_URL);
   return holder.__oatApiRateLimiter;
 }
@@ -44,7 +44,7 @@ export function notionDeps(): NotionDeps {
     config: notionConfig(serverEnv()),
     appUrl: config.baseURL,
     stateSecret: config.secret,
-    rateLimiter: rateLimiter(),
+    rateLimiter: apiRateLimiter(),
   };
 }
 

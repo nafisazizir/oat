@@ -248,7 +248,7 @@ describe('eval harness (quality tier)', () => {
     const good = fakeModels({ covered: everything });
     expect(
       (
-        await cli(['--update-baseline', '--model', 'real'], {
+        await cli(['--update-baseline', '--suite', 'enhance', '--model', 'real'], {
           baselinePath: path,
           env: KEY,
           getModel: good.getModel,
@@ -260,7 +260,7 @@ describe('eval harness (quality tier)', () => {
     expect(written.overall.judge).toBe(1);
 
     // Same models, same verdicts → compared, no regressions.
-    const same = await cli(['--model', 'real'], {
+    const same = await cli(['--suite', 'enhance', '--model', 'real'], {
       baselinePath: path,
       env: KEY,
       getModel: fakeModels({ covered: everything }).getModel,
@@ -269,7 +269,7 @@ describe('eval harness (quality tier)', () => {
     expect(same.code).toBe(0);
 
     // The judge now finds nothing covered → tier means drop → regression.
-    const worse = await cli(['--model', 'real'], {
+    const worse = await cli(['--suite', 'enhance', '--model', 'real'], {
       baselinePath: path,
       env: KEY,
       getModel: fakeModels().getModel,
@@ -278,7 +278,7 @@ describe('eval harness (quality tier)', () => {
     expect(worse.out).toMatch(/▼ enhance\/all tier:judge: 1\.00 → 0\.50/);
 
     // A different judge model is not compared against that baseline.
-    const other = await cli(['--model', 'real'], {
+    const other = await cli(['--suite', 'enhance', '--model', 'real'], {
       baselinePath: path,
       env: KEY,
       getModel: fakeModels({ judgeId: 'other-judge' }).getModel,
@@ -287,7 +287,7 @@ describe('eval harness (quality tier)', () => {
     expect(other.out).toContain(
       'real baseline is for fake-enhance judged by fake-judge; this run is fake-enhance judged by other-judge',
     );
-  });
+  }, 30_000); // four full real-mode runs of the enhance suite: slow on a loaded machine
 
   it('averages --runs and requires every run to pass', async () => {
     // Coverage judge alternates between "all covered" and "none covered" on each call.
@@ -297,7 +297,7 @@ describe('eval harness (quality tier)', () => {
     });
     const dir = mkdtempSync(join(tmpdir(), 'oat-eval-'));
     const { code, out } = await cli(
-      ['--model', 'real', '--runs', '2', '--json', join(dir, 'r.json')],
+      ['--suite', 'enhance', '--model', 'real', '--runs', '2', '--json', join(dir, 'r.json')],
       {
         env: KEY,
         getModel,

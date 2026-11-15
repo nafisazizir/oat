@@ -157,7 +157,7 @@ Deterministic: the same request always gets the same content.
 
 | Route                          | Behaviour                                                                  |
 | ------------------------------ | -------------------------------------------------------------------------- |
-| `POST /llm/v1/chat/completions` | Text: up to three sentences quoted from the last user message. `response_format: json_schema`: schema-valid JSON whose strings are sentences from the user messages (title-ish keys get a short phrase). `json_object`: `{ "text": … }`. `stream: true`: SSE word deltas + `[DONE]`, usage chunk with `stream_options.include_usage`. Tools are ignored (never called). |
+| `POST /llm/v1/chat/completions` | Text: up to three sentences quoted from the last user message. `response_format: json_schema`: schema-valid JSON whose strings are sentences from the user messages (title-ish keys get a short phrase). `json_object`: `{ "text": … }`. `stream: true`: SSE word deltas + `[DONE]`, usage chunk with `stream_options.include_usage`. With `tools` (6.2, `src/providers/llm/tools.ts`): a scripted loop — first a tool call (the first tool with a string `query` parameter, called with the user's message; or exactly `mock:tool <name> <json args>` typed as the message), then, once tool results are in, an answer quoting the first sentence of up to three `{ cite, text }` items in them, each followed by its `cite` marker. |
 | `POST /llm/v1/embeddings`      | Feature-hashed unit vectors (words + trigrams): deterministic, similar text → higher cosine. `dimensions` honoured (default 1536), `encoding_format` float/base64. |
 | `GET /llm/v1/models`           | The registry's default model ids (any id is accepted).                     |
 
@@ -165,7 +165,8 @@ Scenario headers for resilience tests (pass them per call, e.g. `generateText({ 
 `x-mock-scenario: error` (status from `x-mock-status`, default 500; 429 → `rate_limit_error`),
 `x-mock-scenario: slow` (waits `x-mock-delay-ms`, default 1000), `x-mock-scenario: empty` (empty content /
 no embeddings), and `x-mock-chunk-delay-ms` (pause between SSE chunks). Unit tests that don't need HTTP use
-`createMockModel` / `createMockEmbeddingModel` from `@oat/ai/testing` instead.
+`createMockModel` / `createMockEmbeddingModel` from `@oat/ai/testing` instead; `createMockChatModel` from
+`@oat/ai/chat/testing` runs this provider's code in-process (tool loop included) without a port.
 
 Adding a provider: copy `src/providers/example.ts`, keep state inside the factory, implement `reset()`, add
 it to `defaultProviders`, unit-test HTTP routes with `app.request()` and websockets with `startMocks()`. Run

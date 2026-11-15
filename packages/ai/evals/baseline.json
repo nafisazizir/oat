@@ -94,6 +94,31 @@
         "no-hallucination:wrong-language": 1,
         "no-hallucination:hire-verdict": 1
       }
+    },
+    "chat": {
+      "starter-price": {
+        "answered": 1,
+        "cited": 1,
+        "citations-valid": 1,
+        "cites-source": 1,
+        "mention:nine-euros": 1,
+        "no-leak:theo-thirty": 1
+      },
+      "mobile-beta": {
+        "answered": 1,
+        "cited": 1,
+        "citations-valid": 1,
+        "cites-source": 1,
+        "mention:third-of-march": 1
+      },
+      "one-on-one-help": {
+        "answered": 1,
+        "cited": 1,
+        "citations-valid": 1,
+        "cites-source": 1,
+        "mention:on-call-handbook": 1,
+        "no-leak:other-meetings": 1
+      }
     }
   }
 }

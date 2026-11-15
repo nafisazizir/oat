@@ -4,6 +4,7 @@ import type { MockProvider } from '../../provider.ts';
 import { DEFAULT_EMBEDDING_DIMENSIONS, hashEmbedding } from './embedding.ts';
 import { generateFromSchema, type JsonSchema, UnsupportedSchemaError } from './json-schema.ts';
 import { approxTokens, type ChatMessage, streamPieces, TextPool, textReply } from './text.ts';
+import { planToolTurn } from './tools.ts';
 
 /**
  * OpenAI-compatible stand-in for the AI Gateway (D-11, D-13), mounted at `/llm`; clients use base URL
@@ -12,7 +13,9 @@ import { approxTokens, type ChatMessage, streamPieces, TextPool, textReply } fro
  * - `POST /v1/chat/completions`: text replies quote the last user message; `response_format: json_schema`
  *   returns schema-valid JSON whose strings come from the prompt; `json_object` returns `{ "text": … }`.
  *   `stream: true` sends SSE chunks (word-sized deltas, `[DONE]`; a usage chunk with
- *   `stream_options.include_usage`). Tools are accepted but never called.
+ *   `stream_options.include_usage`). With `tools`, a scripted tool loop (`tools.ts`): first a tool call (the
+ *   first tool taking a string `query`, or `mock:tool <name> <json>`), then an answer that quotes and cites the
+ *   tool results.
  * - `POST /v1/embeddings`: feature-hashed unit vectors (see `embedding.ts`); `dimensions` honoured, default 1536.
  * - `GET /v1/models`: the model ids the app's registry uses (any model id is accepted).
  *
@@ -120,6 +123,7 @@ export function llmProvider(): MockProvider {
       messages?: unknown;
       response_format?: { type?: string; json_schema?: { schema?: JsonSchema } };
     };
+    const toolsOffered = body.tools;
     if (!Array.isArray(messages) || messages.length === 0) {
       return apiError(c, 400, '`messages` must be a non-empty array');
     }
@@ -133,7 +137,16 @@ export function llmProvider(): MockProvider {
     if (outcome instanceof Response) return outcome;
 
     let content = '';
-    if (outcome !== 'empty') {
+    let toolCall: { id: string; name: string; arguments: string } | undefined;
+    const plan =
+      outcome === 'empty' || format?.type === 'json_schema' || format?.type === 'json_object'
+        ? undefined
+        : planToolTurn(msgs, toolsOffered, body.tool_choice);
+    if (plan?.kind === 'call') {
+      toolCall = { id: `call_mock_${nextId}`, name: plan.name, arguments: plan.arguments };
+    } else if (plan?.kind === 'answer') {
+      content = plan.content;
+    } else if (outcome !== 'empty') {
       if (format?.type === 'json_schema') {
         const schema = format.json_schema?.schema;
         if (schema === undefined)
@@ -155,7 +168,17 @@ export function llmProvider(): MockProvider {
     const id = `chatcmpl-mock-${nextId++}`;
     const created = Math.floor(Date.now() / 1000);
     const promptTokens = approxTokens(msgs.map((m) => JSON.stringify(m.content ?? '')).join(''));
-    const completionTokens = approxTokens(content);
+    const completionTokens = approxTokens(content + (toolCall?.arguments ?? ''));
+    const finishReason = toolCall ? 'tool_calls' : 'stop';
+    const toolCalls = toolCall
+      ? [
+          {
+            id: toolCall.id,
+            type: 'function',
+            function: { name: toolCall.name, arguments: toolCall.arguments },
+          },
+        ]
+      : undefined;
     const usage = {
       prompt_tokens: promptTokens,
       completion_tokens: completionTokens,
@@ -168,7 +191,15 @@ export function llmProvider(): MockProvider {
         object: 'chat.completion',
         created,
         model,
-        choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }],
+        choices: [
+          {
+            index: 0,
+            message: toolCalls
+              ? { role: 'assistant', content: null, tool_calls: toolCalls }
+              : { role: 'assistant', content },
+            finish_reason: finishReason,
+          },
+        ],
         usage,
       });
     }
@@ -192,13 +223,17 @@ export function llmProvider(): MockProvider {
             encoder.encode(`data: ${typeof data === 'string' ? data : JSON.stringify(data)}\n\n`),
           );
         send(chunk({ role: 'assistant', content: '' }));
+        if (toolCalls) {
+          await sleep(chunkDelay, signal);
+          send(chunk({ tool_calls: toolCalls.map((call, index) => ({ index, ...call })) }));
+        }
         for (const piece of streamPieces(content)) {
           await sleep(chunkDelay, signal);
           if (signal.aborted) break;
           send(chunk({ content: piece }));
         }
         if (!signal.aborted) {
-          send(chunk({}, 'stop'));
+          send(chunk({}, finishReason));
           if (includeUsage)
             send({ id, object: 'chat.completion.chunk', created, model, choices: [], usage });
           send('[DONE]');
