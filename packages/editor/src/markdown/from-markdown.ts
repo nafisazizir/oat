@@ -9,11 +9,13 @@ import markPlugin from 'markdown-it-mark';
 import { generateBlockId, isBlockType, type Origin } from '../blocks.ts';
 import { DEFAULT_CALLOUT, normalizeCalloutEmoji } from '../callout.ts';
 import { ensureBlockIds, getEditorSchema } from '../schema.ts';
+import type { TaskMeta } from '../task-meta.ts';
 import {
   admonitionToVariant,
   isSafeHref,
   MENTION_SCHEME,
   parseMarker,
+  parseTaskMetaSuffix,
   toSingleLine,
   type BlockMarker,
 } from './shared.ts';
@@ -91,6 +93,12 @@ function detectTasksAndCallouts(state: StateCore): void {
       if (!match) continue;
       token.meta = { ...token.meta, checked: match[1] !== ' ' };
       inline.content = inline.content.slice(match[0].length);
+      // 8.4: `(@Owner, due 2026-11-20)` at the end of the first line → owner/due attributes.
+      const suffix = parseTaskMetaSuffix(inline.content);
+      if (suffix) {
+        inline.content = suffix.rest;
+        token.meta = { ...token.meta, ...suffix.meta };
+      }
       continue;
     }
 
@@ -246,13 +254,18 @@ class Walker {
         };
       }
       case 'list_item_open': {
-        const checked = (token.meta as { checked?: boolean } | null)?.checked;
+        const meta = token.meta as (Partial<TaskMeta> & { checked?: boolean }) | null;
+        const checked = meta?.checked;
         const content = this.blocks('list_item_close');
         // List items must start with a paragraph.
         if (content[0]?.type !== 'paragraph') content.unshift({ type: 'paragraph' });
         return checked === undefined
           ? { type: 'listItem', content }
-          : { type: 'taskItem', attrs: { checked }, content };
+          : {
+              type: 'taskItem',
+              attrs: { checked, owner: meta?.owner ?? null, due: meta?.due ?? null },
+              content,
+            };
       }
       case 'table_open':
         return this.table();

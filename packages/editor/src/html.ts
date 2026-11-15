@@ -11,7 +11,8 @@
  *    Oat schema produces survive; links are http(s)/mailto/tel only and always open with
  *    `rel="noopener noreferrer nofollow"`; task checkboxes are `disabled`. Identifiers that could leak
  *    data to a public reader are dropped: block ids and mention ids (user ids / attendee emails) — a
- *    mention keeps only its visible `@Name` text.
+ *    mention keeps only its visible `@Name` text; a task's owner (8.4) only its `@Name, due …` text (the
+ *    `data-owner` JSON with email/user id is not allowed).
  *
  * Wrap the output in an element with class `oat-editor` to get the editor's prose styles
  * (`@oat/editor/styles.css`).
@@ -60,7 +61,7 @@ export const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     li: ['data-type', 'data-checked'],
     input: ['type', 'checked', 'disabled'],
     div: ['data-type', 'data-variant', 'data-emoji', 'data-callout-content'],
-    span: ['class', 'data-type', 'data-callout-emoji', 'aria-hidden'],
+    span: ['class', 'data-type', 'data-callout-emoji', 'data-task-meta', 'aria-hidden'],
     code: ['class'],
   },
   allowedClasses: {

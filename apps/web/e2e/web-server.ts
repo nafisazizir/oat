@@ -10,11 +10,18 @@
  * anchor keeps the fixture week upcoming whenever the tests run. The same server runs the Notion provider
  * (8.1) for `NOTION_BASE_URL`, and the LLM provider for the AI calls (`AI_BASE_URL`), slowed down
  * (`AI_MOCK_CHUNK_DELAY_MS`) so streaming UIs can be watched mid-stream (4.4).
+ *
+ * And the index worker (6.1/8.4), in-process against the same database, with its own Redis queue prefix and a
+ * short debounce: it follows `change_log` like in production, so action items ("My tasks") and retrieval chunks
+ * appear a moment after a write. Embeddings come from the in-process mock LLM.
  */
+import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 
-import { migrate } from '@oat/db';
+import { createAi } from '@oat/ai/provider';
+import { createDb, migrate } from '@oat/db';
+import { connectRedis, createIndexQueue, createIndexWorker, indexingConfig } from '@oat/indexing';
 import { gcalProvider, llmProvider, notionProvider, startMocks } from '@oat/mocks';
 import { createTestDatabase } from '@oat/testkit';
 
@@ -36,6 +43,20 @@ const mocks = await startMocks({
     () => llmProvider(),
   ],
 });
+const workerDb = createDb(db.url, { max: 4 });
+const redis = await connectRedis(indexingConfig().redisUrl);
+const queue = createIndexQueue(redis, { prefix: `oat-e2e:idx:${randomUUID()}`, debounceMs: 200 });
+const worker = createIndexWorker({
+  db: workerDb,
+  queue,
+  embeddingModel: createAi({ env: { AI_BASE_URL: `${mocks.url}/llm/v1` } }).getEmbeddingModel(),
+  pollMs: 200,
+  logger: {
+    info() {},
+    error: (message, data) => console.error(`[e2e indexer] ${message}`, data ?? ''),
+  },
+});
+worker.start();
 // Specs that need rows the API can't create yet (e.g. transcript segments) write them here directly.
 mkdirSync(new URL('./.auth/', import.meta.url), { recursive: true });
 writeFileSync(databaseUrlFile(port), db.url);
@@ -65,6 +86,10 @@ async function shutdown(code: number) {
     child.kill('SIGTERM');
     await new Promise((resolve) => child.once('exit', resolve));
   }
+  await worker.stop().catch(() => undefined);
+  await queue.clear().catch(() => undefined);
+  redis.destroy();
+  await workerDb.$client.end({ timeout: 5 }).catch(() => undefined);
   await mocks.close().catch(() => undefined);
   try {
     await db.drop();

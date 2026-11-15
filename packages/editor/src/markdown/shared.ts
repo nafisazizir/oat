@@ -2,6 +2,7 @@ import { isAllowedUri } from '@tiptap/extension-link';
 
 import { isOrigin, type Origin } from '../blocks.ts';
 import { CALLOUT_VARIANTS, type CalloutVariant } from '../callout.ts';
+import { cleanOwnerName, isIsoDate, type TaskMeta } from '../task-meta.ts';
 
 /**
  * Block annotations carried through Markdown as HTML comments: `<!-- ai id=3f2a… -->`.
@@ -102,4 +103,40 @@ export function admonitionToVariant(type: string): CalloutVariant {
   return (CALLOUT_VARIANTS as readonly string[]).includes(key)
     ? (key as CalloutVariant)
     : (ADMONITION_ALIASES[key] ?? 'neutral');
+}
+
+/**
+ * A task's owner/due suffix at the end of its first line (8.4): `(@Dana Lee, due 2026-11-20)`, `(@Dana Lee)` or
+ * `(due 2026-11-20)`, after whitespace or alone on the line, optionally followed by a block marker comment.
+ * An escaped `\(` never starts one, so `toMarkdown` escapes look-alike text at the end of a task.
+ */
+const TASK_META_SUFFIX = new RegExp(
+  String.raw`(?<=^|[ \t])\((?:@((?:\\.|[^\\(),\n])+?)(?:,[ \t]*due[ \t]+(\d{4}-\d{2}-\d{2}))?|due[ \t]+(\d{4}-\d{2}-\d{2}))\)(?=[ \t]*(?:<!--[^\n]*?-->[ \t]*)?$)`,
+);
+
+/** Markdown backslash escapes (any ASCII punctuation) → the character. */
+const unescapeMarkdown = (text: string) => text.replace(/\\([!-/:-@[-`{-~])/g, '$1');
+
+/**
+ * Finds a task meta suffix in a task item's first-paragraph source. Returns the source without it and the meta,
+ * or `undefined` when there is none (or its date isn't a real day).
+ */
+export function parseTaskMetaSuffix(source: string): { rest: string; meta: TaskMeta } | undefined {
+  const match = TASK_META_SUFFIX.exec(source);
+  if (!match) return undefined;
+  const [, rawName, ownerDue, onlyDue] = match;
+  const due = ownerDue ?? onlyDue ?? null;
+  if (due !== null && !isIsoDate(due)) return undefined;
+  const name = rawName !== undefined ? cleanOwnerName(unescapeMarkdown(rawName)) : '';
+  if (rawName !== undefined && !name) return undefined;
+  // Drop the blanks before the suffix too (scanned by hand: a `[ \t]+` regex here is quadratic).
+  let start = match.index;
+  while (start > 0 && (source[start - 1] === ' ' || source[start - 1] === '\t')) start--;
+  const rest = source.slice(0, start) + source.slice(match.index + match[0].length);
+  return { rest, meta: { owner: name ? { name } : null, due } };
+}
+
+/** Where a task meta suffix at the end of `text` (rendered Markdown) starts (its `(`), or -1. */
+export function taskMetaSuffixIndex(text: string): number {
+  return TASK_META_SUFFIX.exec(text)?.index ?? -1;
 }

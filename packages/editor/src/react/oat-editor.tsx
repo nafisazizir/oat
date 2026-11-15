@@ -13,6 +13,7 @@ import type { SlashItem } from '../slash-items.ts';
 import { BubbleToolbar } from './bubble-toolbar.tsx';
 import { MentionMenu, SlashMenu } from './menus.tsx';
 import { createSuggestionPopup } from './suggestion-popup.tsx';
+import { ReactTaskItem, setTaskAssigneeSource, type TaskAssigneeQuery } from './task-item-view.tsx';
 
 export interface OatEditorProps {
   /**
@@ -32,6 +33,11 @@ export interface OatEditorProps {
   placeholder?: string | false;
   /** People for `@` mentions. Called on every query change; may be async. */
   onMentionQuery?: (query: string) => MentionItem[] | Promise<MentionItem[]>;
+  /**
+   * People a task can be assigned to (8.4 owner picker): workspace members, meeting attendees. Called on every
+   * query change; may be async. Without it the picker still assigns typed names.
+   */
+  onTaskAssigneeQuery?: TaskAssigneeQuery;
   /** Block list for the `/` menu (default: all blocks). */
   slashItems?: readonly SlashItem[];
   autoFocus?: boolean;
@@ -52,6 +58,7 @@ function buildExtensions(
 ) {
   return createExtensions({
     placeholder,
+    taskItem: ReactTaskItem,
     mentionSuggestion: {
       char: '@',
       items: async ({ query, editor }) => (await mentionSources.get(editor)?.(query)) ?? [],
@@ -83,6 +90,7 @@ export function OatEditor({
   editable = true,
   placeholder,
   onMentionQuery,
+  onTaskAssigneeQuery,
   slashItems,
   autoFocus = false,
   onReady,
@@ -144,6 +152,10 @@ export function OatEditor({
     if (onMentionQuery) mentionSources.set(editor, onMentionQuery);
     else mentionSources.delete(editor);
   }, [editor, onMentionQuery]);
+
+  useEffect(() => {
+    if (editor) setTaskAssigneeSource(editor, onTaskAssigneeQuery);
+  }, [editor, onTaskAssigneeQuery]);
 
   useEffect(() => {
     if (editor && editor.isEditable !== editable) editor.setEditable(editable, false);

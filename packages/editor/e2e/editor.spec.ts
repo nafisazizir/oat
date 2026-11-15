@@ -39,7 +39,9 @@ test('Markdown shortcuts create every block and mark', async ({ page }) => {
   await expect(editor.locator('h3')).toHaveText('Heading three');
   await expect(editor.locator('ul:not([data-type]) > li')).toHaveText('bullet');
   await expect(editor.locator('ol > li')).toHaveText('numbered');
-  await expect(editor.locator('ul[data-type="taskList"] > li > div')).toHaveText('task');
+  await expect(editor.locator('ul[data-type="taskList"] > li .oat-task-content')).toHaveText(
+    'task',
+  );
   await expect(editor.locator('ul[data-type="taskList"] input[type="checkbox"]')).toHaveCount(1);
   await expect(editor.locator('blockquote')).toHaveText('quote');
   await expect(editor.locator('pre code')).toHaveText('const a = 1;');

@@ -25,6 +25,7 @@ import {
   LayoutTemplateIcon,
   LogOutIcon,
   PlusIcon,
+  ListTodoIcon,
   SearchIcon,
   SettingsIcon,
   SparklesIcon,
@@ -212,6 +213,18 @@ export function AppSidebar() {
               <Link href={sections.home.href}>
                 <HomeIcon />
                 <span>{sections.home.label}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === sections.tasks.href}
+              tooltip={sections.tasks.label}
+            >
+              <Link href={sections.tasks.href} data-testid="nav-tasks">
+                <ListTodoIcon />
+                <span>{sections.tasks.label}</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

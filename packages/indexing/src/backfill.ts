@@ -5,6 +5,7 @@
  */
 import { type Db, document } from '@oat/db';
 import { and, asc, eq, gt } from 'drizzle-orm';
+import { syncActionItems } from './action-items.ts';
 import { type IndexerDeps, indexDocument, type IndexResult } from './indexer.ts';
 import type { IndexQueue } from './queue.ts';
 
@@ -77,6 +78,8 @@ export async function backfill(
       await Promise.all(
         ids.slice(i, i + concurrency).map(async (id) => {
           try {
+            // Action items first (8.4): cheap, and independent of the embedding provider.
+            await syncActionItems(deps.db, id);
             const r = await indexDocument(deps, id);
             totals.inserted += r.inserted;
             totals.updated += r.updated;

@@ -7,7 +7,7 @@
  *
  * Pure and synchronous; runs on partial (streaming) output too, for the live preview.
  */
-import type { JSONContent } from '@oat/editor';
+import { type JSONContent, taskMetaOf, type TaskOwner } from '@oat/editor';
 import { fromMarkdown } from '@oat/editor/markdown';
 
 import type { EnhanceBlock, EnhanceOutput, EnhanceSection, ListItemBlock } from './enhance.ts';
@@ -39,6 +39,9 @@ export interface NoteLine {
   content: JSONContent[];
   /** Task lines: whether the box was ticked. */
   checked?: boolean;
+  /** Task lines: the owner / due date the user set (8.4), kept on their task. */
+  owner?: TaskOwner | null;
+  due?: string | null;
   /** Code-block lines: the raw code, line breaks kept (re-inserted as a code block). */
   code?: string;
 }
@@ -48,14 +51,21 @@ export interface NoteLine {
  * whitespace collapsed. Two lines with the same key say the same thing.
  */
 export function normalizeLine(text: string): string {
-  return text
-    .normalize('NFKC')
-    .toLowerCase()
-    .replace(/[‘’]/g, "'")
-    .replace(/^\s*(?:#{1,6}\s+|[-*+•]\s+|\d+[.)]\s+)?(?:\[[ x]\]\s+)?/u, '')
-    .replace(/[^\p{L}\p{N}%$']+/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (
+    text
+      .normalize('NFKC')
+      .toLowerCase()
+      .replace(/[‘’]/g, "'")
+      .replace(/^\s*(?:#{1,6}\s+|[-*+•]\s+|\d+[.)]\s+)?(?:\[[ x]\]\s+)?/u, '')
+      // A task's owner/due suffix as the notes show it to the model (8.4): `(@Dana, due 2026-11-20)`.
+      .replace(
+        /\s*\((?:@[^()\n]{1,200}?(?:,\s*due \d{4}-\d{2}-\d{2})?|due \d{4}-\d{2}-\d{2})\)\s*$/u,
+        '',
+      )
+      .replace(/[^\p{L}\p{N}%$']+/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 }
 
 /** Bigram multiset of a key. */
@@ -160,7 +170,9 @@ export function noteLinesFromDoc(doc: JSONContent | null | undefined): NoteLine[
           text,
           key,
           content: structuredClone(part),
-          ...(kind === 'task' ? { checked: parent?.attrs?.checked === true } : {}),
+          ...(kind === 'task'
+            ? { checked: parent?.attrs?.checked === true, ...taskMetaOf(parent?.attrs) }
+            : {}),
         });
       }
       return;
@@ -198,7 +210,12 @@ export function myNotesOnly(doc: JSONContent | null | undefined): JSONContent | 
         line.kind === 'task'
           ? {
               type: 'taskItem',
-              attrs: { origin: 'me', checked: line.checked === true },
+              attrs: {
+                origin: 'me',
+                checked: line.checked === true,
+                owner: line.owner ?? null,
+                due: line.due ?? null,
+              },
               content: [paragraph],
             }
           : { type: 'listItem', attrs: { origin: 'me' }, content: [paragraph] };

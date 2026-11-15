@@ -45,6 +45,11 @@ export const EVIDENCE_4_4 = fileURLToPath(
   new URL('../../../docs/tasks/evidence/4.4/', import.meta.url),
 );
 
+/** Evidence screenshots for task 8.4 (written only with `E2E_SCREENSHOTS=1`). */
+export const EVIDENCE_8_4 = fileURLToPath(
+  new URL('../../../docs/tasks/evidence/8.4/', import.meta.url),
+);
+
 /** Evidence screenshots for task 6.4 (written only with `E2E_SCREENSHOTS=1`). */
 export const EVIDENCE_6_4 = fileURLToPath(
   new URL('../../../docs/tasks/evidence/6.4/', import.meta.url),

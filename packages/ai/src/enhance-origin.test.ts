@@ -71,6 +71,10 @@ describe('normalizeLine / lineSimilarity', () => {
     expect(normalizeLine('- [x] Ship   it — Friday!')).toBe('ship it friday');
     expect(normalizeLine('## Don’t panic')).toBe("don't panic");
     expect(normalizeLine('1) 20% off, $5')).toBe('20% off $5');
+    // 8.4: a task's owner/due suffix (as the notes Markdown shows it) doesn't change the key.
+    expect(normalizeLine('- [ ] Send the deck (@Dana Lee, due 2026-11-20)')).toBe('send the deck');
+    expect(normalizeLine('Send the deck (due 2026-11-20)')).toBe('send the deck');
+    expect(normalizeLine('Call (the) vendor')).toBe('call the vendor');
   });
 
   it('is 1 for equal keys, fuzzy above a length floor, 0 for short or unrelated keys', () => {

@@ -1,6 +1,6 @@
 import type { AnyExtension, Editor, Extensions } from '@tiptap/core';
 import { Highlight } from '@tiptap/extension-highlight';
-import { TaskItem, TaskList } from '@tiptap/extension-list';
+import { TaskList } from '@tiptap/extension-list';
 import { Mention, type MentionOptions } from '@tiptap/extension-mention';
 import { UniqueID } from '@tiptap/extension-unique-id';
 import { Placeholder } from '@tiptap/extensions';
@@ -10,6 +10,7 @@ import { StarterKit } from '@tiptap/starter-kit';
 import { BLOCK_TYPES, generateBlockId } from './blocks.ts';
 import { Callout } from './callout.ts';
 import { OriginAttribute } from './origin.ts';
+import { OatTaskItem } from './task-item.ts';
 
 export interface MentionItem {
   /** Stable id of the person (user id, attendee email…). Stored on the mention node. */
@@ -32,6 +33,11 @@ export interface CreateExtensionsOptions {
   extra?: Extensions;
   /** Block id generator. Default: `generateBlockId()` (UUID v4). */
   generateId?: () => string;
+  /**
+   * The task item node: `OatTaskItem` (default) or an extension of it that only changes rendering (the React
+   * editor's node view with owner/due chips). Must keep the same name, attributes and parse rules.
+   */
+  taskItem?: typeof OatTaskItem;
 }
 
 export const DEFAULT_PLACEHOLDER = "Write, or type '/' for commands…";
@@ -60,7 +66,13 @@ function isDocEmpty(editor: Editor): boolean {
  *                                                         // package adds @tiptap/html + happy-dom
  */
 export function createExtensions(options: CreateExtensionsOptions = {}): AnyExtension[] {
-  const { placeholder = DEFAULT_PLACEHOLDER, mentionSuggestion, extra = [], generateId } = options;
+  const {
+    placeholder = DEFAULT_PLACEHOLDER,
+    mentionSuggestion,
+    extra = [],
+    generateId,
+    taskItem = OatTaskItem,
+  } = options;
 
   const extensions: AnyExtension[] = [
     StarterKit.configure({
@@ -76,7 +88,7 @@ export function createExtensions(options: CreateExtensionsOptions = {}): AnyExte
       },
     }),
     TaskList,
-    TaskItem.configure({ nested: true }),
+    taskItem.configure({ nested: true }),
     Highlight,
     Callout,
     Mention.configure({

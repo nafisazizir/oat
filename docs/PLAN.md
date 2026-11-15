@@ -95,7 +95,7 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 - [x] 8.1 Notion integration: connect, choose target database, push/update note (Notion API subset in `tools/mocks` for dev) · deps: 3.2
 - [ ] 8.2 eve evaluation: read bundled docs, spike a post-meeting agent, decide in `DECISIONS.md` · deps: 6.2
 - [ ] 8.3 Post-meeting pipeline: enhance → action items → push to integrations (eve or AI SDK + Workflow) · deps: 8.1, 8.2
-- [ ] 8.4 Action items extraction + checklist block + "my tasks" view · deps: 4.4
+- [x] 8.4 Action items extraction + checklist block + "my tasks" view · deps: 4.4
 
 ## M9 — Ship v1
 Exit: SPEC §9 met.

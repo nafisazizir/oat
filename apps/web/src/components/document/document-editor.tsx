@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { useTreeActions } from '@/components/app-shell/tree-actions';
 import { useRegisterOpenDocument } from '@/components/assistant/open-document';
 import { NotionExportButton } from '@/components/notion/notion-export-button';
+import { useTaskAssignees } from '@/components/tasks/tasks-client';
 import { PageContainer } from '@/components/page';
 import { announceDocumentChange } from '@/lib/api-client';
 import type { DocumentDetail } from '@/lib/api-types';
@@ -175,6 +176,8 @@ export function DocumentEditor({
   });
 
   const streaming = enhancement.state.phase === 'streaming';
+  // 8.4: the task owner picker offers the workspace's members and the meeting's attendees.
+  const taskAssignees = useTaskAssignees(doc.id);
   const node = documentNode(doc);
 
   return (
@@ -287,6 +290,7 @@ export function DocumentEditor({
             editorRef.current = editor;
           }}
           onChange={(json) => autosave.queue({ contentJson: json })}
+          onTaskAssigneeQuery={taskAssignees}
           className="min-h-64"
         />
       </div>

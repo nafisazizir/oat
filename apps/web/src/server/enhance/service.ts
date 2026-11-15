@@ -13,6 +13,8 @@ import {
   prepareEnhance,
   runEnhance,
   segmentIdForRef,
+  type TaskPerson,
+  taskMappingFromContext,
 } from '@oat/ai';
 import { assertCan, canReadDocument } from '@oat/core';
 import {
@@ -42,6 +44,7 @@ import { ApiError, badRequest, forbidden, notFound } from '../api/errors';
 import { prepareContent } from '../documents';
 import { aiProfile } from '../profile';
 import type { Queryable } from '../folders';
+import { workspaceMembers } from '../tasks/service';
 import { ensureBuiltinTemplates } from '../templates/service';
 import { snapshotBeforeReplace } from './versions';
 import { type EnhanceBroker, isTerminal } from './broker';
@@ -222,7 +225,7 @@ async function gatherInput(
   // Built-ins, or a custom template of the note's own workspace; anything else looks unknown.
   if (!tpl || (!tpl.isBuiltin && tpl.workspaceId !== doc.workspaceId)) throw notFound('Template');
 
-  const [segments, people, profile] = await Promise.all([
+  const [segments, people, profile, members] = await Promise.all([
     m
       ? db
           .select()
@@ -239,6 +242,8 @@ async function gatherInput(
       : [],
     // The note-taker's name and "About me" (4.6): data in the prompt, like the notes.
     aiProfile(db, actor.userId),
+    // 8.4: task owners resolve to workspace members.
+    workspaceMembers(db, doc.workspaceId),
   ]);
 
   const enhanceInput: EnhanceInput = {
@@ -281,7 +286,7 @@ async function gatherInput(
     people: people.map((p) => [p.name, p.email]),
     profile: [profile.me.name, profile.aboutMe, profile.vocabulary],
   });
-  return { prepared, templateId: tpl.id, inputHash };
+  return { prepared, templateId: tpl.id, inputHash, members };
 }
 
 /**
@@ -315,7 +320,7 @@ export async function startEnhancement(
     .where(eq(enhancement.idempotencyKey, idempotencyKey));
   if (known) return repeat(known);
 
-  const { prepared, templateId, inputHash } = await gatherInput(
+  const { prepared, templateId, inputHash, members } = await gatherInput(
     db,
     actor,
     doc,
@@ -400,7 +405,9 @@ export async function startEnhancement(
     await markFailed(db, row.id, 'busy');
     throw new ApiError(409, 'enhance_busy', MESSAGES.busy);
   }
-  deps.runInBackground(() => runJob(db, deps, row, prepared, model, doc.version, actor.userId));
+  deps.runInBackground(() =>
+    runJob(db, deps, row, prepared, model, doc.version, actor.userId, members),
+  );
   return { enhancement: toEnhancementDto(row), attached: false };
 }
 
@@ -414,6 +421,8 @@ export async function runJob(
   baseVersion: number,
   /** Who started the run (recorded on a snapshot of the replaced body). */
   userId: string | null = null,
+  /** Workspace members, for task owners (8.4). */
+  members: readonly TaskPerson[] = [],
 ): Promise<void> {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), timeoutMs(deps));
@@ -433,6 +442,7 @@ export async function runJob(
     const { doc, citations } = enhancementToDoc(result.output, {
       sourceLine: result.sourceLine,
       resolveRef: (ref) => segmentIdForRef(prepared.context, ref),
+      tasks: taskMappingFromContext(prepared.context, members),
     });
     // The same gate as every write. Block ids are already unique, so `ensureBlockIds` keeps them and the
     // citation keys stay valid.

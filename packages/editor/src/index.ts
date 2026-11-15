@@ -44,5 +44,18 @@ export {
   validateDoc,
   type ValidationResult,
 } from './schema.ts';
+export { OatTaskItem } from './task-item.ts';
+export {
+  cleanOwnerName,
+  formatTaskMeta,
+  isIsoDate,
+  isTaskOwner,
+  MAX_OWNER_NAME_LENGTH,
+  normalizeTaskOwner,
+  taskMetaOf,
+  taskOwnerError,
+  type TaskMeta,
+  type TaskOwner,
+} from './task-meta.ts';
 export { SlashCommand, slashCommandPluginKey, type SlashCommandOptions } from './slash-command.ts';
 export { filterSlashItems, SLASH_ITEMS, type SlashIcon, type SlashItem } from './slash-items.ts';

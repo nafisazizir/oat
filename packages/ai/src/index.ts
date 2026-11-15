@@ -71,6 +71,15 @@ export {
 } from './enhance-origin.ts';
 export { type EnhancedDoc, enhancementToDoc } from './enhance-doc.ts';
 export {
+  meetingDay,
+  mergeTaskPeople,
+  resolveDueDate,
+  resolveTaskOwner,
+  type TaskMapping,
+  taskMappingFromContext,
+  type TaskPerson,
+} from './enhance-tasks.ts';
+export {
   BUILTIN_TEMPLATE_SLUGS,
   BUILTIN_TEMPLATES,
   type BuiltinTemplate,

@@ -43,6 +43,7 @@ describe('schema', () => {
     expect(tables.map((t) => getTableName(t)).sort()).toEqual(
       [
         'account',
+        'action_item',
         'change_log',
         'chat_message',
         'chat_thread',

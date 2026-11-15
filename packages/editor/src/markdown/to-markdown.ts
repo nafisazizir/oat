@@ -2,12 +2,14 @@ import type { JSONContent } from '@tiptap/core';
 
 import { isOrigin } from '../blocks.ts';
 import { DEFAULT_CALLOUT, isCalloutVariant, normalizeCalloutEmoji } from '../callout.ts';
+import { formatTaskMeta, taskMetaOf } from '../task-meta.ts';
 import {
   encodeMentionId,
   formatMarker,
   isMarkerSafeId,
   isSafeHref,
   MENTION_SCHEME,
+  taskMetaSuffixIndex,
   toSingleLine,
   type BlockMarker,
 } from './shared.ts';
@@ -30,6 +32,11 @@ export interface ToMarkdownOptions {
 interface Context extends Required<ToMarkdownOptions> {
   /** Previous rendered sibling, for alternating list markers so adjacent lists stay separate. */
   previousList?: { type: string; marker: string };
+  /**
+   * Set while rendering a task item's first paragraph: its owner/due suffix (`(@Dana, due 2026-11-20)` or
+   * `''`). The paragraph consumes it.
+   */
+  taskSuffix?: string;
 }
 
 /**
@@ -82,7 +89,10 @@ function renderBlock(node: JSONContent, ctx: Context): string {
   const children = node.content ?? [];
   switch (node.type) {
     case 'paragraph': {
-      const text = renderInline(children, ctx, false);
+      const suffix = ctx.taskSuffix;
+      ctx.taskSuffix = undefined;
+      let text = renderInline(children, ctx, false);
+      if (suffix !== undefined) text = withTaskSuffix(text, suffix);
       // An empty paragraph has no Markdown form (blank lines separate blocks) — dropped.
       return text ? withTrailingMarker(text, markerFor(node, ctx)) : '';
     }
@@ -189,6 +199,29 @@ function renderList(node: JSONContent, ctx: Context): string {
   return result;
 }
 
+/**
+ * A task's text with its owner/due suffix (8.4). Text that already ends like a suffix gets its `(` escaped, so
+ * it reads back as text, not as attributes.
+ */
+function withTaskSuffix(text: string, suffix: string): string {
+  let out = text;
+  const open = taskMetaSuffixIndex(out);
+  if (open >= 0) out = `${out.slice(0, open)}\\${out.slice(open)}`;
+  if (!suffix) return out;
+  return out ? `${out} ${suffix}` : suffix;
+}
+
+/** `(@Dana Lee, due 2026-11-20)`; the name escaped so it can't end the suffix or add structure. */
+function taskSuffixFor(item: JSONContent): string {
+  const meta = taskMetaOf(item.attrs);
+  if (!meta.owner && !meta.due) return '';
+  const owner = meta.owner && {
+    ...meta.owner,
+    name: escapeText(meta.owner.name, false).replace(/[(),]/g, '\\$&'),
+  };
+  return `(${formatTaskMeta({ owner, due: meta.due })})`;
+}
+
 function renderListItemBody(item: JSONContent, ctx: Context): string {
   const saved = ctx.previousList;
   ctx.previousList = undefined;
@@ -197,12 +230,16 @@ function renderListItemBody(item: JSONContent, ctx: Context): string {
   let children = item.content ?? [];
   // An empty first paragraph followed by another paragraph can't be expressed: that paragraph
   // becomes the item's first line.
+  const isTask = item.type === 'taskItem';
   if (children[0]?.type === 'paragraph' && children[1]?.type === 'paragraph') {
     const first = renderBlock(children[0], ctx);
     if (!first) children = children.slice(1);
   }
   for (const [index, child] of children.entries()) {
+    if (isTask)
+      ctx.taskSuffix = index === 0 && child.type === 'paragraph' ? taskSuffixFor(item) : undefined;
     const rendered = renderBlock(child, ctx);
+    ctx.taskSuffix = undefined;
     if (!LIST_TYPES.has(child.type ?? '') && rendered) ctx.previousList = undefined;
     if (index === 0) {
       body = rendered;

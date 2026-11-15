@@ -102,10 +102,12 @@ describe('enhancementToDoc', () => {
     expect(taskList.attrs?.origin).toBe('me');
     const [mine, theirs] = taskList.content!;
     expect(mine).toMatchObject({ type: 'taskItem', attrs: { origin: 'me', checked: true } });
-    expect(theirs).toMatchObject({ type: 'taskItem', attrs: { origin: 'ai', checked: false } });
-    expect(theirs!.content![0]!.content![0]!.text).toBe(
-      'Share the SOC 2 report — Riley, due Wednesday',
-    );
+    expect(theirs).toMatchObject({
+      type: 'taskItem',
+      attrs: { origin: 'ai', checked: false, owner: { name: 'Riley' }, due: null },
+    });
+    // 8.4: the owner is an attribute; a due phrase that can't be dated (no meeting day here) stays text.
+    expect(theirs!.content![0]!.content![0]!.text).toBe('Share the SOC 2 report — due Wednesday');
     // Children grouped by kind into nested lists.
     expect(theirs!.content!.slice(1).map((n) => n.type)).toEqual(['bulletList', 'taskList']);
     // A bullet after tasks starts a new bullet list.

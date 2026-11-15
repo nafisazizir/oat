@@ -71,6 +71,13 @@
       "when": 1794726102918,
       "tag": "0009_user_profile_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794727824414,
+      "tag": "0010_action_items",
+      "breakpoints": true
     }
   ]
 }

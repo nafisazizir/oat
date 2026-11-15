@@ -6,10 +6,11 @@
  * Citations: an `ai` block's `sources` (transcript refs like `s12`) are resolved to segment ids and returned
  * per block id, for the enhancement record (`citations`), not stored in the document.
  */
-import { generateBlockId, type JSONContent, validateDoc } from '@oat/editor';
+import { generateBlockId, type JSONContent, type TaskOwner, validateDoc } from '@oat/editor';
 
 import type { EnhanceBlock, EnhanceOutput, ListItemBlock } from './enhance.ts';
 import type { NoteLine } from './enhance-origin.ts';
+import { resolveDueDate, resolveTaskOwner, type TaskMapping } from './enhance-tasks.ts';
 
 export interface EnhancementToDocOptions {
   /** The note line behind each `me` block (`Reconciled.sourceLine`). Without it, `me` blocks use their text. */
@@ -18,6 +19,11 @@ export interface EnhancementToDocOptions {
   resolveRef?: (ref: string) => string | undefined;
   /** Block id generator (tests). Default `generateBlockId`. */
   generateId?: () => string;
+  /**
+   * Action items (8.4): people to resolve task owners against and the meeting's day for relative due dates.
+   * Without it owners are kept by name and only ISO due dates become dates.
+   */
+  tasks?: TaskMapping;
 }
 
 export interface EnhancedDoc {
@@ -26,10 +32,31 @@ export interface EnhancedDoc {
   citations: Record<string, string[]>;
 }
 
-function taskSuffix(block: EnhanceBlock): string {
-  if (block.kind !== 'task' || block.origin !== 'ai') return '';
-  const parts = [block.owner, block.due && `due ${block.due}`].filter(Boolean);
-  return parts.length ? ` — ${parts.join(', ')}` : '';
+interface TaskFields {
+  owner: TaskOwner | null;
+  due: string | null;
+  /** A due phrase that isn't a date ("after the offsite"): kept in the text. */
+  dueText: string | null;
+}
+
+/** An AI task's `owner` / `due` → attributes (8.4); a `me` task keeps what the user set on their line. */
+function taskFields(
+  block: EnhanceBlock,
+  line: NoteLine | undefined,
+  mapping: TaskMapping | undefined,
+): TaskFields {
+  if (block.kind !== 'task') return { owner: null, due: null, dueText: null };
+  if (block.origin === 'me') {
+    return { owner: line?.owner ?? null, due: line?.due ?? null, dueText: null };
+  }
+  const owner = resolveTaskOwner(
+    block.owner,
+    mapping?.people ?? [],
+    mapping?.inMeeting ?? mapping?.people ?? [],
+  );
+  const due = resolveDueDate(block.due, mapping?.meetingDay ?? null);
+  const dueText = !due && block.due?.trim() ? plain(block.due) : null;
+  return { owner, due, dueText };
 }
 
 /** Single-line plain text (models sometimes add newlines). */
@@ -42,10 +69,10 @@ export function enhancementToDoc(
   const newId = options.generateId ?? generateBlockId;
   const citations: Record<string, string[]> = {};
 
-  const inline = (block: EnhanceBlock): JSONContent[] => {
+  const inline = (block: EnhanceBlock, dueText: string | null = null): JSONContent[] => {
     const line = block.origin === 'me' ? options.sourceLine?.get(block) : undefined;
     if (line?.content.length) return structuredClone(line.content);
-    const text = plain(block.text) + taskSuffix(block);
+    const text = plain(block.text) + (dueText ? ` — due ${dueText}` : '');
     return text ? [{ type: 'text', text }] : [];
   };
 
@@ -57,7 +84,11 @@ export function enhancementToDoc(
     if (ids.length) citations[id] = ids;
   };
 
-  const paragraph = (block: EnhanceBlock, topLevel = false): JSONContent => {
+  const paragraph = (
+    block: EnhanceBlock,
+    topLevel = false,
+    dueText: string | null = null,
+  ): JSONContent => {
     // A code block of mine stays a code block, line breaks and all.
     const code = block.origin === 'me' ? options.sourceLine?.get(block)?.code : undefined;
     if (topLevel && code !== undefined) {
@@ -67,7 +98,7 @@ export function enhancementToDoc(
         content: [{ type: 'text', text: code }],
       };
     }
-    const content = inline(block);
+    const content = inline(block, dueText);
     return {
       type: 'paragraph',
       attrs: { id: newId(), origin: block.origin },
@@ -80,14 +111,15 @@ export function enhancementToDoc(
     cite(id, block);
     const line = block.origin === 'me' ? options.sourceLine?.get(block) : undefined;
     const isTask = block.kind === 'task';
+    const task = taskFields(block, line, options.tasks);
     return {
       type: isTask ? 'taskItem' : 'listItem',
       attrs: {
         id,
         origin: block.origin,
-        ...(isTask ? { checked: line?.checked === true } : {}),
+        ...(isTask ? { checked: line?.checked === true, owner: task.owner, due: task.due } : {}),
       },
-      content: [paragraph(block), ...lists(block.children ?? [])],
+      content: [paragraph(block, false, task.dueText), ...lists(block.children ?? [])],
     };
   };
 

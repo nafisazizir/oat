@@ -37,5 +37,7 @@ export type IntegrationRow = typeof s.integration.$inferSelect;
 export type NewIntegrationRow = typeof s.integration.$inferInsert;
 export type DocumentExportRow = typeof s.documentExport.$inferSelect;
 export type NewDocumentExportRow = typeof s.documentExport.$inferInsert;
+export type ActionItemRow = typeof s.actionItem.$inferSelect;
+export type NewActionItemRow = typeof s.actionItem.$inferInsert;
 export type ChangeLogRow = typeof s.changeLog.$inferSelect;
 export type NewChangeLogRow = typeof s.changeLog.$inferInsert;

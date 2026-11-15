@@ -8,3 +8,4 @@ export {
   type SuggestionMenuHandle,
   type SuggestionMenuProps,
 } from './suggestion-popup.tsx';
+export { ReactTaskItem, type TaskAssigneeQuery } from './task-item-view.tsx';

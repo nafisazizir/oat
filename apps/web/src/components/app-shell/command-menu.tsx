@@ -18,6 +18,7 @@ import {
   FolderIcon,
   HomeIcon,
   LayoutTemplateIcon,
+  ListTodoIcon,
   LoaderCircleIcon,
   MonitorIcon,
   MoonIcon,
@@ -174,6 +175,7 @@ export function CommandMenu() {
       heading: 'Go to',
       items: [
         { ...sections.home, icon: <HomeIcon /> },
+        { ...sections.tasks, icon: <ListTodoIcon /> },
         { ...sections.assistant, icon: <SparklesIcon /> },
         { ...sections.templates, icon: <LayoutTemplateIcon /> },
         { ...sections.settings, icon: <SettingsIcon /> },

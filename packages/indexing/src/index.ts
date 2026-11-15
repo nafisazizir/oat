@@ -3,6 +3,13 @@
  * chunks into pgvector, the Redis-backed index queue + change-log-following worker, backfill, and
  * `searchChunks` (permission-filtered retrieval with citation refs). Details: docs/tasks/6.1-embeddings.md.
  */
+export {
+  type ExtractedActionItem,
+  extractActionItems,
+  resolveOwners,
+  syncActionItems,
+  type SyncActionItemsResult,
+} from './action-items.ts';
 export { backfill, type BackfillOptions, type BackfillTotals } from './backfill.ts';
 export { INDEXED_TABLES, jobsForChanges } from './changes.ts';
 export { chunkNotes, CONTEXT_SEPARATOR, type NotesChunkOptions } from './chunk-notes.ts';
@@ -56,6 +63,7 @@ export {
   createIndexWorker,
   type IndexWorker,
   type IndexWorkerOptions,
+  type JobResult,
   runJob,
   type WorkerLogger,
 } from './worker.ts';

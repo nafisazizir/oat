@@ -3,7 +3,8 @@
  *
  * Mapping:
  *   paragraph → paragraph · heading 1–3 → heading_1–3 · bulletList/orderedList items → bulleted/numbered_list_item
- *   · taskItem → to_do (checked) · blockquote → quote · callout → callout (emoji icon, variant → background
+ *   · taskItem → to_do (checked; an owner/due (8.4) is appended as plain text: `Send deck (@Dana, due 2026-11-20)`)
+ *   · blockquote → quote · callout → callout (emoji icon, variant → background
  *   colour) · codeBlock → code (language mapped to Notion's list, else "plain text") · horizontalRule → divider.
  *   A container (list item, quote, callout) takes its first paragraph/heading as its own text and the rest as
  *   children. Marks: bold, italic, strike → strikethrough, code, highlight → yellow background, link → link
@@ -18,6 +19,7 @@
  */
 import { isCalloutVariant, normalizeCalloutEmoji } from '@oat/editor/callout';
 import type { JSONContent } from '@oat/editor';
+import { formatTaskMeta, taskMetaOf } from '@oat/editor/task-meta';
 
 import {
   blockData,
@@ -265,7 +267,13 @@ function listItems(list: JSONContent, level: number, ctx: Ctx): NotionBlock[] {
     const { lead, rest } = splitLead(item.content ?? []);
     const text = toRichText(lead, ctx.options);
     if (list.type === 'taskList' || item.type === 'taskItem') {
-      return textBlock('to_do', text, rest, level, ctx, { checked: item.attrs?.checked === true });
+      const meta = formatTaskMeta(taskMetaOf(item.attrs));
+      const withMeta = meta
+        ? [...text, ...plainRichText(`${text.length ? ' ' : ''}(${meta})`)]
+        : text;
+      return textBlock('to_do', withMeta, rest, level, ctx, {
+        checked: item.attrs?.checked === true,
+      });
     }
     const type = list.type === 'orderedList' ? 'numbered_list_item' : 'bulleted_list_item';
     return textBlock(type, text, rest, level, ctx);

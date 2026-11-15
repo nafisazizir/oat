@@ -10,4 +10,5 @@ export * from './documents.ts';
 export * from './meetings.ts';
 export * from './ai.ts';
 export * from './integrations.ts';
+export * from './tasks.ts';
 export * from './sync.ts';

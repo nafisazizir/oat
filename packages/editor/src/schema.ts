@@ -5,6 +5,7 @@ import type { Schema } from '@tiptap/pm/model';
 import { generateBlockId, isBlockType, isOrigin } from './blocks.ts';
 import { isCalloutVariant, normalizeCalloutEmoji } from './callout.ts';
 import { createExtensions } from './extensions.ts';
+import { isIsoDate, taskOwnerError } from './task-meta.ts';
 
 let cachedSchema: Schema | undefined;
 
@@ -27,7 +28,8 @@ export type ValidationResult = { ok: true } | { ok: false; error: string };
  * stored docs are also rendered outside TipTap (Markdown, share view, exports):
  * - link `href` must pass TipTap's `isAllowedUri` (no `javascript:` etc.);
  * - `origin` is `me` | `ai` when present;
- * - callout `variant` is one of `CALLOUT_VARIANTS`, `emoji` is a single short grapheme.
+ * - callout `variant` is one of `CALLOUT_VARIANTS`, `emoji` is a single short grapheme;
+ * - taskItem `owner` is `null` or `{ name, email?, userId? }` (8.4), `due` is `null` or a `YYYY-MM-DD` day.
  */
 export function validateDoc(json: unknown): ValidationResult {
   try {
@@ -53,6 +55,13 @@ function checkAttributes(node: JSONContent, path: string): string | undefined {
     }
     if (attrs.emoji != null && normalizeCalloutEmoji(attrs.emoji) !== attrs.emoji) {
       return `${path}: callout emoji must be a single emoji`;
+    }
+  }
+  if (node.type === 'taskItem') {
+    const ownerError = taskOwnerError(attrs.owner);
+    if (ownerError) return `${path}: ${ownerError}`;
+    if (attrs.due != null && !isIsoDate(attrs.due)) {
+      return `${path}: due must be a YYYY-MM-DD date, got ${JSON.stringify(attrs.due)}`;
     }
   }
   for (const mark of node.marks ?? []) {

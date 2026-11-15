@@ -55,6 +55,7 @@ export const config = {
     '/d/:path*',
     '/search',
     '/settings/:path*',
+    '/tasks',
     '/templates/:path*',
     '/invite/:path*',
     '/share/:path*',

@@ -39,6 +39,22 @@ export {
   type SegmentSearchHit,
 } from './search.ts';
 export {
+  ACTION_ITEM_DUE_FILTERS,
+  ACTION_ITEM_SCOPES,
+  ACTION_ITEM_STATUSES,
+  type ActionItemDraft,
+  type ActionItemDueFilter,
+  type ActionItemListRow,
+  type ActionItemQuery,
+  type ActionItemScope,
+  type ActionItemStatus,
+  getActionItem,
+  listActionItems,
+  MAX_ACTION_ITEM_TEXT,
+  replaceDocumentActionItems,
+  type ReplaceActionItemsResult,
+} from './action-items.ts';
+export {
   getUserProfile,
   normalizeProfileInput,
   profileAboutMe,

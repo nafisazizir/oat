@@ -7,10 +7,11 @@
  *   crash re-reads a page instead of losing it; duplicates are harmless (jobs are deduplicated and
  *   idempotent). No stored cursor = start from the beginning of the log, which re-checks every document
  *   (cheap: unchanged chunks are not re-embedded).
- * - **Processor**: claims due jobs (`concurrency` at a time), runs `indexDocument`/`indexMeeting`, completes
- *   or fails them (retry with backoff, then `failed`).
+ * - **Processor**: claims due jobs (`concurrency` at a time), runs `syncActionItems` (8.4) then
+ *   `indexDocument`/`indexMeeting`, completes or fails them (retry with backoff, then `failed`).
  */
 import { type Db, readAllChanges } from '@oat/db';
+import { syncActionItems, type SyncActionItemsResult } from './action-items.ts';
 import { INDEXED_TABLES, jobsForChanges } from './changes.ts';
 import { type IndexerDeps, indexDocument, type IndexResult, indexMeeting } from './indexer.ts';
 import type { ClaimedJob, IndexJob, IndexQueue, Lock } from './queue.ts';
@@ -41,14 +42,28 @@ export interface IndexWorker {
   /** One follower pass (all available pages); returns the number of jobs enqueued. For tests and scripts. */
   followOnce(): Promise<number>;
   /** Claims and runs one batch of due jobs; returns what ran. */
-  processOnce(): Promise<{ job: ClaimedJob; result?: IndexResult; error?: unknown }[]>;
+  processOnce(): Promise<{ job: ClaimedJob; result?: JobResult; error?: unknown }[]>;
 }
+
+/** What a job did: the chunk index result, plus the action items for document jobs (8.4). */
+export type JobResult = IndexResult & { actionItems?: SyncActionItemsResult };
 
 const silent: WorkerLogger = { info() {}, error() {} };
 
-export function runJob(deps: IndexerDeps, job: IndexJob): Promise<IndexResult> {
-  return job.kind === 'document' ? indexDocument(deps, job.id) : indexMeeting(deps, job.id);
+/**
+ * Runs one job. Document jobs first re-extract the action items (cheap, no embeddings, so "My tasks" is current
+ * even when the embedding provider is down; a failure still fails the job and it is retried).
+ */
+export async function runJob(deps: IndexerDeps, job: IndexJob): Promise<JobResult> {
+  if (job.kind !== 'document') return indexMeeting(deps, job.id);
+  const actionItems = await syncActionItems(deps.db, job.id);
+  return { ...(await indexDocument(deps, job.id)), actionItems };
 }
+
+const actionItemChanges = (result: JobResult) =>
+  result.actionItems && result.actionItems.status === 'written'
+    ? result.actionItems.inserted + result.actionItems.updated + result.actionItems.deleted
+    : 0;
 
 export function createIndexWorker(options: IndexWorkerOptions): IndexWorker {
   const { db, queue } = options;
@@ -147,7 +162,7 @@ export function createIndexWorker(options: IndexWorkerOptions): IndexWorker {
           if (!(await queue.complete(job))) {
             log.info('lease was lost meanwhile; the new owner finishes the job', { job: job.key });
           }
-          if (result.inserted + result.updated + result.deleted > 0) {
+          if (result.inserted + result.updated + result.deleted + actionItemChanges(result) > 0) {
             log.info('indexed', { job: job.key, ...result });
           }
           if (result.truncated > 0) {

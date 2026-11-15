@@ -10,7 +10,9 @@ import {
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { BlockFocus } from '@/components/document/block-focus';
 import { DocumentAssistant } from '@/components/assistant/document-assistant';
 import { FolderActions } from '@/components/document/folder-actions';
 import { DocumentEditor } from '@/components/document/document-editor';
@@ -65,16 +67,22 @@ export default async function DocumentPage({ params, searchParams }: Props) {
         ? await loadDocumentTranscript(doc.id)
         : null;
     return (
-      <DocumentAssistant
-        key={doc.id}
-        documentId={doc.id}
-        workspaceId={doc.workspaceId}
-        available={doc.deletedAt === null}
-        transcript={transcript}
-        focus={focus}
-      >
-        <DocumentEditor key={doc.id} document={doc} workspaceName={workspace.name} />
-      </DocumentAssistant>
+      <>
+        <DocumentAssistant
+          key={doc.id}
+          documentId={doc.id}
+          workspaceId={doc.workspaceId}
+          available={doc.deletedAt === null}
+          transcript={transcript}
+          focus={focus}
+        >
+          <DocumentEditor key={doc.id} document={doc} workspaceName={workspace.name} />
+        </DocumentAssistant>
+        {/* `?block=<id>` links (My tasks): scroll to and highlight that block. */}
+        <Suspense fallback={null}>
+          <BlockFocus />
+        </Suspense>
+      </>
     );
   }
 

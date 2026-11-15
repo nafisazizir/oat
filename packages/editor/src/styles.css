@@ -103,10 +103,137 @@
   accent-color: var(--primary);
   cursor: pointer;
 }
-.oat-editor ul[data-type='taskList'] li[data-checked='true'] > div {
+.oat-editor ul[data-type='taskList'] li[data-checked='true'] > div:not(.oat-task),
+.oat-editor .oat-task[data-checked='true'] > .oat-task-content {
   color: var(--muted-foreground);
   text-decoration: line-through;
   text-decoration-color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
+}
+
+/* ── Action items (8.4): owner + due chips on task items ─────────────
+ * Editor: li > .oat-task (React node view) > label.oat-task-check, .oat-task-content, .oat-task-meta.
+ * Static HTML (share view): li > label, div, span[data-task-meta] ("@Name, due 2026-11-20").
+ */
+.oat-editor .oat-task {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--space) * 2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.oat-editor .oat-task-check {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: var(--type-base-leading);
+  user-select: none;
+}
+.oat-editor .oat-task-content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.oat-editor .oat-task-meta,
+.oat-editor li > span[data-task-meta] {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space) * 1);
+  min-height: var(--type-base-leading);
+  font-size: var(--type-xs);
+  line-height: var(--type-xs-leading);
+  color: var(--muted-foreground);
+  user-select: none;
+}
+.oat-editor .oat-task-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space) * 1);
+  max-width: 12rem;
+  height: calc(var(--space) * 5.5);
+  padding: 0 calc(var(--space) * 2);
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font: inherit;
+  white-space: nowrap;
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard);
+}
+.oat-editor button.oat-task-chip {
+  cursor: pointer;
+}
+.oat-editor button.oat-task-chip:hover,
+.oat-editor button.oat-task-chip[data-state='open'] {
+  background: color-mix(in oklch, var(--foreground) 10%, var(--muted));
+  color: var(--foreground);
+}
+.oat-editor .oat-task-chip[data-kind='owner'] {
+  padding-left: calc(var(--space) * 0.75);
+}
+.oat-editor .oat-task-chip[data-state='overdue'] {
+  background: color-mix(in oklch, var(--destructive) 14%, transparent);
+  color: var(--destructive);
+}
+.oat-editor .oat-task-chip[data-state='today'] {
+  background: color-mix(in oklch, var(--warning) 22%, transparent);
+  color: var(--warning-foreground);
+}
+.oat-editor .oat-task-avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--space) * 4);
+  height: calc(var(--space) * 4);
+  border-radius: 999px;
+  background: var(--me);
+  color: var(--me-foreground);
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1;
+}
+/* "Assign" / "Due" for a task without them: quiet until the row is hovered or focused. */
+.oat-editor .oat-task-add {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space) * 1);
+  height: calc(var(--space) * 5.5);
+  padding: 0 calc(var(--space) * 1.5);
+  border-radius: calc(var(--radius) * 0.75);
+  color: var(--muted-foreground);
+  font: inherit;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--easing-standard);
+  /* Before the chips, so set chips stay right-aligned across rows whatever is missing. */
+  order: -1;
+}
+.oat-editor .oat-task:hover .oat-task-add,
+.oat-editor .oat-task-add:focus-visible,
+.oat-editor .oat-task-add[data-state='open'] {
+  opacity: 1;
+}
+.oat-editor .oat-task-add:hover,
+.oat-editor .oat-task-add[data-state='open'] {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.oat-editor .oat-task-add:focus-visible,
+.oat-editor .oat-task-chip:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+@media (hover: none) {
+  .oat-editor .oat-task-add {
+    opacity: 0.6;
+  }
+}
+/* Block links (`?block=`, My tasks): a short highlight on the target block. */
+.oat-editor [data-block-highlight] {
+  border-radius: calc(var(--radius) * 0.75);
+  background: color-mix(in oklch, var(--selection) 70%, transparent);
+  transition: background-color var(--duration-slow) var(--easing-exit);
 }
 
 /* ── Quote, code, divider ─────────────────────────────────────────── */
