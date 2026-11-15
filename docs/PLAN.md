@@ -12,8 +12,8 @@ script) passes against the compose stack. 9.1, 9.5, 9.6 and the real-device part
 ## M0 — Research (Granola architecture)
 Exit: `research/granola/ARCHITECTURE.md` explains capture, transcription, storage/sync, enhancement,
 detection and calendar, each with evidence.
-- [ ] 0.1 Health-check REA MCP (already connected to Claude Code) · deps: —
-- [ ] 0.2 Electron bundle map: process layout, IPC surface, renderer framework, editor library · deps: 0.1
+- [x] 0.1 Health-check REA MCP (already connected to Claude Code) · deps: —
+- [x] 0.2 Electron bundle map: process layout, IPC surface, renderer framework, editor library · deps: 0.1
 - [ ] 0.3 Audio path: `screen_capture.node`, `opusscript`, `granola-diarizer` — what captures, encodes, diarizes; which STT provider/protocol · deps: 0.1
 - [ ] 0.4 Detection: `ax_meeting_detector`, `macos_mic_apps_with_devices`, `eventkit`, `meet-consent-host` · deps: 0.1
 - [ ] 0.5 Local storage + sync: SQLite schema (structure only), cache, sync model · deps: 0.1
