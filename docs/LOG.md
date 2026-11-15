@@ -119,3 +119,7 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - 2026-11-15 · follow-up · 7.5: in back-to-back meetings in the same app, meeting B isn't prompted after A's note auto-stops (detection D-21 treats the app as already 'in a meeting'). Needs a small D-21 change; candidate for after human review.
 - 2026-11-15 · 9.4 · shipped: end-to-end acceptance journey + fresh-clone proof + CI step (squash-merged).
 - 2026-11-15 · 9.4 · AUTONOMOUS TARGET MET (pending 9.2/9.3b + 3.9): acceptance journey passes on the compose stack and from a fresh clone; see docs/tasks/9.4-acceptance.md.
+
+## 2026-11-15 06:40 — orchestrator
+- 9.2 + 9.3b implementer handed back (branch task/9.2-onboarding, ci ok; 16/19 punch-list items fixed, 2 deferred, 1 partial). Fresh reviewer spawned.
+- 3.9 implementer started in parallel, branched from task/9.2-onboarding (will re-merge main once 9.2 lands).
