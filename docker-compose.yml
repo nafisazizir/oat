@@ -93,8 +93,8 @@ services:
       retries: 30
     restart: unless-stopped
 
-  # --- profile `app`: the web app itself in containers (1.9). `pnpm dev:app` builds these two images from
-  # the current checkout and starts them; plain `pnpm dev:up` leaves them out. ---------------------------
+  # --- profile `app`: the web app itself in containers (1.9) + the index worker (6.1). `pnpm dev:app` builds
+  # these images from the current checkout and starts them; plain `pnpm dev:up` leaves them out. ------------
 
   migrate:
     # One-shot: applies @oat/db migrations from this checkout to the compose database, then exits 0.
@@ -172,6 +172,40 @@ services:
       timeout: 3s
       retries: 30
       start_period: 5s
+    restart: unless-stopped
+
+  worker:
+    # @oat/indexing (6.1): follows change_log and keeps retrieval chunks + embeddings fresh (Redis-backed
+    # index queue). `pnpm dev` runs the same worker on the host; both use the shared Redis and the same queue
+    # prefix, so they split the work (one change-log follower at a time, under a Redis lock).
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: packages/indexing/Dockerfile
+    image: oat-worker:dev
+    init: true
+    environment:
+      DATABASE_URL: postgres://oat:oat@postgres:5432/oat
+      REDIS_URL: redis://redis:6379
+      # Embeddings: the mock LLM service unless a real AI Gateway key is set in the root .env.
+      MOCKS_URL: http://mocks:14010
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+      AI_GATEWAY_BASE_URL: ${AI_GATEWAY_BASE_URL:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_MODEL_EMBED: ${AI_MODEL_EMBED:-}
+      OAT_INDEX_QUEUE_PREFIX: ${OAT_INDEX_QUEUE_PREFIX:-}
+      OAT_INDEX_DEBOUNCE_MS: ${OAT_INDEX_DEBOUNCE_MS:-}
+      OAT_INDEX_CONCURRENCY: ${OAT_INDEX_CONCURRENCY:-}
+      OAT_INDEX_MAX_CHUNKS: ${OAT_INDEX_MAX_CHUNKS:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mocks:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

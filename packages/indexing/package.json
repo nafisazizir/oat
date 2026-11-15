@@ -1,0 +1,38 @@
+{
+  "name": "@oat/indexing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Retrieval indexing (6.1): note/transcript chunkers, embeddings into pgvector, the Redis-backed index queue + worker that follows change_log, backfill, and permission-filtered searchChunks.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts",
+    "./*.test": null
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:int": "vitest run --mode int",
+    "dev": "tsx watch --clear-screen=false src/cli/worker.ts",
+    "worker": "tsx src/cli/worker.ts",
+    "backfill": "tsx src/cli/backfill.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/provider": "catalog:",
+    "@oat/ai": "workspace:*",
+    "@oat/core": "workspace:*",
+    "@oat/db": "workspace:*",
+    "@oat/editor": "workspace:*",
+    "ai": "catalog:",
+    "drizzle-orm": "catalog:",
+    "redis": "catalog:"
+  },
+  "devDependencies": {
+    "@oat/testkit": "workspace:*",
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

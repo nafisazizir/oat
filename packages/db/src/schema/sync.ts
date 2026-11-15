@@ -54,5 +54,9 @@ export const changeLog = pgTable(
     op: changeOpEnum('op').notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index('change_log_workspace_txid_seq_idx').on(t.workspaceId, t.txid, t.seq)],
+  (t) => [
+    index('change_log_workspace_txid_seq_idx').on(t.workspaceId, t.txid, t.seq),
+    // Server-side consumers that follow every workspace (the 6.1 indexer: `readAllChanges`).
+    index('change_log_txid_seq_idx').on(t.txid, t.seq),
+  ],
 );

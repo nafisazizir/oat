@@ -556,6 +556,7 @@ describe('tables', () => {
         workspaceId: ids.ws,
         text: 'y-axis',
         embedding: axis(1),
+        source: 'transcript',
         segmentStartMs: 0,
         segmentEndMs: 1500,
       },

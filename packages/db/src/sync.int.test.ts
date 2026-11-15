@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDb, type Db, migrate } from './client.ts';
 import { newId } from './id.ts';
 import * as s from './schema/index.ts';
-import { type Change, readChanges } from './sync.ts';
+import { type Change, readAllChanges, readChanges } from './sync.ts';
 
 let testDb: TestDatabase;
 let db: Db;
@@ -251,5 +251,54 @@ describe('readChanges', () => {
       }),
     );
     expect(names).toEqual(['early', 'late']);
+  });
+});
+
+describe('readAllChanges', () => {
+  it('reads every workspace, narrowed to some tables, with the same cursor', async () => {
+    const a = await makeWorkspace();
+    const b = await makeWorkspace();
+    const start = await waitFor(
+      async () => {
+        // Drain to the current end of the log first.
+        let page = await readAllChanges(db, null, { limit: 1000 });
+        while (page.hasMore) page = await readAllChanges(db, page.cursor, { limit: 1000 });
+        return page;
+      },
+      { timeout: 10_000 },
+    );
+    const docA = newId();
+    const docB = newId();
+    await db.insert(s.document).values([
+      { id: docA, workspaceId: a.ws, ownerId: a.userId, kind: 'page' },
+      { id: docB, workspaceId: b.ws, ownerId: b.userId, kind: 'page' },
+    ]);
+    await db
+      .insert(s.folder)
+      .values({ workspaceId: a.ws, ownerId: a.userId, name: 'f', visibility: 'private' });
+
+    const page = await waitFor(
+      async () => {
+        const p = await readAllChanges(db, start.cursor, { tables: ['document'] });
+        return p.changes.length >= 2 ? p : undefined;
+      },
+      { timeout: 10_000, interval: 50 },
+    );
+    expect(page.changes.map((c) => [c.tableName, c.rowId, c.workspaceId])).toEqual([
+      ['document', docA, a.ws],
+      ['document', docB, b.ws],
+    ]);
+    const next = await readAllChanges(db, page.cursor, { tables: ['document'] });
+    expect(next).toEqual({ changes: [], cursor: page.cursor, hasMore: false });
+    // Without the table filter the folder shows up too (once its later transaction is visible), and limit
+    // pages.
+    await waitFor(
+      async () => ((await readAllChanges(db, start.cursor)).changes.length >= 3 ? true : undefined),
+      { timeout: 10_000, interval: 50 },
+    );
+    const first = await readAllChanges(db, start.cursor, { limit: 2 });
+    expect(first.hasMore).toBe(true);
+    const rest = await readAllChanges(db, first.cursor, { limit: 10 });
+    expect(rest.changes.map((c) => c.tableName)).toContain('folder');
   });
 });

@@ -775,6 +775,49 @@ importers:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@24.19.2)(@vitest/coverage-v8@5.1.0)(happy-dom@21.0.4)(jsdom@31.0.1(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
+  packages/indexing:
+    dependencies:
+      '@ai-sdk/provider':
+        specifier: 'catalog:'
+        version: 4.0.38
+      '@oat/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@oat/core':
+        specifier: workspace:*
+        version: link:../core
+      '@oat/db':
+        specifier: workspace:*
+        version: link:../db
+      '@oat/editor':
+        specifier: workspace:*
+        version: link:../editor
+      ai:
+        specifier: 'catalog:'
+        version: 7.0.173(zod@4.6.7)
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.4(@types/pg@8.23.1)(kysely@0.29.9)(pg@8.23.1)(postgres@3.4.9)
+      redis:
+        specifier: 'catalog:'
+        version: 6.3.1
+    devDependencies:
+      '@oat/testkit':
+        specifier: workspace:*
+        version: link:../testkit
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.15
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@24.19.2)(@vitest/coverage-v8@5.1.0)(happy-dom@21.0.4)(jsdom@31.0.1(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
   packages/stt:
     dependencies:
       '@oat/audio':

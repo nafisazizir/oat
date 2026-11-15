@@ -75,3 +75,42 @@ export async function readChanges(
   const last = changes.at(-1);
   return { changes, cursor: last ? encodeCursor(last) : cursor, hasMore };
 }
+
+/**
+ * Like {@link readChanges}, across every workspace: for trusted server-side consumers (the 6.1 indexer), never
+ * for client pulls. Same visibility rule and cursor format; `tables` narrows to the tables the caller cares
+ * about (the cursor still advances past the others only as far as the returned rows).
+ */
+export async function readAllChanges(
+  db: Db,
+  cursor: string | null,
+  options: { limit?: number; tables?: readonly SyncedTable[] } = {},
+): Promise<ChangePage> {
+  const limit = options.limit ?? 500;
+  const after = cursor === null ? undefined : decodeCursor(cursor);
+  const rows = await db
+    .select({
+      seq: changeLog.seq,
+      txid: sql<string>`${changeLog.txid}::text`,
+      tableName: changeLog.tableName,
+      rowId: changeLog.rowId,
+      workspaceId: changeLog.workspaceId,
+      op: changeLog.op,
+    })
+    .from(changeLog)
+    .where(
+      and(
+        options.tables && inArray(changeLog.tableName, [...options.tables]),
+        sql`${changeLog.txid} < pg_snapshot_xmin(pg_current_snapshot())`,
+        after &&
+          sql`(${changeLog.txid}, ${changeLog.seq}) > (${after.txid}::xid8, ${after.seq}::bigint)`,
+      ),
+    )
+    .orderBy(asc(changeLog.txid), asc(changeLog.seq))
+    .limit(limit + 1);
+
+  const hasMore = rows.length > limit;
+  const changes = hasMore ? rows.slice(0, limit) : rows;
+  const last = changes.at(-1);
+  return { changes, cursor: last ? encodeCursor(last) : cursor, hasMore };
+}

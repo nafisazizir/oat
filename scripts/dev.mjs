@@ -23,15 +23,16 @@ const commands = {
   reset: ['down', '--volumes', '--remove-orphans'],
   logs: ['logs', '--follow', '--tail', '200'],
   ps: ['ps', '--all'],
-  // Profile `app` (1.9): builds the web + migrate images from *this* checkout (only those two: the shared
-  // images are never rebuilt here), then starts web. Compose brings up its dependencies, runs the one-shot
-  // migrate, and recreates web only if its image or definition changed. Waits until web is healthy.
+  // Profile `app` (1.9): builds the web + migrate (+ 6.1 index worker) images from *this* checkout (only
+  // those: the shared images are never rebuilt here), then starts web and worker. Compose brings up their
+  // dependencies, runs the one-shot migrate, and recreates a container only if its image or definition
+  // changed. Waits until web is healthy.
   app: [
-    ['--profile', 'app', 'build', 'migrate', 'web'],
-    ['--profile', 'app', 'up', '--detach', '--wait', 'web'],
+    ['--profile', 'app', 'build', 'migrate', 'web', 'worker'],
+    ['--profile', 'app', 'up', '--detach', '--wait', 'web', 'worker'],
   ],
   // Stops and removes just the app containers (frees :3000); the shared stack keeps running.
-  'app:stop': ['--profile', 'app', 'rm', '--stop', '--force', 'web', 'migrate'],
+  'app:stop': ['--profile', 'app', 'rm', '--stop', '--force', 'web', 'worker', 'migrate'],
 };
 
 const [command, ...extra] = process.argv.slice(2);

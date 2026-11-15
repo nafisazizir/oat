@@ -31,6 +31,10 @@ export type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number];
 export const CHANGE_OPS = ['upsert', 'delete'] as const;
 export type ChangeOp = (typeof CHANGE_OPS)[number];
 
+/** What a retrieval chunk was cut from (6.1): the notes body (block ids) or the transcript (segment ids). */
+export const CHUNK_SOURCES = ['notes', 'transcript'] as const;
+export type ChunkSource = (typeof CHUNK_SOURCES)[number];
+
 export const roleEnum = pgEnum('role', ROLES);
 export const workspaceKindEnum = pgEnum('workspace_kind', WORKSPACE_KINDS);
 export const inviteStatusEnum = pgEnum('invite_status', INVITE_STATUSES);
@@ -44,3 +48,4 @@ export const chatScopeEnum = pgEnum('chat_scope', CHAT_SCOPES);
 export const chatMessageRoleEnum = pgEnum('chat_message_role', CHAT_MESSAGE_ROLES);
 export const integrationProviderEnum = pgEnum('integration_provider', INTEGRATION_PROVIDERS);
 export const changeOpEnum = pgEnum('change_op', CHANGE_OPS);
+export const chunkSourceEnum = pgEnum('chunk_source', CHUNK_SOURCES);

@@ -19,7 +19,8 @@
     "db:migrate": "tsx src/cli/migrate.ts",
     "db:seed": "tsx src/cli/seed.ts",
     "db:reset": "tsx src/cli/reset.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "index:backfill": "pnpm --filter @oat/indexing backfill"
   },
   "dependencies": {
     "@oat/core": "workspace:*",

@@ -5,7 +5,12 @@ import { boolean, check, index, integer, jsonb, pgTable, text, vector } from 'dr
 import { user } from './auth.ts';
 import { createdAt, id, timestamps, timestamptz } from './columns.ts';
 import { document } from './documents.ts';
-import { chatMessageRoleEnum, chatScopeEnum, enhancementStatusEnum } from './enums.ts';
+import {
+  chatMessageRoleEnum,
+  chatScopeEnum,
+  chunkSourceEnum,
+  enhancementStatusEnum,
+} from './enums.ts';
 import { workspace } from './workspace.ts';
 
 /**
@@ -66,7 +71,11 @@ export const enhancement = pgTable(
   ],
 );
 
-/** A retrieval chunk of a document (notes and/or transcript) with its embedding. */
+/**
+ * A retrieval chunk of a document (notes and/or transcript) with its embedding. Written only by the indexer
+ * (`@oat/indexing`, 6.1): derived data, never synced, rebuilt by `index:backfill`. Readers join `document` for
+ * permissions at query time, so visibility/trash changes never require re-indexing.
+ */
 export const chunk = pgTable(
   'chunk',
   {
@@ -77,6 +86,18 @@ export const chunk = pgTable(
     documentId: text('document_id')
       .notNull()
       .references(() => document.id, { onDelete: 'cascade' }),
+    /** `notes`: cut from the document body; `transcript`: a window of the meeting's transcript segments. */
+    source: chunkSourceEnum('source').notNull().default('notes'),
+    /** Position within (document, source), from 0. */
+    ordinal: integer('ordinal').notNull().default(0),
+    /**
+     * What the chunk cites, in document order: TipTap block ids (`notes`) or `transcript_segment` ids
+     * (`transcript`). The first/last entries are the range.
+     */
+    refIds: text('ref_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     /**
      * SPEC `segment_range?`: the transcript time range this chunk covers (recording-clock ms), both null for
      * chunks of the notes body.
@@ -84,17 +105,30 @@ export const chunk = pgTable(
     segmentStartMs: integer('segment_start_ms'),
     segmentEndMs: integer('segment_end_ms'),
     text: text('text').notNull(),
+    /**
+     * sha256 of (embedding model id, text). An unchanged hash keeps its embedding on re-index; `''` (rows from
+     * before 6.1) never matches, so those get re-embedded.
+     */
+    contentHash: text('content_hash').notNull().default(''),
+    /** Estimated tokens of `text` (≈ chars / 4), for context budgeting. */
+    tokenCount: integer('token_count').notNull().default(0),
     embedding: vector('embedding', { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
     createdAt: createdAt(),
   },
   (t) => [
-    index('chunk_document_id_idx').on(t.documentId),
+    index('chunk_document_source_ordinal_idx').on(t.documentId, t.source, t.ordinal),
     index('chunk_workspace_id_idx').on(t.workspaceId),
+    // Segment deletes find the chunks that cite them (the change log only carries the segment id).
+    index('chunk_ref_ids_gin_idx').using('gin', t.refIds),
     // Approximate nearest neighbour by cosine distance (`<=>`).
     index('chunk_embedding_hnsw_idx').using('hnsw', t.embedding.op('vector_cosine_ops')),
     check(
       'chunk_segment_range_ck',
       sql`(${t.segmentStartMs} is null) = (${t.segmentEndMs} is null) and (${t.segmentStartMs} is null or ${t.segmentEndMs} >= ${t.segmentStartMs})`,
+    ),
+    check(
+      'chunk_source_range_ck',
+      sql`(${t.source} = 'transcript') = (${t.segmentStartMs} is not null)`,
     ),
   ],
 );

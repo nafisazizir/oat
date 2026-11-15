@@ -31,8 +31,8 @@ network once; after that everything works offline.
 | `pnpm dev:reset` | `down --volumes`: also wipes Postgres, Redis and Mailpit data (dev data only).   |
 | `pnpm dev:logs`  | Follows logs. `pnpm dev:logs mocks` for one service.                             |
 | `pnpm dev:ps`    | Service status and health.                                                       |
-| `pnpm dev:app`   | Profile `app`: builds the `web` + `migrate` images from *this* checkout, runs migrations, starts the web app on <http://localhost:3000> and waits until it is healthy. See "Web app in Docker". |
-| `pnpm dev:app:stop` | Stops and removes the `web` and `migrate` containers (frees :3000); the rest of the stack keeps running. |
+| `pnpm dev:app`   | Profile `app`: builds the `web` + `migrate` + `worker` images from *this* checkout, runs migrations, starts the web app on <http://localhost:3000> and the index worker, and waits until web is healthy. See "Web app in Docker". |
+| `pnpm dev:app:stop` | Stops and removes the `web`, `worker` and `migrate` containers (frees :3000); the rest of the stack keeps running. |
 
 Extra arguments are passed to `docker compose` (e.g. `pnpm dev:up postgres`). The scripts live in
 `scripts/dev.mjs`. The compose project is always called `oat`, so all git worktrees share one stack; run plain
@@ -344,8 +344,34 @@ All take `DATABASE_URL` (root `.env`, default the compose `oat` database):
 | `pnpm --filter @oat/db db:reset [--seed]`    | Drops and recreates the database, then migrates (and seeds). Loopback hosts only, no override. Use it when unreleased migrations were rewritten on `main` (`db:migrate` then fails on existing tables). Kills open connections to that database. |
 | `pnpm --filter @oat/db db:generate`          | Generates a migration from schema changes (`packages/db/drizzle/`).  |
 | `pnpm --filter @oat/db db:studio`            | Drizzle Studio against `DATABASE_URL`.                               |
+| `pnpm --filter @oat/db index:backfill`       | (Re-)indexes every document for retrieval (see "Retrieval indexing"). `--workspace <id>`, `--enqueue` (hand it to running workers), `--concurrency <n>`. Idempotent. |
 
 `db:reset` only touches the one database in `DATABASE_URL`; test databases (`oat_test_*`) are separate.
+
+## Retrieval indexing (`@oat/indexing`, 6.1)
+
+Notes and transcripts are cut into chunks (notes: by heading/section, ~400 tokens, citing TipTap block ids;
+transcripts: 60–90 s windows citing segment ids + `start_ms`/`end_ms`), embedded with `@oat/ai`'s embedding
+model (the mock LLM's feature-hashed vectors in dev) and stored in `chunk` (pgvector, HNSW cosine).
+
+- **Worker.** `pnpm dev` starts it (`@oat/indexing` `dev` script, `tsx watch`); alone:
+  `pnpm --filter @oat/indexing worker`. `pnpm dev:app` runs it in the `worker` container. It follows
+  `change_log` (D-22) after a cursor kept in Redis, turns document / meeting / segment changes into one
+  `document:<id>` job per document on a Redis queue (debounced, one run at a time per document, leases with a
+  heartbeat, retried with backoff, moved to `failed` after 5 attempts, including a worker dying mid-job), and
+  re-indexes: unchanged chunks keep their embeddings, only new text is embedded (in batches of 64, each stored
+  right away so a retry never re-embeds it). A write is searchable ~1–2 s later. Needs the 6.1 migration
+  (`db:migrate`).
+- **Env.** `DATABASE_URL`, `REDIS_URL`, the `AI_*` variables (embeddings), and optionally
+  `OAT_INDEX_QUEUE_PREFIX` (default `oat:idx`), `OAT_INDEX_DEBOUNCE_MS` (1500), `OAT_INDEX_CONCURRENCY` (2), `OAT_INDEX_MAX_CHUNKS` (1000 per
+  document; the rest is skipped and logged).
+  Every worker on the same Redis + prefix shares one queue; only one follows the change log at a time.
+- **Inspect.** `docker compose exec redis redis-cli zrange oat:idx:pending 0 -1 withscores` (due jobs),
+  `hgetall oat:idx:failed` (jobs that gave up, with the last error), `get oat:idx:cursor`. Deleting the cursor
+  makes the follower re-check every document (cheap: nothing unchanged is re-embedded).
+- **Search.** `searchChunks({ db, permissions }, query, { k, scope: { documentId } | { workspaceId } })`
+  returns chunks the user may read (permission rule applied in SQL, then re-checked with `canReadDocument`)
+  with citation refs. Integration tests use their own queue prefix on the shared Redis and a throwaway DB.
 
 ## Tests
 
