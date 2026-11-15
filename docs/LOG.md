@@ -48,3 +48,4 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - 2026-11-14 · 2.2 · shipped: SttProvider, Fake, Deepgram adapter + Deepgram-compatible mock (squash-merged).
 - 2026-11-14 · 4.2 · shipped: eval harness + 5 fixture meetings (squash-merged).
 - 2026-11-14 · 1.9 · shipped: web Dockerfile + compose app profile (squash-merged).
+- 2026-11-14 · 2.8 · shipped: local Ogg Opus audio archive (multi-part, crash recovery) (squash-merged).

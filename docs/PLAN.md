@@ -44,7 +44,7 @@ Exit: start recording in the desktop app → live two-source transcript appears 
 - [ ] 2.6 Persist segments: desktop SQLite (disposable cache, D-19) + trigger-driven outbox → API → Postgres; stable client segment ids, finals only · deps: 1.5, 2.4
 - [ ] 2.7 Resilience: STT down → buffer + replay; sleep/wake; app quit mid-recording · deps: 2.6
 - [ ] 2.9 Archive backfill: after an STT outage longer than the replay buffer, re-transcribe the gap from the local Opus archive and merge as finals (D-17) · deps: 2.7, 2.8
-- [ ] 2.8 Local audio archive: incremental Ogg Opus writer per source, `audio_recording` table, partial-file recovery on crash, tests with `FileSource` fixtures · deps: 2.4
+- [x] 2.8 Local audio archive: incremental Ogg Opus writer per source, `audio_recording` table, partial-file recovery on crash, tests with `FileSource` fixtures · deps: 2.4
 
 ## M3 — Notes & editor
 Exit: create/edit pages and meeting notes on desktop and web; content syncs; Markdown export works.

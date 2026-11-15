@@ -6,6 +6,19 @@
  */
 export * from './types.ts';
 export {
+  InMemoryAudioRecordingStore,
+  locateMeetingTime,
+  meetingParts,
+  nextPart,
+  nextPartAfter,
+  type MeetingTimeLocation,
+  type AudioRecording,
+  type AudioRecordingFilter,
+  type AudioRecordingPatch,
+  type AudioRecordingStatus,
+  type AudioRecordingStore,
+} from './audio-recording.ts';
+export {
   Fanout,
   framesOf,
   logListenerError,
