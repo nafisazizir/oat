@@ -72,10 +72,11 @@ All ports bind to `127.0.0.1` and sit in a private range so they don't clash wit
 ## How mocks work (`tools/mocks`)
 
 `@oat/mocks` is a small Hono service. Each third-party API is a *provider* in `src/providers/<name>.ts`,
-mounted under `/<name>` and registered in `src/providers/index.ts` (today `example` and `llm`; `stt`,
-`gcal`, `notion` arrive with the tasks that need them). A provider is a Hono sub-app plus optional
-`websockets` routes (raw `ws` sockets, e.g. a Deepgram-style streaming endpoint; see the `/example/ws` echo)
-and an optional `reset()`. Built-in routes:
+mounted under `/<name>` and registered in `src/providers/index.ts` (today `example`, `llm` and `stt`;
+`gcal` and `notion` arrive with the tasks that need them). A provider is a Hono sub-app plus optional
+`websockets` routes (raw `ws` sockets, e.g. a Deepgram-style streaming endpoint; see the `/example/ws` echo,
+with an optional `verify()` that can refuse the handshake with an HTTP status) and an optional `reset()`.
+Built-in routes:
 
 | Route                          | Purpose                                                                    |
 | ------------------------------ | -------------------------------------------------------------------------- |
@@ -129,6 +130,26 @@ the service natively while developing:
 ```bash
 MOCKS_PORT=14011 pnpm --filter @oat/mocks dev   # tsx watch; point MOCKS_URL at it (the container keeps :14010)
 ```
+
+### The `stt` provider (stands in for Deepgram)
+
+- `POST /stt/v1/auth/grant` → `{ access_token, expires_in }` (short-lived token, D-17; body `{ ttl_seconds }`
+  optional). Any or no API key is accepted.
+- `WS /stt/v1/listen?encoding=linear16&sample_rate=16000&…`: binary PCM in, Deepgram `Results` JSON out
+  (interim + final, `speech_final`, `start`/`duration`, words; an often-empty interim every second of
+  silence), `KeepAlive`/`Finalize`/`CloseStream`, `endpointing=false`, close 1011 after 10 s without audio
+  or a message. Auth: `Authorization: Token <any>` or `Bearer <granted token>`
+  (or the `token`/`bearer` subprotocol pair); anything else is a 401 on the handshake.
+- Transcripts: an energy VAD finds speech; words come from a fixed sentence corpus, or with
+  `mock_fixture=<fixture>&mock_channel=mic|system` (+ `mock_offset_ms` after a reconnect) from
+  `fixtures/audio/<fixture>.segments.json`, so tests can assert exact text.
+- Scenario params (tests/dev tools only, never production code): `drop_after_ms` (+ `drop_times`,
+  `mock_session`), `latency_ms`, `reject_auth=1`, `reject_status=<code>` (e.g. 402/429 on the handshake),
+  `mock_idle_timeout_ms`. Full list in
+  `tools/mocks/src/providers/stt.ts`.
+- `@oat/stt` points at it by default (`resolveDeepgramEndpoints()`, see "Switching a provider" below). The
+  container image bundles the fixture ground truth; it gets the provider once `main` is rebuilt with
+  `pnpm dev:build`.
 
 ## Switching a provider to the real thing
 

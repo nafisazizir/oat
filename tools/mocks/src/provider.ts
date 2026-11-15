@@ -9,8 +9,21 @@ import type { WebSocket } from 'ws';
  */
 export interface MockWebSocketRoute {
   path: string;
+  /**
+   * Optional check before the upgrade (auth, query validation), like a real provider answering the
+   * handshake with 401/400. Return a rejection to respond with that HTTP status and JSON body instead of
+   * upgrading; return `undefined` to accept.
+   */
+  verify?(request: IncomingMessage, url: URL): MockUpgradeRejection | undefined;
   /** Called once the upgrade succeeded. `url` includes the query string the client connected with. */
   handle(socket: WebSocket, request: IncomingMessage, url: URL): void;
+}
+
+/** HTTP answer to a refused websocket upgrade. */
+export interface MockUpgradeRejection {
+  status: number;
+  /** Sent as JSON. */
+  body?: unknown;
 }
 
 /**

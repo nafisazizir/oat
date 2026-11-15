@@ -1,8 +1,13 @@
-import type { IncomingMessage } from 'node:http';
+import { STATUS_CODES, type IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { Hono } from 'hono';
 import { WebSocketServer } from 'ws';
-import type { MockProvider, MockProviderFactory, MockWebSocketRoute } from './provider.ts';
+import type {
+  MockProvider,
+  MockProviderFactory,
+  MockUpgradeRejection,
+  MockWebSocketRoute,
+} from './provider.ts';
 import { defaultProviders } from './providers/index.ts';
 import { MAX_BODY_CHARS, RequestLog } from './request-log.ts';
 
@@ -36,6 +41,9 @@ function redactHeaders(headers: Headers): Record<string, string> {
       out[key] = value.includes(' ') ? `${scheme} [redacted]` : '[redacted]';
     } else if (key === 'x-api-key' || key === 'api-key' || key === 'cookie') {
       out[key] = '[redacted]';
+    } else if (key === 'sec-websocket-protocol' && /^\s*(token|bearer)\s*,/i.test(value)) {
+      // Deepgram-style subprotocol auth (`token, <key>` / `bearer, <jwt>`) carries a credential.
+      out[key] = `${value.split(',')[0]!.trim()}, [redacted]`;
     } else {
       out[key] = value;
     }
@@ -144,6 +152,15 @@ export function createApp(options: CreateAppOptions = {}): MocksApp {
   const handleUpgrade: MocksApp['handleUpgrade'] = (request, socket, head) => {
     const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
     const route = routes.get(url.pathname);
+    let rejection: MockUpgradeRejection | undefined = route ? undefined : { status: 404 };
+    if (route?.verify) {
+      try {
+        rejection = route.verify(request, url);
+      } catch (error) {
+        console.error('[mocks] websocket verify failed', error);
+        rejection = { status: 500, body: { error: 'internal_error' } };
+      }
+    }
     log.add({
       at: new Date().toISOString(),
       method: request.method ?? 'GET',
@@ -152,10 +169,16 @@ export function createApp(options: CreateAppOptions = {}): MocksApp {
       query: Object.fromEntries(url.searchParams),
       headers: redactHeaders(toHeaders(request.headers)),
       body: null,
-      status: route ? 101 : 404,
+      status: rejection ? rejection.status : 101,
     });
-    if (!route) {
-      socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+    if (!route || rejection) {
+      const { status, body } = rejection ?? { status: 404 };
+      const payload = body === undefined ? '' : JSON.stringify(body);
+      socket.end(
+        `HTTP/1.1 ${status} ${STATUS_CODES[status] ?? 'Error'}\r\nConnection: close\r\n` +
+          (payload ? 'Content-Type: application/json\r\n' : '') +
+          `Content-Length: ${Buffer.byteLength(payload)}\r\n\r\n${payload}`,
+      );
       return;
     }
     wss.handleUpgrade(request, socket, head, (ws) => route.handle(ws, request, url));

@@ -15,7 +15,14 @@
     "test": "vitest run",
     "test:int": "vitest run --mode int --passWithNoTests"
   },
+  "dependencies": {
+    "@oat/audio": "workspace:*",
+    "ws": "catalog:"
+  },
   "devDependencies": {
+    "@oat/mocks": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/ws": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
