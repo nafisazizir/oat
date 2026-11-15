@@ -357,6 +357,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@oat/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@oat/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -454,6 +457,9 @@ importers:
       '@oat/core':
         specifier: workspace:*
         version: link:../core
+      '@oat/editor':
+        specifier: workspace:*
+        version: link:../editor
       ai:
         specifier: 'catalog:'
         version: 7.0.173(zod@4.6.7)

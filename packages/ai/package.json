@@ -21,6 +21,7 @@
     "@ai-sdk/openai-compatible": "catalog:",
     "@ai-sdk/provider": "catalog:",
     "@oat/core": "workspace:*",
+    "@oat/editor": "workspace:*",
     "ai": "catalog:",
     "zod": "catalog:"
   },

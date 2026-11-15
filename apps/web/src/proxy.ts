@@ -31,5 +31,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // The `(app)` route group (keep in sync with `src/app/(app)/*`), plus invite pages for their headers.
-  matcher: ['/home', '/d/:path*', '/settings/:path*', '/templates', '/invite/:path*'],
+  matcher: ['/home', '/d/:path*', '/settings/:path*', '/templates/:path*', '/invite/:path*'],
 };

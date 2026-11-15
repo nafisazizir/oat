@@ -16,6 +16,7 @@
     "e2e:screenshots": "E2E_SCREENSHOTS=1 playwright test screenshots"
   },
   "dependencies": {
+    "@oat/ai": "workspace:*",
     "@oat/auth": "workspace:*",
     "@oat/calendar": "workspace:*",
     "@oat/core": "workspace:*",

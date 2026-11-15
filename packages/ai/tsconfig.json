@@ -1,6 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    // DOM types only so `@oat/editor/markdown` (its TipTap node files mention HTMLElement) typechecks here.
+    "lib": ["ES2023", "DOM"],
     "types": ["node"]
   },
   "include": ["src", "evals", "vitest.config.ts"]

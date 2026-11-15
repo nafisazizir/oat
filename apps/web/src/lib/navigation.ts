@@ -9,6 +9,11 @@ export const sections = {
   settings: { label: 'Settings', href: '/settings' },
 } as const;
 
+/** Whether `pathname` is a section's page or one of its sub-pages (`/templates/…` → Templates). */
+export function inSection(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 /**
  * Breadcrumbs for an app pathname: workspace › section, or workspace › Private/Shared › ancestors ›
  * page (or workspace › Trash › page). Pure: the tree comes from the shell data. The last crumb has no
@@ -25,6 +30,12 @@ export function breadcrumbsFor(
     if (section.href === `/${first ?? ''}` && second === undefined) {
       return [workspace, { label: section.label }];
     }
+  }
+
+  // Template pages: workspace › Templates › New template | Template (names aren't in the shell data).
+  if (first === 'templates' && second) {
+    const templates: Crumb = { label: sections.templates.label, href: sections.templates.href };
+    return [workspace, templates, { label: second === 'new' ? 'New template' : 'Template' }];
   }
 
   if (first === 'd' && second) {

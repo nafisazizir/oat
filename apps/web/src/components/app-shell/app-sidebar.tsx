@@ -36,7 +36,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
-import { sections } from '@/lib/navigation';
+import { inSection, sections } from '@/lib/navigation';
 import { rootsOf, type Workspace } from '@/lib/tree';
 import { switchWorkspace } from '@/server/actions/workspaces';
 import { LeaveWorkspaceDialog } from '@/components/workspace/leave-workspace-dialog';
@@ -240,7 +240,7 @@ export function AppSidebar() {
             { ...sections.settings, Icon: SettingsIcon },
           ].map(({ href, label, Icon }) => (
             <SidebarMenuItem key={href}>
-              <SidebarMenuButton asChild isActive={pathname === href} tooltip={label}>
+              <SidebarMenuButton asChild isActive={inSection(pathname, href)} tooltip={label}>
                 <Link href={href}>
                   <Icon />
                   <span>{label}</span>

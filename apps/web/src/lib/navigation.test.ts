@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { breadcrumbsFor } from './navigation';
+import { breadcrumbsFor, inSection } from './navigation';
 import {
   ancestorsOf,
   childrenOf,
@@ -57,6 +57,22 @@ describe('breadcrumbsFor(tree, pathname)', () => {
       { label: 'Home' },
     ]);
     expect(breadcrumbsFor(tree, '/settings').at(-1)).toEqual({ label: 'Settings' });
+  });
+
+  it('template pages: workspace › Templates › Template / New template', () => {
+    expect(breadcrumbsFor(tree, '/templates/01900000-0000-7000-8b17-000000000001')).toEqual([
+      { label: 'Studio', href: '/home' },
+      { label: 'Templates', href: '/templates' },
+      { label: 'Template' },
+    ]);
+    expect(breadcrumbsFor(tree, '/templates/new').at(-1)).toEqual({ label: 'New template' });
+  });
+
+  it('inSection matches a section and its sub-pages only', () => {
+    expect(inSection('/templates', '/templates')).toBe(true);
+    expect(inSection('/templates/abc', '/templates')).toBe(true);
+    expect(inSection('/templatesx', '/templates')).toBe(false);
+    expect(inSection('/home', '/templates')).toBe(false);
   });
 
   it('nested private page: workspace › Private › ancestors › page', () => {

@@ -1,58 +1,104 @@
 import { Badge } from '@oat/ui/components/badge';
-import {
-  BriefcaseIcon,
-  CalendarCheckIcon,
-  MessagesSquareIcon,
-  NotebookTextIcon,
-  UserRoundSearchIcon,
-  type LucideIcon,
-} from 'lucide-react';
-import type { Metadata } from 'next';
+import { Button } from '@oat/ui/components/button';
+import { LayoutTemplateIcon, PlusIcon } from 'lucide-react';
+import type { Metadata, Route } from 'next';
+import Link from 'next/link';
 
-import { PageContainer, PageHeader } from '@/components/page';
+import { EmptyState, PageContainer, PageHeader, SectionHeading } from '@/components/page';
+import { TemplateIcon } from '@/components/templates/template-icon';
+import type { TemplateDto } from '@/lib/templates';
+import { loadTemplateList } from '@/server/templates/pages';
 
 export const metadata: Metadata = { title: 'Templates' };
 
-/** Built-in templates from SPEC §4 (Enhance). Placeholders until templates are real data (M4). */
-const builtIns: { name: string; blurb: string; icon: LucideIcon }[] = [
-  { name: 'General', blurb: 'Key points, decisions and next steps.', icon: NotebookTextIcon },
-  {
-    name: '1:1',
-    blurb: 'Updates, feedback and follow-ups for both sides.',
-    icon: MessagesSquareIcon,
-  },
-  {
-    name: 'Sales discovery',
-    blurb: 'Needs, budget, timeline and objections.',
-    icon: BriefcaseIcon,
-  },
-  { name: 'Standup', blurb: 'Done, doing next, and blockers per person.', icon: CalendarCheckIcon },
-  { name: 'Interview', blurb: 'Signals by competency, with quotes.', icon: UserRoundSearchIcon },
-];
+function TemplateCard({ template }: { template: TemplateDto }) {
+  return (
+    <li>
+      <Link
+        href={`/templates/${template.id}` as Route}
+        className="flex h-full gap-3 rounded-xl border bg-card p-4 shadow-xs transition-colors duration-fast outline-none hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50"
+        data-testid="template-card"
+      >
+        <TemplateIcon id={template.id} />
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate font-medium">{template.name}</span>
+            {template.isBuiltin && <Badge variant="outline">Built-in</Badge>}
+          </div>
+          {template.instructions && (
+            <p className="line-clamp-2 text-sm text-muted-foreground">{template.instructions}</p>
+          )}
+          <p className="truncate text-xs text-muted-foreground">
+            {template.sections.map((s) => s.heading).join(' · ')}
+          </p>
+        </div>
+      </Link>
+    </li>
+  );
+}
 
-export default function TemplatesPage() {
+export default async function TemplatesPage() {
+  const { builtins, custom, canCreate, workspace } = await loadTemplateList();
+  const customHeading = workspace.kind === 'personal' ? 'Your templates' : `${workspace.name}`;
+
   return (
     <PageContainer>
       <PageHeader
         title="Templates"
         description="Templates shape how Oat turns your notes and the transcript into clean notes."
-      />
-      <ul className="grid gap-3 sm:grid-cols-2">
-        {builtIns.map(({ name, blurb, icon: Icon }) => (
-          <li key={name} className="flex gap-3 rounded-xl border bg-card p-4 shadow-xs">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <Icon className="size-4" />
-            </div>
-            <div className="flex min-w-0 flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{name}</span>
-                <Badge variant="outline">Built-in</Badge>
-              </div>
-              <p className="text-muted-foreground">{blurb}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
+      >
+        {canCreate && (
+          <Button asChild>
+            <Link href="/templates/new">
+              <PlusIcon />
+              New template
+            </Link>
+          </Button>
+        )}
+      </PageHeader>
+
+      <section className="flex flex-col gap-3" aria-labelledby="builtin-heading">
+        <div id="builtin-heading">
+          <SectionHeading>Built-in</SectionHeading>
+        </div>
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {builtins.map((t) => (
+            <TemplateCard key={t.id} template={t} />
+          ))}
+        </ul>
+      </section>
+
+      <section className="flex flex-col gap-3" aria-labelledby="custom-heading">
+        <div id="custom-heading">
+          <SectionHeading>{customHeading}</SectionHeading>
+        </div>
+        {custom.length > 0 ? (
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {custom.map((t) => (
+              <TemplateCard key={t.id} template={t} />
+            ))}
+          </ul>
+        ) : (
+          <EmptyState
+            icon={LayoutTemplateIcon}
+            title="No custom templates yet"
+            description={
+              canCreate
+                ? 'Open a built-in and duplicate it, or start from scratch.'
+                : 'Members of this workspace can create templates; you can use the built-ins.'
+            }
+          >
+            {canCreate && (
+              <Button variant="outline" asChild>
+                <Link href="/templates/new">
+                  <PlusIcon />
+                  New template
+                </Link>
+              </Button>
+            )}
+          </EmptyState>
+        )}
+      </section>
     </PageContainer>
   );
 }

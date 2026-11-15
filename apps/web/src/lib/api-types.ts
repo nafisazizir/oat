@@ -59,6 +59,8 @@ export type ApiErrorCode =
   | 'stale_version'
   | 'not_in_trash'
   | 'confirm_private'
+  /** Templates: built-ins are read-only (duplicate them instead). */
+  | 'builtin_read_only'
   | 'cross_site';
 
 // Request bodies -------------------------------------------------------------------------------------

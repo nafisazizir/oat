@@ -105,7 +105,7 @@ describe('eval harness (mock tier)', () => {
     });
     expect(code).toBe(1);
     expect(out).toContain('Baseline: enhance not compared (no mock baseline).');
-    expect(out).toMatch(/✗ one-on-one headings \(0\.67\): missing: Updates; extra: Something else/);
+    expect(out).toMatch(/✗ one-on-one headings \(0\.75\): missing: Updates; extra: Something else/);
   });
 
   it('records a task that throws as an error and fails', async () => {
