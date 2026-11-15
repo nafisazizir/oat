@@ -57,6 +57,8 @@ Exit: create/edit pages and meeting notes on desktop and web; content syncs; Mar
 - [x] 3.7 Audio playback in meeting view: player (mic/system/mixed), click segment → seek, highlight segment while playing; "audio on another device" state · deps: 2.8, 3.4
 - [x] 3.8 Storage settings: retention policy (forever / N days / max GB), per-meeting delete, disk usage, show in Finder · deps: 2.8
 
+- [ ] 3.9 Desktop workspace switcher — record meetings into team workspaces (found by 9.4) · deps: 9.2, 5.1, 2.6
+
 ## M4 — Enhance
 Exit: after a meeting, one click (or auto) produces structured notes from notes + transcript + template; evals pass.
 - [x] 4.1 `packages/ai` foundation: AI SDK provider factory (AI Gateway when key set, else OpenAI-compatible `tools/mocks` LLM + embeddings), model registry, in-process mock model for unit tests · deps: 1.1, 1.10
