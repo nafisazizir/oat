@@ -167,6 +167,7 @@ All take `DATABASE_URL` (root `.env`, default the compose `oat` database):
 ## Tests
 
 - `pnpm test`: unit tests, in-process fakes, no containers.
+- `pnpm run ci`: everything, including the stack-dependent steps (see "CI" below).
 - `pnpm test:int`: `*.int.test.ts`, needs `pnpm dev:up`. Use `@oat/testkit`:
   - `createTestDatabase()` → `{ name, url, drop() }`: a fresh `oat_test_<timestamp>_<random>` database
     per run, so parallel runs never collide. Always `drop()` in `afterAll`. It refuses any non-loopback
@@ -178,6 +179,45 @@ All take `DATABASE_URL` (root `.env`, default the compose `oat` database):
   - `waitFor(fn, { timeout, interval })` polls until `fn` returns a value.
   - `startMocks()` from `@oat/mocks` for provider tests (see "Container vs in-process").
   - Defaults match the compose ports; the root `.env` and exported shell vars override them.
+
+## CI (`pnpm run ci` is the gate)
+
+`pnpm run ci` (`scripts/ci.mjs`, plain Node) runs every gate in order and prints a summary table with
+durations; it exits non-zero if any step fails. GitHub Actions runs the same command (D-12: no remote yet, the
+workflow is checked locally by the `actionlint` step). A step whose prerequisite failed is skipped; the
+others still run so you see every failure at once (`--bail` stops at the first).
+
+| Step              | What it does                                                                                    |
+| ----------------- | ----------------------------------------------------------------------------------------------- |
+| `format`          | `pnpm format:check` (Prettier)                                                                  |
+| `actionlint`      | `.github/workflows/*.yml` through the pinned `rhysd/actionlint` image (files go in on stdin; skipped if Docker is missing) |
+| `typecheck`       | `pnpm typecheck`                                                                                |
+| `lint`            | `pnpm lint` (turbo `lint` + ESLint on `scripts/`)                                               |
+| `test`            | `pnpm test` (unit, no containers)                                                               |
+| `stack`           | No-op when every compose service is running and healthy; otherwise `pnpm dev:up` (builds local images only if missing, never rebuilds). Never `down`/`reset`/`build`. |
+| `migrate`         | Creates a throwaway `oat_test_*` database, runs `@oat/db db:migrate` against it twice, checks applied = journal entries, drops it |
+| `test:int`        | `pnpm test:int`                                                                                 |
+| `e2e`             | `pnpm --filter <pkg> run e2e` for every package that defines an `e2e` script, one at a time, each with a free port in `E2E_PORT` (Playwright `webServer` should listen there). Skipped while no package has one. |
+| `swift:build`     | macOS only: `swift build` in `native/oat-audio`                                                 |
+| `swift:test`      | macOS only: `swift test`                                                                        |
+| `swift:synthetic` | macOS only: `oat-audio capture --synthetic --duration 2 \| check-frames.mjs --expect-seconds 2` (no hardware, no prompts) |
+
+Flags: `--fast` (only format → test: no stack, e2e or Swift), `--only <step|group>[,...]` (exact steps, e.g.
+`--only test:int` or `--only swift`; prerequisites aren't added, so `--only stack,test:int` if the stack may be
+down), `--bail`, `--list`. Turbo caches typecheck/lint/test, so a re-run on an unchanged tree is a few seconds;
+`TURBO_FORCE=true pnpm run ci` measures a cold run.
+
+**Adding e2e to a package**: add an `e2e` script (e.g. `playwright test`) whose server binds to
+`process.env.E2E_PORT` (fallback to a fixed port for manual runs). Chromium is installed once per machine with
+`pnpm --filter @oat/ui exec playwright install chromium`.
+
+**GitHub Actions** (`.github/workflows/ci.yml`): job `checks` on `ubuntu-24.04` (pnpm store and Playwright
+browser caches, `pnpm run ci`; the `stack` step brings up the compose stack on the runner, Swift steps report
+`skip`) and job `swift` on `macos-26` (`node scripts/ci.mjs --only swift`, no install). Actions are pinned by
+tag, runs on the same ref cancel each other, no secrets. To lint the workflow by hand:
+`node scripts/ci.mjs --only actionlint`. (Mounting the repo into the actionlint container, as in
+`docker run -v "$PWD":/repo rhysd/actionlint`, fails when Docker Desktop isn't allowed to share the folder,
+e.g. under `~/Documents`; the stdin form avoids that.)
 
 ## Troubleshooting
 

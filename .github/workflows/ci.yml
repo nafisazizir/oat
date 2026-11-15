@@ -1,0 +1,94 @@
+# CI (D-12): runs the same `pnpm run ci` as a laptop (scripts/ci.mjs, docs/DEV.md "CI").
+# No remote yet, so this file is validated locally by the `actionlint` step of `pnpm run ci`.
+# No secrets: every external dependency is the compose stack (D-11), started by the `stack` step.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  TURBO_TELEMETRY_DISABLED: '1'
+
+jobs:
+  checks:
+    name: Checks (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      # Version comes from `packageManager` in package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @oat/ui exec playwright install --with-deps chromium
+
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter @oat/ui exec playwright install-deps chromium
+
+      # Everything except the Swift steps (macOS only; they report `skip` here). The `stack` step runs
+      # `pnpm dev:up`: builds the local images and starts the compose stack (D-11 ports) on the runner.
+      - name: pnpm run ci
+        run: pnpm run ci
+
+      - name: Stack status and logs
+        if: failure()
+        run: |
+          docker compose ps --all
+          docker compose logs --no-color --tail 200
+
+      - name: Upload Playwright reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            **/playwright-report/
+            **/test-results/
+            !**/node_modules/**
+          if-no-files-found: ignore
+          retention-days: 7
+
+  swift:
+    name: Swift sidecar (macOS)
+    # Xcode 26 / Swift 6.2 (native/oat-audio/README.md). Synthetic capture only: no audio hardware, no
+    # permission prompts.
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      # scripts/ci.mjs and check-frames.mjs are dependency-free Node: no pnpm install needed.
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+
+      - name: swift build + test + synthetic capture
+        run: node scripts/ci.mjs --only swift

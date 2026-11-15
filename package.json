@@ -16,12 +16,12 @@
     "dev:logs": "node scripts/dev.mjs logs",
     "dev:ps": "node scripts/dev.mjs ps",
     "typecheck": "turbo run typecheck",
-    "lint": "turbo run lint",
+    "lint": "turbo run lint && eslint scripts",
     "test": "turbo run test",
     "test:int": "turbo run test:int",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "ci": "turbo run typecheck lint test && prettier --check ."
+    "ci": "node scripts/ci.mjs"
   },
   "devDependencies": {
     "@eslint/js": "catalog:",

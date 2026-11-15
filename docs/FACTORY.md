@@ -55,8 +55,12 @@ orchestrator moves on to other unblocked work.
 
 ## 3. Global gates (every task)
 
-- `pnpm typecheck`, `pnpm lint`, `pnpm test` all green; `pnpm test:int` green when the task touches anything
-  that talks to Postgres/Redis/mocks (requires `pnpm dev:up`). `pnpm run ci` runs all of it.
+- **`pnpm run ci` is the gate** (D-12; `scripts/ci.mjs`, same command as the GitHub workflow): format,
+  actionlint, typecheck, lint, unit tests, then — ensuring the shared compose stack is up (no-op when healthy) —
+  a migration check on a throwaway DB, `test:int`, package e2e (Playwright, free port each) and, on macOS, the
+  Swift sidecar (build, test, synthetic capture). Green = every step `pass` or `skip`. While iterating,
+  `pnpm run ci --fast` (no stack/e2e/Swift) or `--only <step>`; the full run is required before hand-back,
+  verification and merge. Details: `docs/DEV.md` → "CI".
 - No calls to external services in dev or tests (D-11): new integrations get a mock in `tools/mocks` and an
   env-selected base URL; real-provider smoke tests are skipped unless the key is set.
 - New logic has tests; bug fixes have a regression test.
@@ -173,8 +177,8 @@ task file `docs/tasks/<file>` first. Keep your final report under 15 lines; put 
 
 - **Implementer** (Agent, `isolation: worktree`): "Implement task <id> on branch `task/<id>-<slug>` (create it
   from `main`). Work only within the task's scope. Commit in small steps. Before finishing run
-  `pnpm install && pnpm typecheck && pnpm lint && pnpm test` (+ `pnpm test:int` if relevant; the compose stack
-  is shared — start it with `pnpm dev:up` from the main checkout if it's not running, never `dev:reset`).
+  `pnpm install && pnpm run ci` (the full gate; `--fast` while iterating). The compose stack is shared: `ci`
+  starts it if it's down and leaves it alone if healthy; never `dev:reset`/`dev:down`/`dev:build`.
   Fill *Design notes* in the task file. Report: branch name, worktree path, what was done, check results,
   anything out of scope you touched. If review findings are attached, fix exactly those."
 - **Reviewer** (fresh Agent, read-only intent): "Review branch `<branch>` against task <id>. Read the task file
@@ -182,7 +186,7 @@ task file `docs/tasks/<file>` first. Keep your final report under 15 lines; put 
   security/authz, clean-room, tests meaningful, scope creep, D-11 (no external calls). Write the verdict under
   *Review* in the task file **on that branch's worktree** and report `approve` or `changes` + numbered list."
 - **Verifier** (fresh Agent): "In worktree `<path>` (branch `<branch>`), run every command in the task's
-  *Verification* section plus the global gates. Paste trimmed outputs into *Evidence*, commit the task file.
+  *Verification* section plus the global gates (`pnpm run ci`, paste its summary table). Paste trimmed outputs into *Evidence*, commit the task file.
   UI tasks: Playwright screenshot saved under `docs/tasks/evidence/<id>/`. Report `pass` or `fail` + reasons.
   Never edit product code."
 - **Researcher** (fresh Agent, REA MCP): "Answer: <one question> about /Applications/Granola.app using REA
