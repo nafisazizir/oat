@@ -25,7 +25,7 @@ Electron + Vite for desktop. Evidence: Granola 7.786.3 ships Electron with Vite 
 UI: shadcn/ui + token-based theme from day one instead of copying Granola's UI or blocking on a bespoke design
 system. Layout/flow inspiration from Granola is fine; visual identity is ours.
 
-## D-7 · 2026-11-14 · accepted · human (agent proposal)
+## D-7 · 2026-11-14 · accepted · human (agent proposal) — durable part resolved by D-29
 Agents: interactive assistant = AI SDK tool loop; durable/background agents = eve, decided at task 8.2 after
 reading eve's bundled docs. Tools live in `packages/ai` so both can reuse them.
 
@@ -210,3 +210,20 @@ recording. The cache is wiped only on genuine corruption / too-new schema / fail
 transient errors. Audio recording metadata lives in a separate, never-wiped index next to the audio folder (D-10,
 D-24). Outbox entries that the server rejects or that can't be sent are parked (visible in sync status), never
 silently dropped and never allowed to block the queue.
+
+## D-29 · 2026-11-15 · accepted · agent
+Durable/background agents (resolves D-7 after the 8.2 spike + review): use **eve**, pinned to an exact version,
+for durable pipelines. Fixed pipelines (post-meeting: enhance → index → integrations) are plain
+`"use workflow"`/`"use step"` functions with **idempotent step bodies** started by our own route; model-driven
+eve sessions only where a model must decide. Guardrails:
+- D-11: `EVE_TELEMETRY_DISABLED=1` everywhere; the build-time model catalog is pre-written locally (no fetch).
+  No other phone-home found (reviewed). Workflow state in its own Postgres DB (`oat_workflow`), never the app DB
+  (fail fast if unset). Lock-stale window 30 s (above the world's renewal interval).
+- `/jobs/*` contract: the web app authorises the user against the meeting via `@oat/core` before calling; the
+  body carries `workspaceId` and the agent rejects mismatches; service token ≥ 32 random bytes with
+  current+previous accepted for rotation; the agents server is never public.
+- Run log in our own storage. Prod world is deferred to 9.6 (Postgres world needs a long-running process;
+  Vercel Workflow untested). Fallback: the idempotent steps run as one 6.1 worker job.
+- Revisit trigger: if an eve upgrade strands runs or costs more than a day of work in a milestone, drop to the
+  6.1 Redis worker.
+- Layering: agents must not import `apps/*`; services move into packages (8.3), enforced by lint.
