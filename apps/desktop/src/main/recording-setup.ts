@@ -135,7 +135,36 @@ export function createRecordingSetup(o: RecordingSetupOptions) {
     });
   }
 
-  return { fixtures, resolveInput, createSource, createStt };
+  /**
+   * The provider for back-filling gaps from the archive (2.7): its batch API on the same deployment as live
+   * transcription. A dev fixture replay against a local mock asks for the configured fixture's ground truth
+   * (`OAT_AUDIO_SOURCE=file:<name>`; batch requests carry the meeting-clock time of their first sample,
+   * which is the fixture's time for a one-part replay).
+   */
+  async function createBatchStt(stillOwner: () => boolean = () => true): Promise<SttProvider> {
+    const url = await listenUrl();
+    const fixture = o.audio.input === 'file' ? o.audio.fixture : null;
+    const mockFixture = fixture && !o.isPackaged && LOOPBACK.has(new URL(url).hostname);
+    return new DeepgramProvider({
+      url,
+      // Bound to the account the job belongs to: after a switch no token is fetched for its audio.
+      getToken: (options) => {
+        if (!stillOwner()) return Promise.reject(new Error('the signed-in account changed'));
+        return o.credentials.getToken(options);
+      },
+      ...(mockFixture
+        ? {
+            extraQuery: ({ source, offsetMs }) => ({
+              mock_fixture: fixture,
+              mock_channel: source,
+              mock_offset_ms: Math.round(offsetMs ?? 0),
+            }),
+          }
+        : {}),
+    });
+  }
+
+  return { fixtures, resolveInput, createSource, createStt, createBatchStt };
 }
 
 /** A start request that can't be served; `code` is a bridge error code. */

@@ -75,6 +75,8 @@ export const storedSegmentSchema = z.object({
   startMs: z.number().nonnegative(),
   endMs: z.number().nonnegative(),
   text: z.string().max(10_000),
+  /** Filled in on this Mac from the audio archive after a transcription outage (2.7; not synced). */
+  backfilled: z.boolean().optional(),
 });
 export type StoredSegment = z.infer<typeof storedSegmentSchema>;
 

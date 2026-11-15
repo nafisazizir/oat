@@ -255,6 +255,7 @@ export class MeetingNotes {
       startMs: s.startMs,
       endMs: s.endMs,
       text: s.text,
+      ...(s.backfilled ? { backfilled: true } : {}),
     }));
   }
 

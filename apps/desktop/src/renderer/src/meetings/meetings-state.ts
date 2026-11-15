@@ -3,7 +3,12 @@
  * the main process (local database) and reloaded whenever main says they changed (`meetings:changed`:
  * a recording created or ended one, sync pulled changes, attendees changed).
  */
-import type { MeetingNote, MeetingNoteSummary, StoredSegment } from '@oat/core/bridge';
+import type {
+  MeetingNote,
+  MeetingNoteSummary,
+  StoredSegment,
+  TranscriptBackfillStatus,
+} from '@oat/core/bridge';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 
 import { bridge, call } from '../bridge.ts';
@@ -143,4 +148,24 @@ export function useStoredTranscript(documentId: string | null, refresh: boolean)
     };
   }, [documentId, key]);
   return state.id === documentId ? state.t : { segments: [], loaded: !documentId, failed: false };
+}
+
+/**
+ * Back-fill progress and crash-recovery note of a meeting (2.7), reloaded on every change announcement
+ * (main announces job progress and recoveries with `meetings:changed`). `null` until loaded / no meeting.
+ */
+export function useTranscriptStatus(meetingId: string | null): TranscriptBackfillStatus | null {
+  const v = useMeetingsVersion();
+  const [state, setState] = useState<TranscriptBackfillStatus | null>(null);
+  useEffect(() => {
+    if (!meetingId) return;
+    let live = true;
+    call('meeting:transcript-status', { meetingId })
+      .then((s) => live && setState(s))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [meetingId, v]);
+  return meetingId && state?.meetingId === meetingId ? state : null;
 }

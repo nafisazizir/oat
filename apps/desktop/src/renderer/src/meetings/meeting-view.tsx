@@ -40,7 +40,12 @@ import { TranscriptPanel } from '../recording/transcript-panel.tsx';
 import { useTranscript } from '../recording-state.ts';
 import { isActive } from '../recording-view.ts';
 import { PlaybackBar, playerKey, useMeetingPlayback } from './audio-player.tsx';
-import { registerFlush, useMeetingNote, useStoredTranscript } from './meetings-state.ts';
+import {
+  registerFlush,
+  useMeetingNote,
+  useStoredTranscript,
+  useTranscriptStatus,
+} from './meetings-state.ts';
 import { type AutosaveState, NoteAutosave } from './note-autosave.ts';
 
 type Content = MeetingNote['contentJson'];
@@ -64,6 +69,7 @@ export function MeetingView({
   const recordingThis =
     meetingId !== null && snapshot?.meetingId === meetingId && isActive(snapshot.status);
   const stored = useStoredTranscript(documentId, !recordingThis);
+  const transcriptStatus = useTranscriptStatus(documentId ? meetingId : null);
   const [panelOpen, setPanelOpen] = useStoredState<boolean>('oat.desktop.transcript.open', true);
   const [selected, setSelected] = useState<string | undefined>(undefined);
 
@@ -190,6 +196,7 @@ export function MeetingView({
                 }
                 activeId={activeId}
                 playheadKey={playable ? player.seekCount : undefined}
+                status={transcriptStatus}
               />
             </div>
           </SidePanel>

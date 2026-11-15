@@ -21,11 +21,13 @@ import {
 } from './bridge-meetings.ts';
 import { playbackInvokeChannels } from './bridge-playback.ts';
 import { storageInvokeChannels, storageSubscribeChannels } from './bridge-storage.ts';
+import { transcriptInvokeChannels } from './bridge-transcript.ts';
 
 export * from './bridge-calendar.ts';
 export * from './bridge-meetings.ts';
 export * from './bridge-playback.ts';
 export * from './bridge-storage.ts';
+export * from './bridge-transcript.ts';
 
 /** Bumped when a channel changes incompatibly (renderer and preload ship together, so mostly a sanity check). */
 export const BRIDGE_VERSION = 1;
@@ -165,6 +167,8 @@ export const liveSegmentSchema = z.object({
   endMs: z.number().nonnegative(),
   text: z.string().max(10_000),
   isFinal: z.boolean(),
+  /** Filled in from the local audio archive after a transcription outage (2.7). */
+  backfilled: z.boolean().optional(),
 });
 export type LiveSegment = z.infer<typeof liveSegmentSchema>;
 
@@ -381,6 +385,8 @@ export const bridgeContract = {
     ...storageInvokeChannels,
     /** Listening back to a meeting's local audio (3.7), `bridge-playback.ts`. */
     ...playbackInvokeChannels,
+    /** Transcript back-fill + crash recovery (2.7), `bridge-transcript.ts`. */
+    ...transcriptInvokeChannels,
   },
   send: {
     /** The window's UI has rendered (used for the cold-start measurement). */

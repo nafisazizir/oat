@@ -1,13 +1,17 @@
 import type { AudioFrame } from '@oat/audio';
 
 import { BaseSttStream } from './stream-base.ts';
-import type {
-  SttErrorCode,
-  SttProvider,
-  SttSource,
-  SttStream,
-  SttStreamOptions,
-  SttWord,
+import {
+  SttBatchError,
+  type SttBatchRequest,
+  type SttBatchResult,
+  type SttErrorCode,
+  type SttProvider,
+  type SttSegmentData,
+  type SttSource,
+  type SttStream,
+  type SttStreamOptions,
+  type SttWord,
 } from './types.ts';
 
 /** One line of ground truth, as in `fixtures/audio/*.segments.json` (recording-clock ms). */
@@ -76,6 +80,13 @@ export interface FakeSttOptions {
   errorCode?: SttErrorCode;
   /** Never opens: fatal error with this code instead (e.g. `auth` for a rejected token). */
   failOpen?: SttErrorCode;
+  /**
+   * `transcribe()` (batch): fail with this (retryable `connection` by default) while it returns true —
+   * e.g. a test's "STT is down" switch.
+   */
+  batchFails?: () => boolean | SttBatchError;
+  /** Wall-clock delay of each `transcribe()`. Default 0. */
+  batchDelayMs?: number;
 }
 
 /**
@@ -94,6 +105,50 @@ export class FakeSttProvider implements SttProvider {
 
   openStream(options: SttStreamOptions): SttStream {
     return new FakeSttStream(options, this.#options);
+  }
+
+  /** Requests made to `transcribe()` (tests assert ranges). */
+  readonly batchRequests: { source: SttSource; startMs: number; endMs: number }[] = [];
+
+  /**
+   * Batch: the ground-truth words of the request's source whose midpoint lies in the request's span
+   * (`offsetMs` … + its length), one segment per ground-truth segment.
+   */
+  async transcribe(request: SttBatchRequest): Promise<SttBatchResult> {
+    const startMs = request.offsetMs ?? 0;
+    const durationMs = (request.pcm.length / request.sampleRate) * 1000;
+    const endMs = startMs + durationMs;
+    this.batchRequests.push({ source: request.source, startMs, endMs });
+    if (this.#options.batchDelayMs) {
+      await new Promise((resolve) => setTimeout(resolve, this.#options.batchDelayMs));
+    }
+    const failure = this.#options.batchFails?.();
+    if (failure) {
+      throw failure instanceof SttBatchError
+        ? failure
+        : new SttBatchError('connection', 'fake: batch unavailable', true, 503);
+    }
+    const segments: SttSegmentData[] = [];
+    for (const truth of this.#options.segments
+      .filter((s) => s.source === request.source)
+      .sort((a, b) => a.startMs - b.startMs)) {
+      const words = wordsOf(truth).filter((w) => {
+        const mid = (w.startMs + w.endMs) / 2;
+        return mid >= startMs && mid < endMs;
+      });
+      if (words.length === 0) continue;
+      segments.push({
+        source: request.source,
+        startMs: words[0]!.startMs,
+        endMs: words.at(-1)!.endMs,
+        text: words.map((w) => w.punctuatedWord ?? w.word).join(' '),
+        isFinal: true,
+        speechFinal: true,
+        words,
+        confidence: 1,
+      });
+    }
+    return { segments, durationMs: Math.round(durationMs) };
   }
 }
 

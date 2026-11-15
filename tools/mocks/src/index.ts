@@ -24,4 +24,6 @@ export {
   type NotionProviderOptions,
 } from './providers/notion/index.ts';
 export { RequestLog, type LoggedRequest } from './request-log.ts';
+export { sttProvider, type SttProviderOptions } from './providers/stt.ts';
+export { defaultProviders } from './providers/index.ts';
 export { startMocks, type RunningMocks, type StartMocksOptions } from './server.ts';

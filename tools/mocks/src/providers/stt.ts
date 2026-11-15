@@ -28,6 +28,16 @@ import type { MockProvider, MockUpgradeRejection } from '../provider.ts';
  * (`fixtures/audio/<name>.segments.json`) by time, so tests can assert the exact text. Production code
  * never sends `mock_*` params.
  *
+ * - `POST /stt/v1/listen` (pre-recorded, task 2.7): audio in the body — a WAV (`Content-Type: audio/wav` or a
+ *   RIFF body; 16-bit PCM, first channel used) or raw `encoding=linear16&sample_rate=…` — → Deepgram's
+ *   pre-recorded JSON (`metadata.duration`, `results.channels[0].alternatives[0].{transcript, words}`,
+ *   `results.utterances[]` with `utterances=true`, split at pauses ≥ `utt_split` s, default 0.8). Same auth
+ *   and the same word sources as the live socket (`mock_fixture`/`mock_channel`/`mock_offset_ms` = clock
+ *   time of the body's first sample; corpus words over the VAD's speech otherwise), plus `reject_status`,
+ *   `reject_auth`, `latency_ms`.
+ * - `POST /stt/_mock/outage {"down": true|false}`: while down every listen handshake and batch request gets
+ *   503 and open listen sockets are dropped (tests: "STT is down for 3 minutes, then back").
+ *
  * Scenario params (dev/test only): `mock_offset_ms` (recording time of the first audio sample on this
  * socket, for fixture lookups after a reconnect), `drop_after_ms` (terminate the socket abruptly once that
  * much audio arrived; only the first `drop_times`, default 1, connections with the same params are
@@ -467,9 +477,21 @@ class ListenSession {
   }
 }
 
-export function sttProvider(): MockProvider {
+export interface SttProviderOptions {
+  /**
+   * Accept any `Bearer` token, not only ones this instance granted. For an in-process mock in tests whose
+   * client gets its tokens from another mock instance (the desktop e2e: grants come via the web app from
+   * the shared container). Default false.
+   */
+  acceptAnyBearer?: boolean;
+}
+
+export function sttProvider(options: SttProviderOptions = {}): MockProvider {
   /** Granted token → expiry (epoch ms). */
   const tokens = new Map<string, number>();
+  /** `POST /_mock/outage`: everything answers 503 while set. */
+  let down = false;
+  const sockets = new Set<WebSocket>();
   /** Drop scenario key → how many connections were dropped. */
   const drops = new Map<string, number>();
   const app = new Hono();
@@ -509,6 +531,63 @@ export function sttProvider(): MockProvider {
     status: 401,
     body: { err_code: 'INVALID_AUTH', err_msg: message },
   });
+  const outage: MockUpgradeRejection = {
+    status: 503,
+    body: { err_code: 'MOCK_OUTAGE', err_msg: 'mock: STT is down (/_mock/outage)' },
+  };
+
+  /** Shared by the listen handshake and the batch endpoint. */
+  function checkRequest(
+    url: URL,
+    auth: { scheme: 'token' | 'bearer'; value: string } | null,
+  ): MockUpgradeRejection | undefined {
+    if (down) return outage;
+    if (truthy(url.searchParams.get('reject_auth'))) {
+      return unauthorized('mock: auth rejected (reject_auth)');
+    }
+    const rejectStatus = Number(url.searchParams.get('reject_status'));
+    if (Number.isInteger(rejectStatus) && rejectStatus >= 400 && rejectStatus <= 599) {
+      return {
+        status: rejectStatus,
+        body: { err_code: 'MOCK_REJECTED', err_msg: `mock: reject_status=${rejectStatus}` },
+      };
+    }
+    if (!auth) return unauthorized('missing credentials');
+    if (auth.scheme === 'bearer' && !options.acceptAnyBearer) {
+      const expires = tokens.get(auth.value);
+      if (expires === undefined) return unauthorized('unknown token');
+      if (expires < Date.now()) return unauthorized('token expired');
+    }
+    return undefined;
+  }
+
+  app.post('/_mock/outage', async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { down?: unknown } | null;
+    if (typeof body?.down !== 'boolean') {
+      return c.json({ err_code: 'Bad Request', err_msg: 'body must be {"down": boolean}' }, 400);
+    }
+    down = body.down;
+    if (down) for (const socket of sockets) socket.terminate();
+    return c.json({ down });
+  });
+
+  app.post('/v1/listen', async (c) => {
+    const url = new URL(c.req.url);
+    const match = c.req.header('authorization')?.match(/^\s*(token|bearer)\s+(\S+)\s*$/i);
+    const auth = match
+      ? { scheme: match[1]!.toLowerCase() as 'token' | 'bearer', value: match[2]! }
+      : null;
+    const rejected = checkRequest(url, auth);
+    if (rejected) return c.json(rejected.body ?? {}, rejected.status as 401);
+    const body = new Uint8Array(await c.req.arrayBuffer());
+    const result = transcribeBatch(url, body, c.req.header('content-type') ?? '');
+    if (!result.ok) return c.json(result.rejection.body ?? {}, result.rejection.status as 400);
+    const latency = numberParam(url, 'latency_ms');
+    if (latency !== undefined && latency > 0) {
+      await new Promise((resolve) => setTimeout(resolve, latency));
+    }
+    return c.json(result.json);
+  });
 
   return {
     name: 'stt',
@@ -518,27 +597,18 @@ export function sttProvider(): MockProvider {
       {
         path: '/v1/listen',
         verify(request, url) {
-          if (truthy(url.searchParams.get('reject_auth'))) {
-            return unauthorized('mock: auth rejected (reject_auth)');
-          }
-          const rejectStatus = Number(url.searchParams.get('reject_status'));
-          if (Number.isInteger(rejectStatus) && rejectStatus >= 400 && rejectStatus <= 599) {
-            return {
-              status: rejectStatus,
-              body: { err_code: 'MOCK_REJECTED', err_msg: `mock: reject_status=${rejectStatus}` },
-            };
-          }
-          const auth = parseAuth(request);
-          if (!auth) return unauthorized('missing credentials');
-          if (auth.scheme === 'bearer') {
-            const expires = tokens.get(auth.value);
-            if (expires === undefined) return unauthorized('unknown token');
-            if (expires < Date.now()) return unauthorized('token expired');
-          }
+          const rejected = checkRequest(url, parseAuth(request));
+          if (rejected) return rejected;
           const config = parseListenQuery(url);
           return 'status' in config ? config : undefined;
         },
         handle(socket, _request, url) {
+          if (down) {
+            socket.terminate();
+            return;
+          }
+          sockets.add(socket);
+          socket.on('close', () => sockets.delete(socket));
           const config = parseListenQuery(url) as ListenConfig;
           const key = [...url.searchParams]
             .filter(([k]) => k !== 'mock_offset_ms')
@@ -559,6 +629,191 @@ export function sttProvider(): MockProvider {
     reset: () => {
       tokens.clear();
       drops.clear();
+      down = false;
+    },
+  };
+}
+
+// --- pre-recorded (batch) ------------------------------------------------------------------------------
+
+/** Silence shorter than this inside speech doesn't end a speech region (batch VAD). */
+const BATCH_MERGE_GAP_MS = 300;
+const DEFAULT_UTT_SPLIT_S = 0.8;
+
+/** 16-bit PCM WAV → first channel (minimal RIFF reader: `fmt ` + `data`, other chunks skipped). */
+function decodeWavPcm(bytes: Uint8Array): { pcm: Int16Array; sampleRate: number } | string {
+  if (bytes.length < 12) return 'not a WAV file';
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const tag = (at: number) => String.fromCharCode(...bytes.subarray(at, at + 4));
+  if (tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return 'not a WAV file';
+  let format: { channels: number; sampleRate: number; bits: number; code: number } | undefined;
+  let p = 12;
+  while (p + 8 <= bytes.length) {
+    const id = tag(p);
+    const size = view.getUint32(p + 4, true);
+    const body = p + 8;
+    if (id === 'fmt ' && size >= 16) {
+      format = {
+        code: view.getUint16(body, true),
+        channels: view.getUint16(body + 2, true),
+        sampleRate: view.getUint32(body + 4, true),
+        bits: view.getUint16(body + 14, true),
+      };
+    } else if (id === 'data') {
+      if (!format) return 'WAV data before fmt';
+      if (format.code !== 1 || format.bits !== 16 || format.channels < 1) {
+        return 'mock supports 16-bit PCM WAV only';
+      }
+      const end = Math.min(bytes.length, body + size);
+      const frames = Math.floor((end - body) / (2 * format.channels));
+      const pcm = new Int16Array(frames);
+      for (let i = 0; i < frames; i++) pcm[i] = view.getInt16(body + i * 2 * format.channels, true);
+      return { pcm, sampleRate: format.sampleRate };
+    }
+    p = body + size + (size % 2);
+  }
+  return 'WAV has no data chunk';
+}
+
+/** Speech regions (ms from the start) by the same energy VAD as the live socket. */
+export function speechRegions(
+  pcm: Int16Array,
+  sampleRate: number,
+): { startMs: number; endMs: number }[] {
+  const window = Math.round((sampleRate * WINDOW_MS) / 1000);
+  const regions: { startMs: number; endMs: number }[] = [];
+  for (let i = 0; i + window <= pcm.length; i += window) {
+    let sum = 0;
+    for (let j = i; j < i + window; j++) sum += pcm[j]! * pcm[j]!;
+    if (Math.sqrt(sum / window) <= SPEECH_RMS) continue;
+    const startMs = (i / sampleRate) * 1000;
+    const endMs = startMs + WINDOW_MS;
+    const last = regions.at(-1);
+    if (last && startMs - last.endMs < BATCH_MERGE_GAP_MS) last.endMs = endMs;
+    else regions.push({ startMs, endMs });
+  }
+  return regions;
+}
+
+type BatchOutcome =
+  { ok: true; json: Record<string, unknown> } | { ok: false; rejection: MockUpgradeRejection };
+
+function transcribeBatch(url: URL, body: Uint8Array, contentType: string): BatchOutcome {
+  const fail = (message: string): BatchOutcome => ({ ok: false, rejection: badRequest(message) });
+  const q = url.searchParams;
+  let audio: { pcm: Int16Array; sampleRate: number };
+  const isWav =
+    /audio\/(x-)?wave?/i.test(contentType) ||
+    (body.length >= 4 && String.fromCharCode(...body.subarray(0, 4)) === 'RIFF');
+  if (isWav) {
+    const decoded = decodeWavPcm(body);
+    if (typeof decoded === 'string') return fail(decoded);
+    audio = decoded;
+  } else {
+    const sampleRate = numberParam(url, 'sample_rate');
+    if (q.get('encoding') !== 'linear16' || !sampleRate || !Number.isInteger(sampleRate)) {
+      return fail('send a WAV, or raw audio with encoding=linear16&sample_rate=…');
+    }
+    const n = Math.floor(body.length / 2);
+    const view = new DataView(body.buffer, body.byteOffset, n * 2);
+    const pcm = new Int16Array(n);
+    for (let i = 0; i < n; i++) pcm[i] = view.getInt16(i * 2, true);
+    audio = { pcm, sampleRate };
+  }
+  const offset = numberParam(url, 'mock_offset_ms') ?? 0;
+  if (Number.isNaN(offset) || offset < 0) return fail('mock_offset_ms must be ≥ 0');
+  const uttSplit = numberParam(url, 'utt_split') ?? DEFAULT_UTT_SPLIT_S;
+  if (Number.isNaN(uttSplit) || uttSplit <= 0) return fail('utt_split must be > 0');
+  const durationMs = (audio.pcm.length / audio.sampleRate) * 1000;
+
+  // Words on the clock of the body (ms from its first sample).
+  let words: MockWord[];
+  const fixture = q.get('mock_fixture');
+  if (fixture !== null) {
+    const segments = FIXTURES[fixture];
+    const channel = q.get('mock_channel');
+    if (!segments) return fail(`unknown mock_fixture "${fixture}"`);
+    if (channel !== 'mic' && channel !== 'system')
+      return fail('mock_channel must be mic or system');
+    words = fixtureWords(segments, channel)
+      .filter((w) => w.centerMs >= offset && w.centerMs < offset + durationMs)
+      .map((w) => ({
+        startMs: Math.max(0, w.startMs - offset),
+        endMs: Math.min(durationMs, w.endMs - offset),
+        centerMs: w.centerMs - offset,
+        punctuated: w.punctuated,
+      }));
+  } else {
+    words = [];
+    let corpus = 0;
+    for (const region of speechRegions(audio.pcm, audio.sampleRate)) {
+      const count = Math.max(1, Math.floor((region.endMs - region.startMs) / CORPUS_WORD_MS));
+      for (let i = 0; i < count; i++) {
+        const center = region.startMs + CORPUS_WORD_MS * (i + 0.5);
+        const half = CORPUS_WORD_MS * 0.4;
+        words.push({
+          startMs: Math.max(0, center - half),
+          endMs: Math.min(durationMs, center + half),
+          centerMs: center,
+          punctuated: CORPUS_TOKENS[corpus++ % CORPUS_TOKENS.length]!,
+        });
+      }
+    }
+  }
+
+  const smart = truthy(q.get('smart_format')) || truthy(q.get('punctuate'));
+  const sec = (ms: number) => Math.round(ms) / 1000;
+  const outWords = words.map((w, i) => ({
+    word: bareWord(w.punctuated),
+    start: sec(w.startMs),
+    end: sec(w.endMs),
+    confidence: 0.9 + ((i * 7) % 10) / 100,
+    ...(smart ? { punctuated_word: w.punctuated } : {}),
+  }));
+  const text = (ws: typeof outWords) => ws.map((w) => w.punctuated_word ?? w.word).join(' ');
+  const results: Record<string, unknown> = {
+    channels: [
+      {
+        alternatives: [
+          { transcript: text(outWords), confidence: outWords.length ? 0.95 : 0, words: outWords },
+        ],
+      },
+    ],
+  };
+  if (truthy(q.get('utterances'))) {
+    const groups: (typeof outWords)[] = [];
+    for (const w of outWords) {
+      const last = groups.at(-1)?.at(-1);
+      if (!last || w.start - last.end >= uttSplit) groups.push([w]);
+      else groups.at(-1)!.push(w);
+    }
+    results.utterances = groups.map((g) => ({
+      start: g[0]!.start,
+      end: g.at(-1)!.end,
+      confidence: 0.95,
+      channel: 0,
+      transcript: text(g),
+      words: g,
+      id: randomUUID(),
+    }));
+  }
+  const model = '00000000-0000-4000-8000-000000000000';
+  return {
+    ok: true,
+    json: {
+      metadata: {
+        transaction_key: 'deprecated',
+        request_id: randomUUID(),
+        sha256: '',
+        created: new Date().toISOString(),
+        duration: sec(durationMs),
+        channels: 1,
+        models: [model],
+        model_info: {
+          [model]: { name: `mock-${q.get('model') ?? 'base'}`, version: 'mock', arch: 'mock' },
+        },
+      },
+      results,
     },
   };
 }

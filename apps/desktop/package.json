@@ -35,6 +35,7 @@
   },
   "devDependencies": {
     "@electron/fuses": "catalog:",
+    "@oat/mocks": "workspace:*",
     "@oat/testkit": "workspace:*",
     "@playwright/test": "catalog:",
     "@tailwindcss/vite": "catalog:",

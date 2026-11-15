@@ -4,12 +4,19 @@
  * While this meeting is being recorded it follows the live end (scrolling up stops that and offers "Jump to
  * live"); a past meeting shows its stored transcript. The empty states explain what is (not) happening.
  */
-import type { RecordingSnapshot } from '@oat/core/bridge';
+import type { RecordingSnapshot, TranscriptBackfillStatus } from '@oat/core/bridge';
 import { type TranscriptItem, TranscriptList } from '@oat/meeting-ui';
 import { cn } from '@oat/ui/lib/utils';
-import { AudioLinesIcon, Loader2Icon, WifiOffIcon } from 'lucide-react';
+import {
+  AlertCircleIcon,
+  AudioLinesIcon,
+  HistoryIcon,
+  Loader2Icon,
+  WifiOffIcon,
+} from 'lucide-react';
 
 import { archiveFailed, type TranscriptionHealth, transcriptionHealth } from '../recording-view.ts';
+import { type TranscriptNotice, transcriptNotices } from './transcript-notices.ts';
 
 export function TranscriptPanel({
   segments,
@@ -22,6 +29,7 @@ export function TranscriptPanel({
   onSelect,
   activeId,
   playheadKey,
+  status = null,
 }: {
   segments: readonly TranscriptItem[];
   /** This meeting is the one being recorded (or just was): follow the live end, show recording states. */
@@ -36,8 +44,11 @@ export function TranscriptPanel({
   /** Playback (3.7): the line under the playhead, and a counter bumped on every seek. */
   activeId?: string | undefined;
   playheadKey?: number;
+  /** Back-fill progress / crash-recovery note of the meeting shown (2.7). */
+  status?: TranscriptBackfillStatus | null;
 }) {
-  const status = live ? (snapshot?.status ?? 'idle') : 'idle';
+  const recordingStatus = live ? (snapshot?.status ?? 'idle') : 'idle';
+  const notices = transcriptNotices(status);
   return (
     <section
       aria-label={live ? 'Live transcript' : 'Transcript'}
@@ -46,9 +57,10 @@ export function TranscriptPanel({
       data-count={segments.length}
       data-live={live || undefined}
     >
+      {notices.length > 0 && <TranscriptNotices notices={notices} />}
       {segments.length === 0 ? (
         <EmptyTranscript
-          status={status}
+          status={recordingStatus}
           loaded={loaded}
           health={live && snapshot ? transcriptionHealth(snapshot.stt) : 'off'}
           failed={failed}
@@ -67,6 +79,48 @@ export function TranscriptPanel({
         />
       )}
     </section>
+  );
+}
+
+const NOTICE_TONE: Record<TranscriptNotice['kind'], string> = {
+  recovered: 'border-warning/40 bg-warning/10',
+  filling: 'border-border bg-muted/50 text-muted-foreground',
+  retrying: 'border-warning/40 bg-warning/10',
+  failed: 'border-destructive/30 bg-destructive/10 text-destructive',
+  filled: 'border-border bg-muted/50 text-muted-foreground',
+};
+
+/** Above the transcript: what happened to it (2.7). Live region, so progress is announced. */
+function TranscriptNotices({ notices }: { notices: readonly TranscriptNotice[] }) {
+  return (
+    <div className="flex flex-col gap-1.5 px-3 pt-3" role="status" aria-live="polite">
+      {notices.map((n) => (
+        <p
+          key={n.kind}
+          data-testid="transcript-notice"
+          data-kind={n.kind}
+          className={cn(
+            'flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs',
+            NOTICE_TONE[n.kind],
+          )}
+        >
+          {n.kind === 'filling' ? (
+            <Loader2Icon aria-hidden className="mt-px size-3.5 shrink-0 animate-spin" />
+          ) : n.kind === 'filled' ? (
+            <HistoryIcon aria-hidden className="mt-px size-3.5 shrink-0" />
+          ) : (
+            <AlertCircleIcon
+              aria-hidden
+              className={cn(
+                'mt-px size-3.5 shrink-0',
+                n.kind === 'failed' ? 'text-destructive' : 'text-warning',
+              )}
+            />
+          )}
+          <span>{n.text}</span>
+        </p>
+      ))}
+    </div>
   );
 }
 

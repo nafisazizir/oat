@@ -124,6 +124,11 @@ export interface LocalSegment {
   startMs: number;
   endMs: number;
   text: string;
+  /**
+   * Filled in from the audio archive after an STT outage (2.7). Local to this Mac (not synced); absent =
+   * live transcription.
+   */
+  backfilled?: boolean;
 }
 
 export type LocalParticipant = SyncParticipantRow;
@@ -512,24 +517,26 @@ export class LocalStore {
         cur.speakerLabel === segment.speakerLabel &&
         cur.startMs === segment.startMs &&
         cur.endMs === segment.endMs &&
-        cur.text === segment.text
+        cur.text === segment.text &&
+        !!cur.backfilled === !!segment.backfilled
       ) {
         return 'unchanged';
       }
       this.#run(
-        'UPDATE transcript_segment SET source = ?, speaker_label = ?, start_ms = ?, end_ms = ?, text = ? WHERE id = ?',
+        'UPDATE transcript_segment SET source = ?, speaker_label = ?, start_ms = ?, end_ms = ?, text = ?, backfilled = ? WHERE id = ?',
         segment.source,
         segment.speakerLabel,
         segment.startMs,
         segment.endMs,
         segment.text,
+        segment.backfilled ? 1 : 0,
         segment.id,
       );
       return 'updated';
     }
     this.#run(
-      `INSERT INTO transcript_segment (id, meeting_id, source, speaker_label, start_ms, end_ms, text)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO transcript_segment (id, meeting_id, source, speaker_label, start_ms, end_ms, text, backfilled)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       segment.id,
       segment.meetingId,
       segment.source,
@@ -537,6 +544,7 @@ export class LocalStore {
       segment.startMs,
       segment.endMs,
       segment.text,
+      segment.backfilled ? 1 : 0,
     );
     return 'inserted';
   }
@@ -705,8 +713,9 @@ export class LocalStore {
       case 'transcript_segment': {
         const r = this.#get('SELECT * FROM transcript_segment WHERE id = ?', e.rowId);
         if (!r) return undefined;
-        const s = toSegment(r);
-        return { version: e.version, op: 'upsert', table: 'transcript_segment', row: s };
+        // `backfilled` is local only (2.7): not part of the sync protocol.
+        const { backfilled: _b, ...row } = toSegment(r);
+        return { version: e.version, op: 'upsert', table: 'transcript_segment', row };
       }
     }
   }
@@ -1275,6 +1284,7 @@ function toSegment(r: Row): LocalSegment {
     startMs: Number(r.start_ms),
     endMs: Number(r.end_ms),
     text: String(r.text),
+    ...(Number(r.backfilled) === 1 ? { backfilled: true } : {}),
   };
 }
 

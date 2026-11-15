@@ -80,8 +80,17 @@ export function createApp(options: CreateAppOptions = {}): MocksApp {
     const path = c.req.path;
     if (path === '/health' || path.startsWith('/_')) return next();
     const hasBody = c.req.method !== 'GET' && c.req.method !== 'HEAD';
-    // Hono caches the body, so providers can still call c.req.json()/text() afterwards.
-    const text = hasBody ? await c.req.text() : '';
+    // Hono caches the body, so providers can still call c.req.json()/text()/arrayBuffer() afterwards. Read
+    // as bytes (text would mangle binary bodies such as audio for the STT batch endpoint) and log binary
+    // bodies as a size only.
+    const bytes = hasBody ? new Uint8Array(await c.req.arrayBuffer()) : new Uint8Array(0);
+    const type = c.req.header('content-type') ?? '';
+    const binary = /^(audio|video|image)\/|octet-stream/i.test(type);
+    const text = binary
+      ? bytes.length
+        ? `<${bytes.length} bytes ${type}>`
+        : ''
+      : new TextDecoder().decode(bytes);
     await next();
     log.add({
       at: new Date().toISOString(),

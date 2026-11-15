@@ -5,6 +5,17 @@
 export const packageName = '@oat/local-store';
 
 export { AudioIndex } from './audio-index.ts';
+export {
+  InMemoryTranscriptJobStore,
+  type RecordingRecovery,
+  type RecoveredPart,
+  type TranscriptJob,
+  type TranscriptJobFilter,
+  type TranscriptJobPatch,
+  type TranscriptJobReason,
+  type TranscriptJobStatus,
+  type TranscriptJobStore,
+} from './transcript-jobs.ts';
 export { AUDIO_MIGRATIONS, MIGRATIONS, OUTBOX_TABLES, SCHEMA_VERSION } from './migrations.ts';
 export {
   deleteDatabaseFiles,

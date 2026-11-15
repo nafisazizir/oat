@@ -55,6 +55,7 @@ import { uuidv7 } from '@oat/stt/ids';
 import { formatClock } from '../shared/transcript.ts';
 import type { Logger } from './ipc.ts';
 import { TranscriptBuffer } from './transcript-buffer.ts';
+import { SessionCoverage } from './transcript-gaps.ts';
 
 export type InputSpec = { input: 'sidecar' } | { input: 'file'; fixture: string };
 
@@ -77,6 +78,20 @@ export interface SttContext {
   spec: InputSpec;
 }
 
+/**
+ * A range of one source that live transcription lost (2.7, D-17), on the meeting clock: back-filled from the
+ * archive. Reported as soon as it is known (an outage longer than the replay buffer: when the stream
+ * reconnects) and at the end of the session (streams that never finalized their audio, frames that never
+ * reached STT, no provider at all). The same range may be reported twice; the queue dedupes.
+ */
+export interface TranscriptGap {
+  meetingId: string;
+  source: AudioSourceKind;
+  startMs: number;
+  endMs: number;
+  reason: 'stt_offline' | 'stt_incomplete' | 'stt_unavailable' | 'stt_dropped';
+}
+
 export interface RecordingServiceOptions {
   /** Data folder (`app.getPath('userData')`); audio goes to `<baseDir>/audio/`. */
   baseDir: string;
@@ -94,8 +109,16 @@ export interface RecordingServiceOptions {
   userId?: () => string | null;
   /** Meeting + final segments to the local database (2.6). Without it the transcript lives in memory. */
   persistence?: TranscriptPersistence;
+  /**
+   * Every start waits for this first (2.7: crash recovery repairs the files and rows of crashed sessions;
+   * a new part's offset must come from repaired rows). One gate for every start path — the UI, detection,
+   * calendar, auto-start. A rejection is logged and the start goes ahead.
+   */
+  ready?: Promise<unknown>;
   onState?: (snapshot: RecordingSnapshot) => void;
   onSegments?: (batch: TranscriptBatch) => void;
+  /** Ranges live transcription lost (2.7: queued for back-fill from the archive). */
+  onTranscriptGap?: (gap: TranscriptGap) => void;
   /** Coarse status for the main store (every window). */
   onStatus?: (status: RecordingStatus, meetingId: string | null) => void;
   log: Logger;
@@ -165,6 +188,10 @@ interface Session {
   originUs: number | undefined;
   lastEndUs: number | undefined;
   finalized: Promise<AudioRecording[]> | undefined;
+  /** What STT heard, finalized and lost, per source (recording clock; 2.7). */
+  readonly coverage: SessionCoverage;
+  /** Frames being dropped from the STT queue right now, per source (recording-clock µs). */
+  readonly dropRuns: Map<AudioSourceKind, { fromUs: number; toUs: number }>;
 }
 
 export class RecordingService {
@@ -263,6 +290,29 @@ export class RecordingService {
     return this.#store;
   }
 
+  /**
+   * The session being recorded right now (2.7): its meeting, where its part starts on the meeting clock and
+   * how much audio it has captured so far — the archive rows still say 0 ms while their files are open.
+   */
+  liveAudio(): { meetingId: string; offsetMs: number; durationMs: number } | null {
+    const s = this.#session;
+    if (!s || s.finalized || s.originUs === undefined || s.lastEndUs === undefined) return null;
+    return {
+      meetingId: s.meetingId,
+      offsetMs: s.offsetMs,
+      durationMs: Math.max(0, (s.lastEndUs - s.originUs) / 1000),
+    };
+  }
+
+  /**
+   * Segments added to a meeting's stored transcript from elsewhere (2.7: back-filled from the archive): shown
+   * in the live transcript too when that meeting is the one on screen. Not persisted here.
+   */
+  addSegments(meetingId: string, segments: readonly LiveSegment[]): void {
+    if (this.#transcript.meetingId !== meetingId) return;
+    for (const segment of segments) this.#transcript.push(segment);
+  }
+
   snapshot(): RecordingSnapshot {
     const session = this.#session;
     return {
@@ -328,6 +378,9 @@ export class RecordingService {
   }
 
   async #start(requested: string | undefined, spec: InputSpec): Promise<{ meetingId: string }> {
+    await this.#o.ready?.catch((error: unknown) =>
+      this.#o.log.error('recording: start gate failed; starting anyway', error),
+    );
     const previous = this.#session;
     if (previous?.finalized) await previous.finalized; // files of the last session are closed first
     if (this.#controller.state === 'error') await this.#controller.stop(); // acknowledge
@@ -394,6 +447,24 @@ export class RecordingService {
         if (!s) return;
         const end = frame.tUs + (frame.pcm.length / frame.sampleRate) * 1e6;
         s.lastEndUs = Math.max(s.lastEndUs ?? end, end);
+        s.coverage.audio(frame.source, frame.tUs / 1000, end / 1000);
+        // Frames flow again after a run of dropped ones: queue that run now (a crash must not lose it).
+        const run = s.dropRuns.get(frame.source);
+        if (run && frame.tUs >= run.toUs) this.#flushDropRun(s, frame.source);
+      },
+      onDropped: (source, tUs, endUs) => {
+        // The STT queue overflowed: these frames are in the archive but never reach the stream.
+        const s = current();
+        if (!s) return;
+        s.lastEndUs = Math.max(s.lastEndUs ?? endUs, endUs);
+        s.coverage.audio(source, tUs / 1000, endUs / 1000);
+        s.coverage.lost(source, tUs / 1000, endUs / 1000);
+        const run = s.dropRuns.get(source);
+        if (run && tUs <= run.toUs + 1000) run.toUs = Math.max(run.toUs, endUs);
+        else {
+          if (run) this.#flushDropRun(s, source);
+          s.dropRuns.set(source, { fromUs: tUs, toUs: endUs });
+        }
       },
       onSegment: (segment) => {
         const s = current();
@@ -405,7 +476,18 @@ export class RecordingService {
         this.#changed(true);
       },
       onError: (source, error) => {
-        if (current()) this.#sttIssue(source, error);
+        const s = current();
+        if (!s) return;
+        this.#sttIssue(source, error);
+        if (
+          error.code === 'replay_overflow' &&
+          error.lostFromMs !== undefined &&
+          error.lostToMs !== undefined
+        ) {
+          // Back now, but this stretch fell out of the replay buffer: queue it right away (D-17).
+          s.coverage.lost(source, error.lostFromMs, error.lostToMs);
+          this.#reportGap(s, source, error.lostFromMs, error.lostToMs, 'stt_offline');
+        }
       },
     });
     const session: Session = {
@@ -417,6 +499,8 @@ export class RecordingService {
       originUs: undefined,
       lastEndUs: undefined,
       finalized: undefined,
+      coverage: new SessionCoverage(),
+      dropRuns: new Map(),
     };
     ref.session = session;
     this.#session = session;
@@ -511,7 +595,7 @@ export class RecordingService {
     if (session.finalized) return session.finalized;
     this.#closing = true;
     session.finalized = (async () => {
-      const [rows] = await Promise.all([
+      const [rows, outcome] = await Promise.all([
         session.archive.detach().catch((error: unknown) => {
           this.#o.log.error('recording: archive did not close', error);
           return [] as AudioRecording[];
@@ -519,6 +603,7 @@ export class RecordingService {
         session.stt.finish(),
       ]);
       this.#transcript.flush();
+      this.#reportSessionGaps(session, outcome);
       try {
         this.#o.persistence?.endMeeting(session.meetingId, this.#now());
       } catch (error) {
@@ -538,6 +623,54 @@ export class RecordingService {
       this.#changed(true);
     });
     return session.finalized;
+  }
+
+  // --- transcript gaps (2.7) ------------------------------------------------------------------------
+
+  /** Recording-clock range → meeting clock, reported to the back-fill queue. */
+  #reportGap(
+    session: Session,
+    source: AudioSourceKind,
+    fromMs: number,
+    toMs: number,
+    reason: TranscriptGap['reason'],
+  ): void {
+    if (session.originUs === undefined || !this.#o.onTranscriptGap) return;
+    const toMeeting = (ms: number) =>
+      Math.max(0, Math.round(ms - session.originUs! / 1000 + session.offsetMs));
+    const gap = {
+      meetingId: session.meetingId,
+      source,
+      startMs: toMeeting(fromMs),
+      endMs: toMeeting(toMs),
+      reason,
+    };
+    if (gap.endMs <= gap.startMs) return;
+    try {
+      this.#o.onTranscriptGap(gap);
+    } catch (error) {
+      this.#o.log.error('recording: could not queue a transcript gap', error);
+    }
+  }
+
+  #flushDropRun(session: Session, source: AudioSourceKind): void {
+    const run = session.dropRuns.get(source);
+    if (!run) return;
+    session.dropRuns.delete(source);
+    this.#reportGap(session, source, run.fromUs / 1000, run.toUs / 1000, 'stt_dropped');
+  }
+
+  /** After STT finished: whatever the streams never finalized (or never got) is a gap. */
+  #reportSessionGaps(session: Session, outcome: SttFinishOutcome): void {
+    for (const source of [...session.dropRuns.keys()]) this.#flushDropRun(session, source);
+    for (const source of session.coverage.sources()) {
+      const stream = outcome.streams.get(source);
+      if (!stream?.clean) session.coverage.unfinished(source, stream?.committedMs);
+    }
+    const reason: TranscriptGap['reason'] = outcome.provider ? 'stt_incomplete' : 'stt_unavailable';
+    for (const gap of session.coverage.gaps()) {
+      this.#reportGap(session, gap.source, gap.startMs, gap.endMs, reason);
+    }
   }
 
   // --- system sleep (SPEC §8: never stop silently; elapsed and files exclude the sleep) ---------------
@@ -616,6 +749,8 @@ export class RecordingService {
       isFinal: segment.isFinal,
     };
     this.#transcript.push(live);
+    if (segment.isFinal && segment.text !== '')
+      session.coverage.final(segment.source, segment.endMs);
     if (live.isFinal && this.#o.persistence) {
       try {
         this.#o.persistence.saveSegment(session.meetingId, live);
@@ -725,11 +860,22 @@ export class RecordingService {
  * hold up capture or the archive). Streams open on the first frame of their source, once the provider
  * is known.
  */
+/** How each stream ended (2.7: a stream that didn't finalize its audio leaves a gap). */
+interface SttFinishOutcome {
+  /** A provider was available at all. */
+  provider: boolean;
+  streams: Map<AudioSourceKind, { clean: boolean; committedMs: number | undefined }>;
+}
+
 class SttPipe {
   readonly #streams = new Map<AudioSourceKind, SttStream>();
+  /** Streams that hit a fatal error or a finish timeout: their tail was never finalized. */
+  readonly #broken = new Set<AudioSourceKind>();
   readonly #provider: Promise<SttProvider | undefined>;
   readonly #subscription: FrameSubscription;
   readonly #handlers: SttPipeOptions;
+  /** Sample rate of the frames seen (for dropped-frame lengths). */
+  #sampleRate = 16_000;
   #closed = false;
 
   constructor(options: SttPipeOptions) {
@@ -738,10 +884,13 @@ class SttPipe {
     this.#subscription = options.controller.subscribe((frame) => this.#consume(frame), {
       name: 'stt',
       maxQueuedFrames: options.maxQueuedFrames,
+      onOverrun: (o) =>
+        options.onDropped(o.source, o.tUs, o.tUs + (o.droppedSamples / this.#sampleRate) * 1e6),
     });
   }
 
   async #consume(frame: AudioFrame): Promise<void> {
+    this.#sampleRate = frame.sampleRate;
     this.#handlers.onFrame(frame);
     const provider = await this.#provider;
     if (!provider || this.#closed) return;
@@ -753,7 +902,10 @@ class SttPipe {
       this.#handlers.onStatus(source, stream.status);
       stream.on('status', (status) => this.#handlers.onStatus(source, status));
       stream.on('segment', (segment) => this.#handlers.onSegment(segment));
-      stream.on('error', (error) => this.#handlers.onError(source, error));
+      stream.on('error', (error) => {
+        if (error.fatal || error.code === 'finish_timeout') this.#broken.add(source);
+        this.#handlers.onError(source, error);
+      });
     }
     stream.write(frame);
   }
@@ -763,16 +915,23 @@ class SttPipe {
    * finals (bounded by the provider's own finish timeout). Streams that are offline are closed at once;
    * their audio is in the archive (D-17: back-fill from there).
    */
-  async finish(): Promise<void> {
+  async finish(): Promise<SttFinishOutcome> {
     await this.#subscription.drained();
     this.#subscription.unsubscribe();
     this.#closed = true;
+    const outcome: SttFinishOutcome = { provider: !!(await this.#provider), streams: new Map() };
     await Promise.all(
-      [...this.#streams.values()].map(async (stream) => {
-        if (stream.status === 'open' || stream.status === 'connecting') await stream.finish();
+      [...this.#streams.entries()].map(async ([source, stream]) => {
+        const connected = stream.status === 'open' || stream.status === 'connecting';
+        if (connected) await stream.finish();
         stream.close();
+        outcome.streams.set(source, {
+          clean: connected && !this.#broken.has(source),
+          committedMs: stream.committedMs,
+        });
       }),
     );
+    return outcome;
   }
 }
 
@@ -818,6 +977,8 @@ interface SttPipeOptions {
   provider: Promise<SttProvider | undefined>;
   maxQueuedFrames: number;
   onFrame: (frame: AudioFrame) => void;
+  /** Frames dropped from the STT queue (it fell behind): recording-clock µs. */
+  onDropped: (source: AudioSourceKind, fromUs: number, toUs: number) => void;
   onSegment: (segment: SttSegment) => void;
   onStatus: (source: AudioSourceKind, status: SttStreamStatus) => void;
   onError: (source: AudioSourceKind, error: SttError) => void;

@@ -169,6 +169,10 @@ END;
 INSERT INTO document_fts (rowid, title, body) SELECT rowid, title, ${DOC_BODY('document')} FROM document;
 INSERT INTO segment_fts (rowid, text) SELECT rowid, text FROM transcript_segment;
 `,
+  // 3 — 2.7: segments filled in from the audio archive after an STT outage (local only, not synced).
+  `
+ALTER TABLE transcript_segment ADD COLUMN backfilled INTEGER NOT NULL DEFAULT 0 CHECK (backfilled IN (0, 1));
+`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
@@ -200,5 +204,43 @@ CREATE INDEX audio_recording_meeting_idx ON audio_recording (meeting_id);
   `
 ALTER TABLE audio_recording ADD COLUMN user_id TEXT;
 CREATE INDEX audio_recording_user_idx ON audio_recording (user_id);
+`,
+  // 2.7: transcript back-fill jobs (STT outages re-transcribed from the archive) and crash recoveries. Here,
+  // not in the per-user cache: they refer to audio on this Mac and must survive a cache rebuild.
+  `
+CREATE TABLE stt_backfill (
+  id TEXT PRIMARY KEY,
+  meeting_id TEXT NOT NULL,
+  user_id TEXT,
+  source TEXT NOT NULL CHECK (source IN ('mic', 'system')),
+  -- Meeting clock (ms). done_ms: everything before it has been transcribed (chunk cursor).
+  start_ms REAL NOT NULL,
+  end_ms REAL NOT NULL CHECK (end_ms >= start_ms),
+  done_ms REAL NOT NULL,
+  reason TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'done', 'failed')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_at REAL NOT NULL DEFAULT 0,
+  segments INTEGER NOT NULL DEFAULT 0,
+  error TEXT,
+  created_at REAL NOT NULL,
+  updated_at REAL NOT NULL
+) STRICT;
+CREATE INDEX stt_backfill_meeting_idx ON stt_backfill (meeting_id);
+CREATE INDEX stt_backfill_status_idx ON stt_backfill (status);
+
+CREATE TABLE recording_recovery (
+  id TEXT PRIMARY KEY,
+  meeting_id TEXT NOT NULL,
+  user_id TEXT,
+  recovered_at REAL NOT NULL,
+  -- Wall clock (Unix ms) the repaired audio reaches.
+  saved_until REAL NOT NULL,
+  -- JSON [{source, part, offsetMs, endMs, startedAt}] of the repaired parts.
+  parts TEXT NOT NULL,
+  -- When the meeting was closed and its tail queued for back-fill (needs that account's database open).
+  applied_at REAL
+) STRICT;
+CREATE INDEX recording_recovery_meeting_idx ON recording_recovery (meeting_id);
 `,
 ];

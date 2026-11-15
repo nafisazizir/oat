@@ -2,6 +2,7 @@ import type { AudioFrame } from '@oat/audio';
 import { WebSocket, type RawData } from 'ws';
 
 import { backoffDelay, DEFAULT_BACKOFF, type BackoffOptions } from './backoff.ts';
+import { transcribeDeepgram } from './deepgram-batch.ts';
 import {
   buildListenUrl,
   resolveDeepgramEndpoints,
@@ -10,13 +11,24 @@ import {
 import { isDeepgramResults, mapDeepgramResults } from './deepgram-results.ts';
 import { ReplayBuffer, SocketTimeline } from './replay.ts';
 import { BaseSttStream } from './stream-base.ts';
-import type { SttError, SttProvider, SttSource, SttStream, SttStreamOptions } from './types.ts';
+import type {
+  SttBatchRequest,
+  SttBatchResult,
+  SttError,
+  SttProvider,
+  SttSource,
+  SttStream,
+  SttStreamOptions,
+} from './types.ts';
 
 export interface DeepgramConnectContext {
   source: SttSource;
-  /** Recording ms of the first audio this connection will receive (`undefined` if none buffered yet). */
+  /**
+   * Recording ms of the first audio this connection will receive (`undefined` if none buffered yet); for a
+   * batch request (`attempt` 0), the clock time of the request's first sample.
+   */
   offsetMs: number | undefined;
-  /** 1 for the first connection of the stream, then 2, 3, … */
+  /** 1 for the first connection of the stream, then 2, 3, …; 0 for a batch (`transcribe`) request. */
   attempt: number;
 }
 
@@ -53,6 +65,8 @@ export interface DeepgramProviderOptions {
   connectTimeoutMs?: number;
   /** Max wait in `finish()` for the last results. Default 15 000. */
   finishTimeoutMs?: number;
+  /** Per batch (`transcribe`) request. Default 120 000. */
+  batchTimeoutMs?: number;
   reconnect?: Partial<BackoffOptions>;
   /**
    * Handshake auth rejections (401/403) tolerated before a fatal error; each retry calls
@@ -87,6 +101,32 @@ export class DeepgramProvider implements SttProvider {
 
   openStream(options: SttStreamOptions): SttStream {
     return new DeepgramStream(options, this.#options);
+  }
+
+  /** Pre-recorded API (`POST /v1/listen`, WAV body) on the same deployment as the live socket. */
+  transcribe(request: SttBatchRequest): Promise<SttBatchResult> {
+    const o = this.#options;
+    return transcribeDeepgram(
+      {
+        listenUrl: o.url ?? resolveDeepgramEndpoints().listenUrl,
+        getToken: o.getToken,
+        model: o.model ?? 'nova-3',
+        smartFormat: o.smartFormat ?? true,
+        mipOptOut: o.mipOptOut ?? true,
+        authRetries: o.authRetries ?? 1,
+        ...(o.batchTimeoutMs !== undefined ? { timeoutMs: o.batchTimeoutMs } : {}),
+        ...(o.extraQuery
+          ? {
+              extraQuery: o.extraQuery({
+                source: request.source,
+                offsetMs: request.offsetMs ?? 0,
+                attempt: 0,
+              }),
+            }
+          : {}),
+      },
+      request,
+    );
   }
 }
 
@@ -153,6 +193,10 @@ class DeepgramStream extends BaseSttStream {
     this.#replay = new ReplayBuffer(opts.replayBufferMs ?? 120_000);
     this.#url = opts.url ?? resolveDeepgramEndpoints().listenUrl;
     queueMicrotask(() => void this.#connect());
+  }
+
+  get committedMs(): number | undefined {
+    return this.#committedMs;
   }
 
   write(frame: AudioFrame): void {

@@ -10,7 +10,12 @@ import { fileURLToPath } from 'node:url';
 import { DESKTOP_SCHEME, findDeepLinkArg } from '@oat/auth/desktop-link';
 import { PLAYBACK_SCHEME, type SubscribeChannel, type SubscribePayload } from '@oat/core/bridge';
 import { InMemoryAudioRecordingStore } from '@oat/audio/node';
-import { AudioIndex, SyncTransportError } from '@oat/local-store';
+import {
+  AudioIndex,
+  InMemoryTranscriptJobStore,
+  SyncTransportError,
+  type TranscriptJobStore,
+} from '@oat/local-store';
 import {
   app,
   BrowserWindow,
@@ -42,6 +47,7 @@ import { MeetingNotes, MeetingNotesError } from './meeting-notes.ts';
 import { MeetingPersistence } from './meeting-persistence.ts';
 import { NotesFlush } from './notes-flush.ts';
 import { RecordingService, RecordingServiceError } from './recording-service.ts';
+import { recoverCrashedRecordings } from './recording-recovery.ts';
 import { createRecordingSetup, InputError } from './recording-setup.ts';
 import { mimeType, resolveRendererFile } from './renderer-files.ts';
 import {
@@ -57,6 +63,7 @@ import { MainStore } from './store.ts';
 import { SttCredentials } from './stt-credentials.ts';
 import { deviceName, SyncService } from './sync-service.ts';
 import { TokenStore } from './token-store.ts';
+import { TranscriptBackfill } from './transcript-backfill.ts';
 import { createWindowFactory } from './windows.ts';
 
 const log: Logger = {
@@ -258,6 +265,18 @@ async function start() {
     log.error('audio index unavailable; audio rows of this session stay in memory', error);
     audioIndex = new InMemoryAudioRecordingStore();
   }
+  // 2.7: transcript back-fill jobs + crash recoveries live in the same never-wiped index.
+  const transcriptJobs: TranscriptJobStore =
+    audioIndex instanceof AudioIndex ? audioIndex : new InMemoryTranscriptJobStore();
+  // Crash recovery (2.7): repair files of sessions the app never finished, before any recording starts.
+  const recovered = recoverCrashedRecordings({
+    audio: audioIndex,
+    jobs: transcriptJobs,
+    log,
+  }).catch((error: unknown) => {
+    log.error('recovery: could not repair crashed recordings', error);
+    return [];
+  });
   const viaSession = <T>(fn: (token: string) => Promise<T>): Promise<T> =>
     auth.withSession(fn).catch((error: unknown) => {
       throw error instanceof ApiError ? new SyncTransportError(error.status, error.message) : error;
@@ -370,6 +389,8 @@ async function start() {
   });
   const recording: RecordingService = new RecordingService({
     baseDir: app.getPath('userData'),
+    // 2.7: every start path (UI, detection, calendar, auto-start) waits for crash recovery first.
+    ready: recovered,
     store: audioIndex,
     // D-30: audio rows name the account that recorded them.
     userId: signedInUser,
@@ -383,8 +404,16 @@ async function start() {
     createStt: setup.createStt,
     log,
     power: powerMonitor,
-    onState: (snapshot) => broadcast('recording:state', snapshot),
+    onState: (snapshot) => {
+      broadcast('recording:state', snapshot);
+      // Transcription came back: retry back-fill jobs that failed while it was down (2.7).
+      const open = (['mic', 'system'] as const).filter((s) => snapshot.stt[s] === 'open');
+      if (open.some((s) => sttOpen[s] !== true)) backfill.kick(undefined, true);
+      sttOpen = { mic: open.includes('mic'), system: open.includes('system') };
+    },
     onSegments: (batch) => broadcast('transcript:segments', batch),
+    // 2.7: what live transcription lost is re-transcribed from the archive.
+    onTranscriptGap: (gap) => backfill.enqueue({ ...gap, userId: signedInUser() }),
     onStatus: (status, meetingId) => {
       store.update((s) =>
         s.recording.status === status && s.activeMeetingId === meetingId
@@ -392,6 +421,7 @@ async function start() {
           : { ...s, recording: { status }, activeMeetingId: meetingId },
       );
       if (status === 'idle') {
+        backfill.kick();
         queueMicrotask(() => {
           void sync.recordingEnded();
           storage.recordingEnded();
@@ -401,6 +431,34 @@ async function start() {
     },
   });
   quitGracefully(recording, () => notesFlush.request());
+
+  // --- Transcript back-fill from the archive + crash recovery (2.7, D-17) ---
+  let sttOpen: { mic: boolean; system: boolean } = { mic: false, system: false };
+  const backfill: TranscriptBackfill = new TranscriptBackfill({
+    jobs: transcriptJobs,
+    audio: audioIndex,
+    liveAudio: () => recording.liveAudio(),
+    busyMeetingId: () => recording.busyMeetingId,
+    // D-30: the provider's tokens are only fetched while that account is still the signed-in one.
+    createProvider: (userId) => setup.createBatchStt(() => signedInUser() === userId),
+    // D-30: only the recording account's jobs, once its database is the open one.
+    currentUser: () => {
+      const user = signedInUser();
+      return user && sync.store && sync.storeUser === user ? user : null;
+    },
+    store: () => sync.store,
+    onSegments: (meetingId, segments) => {
+      recording.addSegments(meetingId, segments);
+      sync.kick();
+    },
+    onChange: () => meetingsChanged(),
+    onMeetingChanged: () => {
+      sync.kick();
+      meetingsChanged();
+    },
+    log,
+  });
+  bridge.handle('meeting:transcript-status', ({ meetingId }) => backfill.status(meetingId));
 
   // --- Audio archive storage + retention (3.8, D-10) ---
   let storageSeq = 0;
@@ -449,7 +507,8 @@ async function start() {
   bridge.handle('storage:audio-status', ({ meetingId }) =>
     storageCall(() => storage.audioStatus(meetingId)),
   );
-  storage.start();
+  // The sweeper waits for crash recovery (it must not race the repair of a file).
+  void recovered.then(() => storage.start());
 
   // --- Playback (3.7): the meeting's audio on the meeting clock, served to the renderer's <audio> ---
   const playback = new AudioPlayback({
@@ -478,6 +537,7 @@ async function start() {
 
   app.once('will-quit', () => {
     storage.stop();
+    backfill.stop();
     void sync.shutdown();
     if (audioIndex instanceof AudioIndex) audioIndex.close();
   });
@@ -636,6 +696,7 @@ async function start() {
           storageUser = current;
           playback.revokeAll(); // D-30: another account's player URLs stop working
           storage.accountChanged();
+          void recovered.then(() => backfill.kick(0));
         }
       });
     });

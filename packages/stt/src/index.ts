@@ -41,5 +41,13 @@ export {
   type MapResultsContext,
   type MappedResults,
 } from './deepgram-results.ts';
+export {
+  batchUrlFor,
+  buildBatchUrl,
+  mapBatchResponse,
+  transcribeDeepgram,
+  UTTERANCE_GAP_MS,
+  type DeepgramBatchOptions,
+} from './deepgram-batch.ts';
 export { ReplayBuffer, SocketTimeline } from './replay.ts';
 export { backoffDelay, DEFAULT_BACKOFF, type BackoffOptions } from './backoff.ts';

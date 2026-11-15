@@ -192,6 +192,13 @@ MOCKS_PORT=14011 pnpm --filter @oat/mocks dev   # tsx watch; point MOCKS_URL at 
   `mock_session`), `latency_ms`, `reject_auth=1`, `reject_status=<code>` (e.g. 402/429 on the handshake),
   `mock_idle_timeout_ms`. Full list in
   `tools/mocks/src/providers/stt.ts`.
+- `POST /stt/v1/listen` (2.7): Deepgram's pre-recorded API subset — WAV (or raw `encoding=linear16`) body →
+  `metadata.duration`, `results.channels[0].alternatives[0].words`, `results.utterances` (`utterances=true`).
+  Same auth and word sources (`mock_fixture`/`mock_channel`/`mock_offset_ms` = time of the body's first
+  sample). The desktop uses it to back-fill STT outages from the local audio archive.
+- `POST /stt/_mock/outage {"down": true|false}` (2.7): while down, listen handshakes and batch requests get
+  503 and open sockets are dropped ("STT is down for 3 minutes"). `sttProvider({ acceptAnyBearer: true })`
+  (in-process only) accepts bearer tokens granted by another mock instance (the desktop e2e).
 - `@oat/stt` points at it by default (`resolveDeepgramEndpoints()`, see "Switching a provider" below). The
   container image bundles the fixture ground truth; it gets the provider once `main` is rebuilt with
   `pnpm dev:build`.
