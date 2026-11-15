@@ -25,7 +25,7 @@ Exit: monorepo builds, `pnpm run ci` green, `pnpm dev:up && pnpm dev` runs the w
 with sign-in working (magic link via Mailpit, Google via mock OAuth).
 - [x] 1.1 `git init`, pnpm + Turborepo skeleton matching SPEC §5 layout, TS/ESLint/Prettier/Vitest config · deps: —
 - [ ] 1.2 CI: `pnpm run ci` (typecheck, lint, test, test:int with compose) + equivalent GitHub Actions workflow file (no remote yet, D-12) · deps: 1.1, 1.10
-- [ ] 1.3 `packages/ui`: shadcn init, token file (colour, type, radius, spacing, motion), light/dark, base components · deps: 1.1
+- [x] 1.3 `packages/ui`: shadcn init, token file (colour, type, radius, spacing, motion), light/dark, base components · deps: 1.1
 - [ ] 1.4 `apps/web`: Next.js App Router shell, app layout (sidebar, workspace switcher, content) · deps: 1.3
 - [x] 1.10 Dev environment (D-11): `docker-compose.yml` (postgres+pgvector, redis, mailpit, mock-oauth2, mocks), `tools/mocks` skeleton with health route, `pnpm dev:up/down/reset/logs`, `.env.example` defaults, `docs/DEV.md` (new machine in 3 commands), per-run test DB helper · deps: 1.1
 - [ ] 1.5 `packages/db` Drizzle schema (SPEC §6) + migrations + seed, against compose Postgres (Neon is prod-only, 9.6) · deps: 1.1, 1.10

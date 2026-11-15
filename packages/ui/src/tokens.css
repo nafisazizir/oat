@@ -1,0 +1,191 @@
+/*
+ * Oat design tokens — the single source of truth for every colour, type, radius, spacing, shadow and
+ * motion value in @oat/ui. Components never use raw values; they use Tailwind utilities that
+ * `styles.css` maps onto these variables (`bg-primary` → `var(--primary)`).
+ *
+ * Restyle the product by editing this file only. `:root` is the light theme, `.dark` overrides the
+ * colour + elevation tokens. Every colour token must exist in both blocks (enforced by tokens.test.ts).
+ *
+ * Palette: "oat paper + ink". Warm cream neutrals (hue ~80, very low chroma) for surfaces, a warm
+ * brown-black for text, and one confident accent — a deep blue-black "ink" (hue ~262) — for primary
+ * actions, focus and the user's own voice. Dark mode is "espresso": warm charcoal, never pure black.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ── Surfaces & text ─────────────────────────────────────────────── */
+  --background: oklch(0.982 0.007 84); /* oat paper */
+  --foreground: oklch(0.245 0.014 62); /* warm ink-black */
+  --card: oklch(0.993 0.004 84); /* a fresh sheet on the desk */
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.995 0.003 84);
+  --popover-foreground: var(--foreground);
+
+  /* ── Brand accent: ink ───────────────────────────────────────────── */
+  --primary: oklch(0.43 0.125 262);
+  --primary-foreground: oklch(0.985 0.006 84);
+
+  /* ── Supporting neutrals ─────────────────────────────────────────── */
+  --secondary: oklch(0.945 0.012 80);
+  --secondary-foreground: oklch(0.29 0.016 62);
+  --muted: oklch(0.952 0.01 80);
+  --muted-foreground: oklch(0.505 0.02 66);
+  --accent: oklch(0.935 0.014 79); /* hover / highlighted row */
+  --accent-foreground: oklch(0.245 0.014 62);
+
+  /* ── Status ──────────────────────────────────────────────────────── */
+  --destructive: oklch(0.48 0.17 29); /* brick — AA as text on its own 10–20% tint */
+  --destructive-foreground: oklch(0.985 0.006 84);
+  --success: oklch(0.56 0.11 150);
+  --success-foreground: oklch(0.985 0.006 84);
+  --warning: oklch(0.74 0.14 72); /* honey */
+  --warning-foreground: oklch(0.27 0.04 62);
+
+  /* ── Lines, inputs, focus ────────────────────────────────────────── */
+  --border: oklch(0.9 0.013 78);
+  --input: oklch(0.64 0.022 72); /* ≥ 3:1 field boundary (WCAG 1.4.11) */
+  --ring: oklch(0.55 0.13 262);
+  --selection: oklch(0.88 0.055 262 / 55%);
+  --overlay: oklch(0.22 0.02 62 / 22%); /* modal scrim */
+
+  /* ── Charts (warm, distinguishable, ink first) ───────────────────── */
+  --chart-1: oklch(0.47 0.12 262);
+  --chart-2: oklch(0.66 0.13 52);
+  --chart-3: oklch(0.6 0.08 160);
+  --chart-4: oklch(0.76 0.12 85);
+  --chart-5: oklch(0.55 0.09 330);
+
+  /* ── Sidebar: a shade deeper than the page, like a desk blotter ─── */
+  --sidebar: oklch(0.962 0.011 82);
+  --sidebar-foreground: oklch(0.32 0.016 62);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.925 0.016 79);
+  --sidebar-accent-foreground: oklch(0.245 0.014 62);
+  --sidebar-border: oklch(0.905 0.014 78);
+  --sidebar-ring: var(--ring);
+
+  /* ── App-specific: transcript voices ─────────────────────────────── */
+  --me: oklch(0.94 0.028 262); /* my microphone — ink-tinted bubble */
+  --me-foreground: oklch(0.3 0.06 262);
+  --them: oklch(0.944 0.014 76); /* system audio — oat bubble */
+  --them-foreground: oklch(0.3 0.018 62);
+
+  /* ── App-specific: enhanced notes ────────────────────────────────── */
+  --my-text: var(--foreground); /* what I typed: full-strength ink */
+  --ai-text: oklch(0.5 0.035 255); /* what the AI added: softer slate ink */
+
+  /* ── Elevation (warm, low, diffuse — paper on a desk) ────────────── */
+  --elevation-xs: 0 1px 0 0 oklch(0.4 0.03 62 / 5%);
+  --elevation-sm: 0 1px 2px 0 oklch(0.4 0.03 62 / 7%), 0 1px 1px -1px oklch(0.4 0.03 62 / 5%);
+  --elevation-md: 0 4px 12px -2px oklch(0.4 0.03 62 / 9%), 0 2px 4px -2px oklch(0.4 0.03 62 / 6%);
+  --elevation-lg:
+    0 16px 40px -8px oklch(0.4 0.03 62 / 14%), 0 4px 10px -4px oklch(0.4 0.03 62 / 8%);
+
+  /* ── Typography ──────────────────────────────────────────────────── */
+  --font-family-sans:
+    'Instrument Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-family-serif: 'Newsreader Variable', ui-serif, Georgia, 'Times New Roman', serif;
+  --font-family-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-family-heading: var(--font-family-serif);
+
+  /* Scale: ~1.2 ratio around a 15px body; 13px is the dense UI size. Size / line-height pairs. */
+  --type-xs: 0.75rem; /* 12 — captions, timestamps */
+  --type-xs-leading: 1rem;
+  --type-sm: 0.8125rem; /* 13 — UI default: menus, sidebar, buttons, transcript */
+  --type-sm-leading: 1.25rem;
+  --type-base: 0.9375rem; /* 15 — notes body */
+  --type-base-leading: 1.5rem;
+  --type-lg: 1.0625rem; /* 17 */
+  --type-lg-leading: 1.625rem;
+  --type-xl: 1.25rem; /* 20 — section headings */
+  --type-xl-leading: 1.75rem;
+  --type-2xl: 1.5rem; /* 24 */
+  --type-2xl-leading: 2rem;
+  --type-3xl: 1.875rem; /* 30 — note title */
+  --type-3xl-leading: 2.25rem;
+  --type-4xl: 2.375rem; /* 38 — display */
+  --type-4xl-leading: 2.75rem;
+  --tracking-heading: -0.012em;
+
+  /* ── Radius ──────────────────────────────────────────────────────── */
+  --radius: 0.5rem; /* rounded-lg; sm/md/xl… derive from it in styles.css */
+
+  /* ── Spacing & layout ────────────────────────────────────────────── */
+  --space: 0.25rem; /* Tailwind's spacing unit: p-4 = 4 × --space */
+  --content-width: 44rem; /* readable measure for notes */
+  --sidebar-width-default: 16rem;
+  --sidebar-width-mobile: 18rem;
+  --sidebar-width-collapsed: 3rem;
+
+  /* ── Motion ──────────────────────────────────────────────────────── */
+  --duration-fast: 100ms;
+  --duration-base: 160ms;
+  --duration-slow: 260ms;
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --easing-enter: cubic-bezier(0, 0, 0.15, 1);
+  --easing-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: oklch(0.195 0.008 68); /* espresso */
+  --foreground: oklch(0.925 0.013 84); /* cream */
+  --card: oklch(0.222 0.009 68);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.238 0.01 68);
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.74 0.105 262);
+  --primary-foreground: oklch(0.2 0.03 262);
+
+  --secondary: oklch(0.27 0.01 68);
+  --secondary-foreground: oklch(0.9 0.013 84);
+  --muted: oklch(0.255 0.01 68);
+  --muted-foreground: oklch(0.69 0.018 78);
+  --accent: oklch(0.285 0.012 68);
+  --accent-foreground: oklch(0.94 0.012 84);
+
+  --destructive: oklch(0.77 0.13 25); /* AA as text on its 20–25% tint */
+  --destructive-foreground: oklch(0.2 0.03 27);
+  --success: oklch(0.72 0.12 152);
+  --success-foreground: oklch(0.2 0.03 152);
+  --warning: oklch(0.8 0.13 78);
+  --warning-foreground: oklch(0.22 0.03 62);
+
+  --border: oklch(0.925 0.02 84 / 10%);
+  --input: oklch(0.56 0.014 76); /* ≥ 3:1 field boundary */
+  --ring: oklch(0.68 0.11 262);
+  --selection: oklch(0.5 0.09 262 / 45%);
+  --overlay: oklch(0.08 0.01 62 / 55%);
+
+  --chart-1: oklch(0.72 0.11 262);
+  --chart-2: oklch(0.72 0.13 52);
+  --chart-3: oklch(0.7 0.09 160);
+  --chart-4: oklch(0.8 0.11 85);
+  --chart-5: oklch(0.68 0.1 330);
+
+  --sidebar: oklch(0.172 0.007 68);
+  --sidebar-foreground: oklch(0.85 0.014 84);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.255 0.011 68);
+  --sidebar-accent-foreground: oklch(0.94 0.012 84);
+  --sidebar-border: oklch(0.925 0.02 84 / 8%);
+  --sidebar-ring: var(--ring);
+
+  --me: oklch(0.3 0.045 262);
+  --me-foreground: oklch(0.9 0.035 262);
+  --them: oklch(0.265 0.011 68);
+  --them-foreground: oklch(0.88 0.014 84);
+
+  --my-text: var(--foreground);
+  --ai-text: oklch(0.73 0.035 255);
+
+  --elevation-xs: 0 1px 0 0 oklch(0 0 0 / 20%);
+  --elevation-sm: 0 1px 2px 0 oklch(0 0 0 / 30%), 0 0 0 1px oklch(0.925 0.02 84 / 4%);
+  --elevation-md: 0 6px 16px -4px oklch(0 0 0 / 40%), 0 0 0 1px oklch(0.925 0.02 84 / 5%);
+  --elevation-lg: 0 20px 48px -12px oklch(0 0 0 / 55%), 0 0 0 1px oklch(0.925 0.02 84 / 6%);
+}
