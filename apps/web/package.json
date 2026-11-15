@@ -25,6 +25,7 @@
     "@oat/editor": "workspace:*",
     "@oat/indexing": "workspace:*",
     "@oat/integrations-notion": "workspace:*",
+    "@oat/meeting-ui": "workspace:*",
     "@oat/stt": "workspace:*",
     "@oat/ui": "workspace:*",
     "ai": "catalog:",

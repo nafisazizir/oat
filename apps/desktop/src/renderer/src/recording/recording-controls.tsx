@@ -156,30 +156,52 @@ export function SttStatusPill({ snapshot }: { snapshot: RecordingSnapshot | null
 
 const FILE_PREFIX = 'file:';
 
-/** The main window's recording bar. */
+/** The input the bar offers first: the dev fixture when one is configured, else live capture. */
+export function defaultInputChoice(options: InvokeResponse<'recording:options'> | null): string {
+  return options?.defaultInput === 'file' && options.defaultFixture
+    ? `${FILE_PREFIX}${options.defaultFixture}`
+    : 'sidecar';
+}
+
+/** `recording:start` for an input choice; with `meetingId`, recording continues that meeting (D-24). */
+export function startRequest(
+  choice: string,
+  meetingId?: string | null,
+): { input: RecordingInput; fixture?: string; meetingId?: string } {
+  const input: { input: RecordingInput; fixture?: string } = choice.startsWith(FILE_PREFIX)
+    ? { input: 'file', fixture: choice.slice(FILE_PREFIX.length) }
+    : { input: 'sidecar' };
+  return meetingId ? { ...input, meetingId } : input;
+}
+
+/**
+ * The main window's recording bar. Idle on a recorded note, it continues that note's recording (a new
+ * part, D-24); anywhere else it starts a new meeting note.
+ */
 export function RecordingBar({
   snapshot,
   options,
+  input,
+  onInputChange,
+  meetingId = null,
+  hint = null,
 }: {
   snapshot: RecordingSnapshot | null;
   options: InvokeResponse<'recording:options'> | null;
+  /** Dev input choice (`sidecar` or `file:<fixture>`), shared with "New meeting note". */
+  input: string;
+  onInputChange: (choice: string) => void;
+  /** The open note's meeting, when recording may continue it. */
+  meetingId?: string | null;
+  /** Why the open note can't be continued (shown under the bar while idle). */
+  hint?: string | null;
 }) {
   const action = useRecordingAction();
   const status = snapshot?.status ?? 'idle';
   const active = isActive(status);
-  const defaultChoice =
-    options?.defaultInput === 'file' && options.defaultFixture
-      ? `${FILE_PREFIX}${options.defaultFixture}`
-      : 'sidecar';
-  const [choice, setChoice] = useState<string | null>(null);
-  const input = choice ?? defaultChoice;
 
   function start() {
-    const request: { input: RecordingInput; fixture?: string } = input.startsWith(FILE_PREFIX)
-      ? { input: 'file', fixture: input.slice(FILE_PREFIX.length) }
-      : { input: 'sidecar' };
-    // A new meeting each time; continuing one (a new part, D-24) comes with meeting notes (3.4).
-    return action.run(() => call('recording:start', request));
+    return action.run(() => call('recording:start', startRequest(input, meetingId)));
   }
 
   return (
@@ -211,7 +233,7 @@ export function RecordingBar({
             ) : (
               <MicIcon data-icon="inline-start" />
             )}
-            Start recording
+            {meetingId ? 'Continue recording' : 'Start recording'}
           </Button>
         )}
         {status === 'starting' && (
@@ -253,7 +275,7 @@ export function RecordingBar({
         <div className="ml-auto flex items-center gap-2">
           <SttStatusPill snapshot={snapshot} />
           {options && options.fixtures.length > 0 && (status === 'idle' || status === 'error') && (
-            <Select value={input} onValueChange={setChoice}>
+            <Select value={input} onValueChange={onInputChange}>
               <SelectTrigger size="sm" aria-label="Audio input (dev)" data-testid="audio-input">
                 <SelectValue />
               </SelectTrigger>
@@ -272,6 +294,11 @@ export function RecordingBar({
       {action.error && (
         <p role="status" className="text-xs text-destructive">
           {action.error}
+        </p>
+      )}
+      {hint && !action.error && (status === 'idle' || status === 'error') && (
+        <p className="text-xs text-muted-foreground" data-testid="recording-hint">
+          {hint}
         </p>
       )}
     </div>

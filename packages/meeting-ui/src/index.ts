@@ -1,0 +1,29 @@
+/**
+ * @oat/meeting-ui — the meeting note view's pieces shared by desktop (live) and web (synced). Import
+ * `@oat/meeting-ui/styles.css` after `@oat/ui/styles.css` in the app's Tailwind entry.
+ */
+export {
+  clampWidth,
+  compareTranscriptItems,
+  formatClock,
+  formatDuration,
+  initials,
+  isNearBottom,
+  isPlausibleEmail,
+  meetingWhen,
+  mergeTranscripts,
+  type MeetingWhen,
+  type Participant,
+  shortWhen,
+  speakerOf,
+  startsGroup,
+  type TranscriptItem,
+} from './format.ts';
+export { MeetingTime } from './meeting-time.tsx';
+export {
+  MAX_PARTICIPANT_NAME,
+  ParticipantChips,
+  type ParticipantChipsProps,
+} from './participants.tsx';
+export { SidePanel, type SidePanelProps, useStoredState } from './side-panel.tsx';
+export { TranscriptList, type TranscriptListProps } from './transcript-list.tsx';

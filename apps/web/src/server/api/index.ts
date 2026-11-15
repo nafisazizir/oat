@@ -6,6 +6,7 @@ import { notionConfig, serverEnv } from '@/lib/env';
 
 import { getAuth, getAuthConfig } from '../auth';
 import { getDb } from '../db';
+import { createMeetingApi } from '../meeting';
 import type { NotionDeps } from '../notion';
 import { createProfileApi, profileKeyterms } from '../profile';
 import { createSttTokenRoute } from '../stt-token';
@@ -62,3 +63,6 @@ export const sttToken = createSttTokenRoute({
 
 /** "About me" (4.6). */
 export const profileApi = createProfileApi(apiDeps);
+
+/** Meeting side of meeting notes: times, attendees (3.4). */
+export const meetingApi = createMeetingApi(apiDeps);

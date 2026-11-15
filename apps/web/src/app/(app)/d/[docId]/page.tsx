@@ -17,11 +17,17 @@ import { DocumentAssistant } from '@/components/assistant/document-assistant';
 import { ConflictBannerSlot } from '@/components/document/conflict-banner-slot';
 import { FolderActions } from '@/components/document/folder-actions';
 import { DocumentEditor } from '@/components/document/document-editor';
+import { MeetingNote } from '@/components/meeting/meeting-note';
 import { EmptyState, PageContainer, PageHeader } from '@/components/page';
 import { formatDay } from '@/lib/format';
 import { parseDeepLink, wantsTranscript } from '@/lib/transcript';
 import { titleOf } from '@/lib/tree';
-import { getShellData, loadDocumentPage, loadDocumentTranscript } from '@/server/shell';
+import {
+  getShellData,
+  loadDocumentMeeting,
+  loadDocumentPage,
+  loadDocumentTranscript,
+} from '@/server/shell';
 
 type Props = {
   params: Promise<{ docId: string }>;
@@ -52,7 +58,12 @@ export default async function DocumentPage({ params, searchParams }: Props) {
   if (docId === ERROR_PROBE_ID && process.env.NODE_ENV !== 'production') {
     throw new Error('Error-boundary probe: this page always fails in development.');
   }
-  const [data, shell] = await Promise.all([loadDocumentPage(docId), getShellData()]);
+  // The meeting side (3.4) loads alongside: one round trip less before the page streams.
+  const [data, shell, meetingInfo] = await Promise.all([
+    loadDocumentPage(docId),
+    getShellData(),
+    loadDocumentMeeting(docId),
+  ]);
   if (!data) notFound();
   // The item's own workspace (it can be opened from a link while another one is active).
   const itemWorkspaceId =
@@ -63,8 +74,11 @@ export default async function DocumentPage({ params, searchParams }: Props) {
     const doc = data.document;
     // `?t=<s>&seg=<id>` (citations, transcript search hits) opens the transcript at that moment (6.4).
     const focus = parseDeepLink(await searchParams);
+    // A meeting note (3.4) shows its header and transcript panel itself (the panel opens at a deep link's
+    // moment); the assistant's own transcript reader is only for anything else.
+    const meeting = doc.kind === 'meeting' ? meetingInfo : null;
     const transcript =
-      doc.kind === 'meeting' && wantsTranscript(focus)
+      !meeting && doc.kind === 'meeting' && wantsTranscript(focus)
         ? await loadDocumentTranscript(doc.id)
         : null;
     return (
@@ -81,7 +95,17 @@ export default async function DocumentPage({ params, searchParams }: Props) {
           <Suspense fallback={null}>
             <ConflictBannerSlot documentId={doc.id} />
           </Suspense>
-          <DocumentEditor key={doc.id} document={doc} workspaceName={workspace.name} />
+          {meeting ? (
+            <MeetingNote
+              key={doc.id}
+              document={doc}
+              workspaceName={workspace.name}
+              initial={meeting}
+              focus={focus}
+            />
+          ) : (
+            <DocumentEditor key={doc.id} document={doc} workspaceName={workspace.name} />
+          )}
         </DocumentAssistant>
         {/* `?block=<id>` links (My tasks): scroll to and highlight that block. */}
         <Suspense fallback={null}>

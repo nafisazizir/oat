@@ -562,6 +562,40 @@ describe('RecordingService + local database (2.6)', () => {
     db.store.close();
   });
 
+  it('after a relaunch, continuing a meeting picks up its clock from the stored parts (3.4 review)', async () => {
+    const db = localDb();
+    const audio = new AudioIndex({ path: ':memory:' });
+    const first = setup({ persistence: db.persistence, store: audio, durationMs: 6_000 });
+    const { meetingId } = await first.service.start({ spec: fixture });
+    await first.waitFor('idle');
+    await first.service.stop();
+    const part1 = await audio.list({ meetingId });
+    const part1End = Math.max(...part1.map((r) => r.offsetMs + r.durationMs));
+    const storedEnd = Math.max(...db.store.segments(meetingId).map((s) => s.endMs));
+    expect(db.store.meeting(meetingId)!.endedAt).not.toBeNull();
+
+    // A new launch: a fresh service with no memory of part 1.
+    const second = setup({ persistence: db.persistence, store: audio, durationMs: 6_000 });
+    await second.service.start({ meetingId, spec: fixture });
+    // Resumed: in progress again until this part ends.
+    expect(db.store.meeting(meetingId)!.endedAt).toBeNull();
+    await second.waitFor('idle');
+    const stopped = await second.service.stop();
+    expect(stopped.audio.map((a) => [a.source, a.part])).toEqual([
+      ['mic', 2],
+      ['system', 2],
+    ]);
+    const part2 = (await audio.list({ meetingId })).filter((r) => r.part === 2);
+    for (const r of part2)
+      expect(r.offsetMs).toBeGreaterThanOrEqual(Math.max(part1End, storedEnd) - 1);
+    const newSegments = second.service.transcript().segments;
+    expect(newSegments.length).toBeGreaterThan(0);
+    expect(newSegments.every((s) => s.startMs >= part1End - 1)).toBe(true);
+    expect(db.store.meeting(meetingId)!.endedAt).not.toBeNull();
+    db.store.close();
+    audio.close();
+  });
+
   it('no workspace known (fresh cache, offline): the start fails visibly', async () => {
     const db = localDb(false);
     const h = setup({ persistence: db.persistence });

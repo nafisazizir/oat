@@ -24,6 +24,7 @@ export {
   type LocalConflict,
   type LocalDocument,
   type LocalMeeting,
+  type LocalMeetingNote,
   type LocalParticipant,
   type LocalSegment,
   type LocalStoreOptions,

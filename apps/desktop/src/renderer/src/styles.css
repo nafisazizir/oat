@@ -3,6 +3,8 @@
  * lives here.
  */
 @import '@oat/ui/styles.css';
+@import '@oat/editor/styles.css';
+@import '@oat/meeting-ui/styles.css';
 
 @layer base {
   html,
@@ -17,6 +19,7 @@
   }
   input,
   textarea,
+  [contenteditable],
   [data-selectable] {
     user-select: text;
   }

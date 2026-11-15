@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { type Db, meeting, transcriptSegment } from '@oat/db';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, gte } from 'drizzle-orm';
 
 import type { TranscriptLine } from '@/lib/transcript';
 
@@ -28,6 +28,16 @@ export async function loadTranscript(
     .from(meeting)
     .where(eq(meeting.documentId, doc.id));
   if (!meet) return null;
+  return transcriptLines(db, meet.id);
+}
+
+/** A meeting's final transcript in time order (the caller has checked read access to its note). */
+export async function transcriptLines(
+  db: Db,
+  meetingId: string,
+  /** Only lines starting at or after this (ms): what's new since the last poll. */
+  afterMs?: number,
+): Promise<TranscriptLine[]> {
   const rows = await db
     .select({
       id: transcriptSegment.id,
@@ -37,7 +47,13 @@ export async function loadTranscript(
       text: transcriptSegment.text,
     })
     .from(transcriptSegment)
-    .where(and(eq(transcriptSegment.meetingId, meet.id), eq(transcriptSegment.isFinal, true)))
+    .where(
+      and(
+        eq(transcriptSegment.meetingId, meetingId),
+        eq(transcriptSegment.isFinal, true),
+        afterMs === undefined ? undefined : gte(transcriptSegment.startMs, afterMs),
+      ),
+    )
     .orderBy(asc(transcriptSegment.startMs), asc(transcriptSegment.id))
     .limit(MAX_LINES);
   return rows.map((s) => ({

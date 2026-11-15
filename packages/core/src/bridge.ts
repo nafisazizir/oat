@@ -13,6 +13,14 @@
  */
 import { z } from 'zod';
 
+import {
+  meetingInvokeChannels,
+  meetingSendChannels,
+  meetingSubscribeChannels,
+} from './bridge-meetings.ts';
+
+export * from './bridge-meetings.ts';
+
 /** Bumped when a channel changes incompatibly (renderer and preload ship together, so mostly a sanity check). */
 export const BRIDGE_VERSION = 1;
 
@@ -359,12 +367,15 @@ export const bridgeContract = {
     },
     'window:open-widget': { request: none, response: none },
     'window:close-widget': { request: none, response: none },
+    /** Meeting note view (3.4). */
+    ...meetingInvokeChannels,
   },
   send: {
     /** The window's UI has rendered (used for the cold-start measurement). */
     'app:rendered': z.object({ window: windowKindSchema }),
     /** Open an http(s) link in the system browser (main re-checks the URL). */
     'shell:open-external': z.object({ url: z.string().max(2048) }),
+    ...meetingSendChannels,
   },
   subscribe: {
     'state:changed': mainStateSnapshotSchema,
@@ -372,6 +383,7 @@ export const bridgeContract = {
     'recording:state': recordingSnapshotSchema,
     /** Transcript deltas of the active meeting (batched). */
     'transcript:segments': transcriptBatchSchema,
+    ...meetingSubscribeChannels,
   },
 } as const;
 

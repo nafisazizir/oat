@@ -27,7 +27,9 @@ import { ApiError, createApiClient } from './api-client.ts';
 import { AuthController } from './auth.ts';
 import { desktopConfigFromEnv } from './config.ts';
 import { BridgeError, createBridge, type Logger, subscribePayload } from './ipc.ts';
+import { MeetingNotes, MeetingNotesError } from './meeting-notes.ts';
 import { MeetingPersistence } from './meeting-persistence.ts';
+import { NotesFlush } from './notes-flush.ts';
 import { RecordingService, RecordingServiceError } from './recording-service.ts';
 import { createRecordingSetup, InputError } from './recording-setup.ts';
 import { mimeType, resolveRendererFile } from './renderer-files.ts';
@@ -247,6 +249,17 @@ async function start() {
     auth.withSession(fn).catch((error: unknown) => {
       throw error instanceof ApiError ? new SyncTransportError(error.status, error.message) : error;
     });
+  // 3.4: windows reload their meeting notes when these change (local writes, pulled changes).
+  let meetingsSeq = 0;
+  let meetingsTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Tells the windows to reload their meeting notes (coalesced: at most every 250 ms). */
+  function meetingsChanged() {
+    if (meetingsTimer) return;
+    meetingsTimer = setTimeout(() => {
+      meetingsTimer = undefined;
+      broadcast('meetings:changed', { seq: ++meetingsSeq });
+    }, 250);
+  }
   const sync: SyncService = new SyncService({
     dir: app.getPath('userData'),
     isRecording: (): boolean => recording.busy,
@@ -263,7 +276,11 @@ async function start() {
         auth.withSession((token) => api.openSyncEvents(token, lastEventId, signal)),
     },
     deviceName: deviceName(),
-    onStatus: (status) => store.update((s) => ({ ...s, sync: status })),
+    onStatus: (status) => {
+      // 3.4: a finished sync run may have pulled changes to the notes on screen.
+      if (status.lastSyncedAt !== store.state.sync.lastSyncedAt) meetingsChanged();
+      store.update((s) => ({ ...s, sync: status }));
+    },
     log,
   });
   bridge.handle('sync:now', () => sync.syncNow());
@@ -275,6 +292,54 @@ async function start() {
   }));
   const signedInUser = () =>
     store.state.auth.status === 'signed-in' ? store.state.auth.user.id : null;
+
+  // --- Meeting notes (3.4) ---
+  const notes = new MeetingNotes({
+    store: () => sync.store,
+    userId: signedInUser,
+    sync,
+    onChange: meetingsChanged,
+    // D-24: a meeting can be continued only where its audio parts are.
+    hasAudio: async (meetingId) =>
+      (await audioIndex.list({ meetingId })).some((r) => r.status !== 'deleted'),
+  });
+  const notesCall = async <T>(fn: () => T | Promise<T>): Promise<T> => {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error instanceof MeetingNotesError) {
+        throw new BridgeError(
+          error.code === 'unavailable' ? 'unavailable' : 'invalid_state',
+          error.message,
+        );
+      }
+      throw error;
+    }
+  };
+  bridge.handle('meetings:list', () => ({ notes: notes.list() }));
+  bridge.handle('meeting:get', (by) => notes.get(by));
+  bridge.handle('meeting:transcript', ({ documentId }) =>
+    notesCall(() => ({ segments: notes.transcript(documentId) })),
+  );
+  bridge.handle('meeting:save', ({ documentId, base, ...patch }) =>
+    notesCall(() => notes.save(documentId, base, patch)),
+  );
+  // Quit writes what the main window still has pending (≤ 1 s, see `quitGracefully`).
+  const notesFlush = new NotesFlush({
+    send: (id) => {
+      const contents = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null;
+      if (!contents || contents.isDestroyed()) return false;
+      contents.send('notes:flush', subscribePayload('notes:flush', { id }));
+      return true;
+    },
+  });
+  bridge.on('notes:flushed', ({ id }) => notesFlush.ack(id));
+  bridge.handle('meeting:add-participant', ({ documentId, name, email }) =>
+    notesCall(() => notes.addParticipant(documentId, { name, email })),
+  );
+  bridge.handle('meeting:remove-participant', ({ documentId, participantId }) =>
+    notesCall(() => notes.removeParticipant(documentId, participantId)),
+  );
 
   // --- Recording + live transcript (2.5) ---
   const credentials = new SttCredentials({ fetchGrant: () => auth.sttGrant() });
@@ -291,7 +356,12 @@ async function start() {
   const recording: RecordingService = new RecordingService({
     baseDir: app.getPath('userData'),
     store: audioIndex,
-    persistence: new MeetingPersistence({ store: () => sync.store, sync, userId: signedInUser }),
+    persistence: new MeetingPersistence({
+      store: () => sync.store,
+      sync,
+      userId: signedInUser,
+      onChange: meetingsChanged,
+    }),
     createSource: setup.createSource,
     createStt: setup.createStt,
     log,
@@ -307,7 +377,7 @@ async function start() {
       if (status === 'idle') queueMicrotask(() => void sync.recordingEnded());
     },
   });
-  stopRecordingOnQuit(recording);
+  quitGracefully(recording, () => notesFlush.request());
   app.once('will-quit', () => {
     void sync.shutdown();
     if (audioIndex instanceof AudioIndex) audioIndex.close();
@@ -332,8 +402,13 @@ async function start() {
     fixtures: setup.fixtures(),
   }));
   bridge.handle('recording:start', (request) =>
-    recordingCall(() => {
+    recordingCall(async () => {
       if (!auth.signedIn) throw new BridgeError('unauthorized', 'Sign in to record.');
+      if (request.meetingId && sync.store?.meeting(request.meetingId)) {
+        // Continuing a meeting (D-24): only an editable note recorded on this Mac.
+        const reason = await notes.cannotContinue(request.meetingId);
+        if (reason) throw new BridgeError('invalid_state', reason);
+      }
       const spec = setup.resolveInput(request);
       return recording.start({
         ...(request.meetingId ? { meetingId: request.meetingId } : {}),
@@ -377,18 +452,28 @@ async function start() {
 }
 
 /**
- * Quitting while recording (or while a stop / an ended session's files are still closing — `busy`) waits
- * for `shutdown()`: last transcript finals, closed audio files. Only then does the app quit, so a quit
- * never leaves a half-written recording behind. Recovery of crashed files is `recoverRecordings`.
+ * Quitting first finishes what would otherwise be lost, then quits:
+ * - note edits still in the main window's autosave debounce are written (3.4; at most 1 s);
+ * - a recording (or a stop / an ended session's files still closing — `busy`) is shut down: last transcript
+ *   finals, closed audio files, so a quit never leaves a half-written recording behind (recovery of crashed
+ *   files is `recoverRecordings`).
+ * Further quit requests while this runs wait for it too.
  */
-function stopRecordingOnQuit(recording: RecordingService) {
-  let stopping = false;
+function quitGracefully(recording: RecordingService, flushNotes: () => Promise<unknown>) {
+  let ready = false;
+  let running = false;
   app.on('before-quit', (event) => {
-    if (stopping || !recording.busy) return;
+    if (ready) return;
     event.preventDefault();
-    stopping = true;
-    log.info('quit: stopping the recording first');
-    void recording.shutdown().finally(() => app.quit());
+    if (running) return;
+    running = true;
+    if (recording.busy) log.info('quit: stopping the recording first');
+    void Promise.allSettled([flushNotes(), recording.busy ? recording.shutdown() : undefined]).then(
+      () => {
+        ready = true;
+        app.quit();
+      },
+    );
   });
 }
 

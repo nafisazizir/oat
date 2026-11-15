@@ -3,6 +3,7 @@ import type {
   AuthState,
   DesktopUser,
   InvokeResponse,
+  MainState,
   SyncStatusSnapshot,
 } from '@oat/core/bridge';
 import { Button } from '@oat/ui/components/button';
@@ -29,21 +30,24 @@ import {
   RefreshCwIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 
 import { BridgeCallError, call } from '../bridge.ts';
 import { useMainState } from '../main-state.ts';
-import { useRecording, useTranscript } from '../recording-state.ts';
+import { MeetingList, NewMeetingButton } from '../meetings/meeting-list.tsx';
+import { MeetingView } from '../meetings/meeting-view.tsx';
+import { bumpMeetingsVersion, useMeetingNotes } from '../meetings/meetings-state.ts';
+import { useRecording } from '../recording-state.ts';
+import { isActive } from '../recording-view.ts';
 import { syncLabel, type SyncTone } from '../sync-status.ts';
-import { IssueBanner, RecordingBar } from '../recording/recording-controls.tsx';
-import { TranscriptPanel } from '../recording/transcript-panel.tsx';
+import { defaultInputChoice, startRequest } from '../recording/recording-controls.tsx';
 import { ConflictsPanel } from '../sync/conflicts-panel.tsx';
 import { LocalSearch } from '../sync/local-search.tsx';
 import { Wordmark } from '../wordmark.tsx';
 
 /**
- * The main window: title bar + the account flow; signed in, the account sidebar and the meeting view
- * (recording bar + live transcript, 2.5). Notes and the workspace arrive in later tasks.
+ * The main window: title bar + the account flow; signed in, the sidebar (account, "New meeting note", the
+ * meeting notes on this Mac) and the meeting view (recording bar, the note, the transcript panel; 2.5, 3.4).
  */
 export default function MainWindow() {
   const state = useMainState();
@@ -69,17 +73,12 @@ export default function MainWindow() {
         <Wordmark className="text-lg" />
       </header>
       {signedIn ? (
-        <main className="flex min-h-0 flex-1" data-testid="shell">
-          <aside className="flex w-64 shrink-0 flex-col gap-3 border-r bg-sidebar p-3">
-            {/* 3.5: local search + conflicted copies, refreshed after every sync. */}
-            <LocalSearch refreshKey={state!.sync.lastSyncedAt} />
-            <ConflictsPanel refreshKey={state!.sync.lastSyncedAt} />
-            <div className="flex min-h-0 flex-1 flex-col">
-              <SignedInCard user={signedIn} sync={state!.sync} />
-            </div>
-          </aside>
-          <MeetingView />
-        </main>
+        <SignedInShell
+          user={signedIn}
+          sync={state!.sync}
+          activeMeetingId={state!.activeMeetingId}
+          recordingStatus={state!.recording.status}
+        />
       ) : (
         <main className="flex flex-1 items-center justify-center overflow-auto px-6 py-10">
           <div className="w-full max-w-sm" data-testid="shell">
@@ -270,8 +269,101 @@ function SigningInCard({ allowPaste }: { allowPaste: boolean }) {
   );
 }
 
-/** Account panel in the sidebar: who is signed in, connection check, widget, sign out. */
-function SignedInCard({ user, sync }: { user: DesktopUser; sync?: SyncStatusSnapshot }) {
+/**
+ * Signed in: the sidebar and the meeting view. Which note is open lives here: picking one in the list opens
+ * it; starting a recording opens the note it records into (3.4).
+ */
+function SignedInShell({
+  user,
+  sync,
+  activeMeetingId,
+  recordingStatus,
+}: {
+  user: DesktopUser;
+  sync: SyncStatusSnapshot;
+  activeMeetingId: string | null;
+  recordingStatus: MainState['recording']['status'];
+}) {
+  const snapshot = useRecording();
+  const notes = useMeetingNotes(true);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [options, setOptions] = useState<InvokeResponse<'recording:options'> | null>(null);
+  const [choice, setChoice] = useState<string | null>(null);
+  const input = choice ?? defaultInputChoice(options);
+  const starting = useAction();
+  useEffect(() => {
+    void call('recording:options')
+      .then(setOptions)
+      .catch(() => {});
+  }, []);
+
+  // A recording (re)started: open the note it records into once it exists (its row is created right
+  // before the audio starts, so it may take one list reload to appear).
+  const recording = isActive(recordingStatus);
+  const [opened, setOpened] = useState<string | null>(null);
+  const recordingNote = recording
+    ? notes?.find((n) => n.meetingId !== null && n.meetingId === activeMeetingId)
+    : undefined;
+  if (recording && activeMeetingId && opened !== activeMeetingId && recordingNote) {
+    setOpened(activeMeetingId);
+    setSelected(recordingNote.documentId);
+  }
+  useEffect(() => {
+    if (recording && activeMeetingId && opened !== activeMeetingId) bumpMeetingsVersion();
+  }, [recording, activeMeetingId, opened]);
+
+  return (
+    <main className="flex min-h-0 flex-1" data-testid="shell">
+      <aside className="flex w-64 shrink-0 flex-col gap-3 border-r bg-sidebar p-3">
+        {/* 3.5: local search + conflicted copies, refreshed after every sync. */}
+        <LocalSearch refreshKey={sync.lastSyncedAt} />
+        <ConflictsPanel refreshKey={sync.lastSyncedAt} />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <SignedInCard user={user} sync={sync}>
+            <div className="flex min-h-0 flex-1 flex-col gap-3">
+              <NewMeetingButton
+                disabled={recording || !snapshot}
+                pending={starting.pending}
+                onClick={() =>
+                  void starting.run(() => call('recording:start', startRequest(input)))
+                }
+              />
+              {starting.error && (
+                <p role="status" className="px-1 text-xs text-destructive">
+                  {starting.error}
+                </p>
+              )}
+              <MeetingList
+                notes={notes}
+                selected={selected}
+                recordingMeetingId={recording ? activeMeetingId : null}
+                onSelect={setSelected}
+              />
+            </div>
+          </SignedInCard>
+        </div>
+      </aside>
+      <MeetingView
+        documentId={selected}
+        snapshot={snapshot}
+        options={options}
+        input={input}
+        onInputChange={setChoice}
+      />
+    </main>
+  );
+}
+
+/** Account panel in the sidebar: who is signed in, (meeting notes,) connection check, widget, sign out. */
+function SignedInCard({
+  user,
+  sync,
+  children,
+}: {
+  user: DesktopUser;
+  sync?: SyncStatusSnapshot;
+  children?: ReactNode;
+}) {
   const check = useAction();
   const other = useAction();
   const [me, setMe] = useState<InvokeResponse<'api:me'> | null>(null);
@@ -297,6 +389,7 @@ function SignedInCard({ user, sync }: { user: DesktopUser; sync?: SyncStatusSnap
           </p>
         </div>
       </div>
+      {children}
       <div className="flex flex-col gap-1">
         <Button
           variant="ghost"
@@ -373,27 +466,5 @@ function SyncLine({ status }: { status: SyncStatusSnapshot | undefined }) {
       <Icon className={`size-3.5 shrink-0 ${className}`} />
       <span className="truncate">{label.text}</span>
     </p>
-  );
-}
-
-/** Recording bar, issue banner and the live transcript. */
-function MeetingView() {
-  const snapshot = useRecording();
-  const transcript = useTranscript();
-  const [options, setOptions] = useState<InvokeResponse<'recording:options'> | null>(null);
-  useEffect(() => {
-    void call('recording:options')
-      .then(setOptions)
-      .catch(() => {});
-  }, []);
-
-  return (
-    <section className="flex min-w-0 flex-1 flex-col" aria-label="Meeting">
-      <div className="flex flex-col gap-3 border-b px-6 py-3">
-        <RecordingBar snapshot={snapshot} options={options} />
-        <IssueBanner snapshot={snapshot} />
-      </div>
-      <TranscriptPanel transcript={transcript} snapshot={snapshot} />
-    </section>
   );
 }

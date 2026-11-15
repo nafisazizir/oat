@@ -1,7 +1,7 @@
 /**
  * Pure helpers for the recording UI (bar, widget, transcript panel). No React, unit-tested.
  */
-import type { RecordingSnapshot, SttStreamStatus, LiveSegment } from '@oat/core/bridge';
+import type { RecordingSnapshot, SttStreamStatus } from '@oat/core/bridge';
 
 export type TranscriptionHealth = 'off' | 'connecting' | 'live' | 'reconnecting' | 'offline';
 
@@ -50,21 +50,5 @@ export function isActive(status: RecordingSnapshot['status'] | undefined): boole
   return status === 'starting' || status === 'recording' || status === 'paused';
 }
 
-/** Show the speaker/time header above a segment when the speaker changes or after a long pause. */
-export function startsGroup(
-  segment: LiveSegment,
-  previous: LiveSegment | undefined,
-  gapMs = 30_000,
-): boolean {
-  return (
-    !previous || previous.source !== segment.source || segment.startMs - previous.endMs > gapMs
-  );
-}
-
-/** Near the bottom of a scroll container (autoscroll keeps following the live end). */
-export function isNearBottom(
-  el: { scrollTop: number; scrollHeight: number; clientHeight: number },
-  slack = 48,
-): boolean {
-  return el.scrollHeight - el.scrollTop - el.clientHeight <= slack;
-}
+/** Shared with the web's meeting view (3.4). */
+export { isNearBottom, startsGroup } from '@oat/meeting-ui/format';

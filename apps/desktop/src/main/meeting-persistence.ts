@@ -23,6 +23,8 @@ export interface MeetingPersistenceOptions {
   newId?: () => string;
   /** How long a start waits to learn the workspace on a fresh cache. Default: SyncService's (10 s). */
   workspaceTimeoutMs?: number;
+  /** A meeting note was created or ended (3.4: the windows reload their list). */
+  onChange?: () => void;
 }
 
 /** Thrown by `beginMeeting`; the message is shown to the user. */
@@ -62,7 +64,15 @@ export class MeetingPersistence implements TranscriptPersistence {
   async beginMeeting(meetingId: string, startedAt: number): Promise<void> {
     const userId = this.#o.userId();
     if (!userId) throw new PersistenceError('Sign in to record.');
-    if (this.#store().meeting(meetingId)) return; // resuming: same meeting, same note
+    const existing = this.#store().meeting(meetingId);
+    if (existing) {
+      // Resuming (D-24): same meeting, same note — and it is in progress again.
+      if (existing.endedAt !== null && this.#store().updateMeeting(meetingId, { endedAt: null })) {
+        this.#o.sync.kick();
+        this.#o.onChange?.();
+      }
+      return;
+    }
     const workspaceId = await this.#o.sync.personalWorkspace(this.#o.workspaceTimeoutMs);
     const store = this.#store();
     if (!workspaceId) {
@@ -79,6 +89,7 @@ export class MeetingPersistence implements TranscriptPersistence {
       startedAt: new Date(startedAt).toISOString(),
     });
     this.#o.sync.kick();
+    this.#o.onChange?.();
   }
 
   saveSegment(meetingId: string, segment: LiveSegment): void {
@@ -101,9 +112,17 @@ export class MeetingPersistence implements TranscriptPersistence {
     if (result !== 'unchanged') this.#o.sync.kick();
   }
 
+  /** Where the meeting's stored transcript ends (ms, meeting clock): a resumed recording starts after it. */
+  meetingEndMs(meetingId: string): number {
+    const store = this.#o.store();
+    if (!store) return 0;
+    return store.segments(meetingId).reduce((end, s) => Math.max(end, s.endMs), 0);
+  }
+
   endMeeting(meetingId: string, endedAt: number): void {
     if (this.#store().updateMeeting(meetingId, { endedAt: new Date(endedAt).toISOString() })) {
       this.#o.sync.kick();
+      this.#o.onChange?.();
     }
   }
 }

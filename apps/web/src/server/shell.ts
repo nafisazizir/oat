@@ -28,6 +28,7 @@ import { ApiError } from './api/errors';
 import { getDb } from './db';
 import { getDocument, listDocuments, listRecentDocuments } from './documents';
 import { listFolders, readableFolder, toFolderSummary } from './folders';
+import { loadMeetingInfo } from './meeting';
 import { requireSession } from './session';
 import { loadTranscript } from './transcript';
 
@@ -170,6 +171,21 @@ export async function listRecentPages(limit: number): Promise<DocumentNode[]> {
   const { db, actor, active } = await getContext();
   const docs = await listRecentDocuments(db, actor, active.id, { kind: 'page', limit });
   return docs.map(documentNode);
+}
+
+/**
+ * A meeting note's times, attendees and transcript for its page (3.4); `null` for a page, a folder or
+ * anything the user can't read (the page itself decides what to show then). Safe to start in parallel
+ * with `loadDocumentPage`.
+ */
+export async function loadDocumentMeeting(id: string) {
+  const { db, actor } = await getContext();
+  try {
+    return await loadMeetingInfo(db, actor, id, { transcript: true });
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
 }
 
 /** The meeting transcript of a document the user can read (the `/d/[id]?t=…&seg=…` reader, 6.4). */

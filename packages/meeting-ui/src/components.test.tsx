@@ -1,0 +1,150 @@
+// @vitest-environment jsdom
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+
+import type { Participant, TranscriptItem } from './format.ts';
+import { ParticipantChips } from './participants.tsx';
+import { SidePanel } from './side-panel.tsx';
+import { TranscriptList } from './transcript-list.tsx';
+
+// jsdom has no layout: give the scroller a size so the virtualizer renders rows.
+Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, value: 600 });
+Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, value: 400 });
+
+const lines: TranscriptItem[] = [
+  { id: 's1', source: 'system', startMs: 0, endMs: 1000, text: 'Hello from them' },
+  { id: 's2', source: 'mic', startMs: 2000, endMs: 3000, text: 'Hi, me here' },
+  { id: 's3', source: 'mic', startMs: 3500, endMs: 4000, text: 'still typing', isFinal: false },
+];
+
+describe('TranscriptList', () => {
+  it('renders me/them lines with speaker headers, interims marked', () => {
+    render(<TranscriptList segments={lines} />);
+    const rows = screen.getAllByTestId('transcript-segment');
+    expect(rows.map((r) => r.dataset.source)).toEqual(['system', 'mic', 'mic']);
+    expect(rows.map((r) => r.dataset.final)).toEqual(['true', 'true', 'false']);
+    expect(screen.getByText('Them')).toBeTruthy();
+    // One "Me" header for two consecutive mic lines.
+    expect(screen.getAllByText('Me')).toHaveLength(1);
+  });
+
+  it('marks the focused line and reports selections (click and keyboard)', async () => {
+    const onSelect = vi.fn();
+    render(<TranscriptList segments={lines} focusId="s2" onSelect={onSelect} />);
+    const focused = screen
+      .getAllByTestId('transcript-segment')
+      .filter((r) => r.dataset.focused !== undefined);
+    expect(focused.map((r) => r.dataset.segmentId)).toEqual(['s2']);
+    const button = screen.getByRole('button', { name: /^Them at 0:00: Hello from them$/ });
+    await userEvent.click(button);
+    expect(onSelect).toHaveBeenLastCalledWith(lines[0]);
+    fireEvent.keyDown(screen.getByRole('button', { name: /^Me at 0:02/ }), { key: 'Enter' });
+    expect(onSelect).toHaveBeenLastCalledWith(lines[1]);
+  });
+
+  it('has no clickable lines without onSelect', () => {
+    render(<TranscriptList segments={lines} />);
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+  });
+});
+
+describe('ParticipantChips', () => {
+  const people: Participant[] = [
+    { id: 'p1', name: 'Ada Lovelace', email: 'ada@example.com', source: 'calendar' },
+    { id: 'p2', name: 'Grace Hopper', email: null, source: 'manual' },
+  ];
+
+  it('shows chips; read-only has no controls', () => {
+    render(<ParticipantChips participants={people} editable={false} />);
+    expect(screen.getAllByTestId('participant-chip').map((c) => c.textContent)).toEqual([
+      'ALAda Lovelace',
+      'GHGrace Hopper',
+    ]);
+    expect(screen.getByLabelText('From the calendar')).toBeTruthy();
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('read-only and empty says so', () => {
+    render(<ParticipantChips participants={[]} editable={false} />);
+    expect(screen.getByText('No attendees')).toBeTruthy();
+  });
+
+  it('adds (validated) and removes', async () => {
+    const onAdd = vi.fn(async () => {});
+    const onRemove = vi.fn(async () => {});
+    render(<ParticipantChips participants={people} editable onAdd={onAdd} onRemove={onRemove} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Grace Hopper' }));
+    expect(onRemove).toHaveBeenCalledWith(people[1]);
+
+    await userEvent.click(screen.getByTestId('add-participant'));
+    await userEvent.type(screen.getByLabelText('Email (optional)'), 'not-an-email');
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(await screen.findByText('That email doesn’t look right.')).toBeTruthy();
+    expect(onAdd).not.toHaveBeenCalled();
+
+    await userEvent.clear(screen.getByLabelText('Email (optional)'));
+    await userEvent.type(screen.getByLabelText('Email (optional)'), 'lin@example.com');
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+    // No name: the email stands in.
+    expect(onAdd).toHaveBeenCalledWith({ name: 'lin@example.com', email: 'lin@example.com' });
+    await waitFor(() => expect(screen.queryByLabelText('Name')).toBeNull());
+  });
+
+  it('shows the error the caller rejects with', async () => {
+    const onAdd = vi.fn(async () => {
+      throw new Error('You can’t edit this note.');
+    });
+    render(<ParticipantChips participants={[]} editable onAdd={onAdd} />);
+    await userEvent.click(screen.getByTestId('add-participant'));
+    await userEvent.type(screen.getByLabelText('Name'), 'Lin');
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(await screen.findByText('You can’t edit this note.')).toBeTruthy();
+  });
+});
+
+describe('SidePanel', () => {
+  function Harness() {
+    const [open, setOpen] = useState(true);
+    return open ? (
+      <SidePanel
+        title="Transcript"
+        closeLabel="Hide transcript"
+        onClose={() => setOpen(false)}
+        storageKey="test.panel.width"
+        defaultWidth={320}
+        minWidth={240}
+        maxWidth={480}
+        data-testid="panel"
+      >
+        <p>body</p>
+      </SidePanel>
+    ) : (
+      <p>closed</p>
+    );
+  }
+
+  it('resizes with the keyboard within bounds, remembers it, and closes', async () => {
+    window.localStorage.clear();
+    const { unmount } = render(<Harness />);
+    const panel = screen.getByTestId('panel');
+    expect(panel.dataset.width).toBe('320');
+    const handle = screen.getByRole('separator', { name: 'Resize panel' });
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    expect(panel.dataset.width).toBe('336');
+    fireEvent.keyDown(handle, { key: 'Home' });
+    expect(panel.dataset.width).toBe('480');
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    expect(panel.dataset.width).toBe('480');
+    fireEvent.keyDown(handle, { key: 'End' });
+    expect(handle.getAttribute('aria-valuenow')).toBe('240');
+    expect(window.localStorage.getItem('test.panel.width')).toBe('240');
+    unmount();
+
+    render(<Harness />);
+    await waitFor(() => expect(screen.getByTestId('panel').dataset.width).toBe('240'));
+    await userEvent.click(screen.getByRole('button', { name: 'Hide transcript' }));
+    expect(screen.getByText('closed')).toBeTruthy();
+  });
+});

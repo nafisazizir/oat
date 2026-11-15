@@ -453,3 +453,66 @@ describe('pull scope', () => {
     clock += 1;
   });
 });
+
+describe('meeting notes (3.4)', () => {
+  it('lists live meeting documents newest first, with or without a meeting row', () => {
+    withWorkspace();
+    meeting('m1', 'd1');
+    store.createMeeting({
+      meetingId: 'm2',
+      documentId: 'd2',
+      workspaceId: 'ws',
+      ownerId: 'u1',
+      title: 'Later',
+      startedAt: '2026-11-14T12:00:00.000Z',
+    });
+    // From the web: a meeting note without a recording, a page, a trashed note.
+    store.applyPull(
+      page([
+        {
+          op: 'upsert',
+          table: 'document',
+          row: serverDoc({ id: 'd3', title: 'Web note', createdAt: '2026-11-14T11:00:00.000Z' }),
+        },
+        { op: 'upsert', table: 'document', row: serverDoc({ id: 'd4', kind: 'page' }) },
+        {
+          op: 'upsert',
+          table: 'document',
+          row: serverDoc({ id: 'd5', deletedAt: '2026-11-14T11:30:00.000Z' }),
+        },
+      ]),
+      'c1',
+    );
+    const notes = store.meetingNotes();
+    expect(notes.map((n) => [n.documentId, n.meetingId, n.title])).toEqual([
+      ['d2', 'm2', 'Later'],
+      ['d3', null, 'Web note'],
+      ['d1', 'm1', 'Standup'],
+    ]);
+    expect(notes[0]).toMatchObject({ startedAt: '2026-11-14T12:00:00.000Z', endedAt: null });
+    expect(store.meetingNotes(1)).toHaveLength(1);
+    expect(store.meetingOfDocument('d2')?.id).toBe('m2');
+    expect(store.meetingOfDocument('d3')).toBeUndefined();
+  });
+
+  it('saves a local conflicted copy (3.4) of the same kind as a push conflict makes (3.5)', () => {
+    withWorkspace();
+    meeting('m1', 'd1');
+    const content = { type: 'doc' as const, content: [{ type: 'paragraph' }] };
+    const id = store.saveConflictedCopy('d1', 'u1', { title: 'Standup', contentJson: content });
+    expect(store.document(id)).toMatchObject({
+      kind: 'page',
+      visibility: 'private',
+      title: 'Standup (conflicted copy)',
+      ownerId: 'u1',
+      version: 0,
+      contentJson: content,
+      conflictOfId: 'd1',
+    });
+    expect(store.conflict(id)?.original?.id).toBe('d1');
+    expect(store.outbox().some((e) => e.table === 'document' && e.rowId === id)).toBe(true);
+    expect(() =>
+      store.saveConflictedCopy('nope', 'u1', { title: '', contentJson: content }),
+    ).toThrow();
+  });
+});

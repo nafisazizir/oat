@@ -36,7 +36,7 @@ export function isApiError(
   return error instanceof ApiRequestError && (code === undefined || error.code === code);
 }
 
-async function request<T>(
+export async function request<T>(
   method: string,
   path: string,
   body?: unknown,

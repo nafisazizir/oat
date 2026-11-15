@@ -66,6 +66,8 @@ export interface TranscriptPersistence {
   /** Before the audio starts (new or resumed meeting). A rejection fails the start with its message. */
   beginMeeting(meetingId: string, startedAt: number): Promise<void>;
   saveSegment(meetingId: string, segment: LiveSegment): void;
+  /** Latest stored segment end of a meeting (ms, meeting clock), for resuming it after a relaunch. */
+  meetingEndMs?(meetingId: string): number;
   /** After a recording session's files are closed. */
   endMeeting(meetingId: string, endedAt: number): void;
 }
@@ -289,6 +291,28 @@ export class RecordingService {
     }
   }
 
+  /**
+   * Where an earlier part of this meeting ended when this launch didn't record it (D-24: after a relaunch the
+   * new part continues the meeting clock): the end of its archived audio parts, or of its stored transcript,
+   * whichever is later. 0 for a new meeting.
+   */
+  async #persistedEnd(meetingId: string): Promise<number> {
+    let end = 0;
+    try {
+      for (const row of await this.#store.list({ meetingId })) {
+        end = Math.max(end, row.offsetMs + row.durationMs);
+      }
+    } catch (error) {
+      this.#o.log.error('recording: could not read earlier parts of the meeting', error);
+    }
+    try {
+      end = Math.max(end, this.#o.persistence?.meetingEndMs?.(meetingId) ?? 0);
+    } catch (error) {
+      this.#o.log.error('recording: could not read the meeting’s transcript end', error);
+    }
+    return Math.round(end);
+  }
+
   async #start(requested: string | undefined, spec: InputSpec): Promise<{ meetingId: string }> {
     const previous = this.#session;
     if (previous?.finalized) await previous.finalized; // files of the last session are closed first
@@ -310,7 +334,7 @@ export class RecordingService {
       }
     }
     if (this.#transcript.meetingId !== meetingId) this.#transcript.reset(meetingId);
-    const offsetMs = this.#meetingEnds.get(meetingId) ?? 0;
+    const offsetMs = this.#meetingEnds.get(meetingId) ?? (await this.#persistedEnd(meetingId));
 
     this.#issues = [];
     this.#levels = { mic: null, system: null };

@@ -165,9 +165,9 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   const seg = answer.locator('[data-testid="citation-chip"][data-kind="seg"]').first();
   await seg.click();
   await expect(page).toHaveURL(new RegExp(`/d/${doc.id}\\?t=\\d+&seg=`));
-  const reader = page.getByTestId('transcript-reader');
+  const reader = page.getByTestId('transcript-panel');
   await expect(reader).toBeVisible();
-  const focused = reader.locator('li[data-focused]');
+  const focused = reader.locator('[data-focused]');
   await expect(focused).toHaveCount(1);
   expect(segments).toContain(await focused.getAttribute('data-segment-id'));
   await expect(focused).toBeInViewport();
@@ -355,7 +355,7 @@ test.describe('with expected HTTP errors', () => {
     await expect(page).toHaveURL(new RegExp(`/d/${doc.id}\\?(t=\\d+&seg=|block=)`));
     const kind = new URL(page.url()).searchParams.has('seg') ? 'seg' : 'block';
     if (kind === 'seg') {
-      await expect(page.getByTestId('transcript-reader').locator('li[data-focused]')).toBeVisible();
+      await expect(page.getByTestId('transcript-panel').locator('[data-focused]')).toBeVisible();
     } else {
       await expect(page.locator('[data-highlight-block]')).toBeVisible();
     }

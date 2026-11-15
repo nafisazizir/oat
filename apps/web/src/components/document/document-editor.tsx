@@ -55,9 +55,12 @@ const isEmptyDoc = (doc: JSONContent) =>
 export function DocumentEditor({
   document: doc,
   workspaceName,
+  meta,
 }: {
   document: DocumentDetail;
   workspaceName: string;
+  /** Shown under the title (the meeting header of a meeting note, 3.4). */
+  meta?: React.ReactNode;
 }) {
   const router = useRouter();
   const actions = useTreeActions();
@@ -269,6 +272,7 @@ export function DocumentEditor({
             }
           }}
         />
+        {meta}
       </header>
 
       <EnhanceError enhancement={enhancement} />

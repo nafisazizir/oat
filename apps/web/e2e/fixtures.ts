@@ -11,7 +11,13 @@ export async function waitForHydration(page: Page): Promise<void> {
   const isNextPage = await page
     .evaluate(() => document.contentType === 'text/html' && '__next_f' in window)
     .catch(() => false); // navigated away / closed meanwhile: nothing to wait for
-  if (isNextPage) await page.locator('html[data-hydrated]').waitFor({ state: 'attached' });
+  if (!isNextPage) return;
+  await page.locator('html[data-hydrated]').waitFor({ state: 'attached' });
+  // A streamed segment React already rendered on the client can still sit in the DOM for a moment as a
+  // hidden copy (`<div hidden id="S:n">`): its duplicate test ids would trip strict locators (3.4).
+  await page
+    .waitForFunction(() => !document.querySelector('div[hidden][id^="S:"]'))
+    .catch(() => {}); // navigated away / closed meanwhile
 }
 
 /**

@@ -1,0 +1,5 @@
+/*
+ * @oat/meeting-ui/styles.css — import after `@oat/ui/styles.css` in the app's Tailwind entry. No styles of
+ * its own: it only makes Tailwind scan this package's components for class names.
+ */
+@source './';

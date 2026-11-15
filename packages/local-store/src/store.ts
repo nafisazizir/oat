@@ -128,6 +128,20 @@ export interface LocalSegment {
 
 export type LocalParticipant = SyncParticipantRow;
 
+/** A row of `meetingNotes()`: a meeting document and its meeting (if any), without content. */
+export interface LocalMeetingNote {
+  documentId: string;
+  workspaceId: string;
+  ownerId: string;
+  title: string;
+  visibility: DocumentVisibility;
+  createdAt: string;
+  updatedAt: string;
+  meetingId: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+}
+
 export interface OutboxEntry {
   version: number;
   table: OutboxTable;
@@ -313,6 +327,84 @@ export class LocalStore {
   meeting(id: string): LocalMeeting | undefined {
     const r = this.#get('SELECT * FROM meeting WHERE id = ?', id);
     return r && toMeeting(r);
+  }
+
+  /** The meeting row of a `meeting` document (3.4), if it has one (a note made on the web may not). */
+  meetingOfDocument(documentId: string): LocalMeeting | undefined {
+    const r = this.#get('SELECT * FROM meeting WHERE document_id = ?', documentId);
+    return r && toMeeting(r);
+  }
+
+  /**
+   * A conflicted copy made before anything is pushed (3.4): an edit of note `of` that was written on top of
+   * an older version than the stored one (sync pulled a newer one while I typed) is kept as a copy — the same
+   * kind of copy a push conflict makes (3.5: `conflictOf`, this device, resolvable) — instead of overwriting
+   * the newer note. Owned by `ownerId` (the signed-in user). Returns the copy's id.
+   */
+  saveConflictedCopy(
+    of: string,
+    ownerId: string,
+    mine: { title: string; contentJson: LocalDocument['contentJson'] },
+  ): string {
+    const original = this.document(of);
+    if (!original) throw new Error(`document ${of} not found`);
+    const copy = this.#insertConflictedCopy(of, original.workspaceId, ownerId, mine);
+    this.#log?.warn(`local-store: document ${of} changed underneath an edit; kept it as ${copy}`);
+    return copy;
+  }
+
+  /** A "<title> (conflicted copy)" page of `of` (D-19, 3.5), queued for push like any new page. */
+  #insertConflictedCopy(
+    of: string,
+    workspaceId: string,
+    ownerId: string,
+    text: { title: string; contentJson: LocalDocument['contentJson'] },
+  ): string {
+    const copy = this.#newId();
+    const at = this.#iso();
+    this.#run(
+      `INSERT INTO document (id, workspace_id, owner_id, kind, title, content_json, visibility, version, created_at, updated_at,
+         conflict_of_id, conflict_device, conflict_at)
+       VALUES (?, ?, ?, 'page', ?, ?, 'private', 0, ?, ?, ?, ?, ?)`,
+      copy,
+      workspaceId,
+      ownerId,
+      `${text.title || 'Untitled'}${CONFLICT_SUFFIX}`.slice(0, 1000),
+      JSON.stringify(text.contentJson),
+      at,
+      at,
+      of,
+      this.#deviceName,
+      at,
+    );
+    return copy;
+  }
+
+  /**
+   * Meeting notes for the desktop's list (3.4): live (not trashed) `meeting` documents of every workspace,
+   * newest first (by recording start, else creation), without their content.
+   */
+  meetingNotes(limit = 500): LocalMeetingNote[] {
+    return this.#all(
+      `SELECT d.id AS document_id, d.workspace_id, d.owner_id, d.title, d.visibility, d.created_at,
+              d.updated_at, m.id AS meeting_id, m.started_at, m.ended_at
+       FROM document d LEFT JOIN meeting m ON m.document_id = d.id
+       WHERE d.kind = 'meeting' AND d.deleted_at IS NULL
+       ORDER BY COALESCE(m.started_at, d.created_at) DESC, d.id DESC
+       LIMIT ?`,
+      limit,
+    ).map((r) => ({
+      documentId: String(r.document_id),
+      workspaceId: String(r.workspace_id),
+      ownerId: String(r.owner_id),
+      title: String(r.title),
+      visibility: r.visibility as DocumentVisibility,
+      createdAt: String(r.created_at),
+      updatedAt: String(r.updated_at),
+      meetingId: str(r.meeting_id),
+      startedAt: str(r.started_at),
+      endedAt: str(r.ended_at),
+    }));
   }
 
   /**
@@ -717,23 +809,7 @@ export class LocalStore {
       local &&
       (local.title !== server.title || !sameDocumentContent(local.contentJson, server.contentJson))
     ) {
-      copy = this.#newId();
-      const at = this.#iso();
-      this.#run(
-        `INSERT INTO document (id, workspace_id, owner_id, kind, title, content_json, visibility, version, created_at, updated_at,
-           conflict_of_id, conflict_device, conflict_at)
-         VALUES (?, ?, ?, 'page', ?, ?, 'private', 0, ?, ?, ?, ?, ?)`,
-        copy,
-        local.workspaceId,
-        local.ownerId,
-        `${local.title || 'Untitled'}${CONFLICT_SUFFIX}`.slice(0, 1000),
-        JSON.stringify(local.contentJson),
-        at,
-        at,
-        id,
-        this.#deviceName,
-        at,
-      );
+      copy = this.#insertConflictedCopy(id, local.workspaceId, local.ownerId, local);
       this.#log?.warn(`local-store: document ${id} changed elsewhere; kept ours as ${copy}`);
     }
     this.#run("DELETE FROM outbox WHERE table_name = 'document' AND row_id = ?", id);
