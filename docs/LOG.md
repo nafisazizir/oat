@@ -100,3 +100,4 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - 2026-11-15 · 9.3 · shipped: design pass (web + shared UI): 22-item punch list, axe-clean routes, Escape fix, prod CSP check (squash-merged).
 - 2026-11-15 · 2.7 · shipped: recording resilience: startup crash recovery, STT gap detection, archive backfill via batch STT (+2.9) (squash-merged).
 - 2026-11-15 · 7.5 · shipped: auto-stop (rules + undo + prompt) and auto-enhance grace period (squash-merged).
+- 2026-11-15 · follow-up · 7.5: in back-to-back meetings in the same app, meeting B isn't prompted after A's note auto-stops (detection D-21 treats the app as already 'in a meeting'). Needs a small D-21 change; candidate for after human review.
