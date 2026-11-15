@@ -34,7 +34,11 @@ export default defineConfig({
   expect: { timeout: 15_000 * scale },
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? 'github' : 'list',
+  // JSON report kept per run so intermittent failures can be diagnosed after the fact (git-ignored).
+  reporter: [
+    [process.env.CI ? 'github' : 'list'],
+    ['json', { outputFile: 'test-results/last-run.json' }],
+  ],
   use: {
     baseURL,
     trace: 'retain-on-failure',
