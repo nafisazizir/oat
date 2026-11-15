@@ -46,6 +46,9 @@ describe('desktopConfigFromEnv', () => {
         OAT_DETECTION: 'fixture:/tmp/timeline.json',
         OAT_AUTO_STOP: '{"floorMs":0}',
         OAT_END_GRACE_MS: '0',
+        OAT_ONBOARDING: 'off',
+        OAT_PERMISSIONS: 'fixture:/tmp/permissions.json',
+        OAT_TEST_RECORDING_MS: '1000',
       },
       { isPackaged: true, bakedWebUrl: 'https://oat.example' },
     );
@@ -64,7 +67,36 @@ describe('desktopConfigFromEnv', () => {
       detection: { kind: 'sidecar' },
       autoStop: {},
       endGraceMs: undefined,
+      onboarding: 'auto',
+      permissions: { kind: 'sidecar' },
+      testRecordingMs: undefined,
     });
+  });
+
+  it('onboarding (9.2): auto by default, off under e2e unless asked; permissions from a fixture', () => {
+    const dev = { isPackaged: false };
+    expect(desktopConfigFromEnv({}, dev)).toMatchObject({
+      onboarding: 'auto',
+      permissions: { kind: 'sidecar' },
+      testRecordingMs: undefined,
+    });
+    expect(desktopConfigFromEnv({ OAT_E2E: '1' }, dev).onboarding).toBe('off');
+    expect(desktopConfigFromEnv({ OAT_E2E: '1', OAT_ONBOARDING: 'auto' }, dev).onboarding).toBe(
+      'auto',
+    );
+    expect(
+      desktopConfigFromEnv(
+        { OAT_PERMISSIONS: 'fixture:/tmp/p.json', OAT_TEST_RECORDING_MS: '3000' },
+        dev,
+      ),
+    ).toMatchObject({
+      permissions: { kind: 'fixture', file: '/tmp/p.json' },
+      testRecordingMs: 3000,
+    });
+    expect(() => desktopConfigFromEnv({ OAT_ONBOARDING: 'maybe' }, dev)).toThrow(/OAT_ONBOARDING/);
+    expect(() => desktopConfigFromEnv({ OAT_PERMISSIONS: 'granted' }, dev)).toThrow(
+      /OAT_PERMISSIONS/,
+    );
   });
 
   it('OAT_AUTO_STOP / OAT_END_GRACE_MS (7.5): dev-only timing overrides, validated', () => {

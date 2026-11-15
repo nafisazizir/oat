@@ -123,3 +123,4 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 ## 2026-11-15 06:40 — orchestrator
 - 9.2 + 9.3b implementer handed back (branch task/9.2-onboarding, ci ok; 16/19 punch-list items fixed, 2 deferred, 1 partial). Fresh reviewer spawned.
 - 3.9 implementer started in parallel, branched from task/9.2-onboarding (will re-merge main once 9.2 lands).
+- 2026-11-15 · 9.2 · shipped: desktop onboarding + 9.3b desktop design pass (squash-merged).

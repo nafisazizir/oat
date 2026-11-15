@@ -338,7 +338,7 @@ test('in-person silence → "Meeting over?" → Keep going; the Recording settin
 
 test('a crash inside the grace period: the relaunch ends the meeting and the pipeline runs', async () => {
   test.setTimeout(scaled(180_000));
-  await page.getByRole('button', { name: 'Back to meeting' }).click();
+  await page.getByTestId('settings-close').click();
   await page.getByRole('button', { name: 'New meeting note' }).click();
   await expect(bar()).toHaveAttribute('data-status', 'recording', { timeout: scaled(20_000) });
   const { meetingId } = await invoke<{ meetingId: string }>(page, 'recording:get');

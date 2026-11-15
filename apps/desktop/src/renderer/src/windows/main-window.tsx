@@ -50,6 +50,9 @@ import { defaultInputChoice, startRequest } from '../recording/recording-control
 import { ConflictsPanel } from '../sync/conflicts-panel.tsx';
 import { LocalSearch } from '../sync/local-search.tsx';
 import { SettingsView } from '../settings/settings-view.tsx';
+import { FirstMeetingGuide } from '../onboarding/first-meeting-guide.tsx';
+import { useOnboarding } from '../onboarding/onboarding-state.ts';
+import { OnboardingView } from '../onboarding/onboarding-view.tsx';
 import { Wordmark } from '../wordmark.tsx';
 
 /**
@@ -103,7 +106,8 @@ export default function MainWindow() {
           <span data-testid="app-info">
             Oat {info.version}
             {info.dev && ' · dev'}
-            {info.coldStartMs !== null && ` · ready in ${info.coldStartMs} ms`}
+            {/* Start-up timing is a development figure, not something to show users (9.3b). */}
+            {info.coldStartMs !== null && !info.packaged && ` · ready in ${info.coldStartMs} ms`}
           </span>
         )}
       </footer>
@@ -313,6 +317,9 @@ function SignedInShell({
     () => bridge().subscribe('notes:open', ({ documentId }) => setSelected(documentId)),
     [],
   );
+  // 9.2: first run of this account on this Mac → the setup walkthrough; Settings → Setup reopens it.
+  const onboarding = useOnboarding(user.id);
+  const [setupOpen, setSetupOpen] = useState(false);
 
   // A recording (re)started: open the note it records into once it exists (its row is created right
   // before the audio starts, so it may take one list reload to appear).
@@ -328,6 +335,25 @@ function SignedInShell({
   useEffect(() => {
     if (recording && activeMeetingId && opened !== activeMeetingId) bumpMeetingsVersion();
   }, [recording, activeMeetingId, opened]);
+
+  if (!onboarding.state) return <main className="flex-1" data-testid="shell" aria-busy />;
+  if (onboarding.state.needed || setupOpen) {
+    const firstRun = onboarding.state.needed;
+    return (
+      <OnboardingView
+        firstRun={firstRun}
+        email={user.email}
+        input={input}
+        onDone={(finished) => {
+          setSetupOpen(false);
+          setSettingsOpen(false);
+          setSelected(null);
+          // The guide card follows a finished first run; "Set up later" and re-runs go straight back.
+          if (firstRun) void onboarding.complete(finished);
+        }}
+      />
+    );
+  }
 
   return (
     <main className="flex min-h-0 flex-1" data-testid="shell">
@@ -375,7 +401,10 @@ function SignedInShell({
         <PromptBanner prompt={prompt} recording={startRequest(input)} />
         <AutoStopQuestion notice={autoStop} />
         {settingsOpen ? (
-          <SettingsView onClose={() => setSettingsOpen(false)} />
+          <SettingsView
+            onClose={() => setSettingsOpen(false)}
+            onOpenSetup={() => setSetupOpen(true)}
+          />
         ) : (
           <MeetingView
             documentId={selected}
@@ -383,6 +412,11 @@ function SignedInShell({
             options={options}
             input={input}
             onInputChange={setChoice}
+            home={
+              onboarding.state.guide ? (
+                <FirstMeetingGuide onDismiss={() => void onboarding.dismissGuide()} />
+              ) : undefined
+            }
           />
         )}
         <AutoStopToast notice={autoStop} />
@@ -417,10 +451,14 @@ function SignedInCard({
         >
           {label.charAt(0).toUpperCase()}
         </div>
+        {/* The account, not a page heading (9.3b): the name when there is one, else the address. */}
         <div className="flex min-w-0 flex-col">
-          <h1 className="truncate text-sm font-medium">{user.name || 'Signed in'}</h1>
+          {user.name && <p className="truncate text-sm font-medium">{user.name}</p>}
           <p
-            className="truncate text-xs text-muted-foreground"
+            className={
+              user.name ? 'truncate text-xs text-muted-foreground' : 'truncate text-sm font-medium'
+            }
+            title={user.email}
             data-selectable
             data-testid="signed-in-email"
           >

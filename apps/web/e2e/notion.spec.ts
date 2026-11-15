@@ -193,12 +193,17 @@ test('connect Notion → choose a database → send a note → update it → dis
   await evidence(viewer, 'notion-page-updated');
   await viewer.close();
 
-  // Phone width: the header row wraps instead of scrolling sideways.
+  // Phone width: the actions get a row of their own (no sideways scrolling) and "Send to Notion" moves into
+  // "More actions" (9.3b).
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByTestId('notion-send')).toBeVisible();
+  await expect(page.getByTestId('document-actions')).toHaveAttribute('data-compact', 'true');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.getByTestId('document-more').click();
+  await expect(page.getByTestId('notion-send')).toBeVisible();
   await evidence(page, 'document-sent-phone');
+  await page.keyboard.press('Escape');
   await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(page.getByTestId('document-actions')).not.toHaveAttribute('data-compact', 'true');
 
   // Disconnect: the note page then asks to connect first.
   await page.goto('/settings/integrations');

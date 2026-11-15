@@ -55,9 +55,13 @@ export function MeetingTime({
           {when.duration && (
             <>
               <span aria-hidden>·</span>
-              <span data-testid="meeting-duration">
-                {ticking ? `In progress · ${when.duration}` : when.duration}
-              </span>
+              {ticking && (
+                <>
+                  <span>In progress</span>
+                  <span aria-hidden>·</span>
+                </>
+              )}
+              <span data-testid="meeting-duration">{when.duration}</span>
             </>
           )}
         </>

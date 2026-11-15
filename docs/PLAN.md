@@ -102,7 +102,7 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 ## M9 — Ship v1
 Exit: SPEC §9 met.
 - [ ] 9.1 🧑 Code signing, notarization, auto-update (electron-updater) · deps: M2
-- [ ] 9.2 Onboarding: permissions walkthrough, first meeting guide · deps: M7
+- [x] 9.2 Onboarding: permissions walkthrough, first meeting guide · deps: M7
 - [x] 9.3 (web; desktop = 9.3b) Design pass: tokens tuned, empty/loading/error states everywhere · deps: M6
 - [ ] 9.3b Desktop design pass (+ tickets from 9.3: editor checkbox target size, anchor 'Ask about this note' button, header overflow menu) · deps: 7.5, 2.7
 - [x] 9.4 End-to-end acceptance script against the compose stack: sign up → record fixture meeting (FileSource) → enhance → share → chat → Notion (mock) · deps: M8

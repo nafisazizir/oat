@@ -37,7 +37,7 @@
   /* ── Status ──────────────────────────────────────────────────────── */
   --destructive: oklch(0.48 0.17 29); /* brick — AA as text on its own 10–20% tint */
   --destructive-foreground: oklch(0.985 0.006 84);
-  --success: oklch(0.56 0.11 150);
+  --success: oklch(0.49 0.11 150); /* ≥ 4.5:1 as text, also on its own 12% tint (9.3b) */
   --success-foreground: oklch(0.985 0.006 84);
   --warning: oklch(0.74 0.14 72); /* honey */
   --warning-foreground: oklch(0.27 0.04 62);

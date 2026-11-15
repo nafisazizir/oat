@@ -251,7 +251,8 @@ test('below lg the panel is a modal sheet: focus stays inside, Escape closes', a
   // used to swallow the first press, which made this test flaky under load).
   const newChat = dialog.getByRole('button', { name: 'New chat' });
   await newChat.focus();
-  await expect(page.locator('[data-slot="tooltip-content"]')).toBeVisible();
+  // (By name: the tooltip of the button focused before may still be fading out.)
+  await expect(page.getByRole('tooltip', { name: 'New chat' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect(page.getByTestId('assistant-toggle')).toBeFocused();

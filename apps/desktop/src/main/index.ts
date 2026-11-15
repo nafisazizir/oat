@@ -8,7 +8,12 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { DESKTOP_SCHEME, findDeepLinkArg } from '@oat/auth/desktop-link';
-import { PLAYBACK_SCHEME, type SubscribeChannel, type SubscribePayload } from '@oat/core/bridge';
+import {
+  type PermissionsSnapshot,
+  PLAYBACK_SCHEME,
+  type SubscribeChannel,
+  type SubscribePayload,
+} from '@oat/core/bridge';
 import { InMemoryAudioRecordingStore } from '@oat/audio/node';
 import {
   AudioIndex,
@@ -26,6 +31,7 @@ import {
   safeStorage,
   session,
   shell,
+  systemPreferences,
   type WebContents,
 } from 'electron';
 
@@ -48,6 +54,14 @@ import { MeetingEndGrace } from './meeting-end-grace.ts';
 import { MeetingNotes, MeetingNotesError } from './meeting-notes.ts';
 import { MeetingPersistence } from './meeting-persistence.ts';
 import { NotesFlush } from './notes-flush.ts';
+import { OnboardingStore } from './onboarding-store.ts';
+import {
+  canRequest,
+  FixturePermissions,
+  type PermissionSource,
+  PRIVACY_URLS,
+  SidecarPermissions,
+} from './permissions.ts';
 import { RecordingService, RecordingServiceError } from './recording-service.ts';
 import { recoverCrashedRecordings } from './recording-recovery.ts';
 import { createRecordingSetup, InputError } from './recording-setup.ts';
@@ -65,6 +79,7 @@ import { MainStore } from './store.ts';
 import { SttCredentials } from './stt-credentials.ts';
 import { deviceName, SyncService } from './sync-service.ts';
 import { TokenStore } from './token-store.ts';
+import { TestRecording, TestRecordingError } from './test-recording.ts';
 import { TranscriptBackfill } from './transcript-backfill.ts';
 import { createWindowFactory } from './windows.ts';
 
@@ -248,6 +263,7 @@ async function start() {
   bridge.handle('auth:sign-out', async () => {
     // Stop (and finish saving) a recording first: its transcription needs the session.
     if (recording.busy) await recording.shutdown();
+    await testRecording.stop(); // 9.2: nothing to save, but it uses this account's transcription
     grace.flush(); // 7.5: a meeting in its grace period ends now, in this account's database
     await auth.signOut();
   });
@@ -603,6 +619,7 @@ async function start() {
         if (reason) throw new BridgeError('invalid_state', reason);
       }
       const spec = setup.resolveInput(request);
+      if (testRecording.busy) await testRecording.stop(); // 9.2: one audio input at a time
       return recording.start({
         ...(request.meetingId ? { meetingId: request.meetingId } : {}),
         spec,
@@ -663,6 +680,7 @@ async function start() {
         ...(input ? { input } : {}),
         ...(fixture ? { fixture } : {}),
       });
+      if (testRecording.busy) await testRecording.stop(); // 9.2: one audio input at a time
       const started = await recording.start({ ...(meetingId ? { meetingId } : {}), spec });
       documentId ??= (await notes.get({ meetingId: started.meetingId }))?.documentId ?? null;
       return { documentId };
@@ -773,6 +791,69 @@ async function start() {
     ),
   );
 
+  // --- First-run setup: permissions walkthrough, test recording, first-meeting guide (9.2) ---
+  const permissions: PermissionSource = createPermissionSource(() => setup.sidecarBinary());
+  const onboarding = new OnboardingStore({
+    file: join(app.getPath('userData'), 'onboarding.json'),
+    mode: config.onboarding,
+    log,
+  });
+  const permissionsSnapshot = async (): Promise<PermissionsSnapshot> => {
+    const audio = await permissions.status();
+    const { eventkit, google } = calendar.snapshot;
+    return { ...audio, calendar: eventkit, google };
+  };
+  bridge.handle('permissions:get', () => permissionsSnapshot());
+  bridge.handle('permissions:request', async ({ kind }) => {
+    // Only the user's "Allow" click gets here; macOS is asked only while it never was.
+    if (kind === 'calendar') {
+      if (calendar.snapshot.eventkit === 'not_determined') await calendar.connect('eventkit');
+    } else {
+      const audio = await permissions.status();
+      if (canRequest(kind === 'microphone' ? audio.microphone : audio.systemAudio)) {
+        await permissions.request(kind);
+      }
+    }
+    const snapshot = await permissionsSnapshot();
+    broadcast('permissions:changed', snapshot);
+    return snapshot;
+  });
+  bridge.handle('permissions:open-settings', ({ kind }) => {
+    void shell.openExternal(PRIVACY_URLS[kind]);
+  });
+  const onboardingUser = () => {
+    const user = signedInUser();
+    if (!user) throw new BridgeError('unauthorized', 'Sign in first.');
+    return user;
+  };
+  bridge.handle('onboarding:get', () => onboarding.state(signedInUser()));
+  bridge.handle('onboarding:complete', ({ guide }) => onboarding.complete(onboardingUser(), guide));
+  bridge.handle('onboarding:dismiss-guide', () => onboarding.dismissGuide(onboardingUser()));
+  const testRecording = new TestRecording({
+    createSource: setup.createSource,
+    createStt: (spec) => setup.createStt({ meetingId: 'test-recording', spec }),
+    ...(config.testRecordingMs !== undefined ? { durationMs: config.testRecordingMs } : {}),
+    onState: (snapshot) => broadcast('onboarding:test-state', snapshot),
+    log,
+  });
+  app.once('will-quit', () => testRecording.dispose());
+  bridge.handle('onboarding:test-get', () => testRecording.snapshot());
+  bridge.handle('onboarding:test-stop', () => testRecording.stop());
+  bridge.handle('onboarding:test-start', (request) =>
+    recordingCall(async () => {
+      if (!auth.signedIn) throw new BridgeError('unauthorized', 'Sign in first.');
+      if (recording.busy) throw new BridgeError('invalid_state', 'Stop the recording first.');
+      const spec = setup.resolveInput(request);
+      try {
+        return await testRecording.start(spec);
+      } catch (error) {
+        if (error instanceof TestRecordingError)
+          throw new BridgeError('invalid_state', error.message);
+        throw error;
+      }
+    }),
+  );
+
   bridge.on('app:rendered', ({ window }) => {
     if (window !== 'main' || coldStartMs !== null) return;
     coldStartMs = Math.round(process.uptime() * 1000);
@@ -825,6 +906,33 @@ async function start() {
 
   registerProtocolClient();
   app.on('activate', () => openMainWindow());
+}
+
+/**
+ * Microphone / system-audio permission states (9.2): the sidecar's `permissions` (never prompts) and, on the
+ * user's "Allow", the real request; or, in dev/e2e, a fixture file that answers in memory (no prompt ever).
+ */
+function createPermissionSource(binary: () => string): PermissionSource {
+  const p = config.permissions;
+  if (p.kind === 'fixture') {
+    try {
+      return FixturePermissions.fromFile(p.file);
+    } catch (error) {
+      log.error(`permissions: fixture ${p.file} unreadable`, error);
+      return new FixturePermissions({ microphone: 'unknown', system_audio: 'unknown' });
+    }
+  }
+  // e2e never touches the real permission state, even read-only: suites without a fixture see "unknown".
+  if (config.e2e) return new FixturePermissions({ microphone: 'unknown', system_audio: 'unknown' });
+  return new SidecarPermissions({
+    binary,
+    askForMicrophone: () =>
+      process.platform === 'darwin'
+        ? systemPreferences.askForMediaAccess('microphone')
+        : Promise.resolve(true),
+    env: process.env,
+    log,
+  });
 }
 
 /**

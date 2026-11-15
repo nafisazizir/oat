@@ -47,6 +47,39 @@ export interface DesktopConfig {
   autoStop: AutoStopTimings;
   /** `OAT_END_GRACE_MS` (dev only): the grace period after a stop (default 60 s). */
   endGraceMs: number | undefined;
+  /**
+   * First-run setup (9.2): `auto` shows the walkthrough to an account that never finished it on this Mac;
+   * `off` never shows it by itself (still reachable from Settings → Setup). `OAT_ONBOARDING` (dev only);
+   * default `auto`, but `off` under `OAT_E2E=1` so suites that aren't about setup start in the app.
+   */
+  onboarding: 'auto' | 'off';
+  /** Where microphone / system-audio permission states come from (9.2). */
+  permissions: PermissionsConfig;
+  /** `OAT_TEST_RECORDING_MS` (dev only): length of onboarding's test recording (default 10 s). */
+  testRecordingMs: number | undefined;
+}
+
+/**
+ * `OAT_PERMISSIONS` (dev only): unset / `sidecar` → `oat-audio permissions` (never prompts; "Allow" asks macOS);
+ * `fixture:<file.json>` → states from that file, "Allow" answers in memory (e2e: no prompt ever). Packaged:
+ * always `sidecar`.
+ */
+export type PermissionsConfig = { kind: 'sidecar' } | { kind: 'fixture'; file: string };
+
+export function parsePermissionsSource(raw: string | undefined): PermissionsConfig {
+  const value = raw?.trim() ?? '';
+  if (value === '' || value === 'sidecar') return { kind: 'sidecar' };
+  if (value.startsWith('fixture:') && value.length > 'fixture:'.length) {
+    return { kind: 'fixture', file: value.slice('fixture:'.length) };
+  }
+  throw new DesktopConfigError('OAT_PERMISSIONS must be sidecar or fixture:<file.json>');
+}
+
+export function parseOnboardingMode(raw: string | undefined, e2e: boolean): 'auto' | 'off' {
+  const value = raw?.trim() ?? '';
+  if (value === '') return e2e ? 'off' : 'auto';
+  if (value === 'auto' || value === 'off') return value;
+  throw new DesktopConfigError('OAT_ONBOARDING must be auto or off');
 }
 
 export interface AutoStopTimings {
@@ -94,12 +127,12 @@ export function parseAutoStopTimings(raw: string | undefined): AutoStopTimings {
   return out;
 }
 
-function parseGraceMs(raw: string | undefined): number | undefined {
+function parseMs(raw: string | undefined, name: string): number | undefined {
   const value = raw?.trim() ?? '';
   if (value === '') return undefined;
   const n = Number(value);
   if (!Number.isInteger(n) || n < 0) {
-    throw new DesktopConfigError('OAT_END_GRACE_MS must be a non-negative integer (ms)');
+    throw new DesktopConfigError(`${name} must be a non-negative integer (ms)`);
   }
   return n;
 }
@@ -228,6 +261,9 @@ export function desktopConfigFromEnv(
       detection: { kind: 'sidecar' },
       autoStop: {},
       endGraceMs: undefined,
+      onboarding: 'auto',
+      permissions: { kind: 'sidecar' },
+      testRecordingMs: undefined,
     };
   }
   const e2e = env.OAT_E2E === '1';
@@ -249,6 +285,9 @@ export function desktopConfigFromEnv(
     calendar: parseCalendarSource(env.OAT_CALENDAR),
     detection: parseDetectionSource(env.OAT_DETECTION),
     autoStop: parseAutoStopTimings(env.OAT_AUTO_STOP),
-    endGraceMs: parseGraceMs(env.OAT_END_GRACE_MS),
+    endGraceMs: parseMs(env.OAT_END_GRACE_MS, 'OAT_END_GRACE_MS'),
+    onboarding: parseOnboardingMode(env.OAT_ONBOARDING, e2e),
+    permissions: parsePermissionsSource(env.OAT_PERMISSIONS),
+    testRecordingMs: parseMs(env.OAT_TEST_RECORDING_MS, 'OAT_TEST_RECORDING_MS'),
   };
 }

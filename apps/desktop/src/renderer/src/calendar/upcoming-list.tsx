@@ -74,7 +74,7 @@ export function UpcomingList({
         <div className="-mx-1 flex max-h-56 flex-col gap-1 overflow-y-auto px-1">
           {groups.map((group) => (
             <div key={group.label} className="flex flex-col">
-              <h3 className="px-2.5 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground/80 uppercase">
+              <h3 className="px-2.5 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
                 {group.label}
               </h3>
               <ul className="flex flex-col gap-px">
@@ -146,7 +146,6 @@ function UpcomingRow({
       data-testid="upcoming-event"
       data-event-id={event.id}
       data-has-note={hasNote || undefined}
-      aria-label={`${hasNote ? 'Open notes' : 'Start notes'} for ${title}, ${formatTime(event.start)}`}
       className={cn(
         'group flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors duration-fast outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70',
       )}
@@ -157,6 +156,8 @@ function UpcomingRow({
         style={event.calendarColor ? { backgroundColor: event.calendarColor } : undefined}
       />
       <span className="flex min-w-0 flex-1 flex-col">
+        {/* The action is part of the name, before the visible text (WCAG 2.5.3: label in name). */}
+        <span className="sr-only">{hasNote ? 'Open notes for ' : 'Start notes for '}</span>
         <span className="truncate" data-testid="upcoming-event-title">
           {title}
         </span>

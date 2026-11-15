@@ -39,11 +39,12 @@ export default function WidgetWindow() {
   const issues = snapshot?.issues.length ?? 0;
 
   return (
-    <div
+    <main
       className="app-drag flex h-full flex-col justify-between rounded-xl border bg-card p-3 text-card-foreground"
       data-testid="widget"
       data-seq={seq ?? ''}
     >
+      <h1 className="sr-only">Meeting widget</h1>
       <div className="flex items-center justify-between">
         <Wordmark className="text-base" />
         <div className="app-no-drag flex items-center gap-1">
@@ -100,6 +101,6 @@ export default function WidgetWindow() {
           {who}
         </p>
       )}
-    </div>
+    </main>
   );
 }

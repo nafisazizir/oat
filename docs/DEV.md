@@ -394,6 +394,18 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   `OAT_END_GRACE_MS`, and `OAT_DETECTION=file:<apps.json>` (the mic-using apps are that JSON array, re-read on
   change: a test ends a call by emptying it). The agents skip enhance below 60 s of speech
   (`OAT_AUTO_ENHANCE_MIN_SPEECH_MS`; e2e 5 s). Details: `docs/tasks/7.5-auto-stop-enhance.md`.
+- **First-run setup (9.2).** After an account's first sign-in on this Mac the main window shows setup instead of
+  the app: microphone → system audio → calendar → a 10 s test recording (levels for Me / Them + a live transcript
+  line; nothing is saved), then a dismissible first-meeting guide on the home view. Settings → Setup shows the
+  permission states and reopens it. Status comes from `oat-audio permissions` (never prompts); "Allow" is the only
+  thing that asks macOS (microphone: Electron's `askForMediaAccess`; system audio: a 2 s sidecar system capture;
+  calendars: `calendar request-access`) — a human checkpoint. A denied permission links to its System Settings
+  pane (`x-apple.systempreferences:…Privacy_*`). Per account per Mac in `<userData>/onboarding.json`. Dev/e2e
+  knobs: `OAT_ONBOARDING=auto|off` (default `auto`, but `off` under `OAT_E2E=1`, so other suites start in the
+  app), `OAT_PERMISSIONS=fixture:<file.json>` (`{ microphone, system_audio, system_audio_supported?, answers? }`:
+  "Allow" answers in memory, no sidecar, no prompt; under `OAT_E2E=1` without it every state reads `unknown` and
+  the sidecar is never asked) and `OAT_TEST_RECORDING_MS`. Details:
+  `docs/tasks/9.2-onboarding.md`.
 - **Recording (2.5).** Start/pause/stop in the main window (or Stop in the widget); the transcript is live
   (mic = "me", system = "them"). STT tokens come from `POST /api/stt/token` (the mock in dev, Deepgram with
   `DEEPGRAM_API_KEY`), audio goes to `<userData>/audio/<meeting>/{mic,system}.opus`. Sleep pauses the
@@ -447,7 +459,9 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   the app with a temp profile against `next dev` on a throwaway database (apps/web's `e2e/web-server.ts`,
   `E2E_PORT`, default 3100). `shell.openExternal` is stubbed and deep links are delivered by emitting
   `open-url`, so no browser opens and nothing is registered with the OS. The web half of sign-in runs in
-  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/`, `2.5/`, `2.6/`, `3.5/`, `3.7/`, `3.8/`, `7.3/` and `7.5/` (screenshots, `cold-start.json`, `latency.json`, `sync.json`, `playback.json`, `storage.json`). Other
+  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/`, `2.5/`, `2.6/`, `3.5/`, `3.7/`, `3.8/`, `7.3/`, `7.5/` and `9.2/` (screenshots, `cold-start.json`, `latency.json`, `sync.json`, `playback.json`, `storage.json`). `e2e/a11y.spec.ts` (9.3b) walks every
+  renderer screen and runs axe-core in light and dark (0 serious/critical); with `E2E_SCREENSHOTS=1` it also writes
+  the desktop design sweep to `docs/tasks/evidence/9.2/sweep/after/` (`E2E_SWEEP_DIR` overrides). Other
   platforms skip it.
 
 ## Database (`@oat/db`)

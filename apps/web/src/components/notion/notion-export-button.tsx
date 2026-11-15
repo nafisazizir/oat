@@ -22,10 +22,13 @@ const SETTINGS = '/settings/integrations';
 export function NotionExportButton({
   documentId,
   beforeSend,
+  wrap,
 }: {
   documentId: string;
   /** Flush pending edits so Notion gets what's on screen. */
   beforeSend?: () => Promise<void>;
+  /** Places the control (e.g. in a "More actions" popover, 9.3b); only called when Notion is set up. */
+  wrap?: (control: React.ReactNode) => React.ReactNode;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<NotionDocumentStatus | null>(null);
@@ -113,7 +116,7 @@ export function NotionExportButton({
     }
   }
 
-  return (
+  const control = (
     <div className="flex items-center gap-2" data-testid="notion-export">
       {exported?.url && (
         <a
@@ -148,4 +151,5 @@ export function NotionExportButton({
       </Button>
     </div>
   );
+  return wrap ? wrap(control) : control;
 }

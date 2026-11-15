@@ -280,10 +280,7 @@ test('Upcoming → Start notes opens the event’s note; again reopens the same 
   test.setTimeout(scaled(90_000));
   const upcoming = page.getByTestId('upcoming');
   const tomorrow = upcoming.getByTestId('upcoming-event').filter({ hasText: tomorrowTitle });
-  await expect(tomorrow).toHaveAttribute(
-    'aria-label',
-    new RegExp(`^Start notes for ${tomorrowTitle}`),
-  );
+  await expect(tomorrow).toHaveAccessibleName(new RegExp(`^Start notes for ${tomorrowTitle}`));
   const listed = await page.getByTestId('meeting-list-item').count();
   await tomorrow.click();
   await expect(page.getByTestId('note-title')).toHaveValue(tomorrowTitle);

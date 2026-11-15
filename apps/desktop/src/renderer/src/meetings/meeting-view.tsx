@@ -58,12 +58,15 @@ export function MeetingView({
   options,
   input,
   onInputChange,
+  home,
 }: {
   documentId: string | null;
   snapshot: RecordingSnapshot | null;
   options: InvokeResponse<'recording:options'> | null;
   input: string;
   onInputChange: (choice: string) => void;
+  /** Replaces the start screen when no note is open (9.2: the first-meeting guide). */
+  home?: ReactNode;
 }) {
   const { note, loaded } = useMeetingNote(documentId);
   const live = useTranscript();
@@ -124,6 +127,10 @@ export function MeetingView({
 
   return (
     <section className="flex min-w-0 flex-1 flex-col" aria-label="Meeting">
+      {/* The page's heading (the title itself is an editable field). */}
+      <h1 className="sr-only">
+        {documentId === null ? 'Meeting notes' : note?.title || 'Untitled meeting'}
+      </h1>
       <audio ref={audioRef} preload="metadata" hidden data-testid="playback-audio" />
       <div className="flex flex-col gap-3 border-b px-6 py-3">
         <RecordingBar
@@ -147,7 +154,7 @@ export function MeetingView({
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1 overflow-y-auto" data-testid="note-column">
           {documentId === null ? (
-            <StartScreen />
+            (home ?? <StartScreen />)
           ) : !loaded ? (
             <div className="flex h-full items-center justify-center text-muted-foreground">
               <Loader2Icon aria-hidden className="size-5 animate-spin" />

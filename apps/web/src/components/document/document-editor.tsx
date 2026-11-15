@@ -4,9 +4,11 @@ import type { JSONContent } from '@oat/editor';
 import { OatEditor, type OatEditorProps } from '@oat/editor/react';
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@oat/ui/components/popover';
 import {
   AlertCircleIcon,
   CheckIcon,
+  EllipsisIcon,
   EyeIcon,
   LinkIcon,
   Loader2Icon,
@@ -67,6 +69,8 @@ export function DocumentEditor({
 }) {
   const router = useRouter();
   const actions = useTreeActions();
+  const headerRef = useRef<HTMLElement>(null);
+  const compact = useNarrow(headerRef, COMPACT_HEADER_PX);
   const [title, setTitle] = useState(doc.title);
   // The editor's content: as loaded, then replaced when an enhancement lands (4.4).
   const [content, setContent] = useState(doc.contentJson);
@@ -214,7 +218,7 @@ export function DocumentEditor({
         </div>
       )}
 
-      <header className="flex flex-col gap-3">
+      <header ref={headerRef} className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <VisibilityBadge visibility={doc.visibility} workspace={workspace} />
           {trashed ? (
@@ -240,7 +244,16 @@ export function DocumentEditor({
             />
           )}
           {!trashed && (
-            <div className="ml-auto flex flex-wrap items-center gap-2">
+            <div
+              className={
+                // Narrow (transcript + assistant open): the actions get a tidy row of their own.
+                compact
+                  ? 'flex w-full flex-wrap items-center gap-2'
+                  : 'ml-auto flex flex-wrap items-center gap-2'
+              }
+              data-testid="document-actions"
+              data-compact={compact || undefined}
+            >
               {isMeeting && (
                 <PipelineStatus
                   documentId={doc.id}
@@ -255,7 +268,11 @@ export function DocumentEditor({
                   workspaceId={doc.workspaceId}
                 />
               )}
-              <NotionExportButton documentId={doc.id} beforeSend={autosave.flush} />
+              <NotionExportButton
+                documentId={doc.id}
+                beforeSend={autosave.flush}
+                {...(compact ? { wrap: (control) => <MoreActions>{control}</MoreActions> } : {})}
+              />
               <ShareDialog documentId={doc.id} />
             </div>
           )}
@@ -395,4 +412,46 @@ function SaveStatus({
         </span>
       );
   }
+}
+
+/** Below this header width the secondary actions go into the "More actions" popover (9.3b). */
+const COMPACT_HEADER_PX = 560;
+
+/** The element is narrower than `px` (ResizeObserver; `false` before the first measurement). */
+function useNarrow(ref: React.RefObject<HTMLElement | null>, px: number): boolean {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setNarrow(entry.contentRect.width < px);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref, px]);
+  return narrow;
+}
+
+/**
+ * Secondary header actions (Send to Notion) behind "…" when the note column is narrow (9.3b). The post-meeting
+ * status stays in the row: it follows a running enhancement into the editor, so it must stay mounted.
+ */
+function MoreActions({ children }: { children: React.ReactNode }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="More actions"
+          data-testid="document-more"
+        >
+          <EllipsisIcon />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-auto items-stretch">
+        {children}
+      </PopoverContent>
+    </Popover>
+  );
 }

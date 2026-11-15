@@ -164,7 +164,7 @@ export function createRecordingSetup(o: RecordingSetupOptions) {
     });
   }
 
-  return { fixtures, resolveInput, createSource, createStt, createBatchStt };
+  return { fixtures, resolveInput, createSource, createStt, createBatchStt, sidecarBinary };
 }
 
 /** A start request that can't be served; `code` is a bridge error code. */

@@ -34,6 +34,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@axe-core/playwright": "catalog:",
     "@electron/fuses": "catalog:",
     "@oat/mocks": "workspace:*",
     "@oat/testkit": "workspace:*",

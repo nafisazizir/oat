@@ -24,13 +24,8 @@ type Finding = {
  * Known findings, each ticketed in docs/tasks/9.3-design-pass.md (punch list) with its reason. Keep this
  * list short and specific: a rule id plus the exact elements, never a whole rule or route.
  */
-const KNOWN: { id: string; target: RegExp; why: string }[] = [
-  {
-    id: 'target-size',
-    target: /^input\[aria-label="Mark as (not )?done"\]$/,
-    why: 'editor task checkbox (16px) nested in the note textbox: @oat/editor, out of 9.3 web scope → 9.3b',
-  },
-];
+// (9.3b: the editor task checkbox, the one known finding of 9.3, now has a 24 px target.)
+const KNOWN: { id: string; target: RegExp; why: string }[] = [];
 
 async function scan(page: Page, route: string): Promise<Finding[]> {
   await page.evaluate(() => document.fonts.ready);

@@ -25,6 +25,7 @@ import { Button } from '@oat/ui/components/button';
 import { AudioLinesIcon, LaptopIcon, PanelRightOpenIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
+import { AssistantToggleAnchor } from '@/components/assistant/document-assistant';
 import { DocumentEditor } from '@/components/document/document-editor';
 import type { DocumentDetail } from '@/lib/api-types';
 import { appendLines, type MeetingInfo, meetingApi, participantError } from '@/lib/meeting';
@@ -192,7 +193,8 @@ export function MeetingNote({
 
   return (
     <div className="flex min-w-0 flex-1">
-      <div className="min-w-0 flex-1">
+      {/* At least the window's height, so "Ask about this note" sits at its bottom (9.3b). */}
+      <div className="flex min-h-[calc(100svh-3rem)] min-w-0 flex-1 flex-col">
         <DocumentEditor document={doc} workspace={workspace} meta={header} />
         {open && !wide && (
           <section
@@ -204,6 +206,8 @@ export function MeetingNote({
             {transcript}
           </section>
         )}
+        {/* "Ask about this note" floats over the note column, never over the transcript panel. */}
+        <AssistantToggleAnchor className="mt-auto" />
       </div>
       {open && wide && (
         <SidePanel
@@ -295,8 +299,7 @@ function TranscriptBody({
         focusId={focusId}
         onSelect={onSelect}
         follow={live && !focusId}
-        // Room below the last line for the floating "Ask about this note" button.
-        className="min-h-0 [&>[data-testid=transcript-scroll]]:pb-16"
+        className="min-h-0"
       />
     </>
   );

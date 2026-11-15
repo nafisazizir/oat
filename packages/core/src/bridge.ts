@@ -20,6 +20,7 @@ import {
   meetingSendChannels,
   meetingSubscribeChannels,
 } from './bridge-meetings.ts';
+import { onboardingInvokeChannels, onboardingSubscribeChannels } from './bridge-onboarding.ts';
 import { playbackInvokeChannels } from './bridge-playback.ts';
 import { storageInvokeChannels, storageSubscribeChannels } from './bridge-storage.ts';
 import { transcriptInvokeChannels } from './bridge-transcript.ts';
@@ -27,6 +28,7 @@ import { transcriptInvokeChannels } from './bridge-transcript.ts';
 export * from './bridge-auto-stop.ts';
 export * from './bridge-calendar.ts';
 export * from './bridge-meetings.ts';
+export * from './bridge-onboarding.ts';
 export * from './bridge-playback.ts';
 export * from './bridge-storage.ts';
 export * from './bridge-transcript.ts';
@@ -391,6 +393,8 @@ export const bridgeContract = {
     ...playbackInvokeChannels,
     /** Transcript back-fill + crash recovery (2.7), `bridge-transcript.ts`. */
     ...transcriptInvokeChannels,
+    /** First-run setup: permissions, test recording, first-meeting guide (9.2), `bridge-onboarding.ts`. */
+    ...onboardingInvokeChannels,
   },
   send: {
     /** The window's UI has rendered (used for the cold-start measurement). */
@@ -409,6 +413,7 @@ export const bridgeContract = {
     ...calendarSubscribeChannels,
     ...autoStopSubscribeChannels,
     ...storageSubscribeChannels,
+    ...onboardingSubscribeChannels,
   },
 } as const;
 

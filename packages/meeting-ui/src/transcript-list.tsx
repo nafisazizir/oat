@@ -370,7 +370,8 @@ function SegmentRow({
           me
             ? 'rounded-br-md bg-me text-me-foreground'
             : 'rounded-bl-md bg-them text-them-foreground',
-          !final && 'italic opacity-60',
+          // Interim: lighter, still ≥ 4.5:1 on the bubble (9.3b).
+          !final && 'italic opacity-75',
           onSelect &&
             'cursor-pointer outline-none hover:ring-1 hover:ring-ring/30 focus-visible:ring-2 focus-visible:ring-ring',
           active && 'ring-2 ring-primary shadow-sm',
