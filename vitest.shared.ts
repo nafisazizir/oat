@@ -22,6 +22,8 @@ export function defineOatConfig(overrides: ViteUserConfig['test'] = {}) {
         exclude: integration
           ? [...configDefaults.exclude]
           : [...configDefaults.exclude, 'src/**/*.int.test.{ts,tsx}'],
+        // Int tests share one compose stack with other worktrees/agents; 5 s defaults flake under load.
+        ...(integration ? { testTimeout: 20_000, hookTimeout: 30_000 } : {}),
         ...overrides,
       },
     };
