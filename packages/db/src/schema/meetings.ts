@@ -42,6 +42,7 @@ export const participant = pgTable(
   (t) => [index('participant_meeting_id_idx').on(t.meetingId)],
 );
 
+/** Has a generated `search_tsv` column + GIN index (migration `0006_search`, not declared here; see `src/search.ts`). */
 export const transcriptSegment = pgTable(
   'transcript_segment',
   {

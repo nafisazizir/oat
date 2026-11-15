@@ -17,6 +17,20 @@ export {
   type BuiltinTemplateRow,
   type UpsertBuiltinsResult,
 } from './templates.ts';
+export {
+  MAX_QUERY_LENGTH,
+  MAX_SEARCH_LIMIT,
+  parseSearchQuery,
+  searchDocuments,
+  searchSegments,
+  toSafeHighlight,
+  type DocumentSearchHit,
+  type ParsedQuery,
+  type SearchPage,
+  type SearchResult,
+  type SearchScope,
+  type SegmentSearchHit,
+} from './search.ts';
 export * as schema from './schema/index.ts';
 export * from './schema/index.ts';
 export type * from './rows.ts';

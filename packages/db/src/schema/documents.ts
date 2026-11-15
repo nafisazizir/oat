@@ -47,6 +47,10 @@ export const folder = pgTable(
   ],
 );
 
+/**
+ * Also has a generated `search_tsv` column (+ GIN and title trigram indexes) from migration `0006_search`,
+ * deliberately left out of this schema so selects never fetch it (queries: `src/search.ts`).
+ */
 export const document = pgTable(
   'document',
   {

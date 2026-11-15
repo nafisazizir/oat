@@ -5,6 +5,7 @@ export type Crumb = { label: string; href?: string };
 /** Top-level app sections, shared by the sidebar, the command palette and breadcrumbs. */
 export const sections = {
   home: { label: 'Home', href: '/home' },
+  search: { label: 'Search', href: '/search' },
   templates: { label: 'Templates', href: '/templates' },
   settings: { label: 'Settings', href: '/settings' },
 } as const;

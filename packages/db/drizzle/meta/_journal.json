@@ -43,6 +43,13 @@
       "when": 1794718769943,
       "tag": "0005_document_share_transcript",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794719333289,
+      "tag": "0006_search",
+      "breakpoints": true
     }
   ]
 }

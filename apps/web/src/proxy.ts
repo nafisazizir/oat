@@ -52,6 +52,7 @@ export const config = {
   matcher: [
     '/home',
     '/d/:path*',
+    '/search',
     '/settings/:path*',
     '/templates/:path*',
     '/invite/:path*',

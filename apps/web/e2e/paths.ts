@@ -18,6 +18,18 @@ export const EVIDENCE_3_3 = fileURLToPath(
   new URL('../../../docs/tasks/evidence/3.3/', import.meta.url),
 );
 
+/** Evidence screenshots for task 3.6 (written only with `E2E_SCREENSHOTS=1`). */
+export const EVIDENCE_3_6 = fileURLToPath(
+  new URL('../../../docs/tasks/evidence/3.6/', import.meta.url),
+);
+
+/**
+ * URL of the throwaway database of the e2e server on `port`, written by `web-server.ts` (git-ignored). One
+ * file per port, so concurrent runs in one checkout don't overwrite each other's.
+ */
+export const databaseUrlFile = (port: string | number) =>
+  fileURLToPath(new URL(`./.auth/database-url-${port}`, import.meta.url));
+
 /** Evidence screenshots for task 5.3 (written only with `E2E_SCREENSHOTS=1`). */
 export const EVIDENCE_5_3 = fileURLToPath(
   new URL('../../../docs/tasks/evidence/5.3/', import.meta.url),

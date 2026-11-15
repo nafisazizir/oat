@@ -55,7 +55,7 @@ All ports bind to `127.0.0.1` and sit in a private range so they don't clash wit
 | `oauth`    | `ghcr.io/navikt/mock-oauth2-server:7.0.0` + `docker/oauth` | 18089               | Google OAuth / OIDC                  | `OAUTH_GOOGLE_*`                  |
 | `mocks`    | `tools/mocks` (`@oat/mocks`)                         | 14010                     | AI Gateway, Deepgram, Notion, GCal   | `MOCKS_URL`, `AI_*`, `DEEPGRAM_*`, `GOOGLE_CALENDAR_BASE_URL` |
 
-- **Postgres**: database/user/password all `oat`. `vector` and `pg_trgm` are enabled in `oat` and in
+- **Postgres**: database/user/password all `oat`. `vector`, `pg_trgm` and `unaccent` are enabled in `oat` and in
   `template1`, so every database created later has them too. Connect: `docker compose exec postgres psql -U oat`.
 - **Mailpit**: open <http://localhost:18025> to see every email the app sends. Any SMTP credentials are accepted.
 - **OAuth**: issuer `http://localhost:18089/google`; any client id/secret is accepted. The sign-in page asks

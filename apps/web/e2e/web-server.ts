@@ -10,11 +10,13 @@
  * anchor keeps the fixture week upcoming whenever the tests run.
  */
 import { spawn } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 
 import { migrate } from '@oat/db';
 import { gcalProvider, startMocks } from '@oat/mocks';
 import { createTestDatabase } from '@oat/testkit';
+
+import { databaseUrlFile } from './paths';
 
 const port = process.env.E2E_PORT ?? '3000';
 // A `.next/dev` left by an earlier `next dev` whose sources changed since (formatting, edits) sometimes
@@ -24,6 +26,9 @@ rmSync(new URL('../.next/dev', import.meta.url), { recursive: true, force: true 
 const db = await createTestDatabase();
 await migrate(db.url);
 const mocks = await startMocks({ providers: [() => gcalProvider({ anchor: 'next-week' })] });
+// Specs that need rows the API can't create yet (e.g. transcript segments) write them here directly.
+mkdirSync(new URL('./.auth/', import.meta.url), { recursive: true });
+writeFileSync(databaseUrlFile(port), db.url);
 console.log(`[e2e] database ${db.name} ready; starting next dev on :${port}`);
 
 const child = spawn('pnpm', ['exec', 'next', 'dev', '--port', port], {

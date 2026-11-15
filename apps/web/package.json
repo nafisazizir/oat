@@ -23,6 +23,7 @@
     "@oat/db": "workspace:*",
     "@oat/editor": "workspace:*",
     "@oat/ui": "workspace:*",
+    "cmdk": "catalog:",
     "drizzle-orm": "catalog:",
     "lucide-react": "catalog:",
     "next": "catalog:",
