@@ -176,3 +176,11 @@ Gaps (pause/overrun) inside one recording session are filled with silence so fil
 (`<meeting_id>/{mic,system}.<n>.opus`, part 1 may keep the unnumbered name for compatibility) — one
 `audio_recording` row per part with `offset_ms` from the meeting's first start; transcript segment times stay on
 the meeting clock, and playback/seek maps a segment to (part, offset). No multi-hour silence padding.
+
+## D-25 · 2026-11-14 · accepted · agent
+Sharing (from 5.3): link tokens are 192-bit base64url, issued fresh when link sharing is turned on, cleared when
+off, replaceable via "reset link". Documents in private folders can't be link-shared. Link viewers see the note
+only; the transcript is shown only when `document.share_transcript` is on (default off). The public page is
+server-rendered from TipTap JSON through schema validation + an allowlist sanitiser (ids stripped), with nonce
+CSP, no-referrer, noindex, per-IP rate limiting and no cookies. Every API route must have a deny-case test
+(`denies('<METHOD> <route>')` marker) or an explicit public-route entry — enforced in CI.
