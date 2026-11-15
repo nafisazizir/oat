@@ -154,3 +154,10 @@ sources + events keeps a single clock and the order between events and audio; JS
 forward compatible (unknown fields/types ignored). Rejected: JSON lines with base64 audio (~33% overhead + parse
 cost); one pipe/socket per source (more fds and lifecycle for Electron, event/audio ordering lost).
 `scripts/check-frames.mjs` is the contract test; breaking changes bump `protocol`.
+
+## D-22 · 2026-11-14 · accepted · agent
+`change_log` (backing D-19 cursor pulls and SSE invalidation) is written by Postgres triggers on every synced
+table — so Better Auth writes and FK cascades are captured, not just app code — and carries
+`txid xid8 default pg_current_xact_id()`. Readers return only rows whose transaction is older than the current
+snapshot's xmin, ordered by (txid, seq), so out-of-order commits are never skipped. Workspace hard-deletion via
+Better Auth is disabled; workspace deletion will be a soft-delete path of our own. (From 1.5 review.)
