@@ -39,7 +39,9 @@
     "@tiptap/react": "catalog:",
     "@tiptap/starter-kit": "catalog:",
     "@tiptap/suggestion": "catalog:",
-    "lucide-react": "catalog:"
+    "lucide-react": "catalog:",
+    "markdown-it": "catalog:",
+    "markdown-it-mark": "catalog:"
   },
   "devDependencies": {
     "@playwright/test": "catalog:",
