@@ -13,6 +13,7 @@ import {
   openedUrls,
   readStoredSession,
   signInOnWeb,
+  waitForSignInUrl,
   writeEvidence,
 } from './helpers';
 
@@ -109,7 +110,8 @@ test('launches hardened: shell renders, bridge only, strict CSP, fast cold start
   // window.open is denied (no new window); the link is handed to the browser instead.
   await page.evaluate(() => window.open('https://example.com/docs'));
   expect(electronApp.windows()).toHaveLength(1);
-  expect(await openedUrls(electronApp)).toContain('https://example.com/docs');
+  // Main hands the URL over asynchronously (window-open handler), so poll for it.
+  await expect.poll(() => openedUrls(electronApp)).toContain('https://example.com/docs');
 
   await expect(page.getByTestId('app-info')).toContainText('ready in');
   const info = await page.evaluate(() => window.oat.invoke('app:info'));
@@ -165,16 +167,16 @@ test('signs in through the browser and the oat:// deep link; the token stays in 
   await expect(page.getByLabel(/Dev build: browser didn’t switch back/)).toBeVisible();
   await evidence(page, 'main-signing-in');
 
-  const [signInUrl] = (await openedUrls(electronApp)).filter((u) => u.includes('/desktop/'));
+  const signInUrl = await waitForSignInUrl(electronApp);
   expect(signInUrl).toMatch(
     new RegExp(`^${webUrl}/desktop/sign-in\\?state=[\\w-]{43}&challenge=[\\w-]{43}$`),
   );
-  const state = new URL(signInUrl!).searchParams.get('state')!;
+  const state = new URL(signInUrl).searchParams.get('state')!;
 
   // The browser half: sign in on the web, then "Continue to the app".
   const context = await browser.newContext();
   const web = await context.newPage();
-  await web.goto(signInUrl!);
+  await web.goto(signInUrl);
   await expect(web).toHaveURL(/\/sign-in\?next=%2Fdesktop%2Fsign-in/);
   const email = uniqueAddress('desktop');
   await signInOnWeb(web, email);

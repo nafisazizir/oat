@@ -2,7 +2,7 @@
 
 import { Button } from '@oat/ui/components/button';
 import { TriangleAlertIcon } from 'lucide-react';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 
 import { Wordmark } from '@/components/wordmark';
 import { DARK_QUERY, THEME_STORAGE_KEY, parsePreference, resolveTheme } from '@/lib/theme';
@@ -38,6 +38,10 @@ export default function GlobalError({
   reset: () => void;
 }) {
   const theme = useSyncExternalStore(subscribe, themeClass, () => undefined);
+  // Same hydration marker as the root `Providers`, which aren't rendered here (e2e/fixtures.ts).
+  useEffect(() => {
+    document.documentElement.dataset.hydrated = '';
+  }, []);
   return (
     <html lang="en" className={theme} suppressHydrationWarning>
       <head>

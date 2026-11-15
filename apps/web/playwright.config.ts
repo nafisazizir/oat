@@ -15,10 +15,23 @@ import { STORAGE_STATE } from './e2e/paths';
  */
 const port = Number(process.env.E2E_PORT ?? 3000);
 const baseURL = `http://localhost:${port}`;
+/**
+ * Budgets scale with `E2E_TIMEOUT_SCALE` (default 1; e.g. 2 on a machine running several CI runs at
+ * once). Waits are condition-based, so generous budgets cost nothing when things are fast.
+ */
+const scale = Math.max(1, Number(process.env.E2E_TIMEOUT_SCALE) || 1);
 
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  // One `next dev` serves every worker and compiles routes on first request; more workers than this mostly
+  // queue behind it and stretch every wait when the machine is busy (ci-flakes). `E2E_WORKERS` overrides.
+  workers: Number(process.env.E2E_WORKERS) || 4,
+  // Most specs sign a fresh user up by magic link first.
+  timeout: 60_000 * scale,
+  // `next dev` compiling a route on first visit (e.g. /d/[id] after "New page") took > 5 s (the default)
+  // under load (ci-flakes).
+  expect: { timeout: 15_000 * scale },
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
@@ -26,6 +39,9 @@ export default defineConfig({
     baseURL,
     trace: 'retain-on-failure',
     reducedMotion: 'reduce',
+    // Without these an action or navigation that can't complete waits for the whole test timeout.
+    actionTimeout: 20_000 * scale,
+    navigationTimeout: 30_000 * scale,
   },
   projects: [
     { name: 'setup', testMatch: /.*\.setup\.ts/ },
@@ -39,7 +55,7 @@ export default defineConfig({
     command: 'pnpm exec tsx e2e/web-server.ts',
     url: `${baseURL}/api/health`,
     reuseExistingServer: false,
-    timeout: 120_000,
+    timeout: 120_000 * scale,
     // Lets web-server.ts stop `next dev` and drop its database.
     gracefulShutdown: { signal: 'SIGTERM', timeout: 15_000 },
     // D-11: e2e never reaches real providers, whatever the local `.env` says (shell vars win over it).

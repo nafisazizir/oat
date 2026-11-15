@@ -23,8 +23,10 @@ import { databaseUrlFile } from './paths';
 const port = process.env.E2E_PORT ?? '3000';
 // A `.next/dev` left by an earlier `next dev` whose sources changed since (formatting, edits) sometimes
 // made the new dev server rebuild and full-reload every page in a loop (1.4/1.6/3.3 notes); always
-// start e2e from a clean dev cache.
-rmSync(new URL('../.next/dev', import.meta.url), { recursive: true, force: true });
+// start e2e from a clean dev cache. That is the cache of the dist dir this server uses
+// (`OAT_NEXT_DIST_DIR`, e.g. the desktop e2e's `.next-desktop-e2e`), never another server's.
+const distDir = process.env.OAT_NEXT_DIST_DIR || '.next';
+rmSync(new URL(`../${distDir}/dev`, import.meta.url), { recursive: true, force: true });
 const db = await createTestDatabase();
 await migrate(db.url);
 const mocks = await startMocks({

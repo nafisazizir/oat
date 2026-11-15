@@ -9,6 +9,7 @@ import { useState } from 'react';
 
 import { authClient } from '@/lib/auth-client';
 import { signInPath } from '@/lib/redirect';
+import { useHydrated } from '@/lib/use-hydrated';
 
 type State =
   | { step: 'ready'; pending: boolean; error: string | null }
@@ -39,6 +40,8 @@ export function DesktopHandoff({
 }) {
   const router = useRouter();
   const [ui, setUi] = useState<State>({ step: 'ready', pending: false, error: null });
+  // Until hydrated, a click would do nothing (see useHydrated).
+  const hydrated = useHydrated();
 
   async function continueToApp() {
     setUi({ step: 'ready', pending: true, error: null });
@@ -129,7 +132,7 @@ export function DesktopHandoff({
         size="lg"
         className="w-full"
         type="button"
-        disabled={ui.pending}
+        disabled={!hydrated || ui.pending}
         onClick={continueToApp}
       >
         {ui.pending ? (
@@ -139,7 +142,13 @@ export function DesktopHandoff({
         )}
         Continue to the app
       </Button>
-      <Button variant="ghost" size="sm" type="button" disabled={ui.pending} onClick={switchAccount}>
+      <Button
+        variant="ghost"
+        size="sm"
+        type="button"
+        disabled={!hydrated || ui.pending}
+        onClick={switchAccount}
+      >
         Use a different account
       </Button>
       <p role="status" className="text-center text-xs text-destructive empty:hidden">

@@ -7,6 +7,7 @@ import { ArrowLeftIcon, Loader2Icon, MailCheckIcon, MailIcon } from 'lucide-reac
 import { useState } from 'react';
 
 import { authClient, GOOGLE_PROVIDER_ID } from '@/lib/auth-client';
+import { useHydrated } from '@/lib/use-hydrated';
 
 type State =
   | { step: 'form'; pending: 'email' | 'google' | null; error: string | null }
@@ -29,6 +30,8 @@ export function SignInForm({
 }) {
   const [state, setState] = useState<State>({ step: 'form', pending: null, error: initialError });
   const pending = state.step === 'form' ? state.pending : null;
+  // Until hydrated, a click would do nothing / submit the form natively (see useHydrated).
+  const disabled = !useHydrated() || pending !== null;
 
   async function sendLink(email: string) {
     setState({ step: 'form', pending: 'email', error: null });
@@ -113,7 +116,7 @@ export function SignInForm({
           size="lg"
           className="w-full"
           type="button"
-          disabled={pending !== null}
+          disabled={disabled}
           onClick={continueWithGoogle}
         >
           {pending === 'google' && (
@@ -145,10 +148,10 @@ export function SignInForm({
               autoComplete="email"
               placeholder="you@company.com"
               required
-              disabled={pending !== null}
+              disabled={disabled}
             />
           </div>
-          <Button type="submit" size="lg" className="w-full" disabled={pending !== null}>
+          <Button type="submit" size="lg" className="w-full" disabled={disabled}>
             {pending === 'email' ? (
               <Loader2Icon data-icon="inline-start" className="animate-spin" />
             ) : (

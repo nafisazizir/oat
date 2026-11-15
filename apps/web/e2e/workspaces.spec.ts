@@ -5,7 +5,7 @@ import { createMailpit, extractFirstLink, uniqueAddress, waitFor } from '@oat/te
 import type { Browser, Page } from '@playwright/test';
 
 import { openMagicLink, SIGNED_OUT } from './auth-helpers';
-import { expect, test } from './fixtures';
+import { expect, hydrationAware, test } from './fixtures';
 
 /**
  * Team workspaces (5.1/5.2) with two real users: the owner creates a workspace, invites by email
@@ -51,7 +51,7 @@ async function signIn(page: Page, email: string) {
 
 async function newUser(browser: Browser, prefix: string) {
   const context = await browser.newContext({ storageState: SIGNED_OUT });
-  const page = await context.newPage();
+  const page = hydrationAware(await context.newPage());
   const email = uniqueAddress(prefix);
   await page.goto('/sign-in');
   await signIn(page, email);

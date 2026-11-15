@@ -4,7 +4,7 @@ import type { Browser, Page } from '@playwright/test';
 
 import { SIGNED_OUT, signInWithMagicLink, uniqueAddress } from './auth-helpers';
 import { apiCreateDocument, apiUpdateDocument } from './docs-helpers';
-import { expect, test } from './fixtures';
+import { expect, hydrationAware, test } from './fixtures';
 import { EVIDENCE_5_3 } from './paths';
 
 /**
@@ -118,7 +118,7 @@ const EXPECTED_ON_404 = [
 /** A browser context with no cookies at all (a stranger who got the link). */
 async function stranger(browser: Browser) {
   const context = await browser.newContext();
-  const page = await context.newPage();
+  const page = hydrationAware(await context.newPage());
   const errors: string[] = [];
   page.on('console', (m) => {
     if (m.type() === 'error' && !EXPECTED_ON_404.some((re) => re.test(m.text()))) {

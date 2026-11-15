@@ -16,6 +16,7 @@ import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { availableParallelism, loadavg } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -144,6 +145,16 @@ function freePort() {
       srv.close(() => resolve(port));
     });
   });
+}
+
+/**
+ * Playwright budget multiplier for the e2e configs: `E2E_TIMEOUT_SCALE` if set, else 2 when the machine is
+ * overloaded (1-minute load average above the core count, e.g. several worktrees' CI at once), else 1.
+ * Waits are condition-based, so this only stretches how long a stuck step may take, never a passing run.
+ */
+function e2eTimeoutScale() {
+  if (process.env.E2E_TIMEOUT_SCALE) return process.env.E2E_TIMEOUT_SCALE;
+  return loadavg()[0] > availableParallelism() ? '2' : '1';
 }
 
 /** Workspace packages that define an `e2e` script. */
@@ -303,9 +314,10 @@ const steps = [
       const failed = [];
       for (const p of pkgs) {
         const port = String(await freePort());
-        console.log(`e2e: ${p.name} on E2E_PORT=${port}`);
+        const scale = e2eTimeoutScale();
+        console.log(`e2e: ${p.name} on E2E_PORT=${port}, E2E_TIMEOUT_SCALE=${scale}`);
         const { code } = await run('pnpm', ['--filter', p.name, 'run', 'e2e'], {
-          env: { E2E_PORT: port },
+          env: { E2E_PORT: port, E2E_TIMEOUT_SCALE: scale },
         });
         if (code !== 0) failed.push(p.name);
       }

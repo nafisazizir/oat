@@ -3,8 +3,9 @@
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import { NotebookPenIcon, VideoIcon } from 'lucide-react';
-import { useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
+
+import { useHydrated } from '@/lib/use-hydrated';
 
 /** What a row needs (plain JSON from the server component). */
 export interface UpcomingMeetingView {
@@ -21,15 +22,6 @@ export interface UpcomingMeetingView {
   inProgress: boolean;
 }
 
-const noop = () => () => {};
-/** False while hydrating, true after: times are formatted in the viewer's own zone, on the client only. */
-const useIsClient = () =>
-  useSyncExternalStore(
-    noop,
-    () => true,
-    () => false,
-  );
-
 const dayFormat = new Intl.DateTimeFormat(undefined, {
   weekday: 'short',
   day: 'numeric',
@@ -38,7 +30,8 @@ const dayFormat = new Intl.DateTimeFormat(undefined, {
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
 
 export function UpcomingMeetingRow({ meeting }: { meeting: UpcomingMeetingView }) {
-  const isClient = useIsClient();
+  // False while hydrating: times are formatted in the viewer's own zone, on the client only.
+  const isClient = useHydrated();
   const start = new Date(meeting.start);
   const end = new Date(meeting.end);
   const meta = [

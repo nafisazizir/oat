@@ -457,6 +457,20 @@ Flags: `--fast` (only format → test: no stack, e2e or Swift), `--only <step|gr
 down), `--bail`, `--list`. Turbo caches typecheck/lint/test, so a re-run on an unchanged tree is a few seconds;
 `TURBO_FORCE=true pnpm run ci` measures a cold run.
 
+**e2e under load.** Several worktrees often run CI at once (load average well above the core count), which
+makes `next dev` compile and hydrate pages several times slower. The e2e suites are written for that
+(ci-flakes, `docs/tasks/ci-flakes.md`):
+
+- Waits are conditions, never sleeps, with generous budgets (expect 15 s, action 20 s, navigation 30 s),
+  all multiplied by `E2E_TIMEOUT_SCALE` (default 1). The `e2e` step sets it to 2 when the 1-minute load
+  average exceeds the core count; set it yourself to override.
+- Web pages mark `<html data-hydrated>` once React has hydrated (root `Providers`, and `global-error.tsx`).
+  The web e2e `page` fixture (`e2e/fixtures.ts`) waits for it after every `goto`/`reload`/`waitForURL`, so
+  clicks never land on menus or buttons that aren't wired up yet; pages from extra browser contexts get the
+  same with `hydrationAware(page)`. Sign-in controls are also disabled until hydrated (`useHydrated`).
+- Web e2e runs 4 workers (`E2E_WORKERS` overrides): one `next dev` serves them all.
+- No blanket retries: `retries` stays 0 locally and in `pnpm run ci`, 1 only under `CI=true` (GitHub Actions).
+
 **Adding e2e to a package**: add an `e2e` script (e.g. `playwright test`) whose server binds to
 `process.env.E2E_PORT` (fallback to a fixed port for manual runs). Chromium is installed once per machine with
 `pnpm --filter @oat/ui exec playwright install chromium`.

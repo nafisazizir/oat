@@ -80,6 +80,11 @@ describe('RecordingArchive — fixture through RecordingController', () => {
       meetingId: 'meeting-1',
       offsetMs: 0,
       now: () => 1_700_000_000_000,
+      // `speed: 'fast'` pushes the whole fixture (~45 s × 2 sources ≈ 4,500 frames) as fast as the CPU
+      // allows, so how far the Opus encoder falls behind depends on machine load. With the default queue
+      // (3,000 frames) a loaded machine dropped frames (line `droppedFrames === 0`, flake 2026-11-14). This
+      // suite checks the archive's content, not back-pressure, so the queue holds the whole fixture.
+      maxQueuedFrames: 10_000,
     });
     await controller.start();
     await controller.source?.whenStopped();

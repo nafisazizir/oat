@@ -19,6 +19,25 @@ export const EVIDENCE = fileURLToPath(
 
 const mailpit = createMailpit();
 
+/** `ms` × `E2E_TIMEOUT_SCALE` (default 1), like the budgets in playwright.config.ts. */
+export function scaled(ms: number): number {
+  return ms * Math.max(1, Number(process.env.E2E_TIMEOUT_SCALE) || 1);
+}
+
+/**
+ * The sign-in URL the app handed to the "browser". The app shows "signing in" before `openExternal` runs
+ * (it awaits the PKCE challenge in between), so the URL is polled for, never read once (ci-flakes).
+ */
+export async function waitForSignInUrl(app: ElectronApplication): Promise<string> {
+  let url: string | undefined;
+  await expect
+    .poll(async () => (url = (await openedUrls(app)).findLast((u) => u.includes('/desktop/'))), {
+      message: 'app opened a /desktop/sign-in URL',
+    })
+    .toBeTruthy();
+  return url!;
+}
+
 /**
  * Launches the built app with its own userData folder, pointed at the test web server. `OAT_E2E=1`:
  * windows don't take focus and `oat://` is never registered with the OS. `shell.openExternal` is
@@ -78,7 +97,7 @@ export async function signInOnWeb(page: Page, email: string) {
   await page.getByLabel('Work email').fill(email);
   await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
   await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
-  const message = await mailpit.waitForLatest(email, { timeout: 15_000 });
+  const message = await mailpit.waitForLatest(email, { timeout: scaled(15_000) });
   const link = extractFirstLink(message);
   expect(link, 'magic link').toBeTruthy();
   await page.goto(link!);
@@ -123,12 +142,14 @@ export async function signInDesktop(
 ) {
   await page.getByRole('button', { name: 'Sign in with your browser' }).click();
   await expect(page.getByTestId('signing-in')).toBeVisible();
-  const signInUrl = (await openedUrls(app)).findLast((u) => u.includes('/desktop/sign-in'));
+  const signInUrl = await waitForSignInUrl(app);
   const context = await browser.newContext();
   const web = await context.newPage();
-  await web.goto(signInUrl!);
+  await web.goto(signInUrl);
   await signInOnWeb(web, email);
-  const codeResponse = web.waitForResponse((r) => r.url().endsWith('/api/auth/desktop/code'));
+  const codeResponse = web.waitForResponse(
+    (r) => r.url().endsWith('/api/auth/desktop/code') && r.request().method() === 'POST',
+  );
   await web.getByRole('button', { name: 'Continue to the app' }).click();
   const { redirectUrl } = (await (await codeResponse).json()) as { redirectUrl: string };
   await context.close();

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { uniqueAddress } from '@oat/testkit';
 import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
 
-import { evidence, launchApp, signInDesktop, writeEvidence } from './helpers';
+import { evidence, launchApp, scaled, signInDesktop, writeEvidence } from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
 test.describe.configure({ mode: 'serial' });
@@ -102,7 +102,7 @@ const archiveFiles = (electronApp: ElectronApplication, meetingId: string) =>
 test('fixture meeting → live me/them transcript, pause/resume, archive on disk', async ({
   browser,
 }) => {
-  test.setTimeout(150_000);
+  test.setTimeout(scaled(150_000));
   const electronApp = await launch({ OAT_AUDIO_SOURCE: `file:${FIXTURE}` });
   // A smaller window, so the transcript scrolls and "Jump to live" can be exercised.
   await electronApp.evaluate(({ BrowserWindow }) =>
@@ -140,12 +140,12 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   await expect(
     page.locator('[data-testid=transcript-segment][data-source=mic]').first(),
   ).toBeVisible({
-    timeout: 10_000,
+    timeout: scaled(15_000),
   });
   await expect(page.getByTestId('stt-status')).toHaveText('Live');
   await expect(
     page.locator('[data-testid=transcript-segment][data-source=system]').first(),
-  ).toBeVisible({ timeout: 15_000 });
+  ).toBeVisible({ timeout: scaled(15_000) });
   await expect(page.getByText('Them', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Me', { exact: true }).first()).toBeVisible();
   await expect(page.getByTestId('level-mic').getByRole('meter')).toBeVisible();
@@ -188,7 +188,7 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
 
   // The fixture ends by itself (~33 s of audio): back to idle, files closed.
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
-    timeout: 60_000,
+    timeout: scaled(60_000),
   });
   await expect(widget.getByTestId('widget-recording')).toHaveText('Not recording');
   await widget.getByRole('button', { name: 'Close widget' }).click();
@@ -263,7 +263,7 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
 });
 
 test('transcription down: the error is shown and recording + archive carry on', async () => {
-  test.setTimeout(90_000);
+  test.setTimeout(scaled(90_000));
   // Same signed-in profile; transcription pointed at a closed port (nothing listens on 9).
   const electronApp = await launch({
     OAT_AUDIO_SOURCE: `file:${FIXTURE}`,
@@ -274,7 +274,7 @@ test('transcription down: the error is shown and recording + archive carry on', 
   await page.getByRole('button', { name: 'Start recording' }).click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
   const banner = page.getByTestId('recording-issues');
-  await expect(banner).toBeVisible({ timeout: 10_000 });
+  await expect(banner).toBeVisible({ timeout: scaled(15_000) });
   await expect(banner).toContainText('Transcription is offline — still recording');
   await expect(banner).toContainText(/recording continues/i);
   await expect(page.getByTestId('stt-status')).toHaveAttribute(
@@ -302,7 +302,7 @@ test('transcription down: the error is shown and recording + archive carry on', 
   await evidence(widget, 'widget-stt-down', '2.5');
   await widget.getByTestId('widget-stop').click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
-    timeout: 20_000,
+    timeout: scaled(20_000),
   });
   // The banner stays after the recording (it is cleared by the next start only).
   await expect(banner).toContainText('This recording had problems');
