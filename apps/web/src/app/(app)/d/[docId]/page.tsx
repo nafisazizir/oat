@@ -11,14 +11,19 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { DocumentAssistant } from '@/components/assistant/document-assistant';
 import { FolderActions } from '@/components/document/folder-actions';
 import { DocumentEditor } from '@/components/document/document-editor';
 import { EmptyState, PageContainer, PageHeader } from '@/components/page';
 import { formatDay } from '@/lib/format';
+import { parseDeepLink, wantsTranscript } from '@/lib/transcript';
 import { titleOf } from '@/lib/tree';
-import { getShellData, loadDocumentPage } from '@/server/shell';
+import { getShellData, loadDocumentPage, loadDocumentTranscript } from '@/server/shell';
 
-type Props = { params: Promise<{ docId: string }> };
+type Props = {
+  params: Promise<{ docId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
 /** Dev/test hook for the error boundary (`/d/__error`); a normal 404 in production. */
 const ERROR_PROBE_ID = '__error';
@@ -39,7 +44,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * `/d/[id]`: a document (title + editor) or a folder (its contents). Anything the user can't read is a
  * plain 404, whether it exists or not (no existence leak for other people's private pages).
  */
-export default async function DocumentPage({ params }: Props) {
+export default async function DocumentPage({ params, searchParams }: Props) {
   const { docId } = await params;
   if (docId === ERROR_PROBE_ID && process.env.NODE_ENV !== 'production') {
     throw new Error('Error-boundary probe: this page always fails in development.');
@@ -52,12 +57,24 @@ export default async function DocumentPage({ params }: Props) {
   const workspace = shell.workspaces.find((w) => w.id === itemWorkspaceId) ?? shell.workspace;
 
   if (data.type === 'document') {
+    const doc = data.document;
+    // `?t=<s>&seg=<id>` (citations, transcript search hits) opens the transcript at that moment (6.4).
+    const focus = parseDeepLink(await searchParams);
+    const transcript =
+      doc.kind === 'meeting' && wantsTranscript(focus)
+        ? await loadDocumentTranscript(doc.id)
+        : null;
     return (
-      <DocumentEditor
-        key={data.document.id}
-        document={data.document}
-        workspaceName={workspace.name}
-      />
+      <DocumentAssistant
+        key={doc.id}
+        documentId={doc.id}
+        workspaceId={doc.workspaceId}
+        available={doc.deletedAt === null}
+        transcript={transcript}
+        focus={focus}
+      >
+        <DocumentEditor key={doc.id} document={doc} workspaceName={workspace.name} />
+      </DocumentAssistant>
     );
   }
 

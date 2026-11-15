@@ -27,6 +27,7 @@ import {
   PlusIcon,
   SearchIcon,
   SettingsIcon,
+  SparklesIcon,
   SquarePenIcon,
   Trash2Icon,
   UserPlusIcon,
@@ -211,6 +212,18 @@ export function AppSidebar() {
               <Link href={sections.home.href}>
                 <HomeIcon />
                 <span>{sections.home.label}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={inSection(pathname, sections.assistant.href)}
+              tooltip={sections.assistant.label}
+            >
+              <Link href={sections.assistant.href} data-testid="nav-assistant">
+                <SparklesIcon />
+                <span>{sections.assistant.label}</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

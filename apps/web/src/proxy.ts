@@ -51,6 +51,7 @@ export const config = {
   // for their headers.
   matcher: [
     '/home',
+    '/assistant',
     '/d/:path*',
     '/search',
     '/settings/:path*',

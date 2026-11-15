@@ -6,6 +6,7 @@ export type Crumb = { label: string; href?: string };
 export const sections = {
   home: { label: 'Home', href: '/home' },
   search: { label: 'Search', href: '/search' },
+  assistant: { label: 'Assistant', href: '/assistant' },
   templates: { label: 'Templates', href: '/templates' },
   settings: { label: 'Settings', href: '/settings' },
 } as const;

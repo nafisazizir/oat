@@ -19,16 +19,25 @@ import {
 } from '@oat/ai/tools';
 import type { RateLimiter } from '@oat/auth';
 import { canReadDocument, roleIn } from '@oat/core';
-import { chatMessage, chatThread, type Db, document, newId } from '@oat/db';
+import {
+  chatMessage,
+  chatThread,
+  type Db,
+  document,
+  meeting,
+  newId,
+  transcriptSegment,
+} from '@oat/db';
 import { searchChunks } from '@oat/indexing/retrieval';
 import { consumeStream, type LanguageModel, type UIMessage } from 'ai';
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DocumentDetail } from '@/lib/api-types';
 import type {
   ChatMessageMetadata,
   ChatProposal,
+  ChatSources,
   ChatThreadDetail,
   ChatThreadSummary,
   ProposalDecisionResult,
@@ -50,7 +59,8 @@ import { aiProfile } from './profile';
  *        Only the last message (the new user turn) is taken from the client; history comes from the thread.
  *        Response header `x-oat-thread-id`; the `start` part's metadata carries `{ threadId, userMessageId }`.
  *   GET  /api/chat/threads?workspaceId=…[&documentId=…]       ChatThreadSummary[] (newest first)
- *   GET  /api/chat/threads/:id                                 ChatThreadDetail
+ *   GET  /api/chat/threads/:id                                 ChatThreadDetail (+ `sources`: what its
+ *        citations and proposals point at, re-resolved against the reader's current access, 6.4)
  *   POST /api/chat/threads/:id/proposals/:proposalId           { decision: approve|reject }
  *        approve → re-applies the edits to the document at the proposal's `baseVersion` through the documents
  *        API (`updateDocument`): 409 `stale_version` (+ server copy) when the document moved on,
@@ -250,7 +260,188 @@ export async function getThread(db: Db, actor: Actor, id: string): Promise<ChatT
       ...toUiMessage(row, thread.id),
       createdAt: row.createdAt.toISOString(),
     })),
+    sources: await resolveSources(db, actor, thread, rows),
   };
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Sources (6.4): what citation chips and proposal cards show
+// ---------------------------------------------------------------------------------------------------------
+
+const SOURCE_TEXT_CHARS = 280;
+const MAX_SOURCE_IDS = 500;
+const MAX_CANDIDATE_DOCUMENTS = 50;
+
+const capText = (text: string) => {
+  const line = text.replace(/\s+/g, ' ').trim();
+  return line.length > SOURCE_TEXT_CHARS ? `${line.slice(0, SOURCE_TEXT_CHARS - 1)}…` : line;
+};
+
+/** `documentId` strings anywhere in stored parts (tool inputs and outputs): where cited blocks can live. */
+function documentIdsIn(value: unknown, out: Set<string>, depth = 0): void {
+  if (depth > 12 || out.size >= MAX_CANDIDATE_DOCUMENTS) return;
+  if (Array.isArray(value)) {
+    for (const v of value) documentIdsIn(v, out, depth + 1);
+  } else if (value !== null && typeof value === 'object') {
+    for (const [key, v] of Object.entries(value)) {
+      if (key === 'documentId' && typeof v === 'string' && v.length <= 100) out.add(v);
+      else documentIdsIn(v, out, depth + 1);
+    }
+  }
+}
+
+/** Plain text of every block with an id (TipTap JSON), by id. */
+function blockTexts(doc: unknown): Map<string, string> {
+  const out = new Map<string, string>();
+  const textOf = (node: unknown): string => {
+    if (node === null || typeof node !== 'object') return '';
+    const n = node as {
+      type?: unknown;
+      text?: unknown;
+      attrs?: { label?: unknown };
+      content?: unknown[];
+    };
+    if (n.type === 'text' && typeof n.text === 'string') return n.text;
+    if (n.type === 'mention') return `@${String(n.attrs?.label ?? '')}`;
+    return (n.content ?? [])
+      .map(textOf)
+      .join(n.type === 'paragraph' || n.type === 'heading' ? '' : ' ');
+  };
+  const visit = (node: unknown) => {
+    if (node === null || typeof node !== 'object') return;
+    const n = node as { attrs?: { id?: unknown }; content?: unknown[] };
+    if (typeof n.attrs?.id === 'string' && !out.has(n.attrs.id))
+      out.set(n.attrs.id, capText(textOf(n)));
+    n.content?.forEach(visit);
+  };
+  visit(doc);
+  return out;
+}
+
+/**
+ * Resolves a thread's citations and proposal targets for display. Everything is re-checked against the
+ * reader's access *now*: a segment or block in a note they can no longer read (or that was deleted) is simply
+ * absent, and the chip shows as unavailable. Blocks are looked up only in documents the thread itself
+ * touched (its note, documents named in tool calls/results, proposal targets), never workspace-wide.
+ */
+async function resolveSources(
+  db: Db,
+  actor: Actor,
+  thread: ThreadRow,
+  rows: (typeof chatMessage.$inferSelect)[],
+): Promise<ChatSources> {
+  const segIds = new Set<string>();
+  const blockIds = new Set<string>();
+  const proposalDocs = new Set<string>();
+  const candidates = new Set<string>(thread.documentId ? [thread.documentId] : []);
+  for (const row of rows) {
+    if (row.role !== 'assistant') continue;
+    const context = (row.contextJson ?? {}) as StoredContext;
+    for (const c of context.citations ?? []) (c.kind === 'seg' ? segIds : blockIds).add(c.id);
+    for (const p of context.proposals ?? []) {
+      proposalDocs.add(p.documentId);
+      candidates.add(p.documentId);
+    }
+    documentIdsIn(row.partsJson, candidates);
+  }
+
+  const segments =
+    segIds.size === 0
+      ? []
+      : await db
+          .select({
+            id: transcriptSegment.id,
+            startMs: transcriptSegment.startMs,
+            source: transcriptSegment.source,
+            speakerLabel: transcriptSegment.speakerLabel,
+            text: transcriptSegment.text,
+            documentId: meeting.documentId,
+          })
+          .from(transcriptSegment)
+          .innerJoin(meeting, eq(meeting.id, transcriptSegment.meetingId))
+          .where(inArray(transcriptSegment.id, [...segIds].slice(0, MAX_SOURCE_IDS)));
+
+  const wanted = [
+    ...new Set([...segments.map((s) => s.documentId), ...candidates, ...proposalDocs]),
+  ];
+  // Access fields only: no note bodies are read here (blocks are extracted in SQL below).
+  type AccessRow = Pick<
+    typeof document.$inferSelect,
+    'id' | 'workspaceId' | 'ownerId' | 'visibility' | 'shareToken' | 'deletedAt' | 'title'
+  >;
+  const readable = new Map<string, AccessRow>();
+  if (wanted.length > 0) {
+    const rows = await db
+      .select({
+        id: document.id,
+        workspaceId: document.workspaceId,
+        ownerId: document.ownerId,
+        visibility: document.visibility,
+        shareToken: document.shareToken,
+        deletedAt: document.deletedAt,
+        title: document.title,
+      })
+      .from(document)
+      .where(inArray(document.id, wanted));
+    for (const row of rows) {
+      if (row.deletedAt === null && canReadDocument(actor.ctx, row)) readable.set(row.id, row);
+    }
+  }
+  const title = (row: AccessRow) => row.title.trim() || 'Untitled';
+
+  const citations: ChatSources['citations'] = {};
+  for (const s of segments) {
+    const doc = readable.get(s.documentId);
+    if (!doc) continue;
+    citations[`seg:${s.id}`] = {
+      kind: 'seg',
+      id: s.id,
+      documentId: doc.id,
+      title: title(doc),
+      startMs: s.startMs,
+      speaker: s.source === 'mic' ? 'Me' : s.speakerLabel?.trim() || 'Them',
+      text: capText(s.text),
+    };
+  }
+  const blockDocs = [...candidates].filter((id) => readable.has(id));
+  if (blockIds.size > 0 && blockDocs.length > 0) {
+    // Only the cited blocks come back from Postgres (jsonpath over the body), not whole documents.
+    const ids = JSON.stringify([...blockIds].slice(0, MAX_SOURCE_IDS));
+    const rows = await db
+      .select({
+        id: document.id,
+        blocks: sql<
+          unknown[]
+        >`jsonb_path_query_array(${document.contentJson}, 'strict $.** ? (@.attrs.id == $ids[*])', jsonb_build_object('ids', ${ids}::jsonb))`,
+      })
+      .from(document)
+      .where(inArray(document.id, blockDocs));
+    // Candidate order decides which document a (duplicated) block id resolves to.
+    rows.sort((a, b) => blockDocs.indexOf(a.id) - blockDocs.indexOf(b.id));
+    for (const row of rows) {
+      const doc = readable.get(row.id)!;
+      for (const block of row.blocks ?? []) {
+        const blockId = (block as { attrs?: { id?: unknown } }).attrs?.id;
+        if (typeof blockId !== 'string' || !blockIds.has(blockId)) continue;
+        const key = `block:${blockId}`;
+        if (citations[key]) continue;
+        citations[key] = {
+          kind: 'block',
+          id: blockId,
+          documentId: doc.id,
+          title: title(doc),
+          text: blockTexts(block).get(blockId) ?? '',
+        };
+      }
+    }
+  }
+
+  const documents: ChatSources['documents'] = {};
+  for (const id of proposalDocs) {
+    const doc = readable.get(id);
+    if (doc) documents[id] = { title: title(doc) };
+  }
+  return { citations, documents };
 }
 
 // ---------------------------------------------------------------------------------------------------------

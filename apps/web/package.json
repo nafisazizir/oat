@@ -16,6 +16,7 @@
     "e2e:screenshots": "E2E_SCREENSHOTS=1 playwright test screenshots"
   },
   "dependencies": {
+    "@ai-sdk/react": "catalog:",
     "@oat/ai": "workspace:*",
     "@oat/auth": "workspace:*",
     "@oat/calendar": "workspace:*",
@@ -30,6 +31,7 @@
     "cmdk": "catalog:",
     "drizzle-orm": "catalog:",
     "lucide-react": "catalog:",
+    "markdown-it": "catalog:",
     "next": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

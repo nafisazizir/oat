@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useTreeActions } from '@/components/app-shell/tree-actions';
+import { useRegisterOpenDocument } from '@/components/assistant/open-document';
 import { NotionExportButton } from '@/components/notion/notion-export-button';
 import { PageContainer } from '@/components/page';
 import { announceDocumentChange } from '@/lib/api-client';
@@ -100,6 +101,21 @@ export function DocumentEditor({
       });
     }
   }, [autosave.state, doc.id, reload]);
+
+  // The assistant panel (6.4) saves pending edits before approving a change and shows the result here.
+  useRegisterOpenDocument(doc.id, {
+    settle: autosave.settle,
+    adopt: (next) => {
+      autosave.adopt(next);
+      setUpdatedAt(new Date().toISOString());
+    },
+    replace: (next) => {
+      autosave.adopt(next);
+      setContent(next.contentJson);
+      setUpdatedAt(new Date().toISOString());
+    },
+    editor: () => editorRef.current,
+  });
 
   const isMeeting = doc.kind === 'meeting';
   /** The server wrote a new body (enhancement applied, version restored, undo): show it, save on top of it. */

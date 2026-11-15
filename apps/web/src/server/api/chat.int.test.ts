@@ -26,7 +26,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { DocumentDetail } from '@/lib/api-types';
 import type { ChatThreadDetail, ChatThreadSummary, ProposalDecisionResult } from '@/lib/chat-types';
 
+import { loadActor } from '../actor';
 import { type ChatDeps, createChatApi } from '../chat';
+import { loadTranscript } from '../transcript';
 import { BASE, call, createHarness, denies, type Harness, type TestUser } from './test-harness';
 
 let h: Harness;
@@ -469,6 +471,22 @@ describe('limits and recovery', () => {
   });
 });
 
+describe('loadTranscript (document page reader, 6.4)', () => {
+  it('returns the final transcript to readers and refuses notes the actor can’t read', async () => {
+    const lines = await loadTranscript(h.db, await loadActor(h.db, alice.id), standup.id);
+    expect(lines?.map((l) => l.id)).toEqual(segIds.standup);
+    expect(lines?.[1]).toMatchObject({ speaker: 'Dana', source: 'system' });
+    // Bob can read the shared note but not Alice's private one; outsiders can read neither.
+    expect(await loadTranscript(h.db, await loadActor(h.db, bob.id), standup.id)).toHaveLength(3);
+    await expect(
+      loadTranscript(h.db, await loadActor(h.db, bob.id), secret.id),
+    ).rejects.toMatchObject({ status: 404 });
+    await expect(
+      loadTranscript(h.db, await loadActor(h.db, outsider.id), standup.id),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+});
+
 describe('GET /api/chat/threads', () => {
   it('lists only the actor’s own threads in a workspace they belong to', async () => {
     denies('GET /api/chat/threads', 'GET /api/chat/threads/[id]');
@@ -520,6 +538,75 @@ describe('GET /api/chat/threads', () => {
     // Someone else's thread: 404, never its contents.
     expect((await thread(alice, [...bobIds][0]!)).status).toBe(404);
     expect((await thread(outsider, [...bobIds][0]!)).status).toBe(404);
+  });
+
+  it('resolves citations and proposal targets for display, re-checked against current access', async () => {
+    const page = await created(alice, {
+      workspaceId: team,
+      kind: 'meeting',
+      title: 'Roadmap',
+      visibility: 'workspace',
+      contentJson: { type: 'doc', content: [p('b-road', 'Roadmap review moves to Thursday.')] },
+    });
+    const [roadSeg] = await addTranscript(page.id, [
+      ['Dana', 'The roadmap review moves to Thursday afternoon.'],
+    ]);
+    await indexDocument({ db: h.db, embeddingModel }, page.id);
+    const res = await ask(bob, {
+      scope: workspaceScope(),
+      messages: message('What price per seat did Dana want for the starter plan?'),
+    });
+    const saved = await savedThread(bob, res.threadId!, 2);
+    const cited = saved.messages[1]!.metadata?.citations ?? [];
+    expect(cited.length).toBeGreaterThan(0);
+    const seg = cited.find((c) => c.kind === 'seg')!;
+    expect(saved.sources.citations[`seg:${seg.id}`]).toMatchObject({
+      kind: 'seg',
+      documentId: standup.id,
+      title: 'Pricing sync',
+      speaker: expect.any(String),
+      startMs: expect.any(Number),
+    });
+
+    // A block citation resolves within documents the thread touched.
+    const blockTurn = await ask(bob, {
+      threadId: res.threadId,
+      scope: workspaceScope(),
+      messages: message('When is the roadmap review?'),
+    });
+    expect(blockTurn.status).toBe(200);
+    const withBlock = await savedThread(bob, res.threadId!, 4);
+    const blocks = (withBlock.messages[3]!.metadata?.citations ?? []).filter(
+      (c) => c.kind === 'block',
+    );
+    expect(blocks.map((b) => withBlock.sources.citations[`block:${b.id}`]?.documentId)).toContain(
+      page.id,
+    );
+    expect(withBlock.sources.citations['block:b-road']).toMatchObject({
+      text: 'Roadmap review moves to Thursday.',
+      title: 'Roadmap',
+    });
+    expect(withBlock.sources.citations[`seg:${roadSeg}`]).toMatchObject({
+      documentId: page.id,
+      speaker: 'Dana',
+    });
+
+    // The note goes private to Alice: Bob's thread no longer resolves its blocks.
+    const share = await call(
+      h.api.documentShare.PATCH,
+      'PATCH',
+      `/api/documents/${page.id}/share`,
+      {
+        as: alice,
+        body: { visibility: 'private' },
+        params: { id: page.id },
+      },
+    );
+    expect(share.status).toBe(200);
+    const after = (await thread(bob, res.threadId!)).body;
+    expect(after.sources.citations['block:b-road']).toBeUndefined();
+    expect(after.sources.citations[`seg:${roadSeg}`]).toBeUndefined();
+    expect(after.sources.citations[`seg:${seg.id}`]).toBeDefined();
   });
 
   it('a note chat disappears when the note stops being readable', async () => {

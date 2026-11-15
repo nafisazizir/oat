@@ -45,6 +45,11 @@ export const EVIDENCE_4_4 = fileURLToPath(
   new URL('../../../docs/tasks/evidence/4.4/', import.meta.url),
 );
 
+/** Evidence screenshots for task 6.4 (written only with `E2E_SCREENSHOTS=1`). */
+export const EVIDENCE_6_4 = fileURLToPath(
+  new URL('../../../docs/tasks/evidence/6.4/', import.meta.url),
+);
+
 /**
  * Base URL of the e2e server's in-process mocks (`web-server.ts`, git-ignored), one file per port: specs read
  * the mock LLM's request log (`GET <url>/_requests?provider=llm`) to check what a prompt contained.

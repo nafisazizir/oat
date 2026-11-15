@@ -45,9 +45,35 @@ export type ChatThreadSummary = {
   updatedAt: string;
 };
 
+/**
+ * A citation resolved for display (6.4), re-checked against the reader's current access. A citation that is
+ * missing from {@link ChatSources.citations} is no longer available (deleted, or no longer readable).
+ */
+export type ResolvedCitation =
+  | {
+      kind: 'seg';
+      id: string;
+      documentId: string;
+      title: string;
+      /** Milliseconds into the recording. */
+      startMs: number;
+      speaker: string;
+      /** The segment's text (capped). */
+      text: string;
+    }
+  | { kind: 'block'; id: string; documentId: string; title: string; text: string };
+
+/** What a thread's citations and proposals point at, keyed `seg:<id>` / `block:<id>` and by document id. */
+export type ChatSources = {
+  citations: Record<string, ResolvedCitation>;
+  /** Titles of the documents proposals target (only those the reader can still read). */
+  documents: Record<string, { title: string }>;
+};
+
 export type ChatThreadDetail = {
   thread: ChatThreadSummary;
   messages: (ChatUIMessage & { createdAt: string })[];
+  sources: ChatSources;
 };
 
 export type ProposalDecisionInput = { decision: 'approve' | 'reject' };

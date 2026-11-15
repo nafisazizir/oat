@@ -29,6 +29,7 @@ import { getDb } from './db';
 import { getDocument, listDocuments, listRecentDocuments } from './documents';
 import { listFolders, readableFolder, toFolderSummary } from './folders';
 import { requireSession } from './session';
+import { loadTranscript } from './transcript';
 
 /*
  * Server-side data for the app shell and pages. Client components never import this:
@@ -169,4 +170,10 @@ export async function listRecentPages(limit: number): Promise<DocumentNode[]> {
   const { db, actor, active } = await getContext();
   const docs = await listRecentDocuments(db, actor, active.id, { kind: 'page', limit });
   return docs.map(documentNode);
+}
+
+/** The meeting transcript of a document the user can read (the `/d/[id]?t=…&seg=…` reader, 6.4). */
+export async function loadDocumentTranscript(id: string) {
+  const { db, actor } = await getContext();
+  return loadTranscript(db, actor, id);
 }

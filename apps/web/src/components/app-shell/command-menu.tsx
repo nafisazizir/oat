@@ -25,6 +25,7 @@ import {
   PanelLeftIcon,
   SearchIcon,
   SettingsIcon,
+  SparklesIcon,
   SquarePenIcon,
   SunIcon,
 } from 'lucide-react';
@@ -173,6 +174,7 @@ export function CommandMenu() {
       heading: 'Go to',
       items: [
         { ...sections.home, icon: <HomeIcon /> },
+        { ...sections.assistant, icon: <SparklesIcon /> },
         { ...sections.templates, icon: <LayoutTemplateIcon /> },
         { ...sections.settings, icon: <SettingsIcon /> },
       ].map(({ label, href, icon }) => ({
