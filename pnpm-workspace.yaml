@@ -2,6 +2,7 @@ packages:
   - apps/*
   - packages/*
   - tools/*
+  - agents
 
 # Shared dependency versions. Workspace packages reference these with "catalog:".
 catalog:
@@ -46,6 +47,7 @@ catalog:
   '@types/ws': ^8.18.2
   '@vitejs/plugin-react': ^6.3.0
   '@vitest/coverage-v8': ^5.1.0
+  '@workflow/world-postgres': 5.2.0
   ai: ^7.0.173
   better-auth: ^1.7.12
   class-variance-authority: ^0.7.1
@@ -56,6 +58,9 @@ catalog:
   electron: ^45.3.2
   electron-vite: ^6.0.0
   esbuild: ^0.28.2
+  # eve is a 1.0 release candidate that ships several times a day; a session can only be resumed by the
+  # eve version that started it (stranded otherwise), so it is pinned exactly and upgraded deliberately (8.2).
+  eve: 1.0.0-rc.18
   eslint: ^10.15.0
   eslint-plugin-react-hooks: ^7.1.1
   globals: ^17.14.0
@@ -95,3 +100,7 @@ catalog:
 # Allow esbuild's postinstall (verifies its platform binary).
 onlyBuiltDependencies:
   - esbuild
+
+# cbor-x (via @workflow/world-postgres) uses the prebuilt cbor-extract binary or plain JS; no compile needed.
+ignoredBuiltDependencies:
+  - cbor-extract

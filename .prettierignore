@@ -15,3 +15,6 @@ next-env.d.ts
 # drizzle-kit owns generated migrations and snapshots.
 packages/db/drizzle/
 apps/web/e2e/.auth/
+# eve build output of the agents package (8.2).
+agents/.eve/
+agents/.output/

@@ -1,0 +1,3 @@
+# eve build output, local workflow data, traces and logs.
+.eve/
+.output/

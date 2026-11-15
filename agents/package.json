@@ -1,0 +1,49 @@
+{
+  "name": "@oat/agents",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Durable background agents on eve (8.2 spike): the post-meeting pipeline as an eve workflow on the Postgres Workflow world. See docs/tasks/8.2-eve-evaluation.md.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts",
+    "./*.test": null
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:int": "vitest run --mode int",
+    "agent:build": "tsx src/cli/build.ts",
+    "agent:start": "tsx src/cli/serve.ts start",
+    "agent:dev": "tsx src/cli/serve.ts dev",
+    "world:bootstrap": "tsx src/cli/bootstrap-world.ts"
+  },
+  "dependencies": {
+    "@oat/ai": "workspace:*",
+    "@oat/auth": "workspace:*",
+    "@oat/core": "workspace:*",
+    "@oat/db": "workspace:*",
+    "@oat/editor": "workspace:*",
+    "@oat/indexing": "workspace:*",
+    "@oat/integrations-notion": "workspace:*",
+    "@workflow/world-postgres": "catalog:",
+    "ai": "catalog:",
+    "drizzle-orm": "catalog:",
+    "eve": "catalog:",
+    "postgres": "catalog:",
+    "redis": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@oat/mocks": "workspace:*",
+    "@oat/testkit": "workspace:*",
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
