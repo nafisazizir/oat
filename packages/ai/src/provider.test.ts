@@ -113,6 +113,20 @@ describe('createAi', () => {
     expect(JSON.parse(requests[0]?.body ?? '{}')).toMatchObject({ model: DEFAULT_MODELS.enhance });
   });
 
+  it('slows the mock down with AI_MOCK_CHUNK_DELAY_MS (mock backend only)', async () => {
+    const { fetch, requests } = recordingFetch();
+    const slow = createAi({ env: { AI_MOCK_CHUNK_DELAY_MS: '40' }, fetch }).getModel('fast');
+    await expect(generateText({ model: slow, prompt: 'hi', maxRetries: 0 })).rejects.toThrow();
+    expect(requests[0]?.headers.get('x-mock-chunk-delay-ms')).toBe('40');
+
+    const gateway = createAi({
+      env: { AI_GATEWAY_API_KEY: 'k', AI_MOCK_CHUNK_DELAY_MS: '40' },
+      fetch,
+    }).getModel('fast');
+    await expect(generateText({ model: gateway, prompt: 'hi', maxRetries: 0 })).rejects.toThrow();
+    expect(requests[1]?.headers.get('x-mock-chunk-delay-ms')).toBeNull();
+  });
+
   it('uses AI Gateway with the key when AI_GATEWAY_API_KEY is set', async () => {
     const { fetch, requests } = recordingFetch();
     const ai = createAi({

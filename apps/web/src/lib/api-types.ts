@@ -94,6 +94,12 @@ export type ApiErrorCode =
   | 'private_folder'
   /** Templates: built-ins are read-only (duplicate them instead). */
   | 'builtin_read_only'
+  /** Enhance: no notes and no transcript yet. */
+  | 'nothing_to_enhance'
+  /** Enhance: the idempotency key belongs to another note's run. */
+  | 'idempotency_conflict'
+  /** Enhance: another run holds the note's lock, or the job broker is unavailable. */
+  | 'enhance_busy'
   | 'cross_site'
   | 'rate_limited'
   // Notion (8.1)

@@ -202,5 +202,30 @@ export function useAutosave({
     clearTimeout(timer.current);
   }, []);
 
-  return { state, error, queue, retry, flush, discard };
+  /**
+   * Saves everything pending and waits until nothing is in flight (before a server-side write such as
+   * enhancing). `false` if edits are still unsaved after a few attempts or saving stopped (conflict).
+   */
+  const settle = useCallback(async (): Promise<boolean> => {
+    for (let attempt = 0; attempt < 30; attempt++) {
+      if (stopped.current) return false;
+      if (!pending.current && !inFlight.current) return true;
+      if (!inFlight.current) {
+        await flush();
+        if (pending.current && !inFlight.current) return false; // the save failed; edits kept
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    }
+    return false;
+  }, [flush]);
+
+  /** Takes over a version the server wrote itself (e.g. the enhanced body), as the base for later saves. */
+  const adopt = useCallback((doc: { version: number; contentJson: JSONContent }) => {
+    if (doc.version <= versionRef.current) return;
+    versionRef.current = doc.version;
+    base.current = { ...base.current, contentJson: doc.contentJson };
+  }, []);
+
+  return { state, error, queue, retry, flush, discard, settle, adopt };
 }

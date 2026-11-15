@@ -22,10 +22,14 @@ import { toast } from 'sonner';
 import { useTreeActions } from '@/components/app-shell/tree-actions';
 import { NotionExportButton } from '@/components/notion/notion-export-button';
 import { PageContainer } from '@/components/page';
+import { announceDocumentChange } from '@/lib/api-client';
 import type { DocumentDetail } from '@/lib/api-types';
 import { formatDay } from '@/lib/format';
 import { documentNode } from '@/lib/tree';
 
+import { EnhanceButton, EnhanceError } from './enhance/enhance-controls';
+import { EnhancePreview } from './enhance/enhance-preview';
+import { useEnhancement } from './enhance/use-enhancement';
 import { ShareDialog } from './share-dialog';
 import { type SaveState, useAutosave } from './use-autosave';
 
@@ -54,7 +58,8 @@ export function DocumentEditor({
   const router = useRouter();
   const actions = useTreeActions();
   const [title, setTitle] = useState(doc.title);
-  const [initialContent] = useState(doc.contentJson);
+  // The editor's content: as loaded, then replaced when an enhancement lands (4.4).
+  const [content, setContent] = useState(doc.contentJson);
   const [updatedAt, setUpdatedAt] = useState(doc.updatedAt);
   const editorRef = useRef<Editor | null>(null);
   const trashed = doc.deletedAt !== null;
@@ -92,6 +97,41 @@ export function DocumentEditor({
     }
   }, [autosave.state, doc.id, reload]);
 
+  const isMeeting = doc.kind === 'meeting';
+  const enhancement = useEnhancement({
+    documentId: doc.id,
+    loadedVersion: doc.version,
+    enabled: isMeeting && !trashed,
+    beforeStart: autosave.settle,
+    onCompleted: ({ enhancement: run, doc: enhanced }) => {
+      if (run.applied && run.documentVersion !== null) {
+        autosave.adopt({ version: run.documentVersion, contentJson: enhanced });
+        setContent(enhanced);
+        setUpdatedAt(run.completedAt ?? new Date().toISOString());
+        announceDocumentChange({ id: doc.id, version: run.documentVersion, title });
+        toast.success('Notes enhanced', {
+          description: 'Your own lines stay in full ink; what the AI added is softer.',
+        });
+        return;
+      }
+      // D-20: edited while the AI was writing — keep the user's body, offer the enhanced version (editors).
+      if (!editable) return;
+      toast('This note changed while the AI was writing', {
+        id: `enhanced-${run.id}`,
+        description: 'Your edits were kept. The enhanced version is saved too.',
+        duration: Infinity,
+        action: {
+          label: 'Use enhanced version',
+          onClick: () => {
+            setContent(enhanced);
+            autosave.queue({ contentJson: enhanced });
+          },
+        },
+      });
+    },
+  });
+
+  const streaming = enhancement.state.phase === 'streaming';
   const node = documentNode(doc);
 
   return (
@@ -149,6 +189,9 @@ export function DocumentEditor({
           )}
           {!trashed && (
             <div className="ml-auto flex flex-wrap items-center gap-2">
+              {editable && isMeeting && (
+                <EnhanceButton enhancement={enhancement} workspaceId={doc.workspaceId} />
+              )}
               <NotionExportButton documentId={doc.id} beforeSend={autosave.flush} />
               <ShareDialog documentId={doc.id} />
             </div>
@@ -178,17 +221,28 @@ export function DocumentEditor({
         />
       </header>
 
-      <OatEditor
-        value={initialContent}
-        editable={editable}
-        aria-label="Note"
-        placeholder={editable ? 'Write something, or press / for blocks' : false}
-        onReady={(editor) => {
-          editorRef.current = editor;
-        }}
-        onChange={(json) => autosave.queue({ contentJson: json })}
-        className="min-h-64"
-      />
+      <EnhanceError enhancement={enhancement} />
+
+      {enhancement.state.phase === 'streaming' && (
+        <EnhancePreview output={enhancement.state.preview} />
+      )}
+      {/*
+        The editor stays mounted (hidden, read-only) while the AI writes: if the run fails, is lost or isn't
+        applied, it comes back exactly as the user left it — never re-created from the page-load body.
+      */}
+      <div hidden={streaming} data-testid="note-editor">
+        <OatEditor
+          value={content}
+          editable={editable && !streaming}
+          aria-label="Note"
+          placeholder={editable ? 'Write something, or press / for blocks' : false}
+          onReady={(editor) => {
+            editorRef.current = editor;
+          }}
+          onChange={(json) => autosave.queue({ contentJson: json })}
+          className="min-h-64"
+        />
+      </div>
     </PageContainer>
   );
 }

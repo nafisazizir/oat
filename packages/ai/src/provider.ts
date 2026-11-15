@@ -89,6 +89,12 @@ export function createAi(options: CreateAiOptions = {}): AiClient {
     language = (id) => gateway.languageModel(id);
     embedding = (id) => gateway.embeddingModel(id);
   } else {
+    // Dev/e2e only (mock backend): `AI_MOCK_CHUNK_DELAY_MS` slows the mock's streams down, to watch or test
+    // streaming UIs (the mock's `x-mock-chunk-delay-ms` scenario header).
+    const chunkDelay = Math.min(
+      5000,
+      Math.round(Number(value(env, 'AI_MOCK_CHUNK_DELAY_MS')) || 0),
+    );
     const mock = createOpenAICompatible({
       name: 'oat-mock',
       baseURL: backend.baseURL,
@@ -97,6 +103,7 @@ export function createAi(options: CreateAiOptions = {}): AiClient {
       supportsStructuredOutputs: true,
       includeUsage: true,
       fetch: options.fetch,
+      ...(chunkDelay > 0 ? { headers: { 'x-mock-chunk-delay-ms': String(chunkDelay) } } : {}),
     });
     language = (id) => mock.chatModel(id);
     embedding = (id) => mock.embeddingModel(id);

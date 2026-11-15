@@ -4,6 +4,7 @@
  * user's notes kept with `origin: me`, the template's headings, and length bounds.
  */
 import { blockContent, type EnhanceInput, enhanceOutputSchema, flattenBlocks } from '../enhance.ts';
+import { OTHER_NOTES_HEADING } from '../enhance-origin.ts';
 import type { CheckResult } from './types.ts';
 
 export interface MentionExpectation {
@@ -109,13 +110,23 @@ export function scoreEnhance(
   const blocks = flattenBlocks(sections.flatMap((s) => s.blocks));
   const results: CheckResult[] = [check('schema', 'structural', 1, true)];
 
-  // Headings: exactly the template's, in order.
+  // Headings: exactly the template's, in order. A trailing "Other notes" section (note lines the model dropped,
+  // put back by `reconcileWithNotes`) is part of the contract, not an extra heading.
   const wanted = input.template.sections.map((s) => normalize(s.heading));
-  const got = sections.map((s) => normalize(s.heading));
+  const otherNotes = normalize(OTHER_NOTES_HEADING);
+  const scored = sections.filter(
+    (s, i) =>
+      !(
+        i === sections.length - 1 &&
+        normalize(s.heading) === otherNotes &&
+        !wanted.includes(otherNotes)
+      ),
+  );
+  const got = scored.map((s) => normalize(s.heading));
   const present = wanted.filter((h) => got.includes(h)).length;
   const exact = wanted.length === got.length && wanted.every((h, i) => got[i] === h);
   const missing = input.template.sections.filter((s) => !got.includes(normalize(s.heading)));
-  const extra = sections.filter((s) => !wanted.includes(normalize(s.heading)));
+  const extra = scored.filter((s) => !wanted.includes(normalize(s.heading)));
   results.push(
     check(
       'headings',

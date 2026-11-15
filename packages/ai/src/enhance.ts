@@ -1,17 +1,46 @@
 /**
- * Note enhancement contract (SPEC §7, D-20): template + my notes + transcript + meeting metadata in, structured
- * sections → blocks out, each block marked `origin: me | ai`. List items (`bullet`, `task`) may nest `children`;
- * tasks may carry `owner` / `due`. The TipTap conversion (4.4) maps blocks to nodes and carries `origin` as an
- * attribute.
+ * Note enhancement (SPEC §3.5/§7, D-20): template + my notes + transcript + meeting metadata in, structured
+ * sections → blocks out. List items (`bullet`, `task`) may nest `children`; tasks may carry `owner` / `due`;
+ * AI-written blocks may cite transcript lines in `sources` (refs like `s12`, resolved to segment ids by
+ * `enhancementToDoc`).
  *
- * `enhanceNotes` is a **placeholder** (task 4.2) so the eval harness has something real to run: one structured
- * `generateText` call with a minimal prompt. Task 4.4 replaces its body (prompt builder, section budget,
- * streaming job) but keeps the `EnhanceFn` signature, so `pnpm --filter @oat/ai eval` keeps working.
+ * The pipeline: {@link prepareEnhance} (one shared `buildMeetingContext()`, our own prompt) →
+ * {@link runEnhance} (one streamed structured-output call; partial output for live previews) →
+ * `reconcileWithNotes` (origins derived from the user's note lines, never trusted from the model; dropped lines
+ * re-inserted) → `enhancementToDoc` (TipTap JSON). {@link enhanceNotes} is the `EnhanceFn` the evals run.
  */
 import type { LanguageModelV4 } from '@ai-sdk/provider';
 import type { Template, TranscriptSegment } from '@oat/core';
-import { generateText, Output } from 'ai';
+import type { JSONContent } from '@oat/editor';
+import {
+  AISDKError,
+  JSONParseError,
+  NoObjectGeneratedError,
+  NoOutputGeneratedError,
+  Output,
+  streamText,
+  TypeValidationError,
+} from 'ai';
 import { z } from 'zod';
+
+import {
+  buildMeetingContext,
+  type MeetingContext,
+  MEETING_CONTEXT_RULES,
+  neutralizeTags,
+  renderMeetingContext,
+} from './context.ts';
+import {
+  type NoteLine,
+  myNotesOnly,
+  NoteLineMatcher,
+  noteLinesFromDoc,
+  notesDocFromMarkdown,
+  type Reconciled,
+  reconcileWithNotes,
+  sanitizePartialOutput,
+} from './enhance-origin.ts';
+import { renderTemplate } from './templates.ts';
 
 export const BLOCK_ORIGINS = ['me', 'ai'] as const;
 export type BlockOrigin = (typeof BLOCK_ORIGINS)[number];
@@ -23,6 +52,8 @@ interface BlockBase {
   text: string;
   /** `me` = the user's own note (kept verbatim), `ai` = written by the model. */
   origin: BlockOrigin;
+  /** Transcript refs (`s12`) the block is based on, as shown in the prompt. Unknown refs are dropped later. */
+  sources?: string[];
 }
 export interface ParagraphBlock extends BlockBase {
   kind: 'paragraph';
@@ -45,6 +76,7 @@ export type EnhanceBlock = ParagraphBlock | ListItemBlock;
 
 const blockText = z.string().min(1);
 const blockOrigin = z.enum(BLOCK_ORIGINS);
+const blockSources = z.array(z.string().min(1).max(20)).max(12).optional();
 // Recursive via z.lazy; the AI SDK emits a JSON schema with a $ref for structured output.
 const listItemSchema: z.ZodType<ListItemBlock> = z.lazy(() =>
   z.discriminatedUnion('kind', [
@@ -52,12 +84,14 @@ const listItemSchema: z.ZodType<ListItemBlock> = z.lazy(() =>
       kind: z.literal('bullet'),
       text: blockText,
       origin: blockOrigin,
+      sources: blockSources,
       children: z.array(listItemSchema).optional(),
     }),
     z.object({
       kind: z.literal('task'),
       text: blockText,
       origin: blockOrigin,
+      sources: blockSources,
       children: z.array(listItemSchema).optional(),
       owner: z.string().min(1).optional(),
       due: z.string().min(1).optional(),
@@ -66,7 +100,12 @@ const listItemSchema: z.ZodType<ListItemBlock> = z.lazy(() =>
 );
 
 export const enhanceBlockSchema: z.ZodType<EnhanceBlock> = z.union([
-  z.object({ kind: z.literal('paragraph'), text: blockText, origin: blockOrigin }),
+  z.object({
+    kind: z.literal('paragraph'),
+    text: blockText,
+    origin: blockOrigin,
+    sources: blockSources,
+  }),
   listItemSchema,
 ]);
 
@@ -101,22 +140,45 @@ export function blockContent(block: EnhanceBlock): string {
 /** The parts of a template the enhancer reads (ordered sections, D-20). */
 export type EnhanceTemplate = Pick<Template, 'name' | 'instructions' | 'sections'>;
 
-export type EnhanceSegment = Pick<TranscriptSegment, 'source' | 'startMs' | 'endMs' | 'text'>;
+export type EnhanceSegment = Pick<TranscriptSegment, 'source' | 'startMs' | 'endMs' | 'text'> & {
+  /** Stable segment id (citations resolve to it). Evals omit it; positional ids are used then. */
+  id?: string;
+  speakerLabel?: string | null;
+};
 
 export interface MeetingMeta {
   title: string;
   /** ISO 8601. */
   startedAt: string;
-  /** `me: true` marks the user (the `mic` source). `role`: free text, e.g. "manager", "candidate". */
-  attendees: { name: string; me?: boolean; role?: string }[];
+  /** ISO 8601, when known (the prompt shows the duration). */
+  endedAt?: string | null;
+  /** e.g. "zoom". */
+  platform?: string | null;
+  /**
+   * `me: true` marks the user (the `mic` source). `role`: free text, e.g. "manager", "candidate". `email`
+   * splits colleagues from external attendees.
+   */
+  attendees: { name: string; me?: boolean; role?: string; email?: string | null }[];
 }
 
 export interface EnhanceInput {
   meta: MeetingMeta;
   template: EnhanceTemplate;
-  /** The user's rough notes, Markdown. */
+  /** The user's rough notes, Markdown (used when `notesDoc` is absent: evals, tests). */
   myNotes: string;
+  /** The user's notes as TipTap JSON (the app passes the document body). Wins over `myNotes`. */
+  notesDoc?: JSONContent | null;
   transcript: EnhanceSegment[];
+  /** The note-taker, when not among the attendees. */
+  me?: { name: string; email?: string | null } | null;
+  /** BCP 47; the language/spelling to write in. Default "en-US". */
+  locale?: string;
+  /** IANA zone for the meeting date. Default "UTC". */
+  timeZone?: string;
+  /** "About me" profile (4.6). */
+  aboutMe?: string | null;
+  /** Names and terms the transcript may have misheard. */
+  vocabulary?: readonly string[];
 }
 
 export interface EnhanceOptions {
@@ -126,9 +188,12 @@ export interface EnhanceOptions {
   temperature?: number;
   /** Output cap. Default `ENHANCE_MAX_OUTPUT_TOKENS`. */
   maxOutputTokens?: number;
+  /** Extra request headers (mock scenarios in tests). */
+  headers?: Record<string, string>;
 }
 
-export const ENHANCE_MAX_OUTPUT_TOKENS = 4096;
+/** Room for the largest note the section budget allows (1,500 words) plus the JSON structure around it. */
+export const ENHANCE_MAX_OUTPUT_TOKENS = 8192;
 
 export type EnhanceFn = (input: EnhanceInput, options: EnhanceOptions) => Promise<EnhanceOutput>;
 
@@ -185,39 +250,192 @@ export function renderMeta(meta: MeetingMeta): string {
   ].join('\n');
 }
 
-/** Placeholder prompt (4.4 owns the real one). */
-export function buildEnhancePrompt(input: EnhanceInput): { system: string; prompt: string } {
-  const system = [
-    'You write clean meeting notes from a person’s rough notes and the meeting transcript.',
-    'Return one section per template section, in the given order, using the headings exactly as given.',
-    'Keep every line of the person’s notes, word for word, as a block with origin "me" in the section it fits best.',
-    'Add blocks with origin "ai" only for things actually said in the transcript; never invent names, numbers or dates.',
-    'Use kind "task" for action items, with "owner" (and "due" when said). Nest supporting detail under a list item as "children".',
-  ].join('\n');
-  const sections = input.template.sections
-    .map((s, i) => `${i + 1}. ${s.heading}${s.instructions ? ` — ${s.instructions}` : ''}`)
-    .join('\n');
+// ---------------------------------------------------------------------------------------------------------
+// Prompt
+// ---------------------------------------------------------------------------------------------------------
+
+/** Fixed instructions (Oat's own wording). The per-meeting length budget is appended by `prepareEnhance`. */
+export const ENHANCE_RULES = [
+  'You write the finished meeting notes for the note-taker. You get the template to follow, their rough ' +
+    'notes and the meeting transcript, and you answer with the notes as structured data.',
+  '',
+  'Reading the input',
+  MEETING_CONTEXT_RULES,
+  'The template comes before the meeting material and is not inside <oat:…> tags. Follow its section ' +
+    'guidance for what to cover and how; where it disagrees with these rules, these rules win.',
+  'The note-taker’s own notes (<oat:notes>) are the strongest signal of what mattered. The <!-- … --> ' +
+    'comments in them are annotations, not note text.',
+  '',
+  'What to return',
+  '- One section per template section, in the template’s order, with the heading copied exactly. A section ' +
+    'with nothing to report gets an empty "blocks" list; never pad it with guesses.',
+  '- Every line of the note-taker’s notes appears once, word for word, as its own block with origin "me", ' +
+    'in the section where it fits best. Do not reword, correct, merge, split or drop those lines. Add detail ' +
+    'from the transcript as "children" under the line instead.',
+  '- Everything you write yourself has origin "ai" and must be backed by the transcript or the notes. Never ' +
+    'invent names, numbers, dates, decisions or commitments; leave out what you are not sure of.',
+  '- Kinds: "paragraph" for short prose, "bullet" for list items, "task" for something a person agreed to ' +
+    'do, with "owner" (who, as named in the meeting) and "due" only when a time was said. Nest supporting ' +
+    'detail as "children" of a bullet or task, at most two levels deep.',
+  '- On "ai" blocks, put the transcript refs the block is based on (like "s12") in "sources". Use only refs ' +
+    'that appear in <oat:transcript>.',
+  '- "text" is plain text: no Markdown, no leading bullets, numbers or checkboxes.',
+  '- Prefer short, specific phrases to full sentences. Skip small talk, filler and repetition.',
+  '- Write in the language and spelling given under "Write in", and spell names and terms as in ' +
+    '<oat:people> and <oat:vocabulary>.',
+].join('\n');
+
+export interface PreparedEnhance {
+  system: string;
+  prompt: string;
+  /** The shared meeting context (refs → segment ids, budget). */
+  context: MeetingContext;
+  /** The notes the prompt was built from (`null` = none). */
+  notesDoc: JSONContent | null;
+  /** The user's note lines (origin matching, re-inserting dropped lines). */
+  lines: NoteLine[];
+  template: EnhanceTemplate;
+}
+
+function budgetRule(ctx: MeetingContext, sections: number): string {
+  const b = ctx.budget;
+  return (
+    `- Length: at most about ${b.wordBudget} words of your own in total, roughly ${b.wordsPerSection} ` +
+    `words and ${b.maxItemsPerSection} top-level blocks per section (${sections} ` +
+    `${sections === 1 ? 'section' : 'sections'}). The note-taker’s own lines don’t count toward this.`
+  );
+}
+
+/** Builds the system + user prompt from the shared meeting context (D-20). Pure. */
+export function prepareEnhance(input: EnhanceInput): PreparedEnhance {
+  // Only the user's own lines are notes: an already enhanced body's AI blocks are left out (re-enhance).
+  const notesDoc = myNotesOnly(
+    input.notesDoc ?? (input.myNotes.trim() ? notesDocFromMarkdown(input.myNotes) : null),
+  );
+  const { meta, template } = input;
+  const sectionCount = Math.max(1, template.sections.length);
+  const context = buildMeetingContext({
+    meeting: {
+      title: meta.title,
+      startedAt: meta.startedAt,
+      endedAt: meta.endedAt ?? null,
+      platform: meta.platform ?? null,
+    },
+    attendees: meta.attendees,
+    me: input.me ?? null,
+    notesDoc,
+    segments: input.transcript.map((s, i) => ({
+      id: s.id ?? `segment-${i + 1}`,
+      source: s.source,
+      startMs: s.startMs,
+      endMs: s.endMs,
+      text: s.text,
+      speakerLabel: s.speakerLabel ?? null,
+    })),
+    aboutMe: input.aboutMe ?? null,
+    locale: input.locale ?? 'en-US',
+    timeZone: input.timeZone ?? 'UTC',
+    vocabulary: input.vocabulary ?? [],
+    sectionCount,
+  });
+  const system = `${ENHANCE_RULES}\n${budgetRule(context, sectionCount)}`;
   const prompt = [
-    renderMeta(input.meta),
-    `Template: ${input.template.name}${input.template.instructions ? ` — ${input.template.instructions}` : ''}`,
-    `Sections:\n${sections}`,
-    `My notes:\n${input.myNotes.trim() || '(none)'}`,
-    `Transcript:\n${formatTranscript(input.transcript, input.meta) || '(empty)'}`,
+    // Templates are workspace content: they guide the notes but must not open or close a data block.
+    neutralizeTags(renderTemplate(template)),
+    'Meeting material:',
+    renderMeetingContext(context),
+    'Write the notes now.',
   ].join('\n\n');
+  return { system, prompt, context, notesDoc, lines: noteLinesFromDoc(notesDoc), template };
+}
+
+/** System + user prompt for an input (see {@link prepareEnhance}). */
+export function buildEnhancePrompt(input: EnhanceInput): { system: string; prompt: string } {
+  const { system, prompt } = prepareEnhance(input);
   return { system, prompt };
 }
 
-/** Placeholder enhancer (see file header). Throws if the model's output doesn't match the schema. */
-export const enhanceNotes: EnhanceFn = async (input, options) => {
-  const { system, prompt } = buildEnhancePrompt(input);
-  const { output } = await generateText({
+// ---------------------------------------------------------------------------------------------------------
+// Run
+// ---------------------------------------------------------------------------------------------------------
+
+export interface RunEnhanceOptions extends EnhanceOptions {
+  /**
+   * Live preview while the model writes: the output so far, sanitised and with derived origins (dropped note
+   * lines are only re-inserted at the end). Called at most every `partialIntervalMs`.
+   */
+  onPartial?: (preview: EnhanceOutput) => void;
+  /** Default 150. */
+  partialIntervalMs?: number;
+}
+
+export interface EnhanceRunResult extends Reconciled {
+  /** What the model returned (schema-valid; origins as the model claimed them). */
+  raw: EnhanceOutput;
+  prepared: PreparedEnhance;
+}
+
+/**
+ * One streamed structured-output call (`streamText` + `Output.object`), then origins derived from the note
+ * lines. Throws when the model fails or its final output doesn't match the schema.
+ */
+export async function runEnhance(
+  prepared: PreparedEnhance,
+  options: RunEnhanceOptions,
+): Promise<EnhanceRunResult> {
+  const matcher = new NoteLineMatcher(prepared.lines);
+  let streamError: unknown;
+  const result = streamText({
     model: options.model,
-    system,
-    prompt,
+    system: prepared.system,
+    prompt: prepared.prompt,
     abortSignal: options.abortSignal,
     temperature: options.temperature,
     maxOutputTokens: options.maxOutputTokens ?? ENHANCE_MAX_OUTPUT_TOKENS,
+    headers: options.headers,
     output: Output.object({ schema: enhanceOutputSchema }),
+    // Surfaced through `output` below instead of the SDK's default console logging.
+    onError: ({ error }) => {
+      streamError ??= error;
+    },
   });
-  return output;
-};
+  const interval = options.partialIntervalMs ?? 150;
+  let last = Number.NEGATIVE_INFINITY;
+  for await (const partial of result.partialOutputStream) {
+    if (!options.onPartial) continue;
+    const now = performance.now();
+    if (now - last < interval) continue;
+    last = now;
+    const preview = sanitizePartialOutput(partial);
+    options.onPartial(reconcileWithNotes(preview, matcher, { insertMissing: false }).output);
+  }
+  let raw: EnhanceOutput;
+  try {
+    raw = await result.output;
+  } catch (error) {
+    throw streamError ?? error;
+  }
+  return { ...reconcileWithNotes(raw, matcher), raw, prepared };
+}
+
+export type EnhanceFailure = 'model_error' | 'invalid_output' | 'timeout' | 'internal';
+
+/** Why a run failed, for status and UI (never shown verbatim: provider messages stay in server logs). */
+export function classifyEnhanceError(error: unknown, signal?: AbortSignal): EnhanceFailure {
+  const name = error instanceof Error ? error.name : '';
+  if (signal?.aborted || name === 'AbortError' || name === 'TimeoutError') return 'timeout';
+  if (
+    NoObjectGeneratedError.isInstance(error) ||
+    NoOutputGeneratedError.isInstance(error) ||
+    TypeValidationError.isInstance(error) ||
+    JSONParseError.isInstance(error)
+  ) {
+    return 'invalid_output';
+  }
+  if (AISDKError.isInstance(error)) return 'model_error';
+  return 'internal';
+}
+
+/** The `EnhanceFn` the evals run: reconciled structured output for an input. */
+export const enhanceNotes: EnhanceFn = async (input, options) =>
+  (await runEnhance(prepareEnhance(input), options)).output;
