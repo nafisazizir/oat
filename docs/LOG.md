@@ -15,6 +15,9 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - [ ] **Calendar access test (7.1)** — `cd native/oat-audio && .build/release/oat-audio calendar request-access`
       (grant), then `calendar status`, `calendar events --from <today> --to <+7d>` and `calendar watch`
       (edit an event in Calendar.app → a `changed` line appears). Steps in `docs/tasks/7.1-calendar.md`.
+- [ ] **Mic-apps detection test (7.2)** — first real `oat-audio mic-apps watch` (README "Mic apps"): join a Zoom/
+      Meet/Teams call and confirm the app appears/disappears and no permission prompt is shown; note any
+      unrecognised bundle ids.
 
 ## Entries
 - 2026-11-14 · setup · Docs written: CLAUDE.md, SPEC, PLAN, FACTORY, IDEAS, DECISIONS. Initial Granola
