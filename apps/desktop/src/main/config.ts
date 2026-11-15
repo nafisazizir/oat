@@ -35,6 +35,48 @@ export interface DesktopConfig {
    * at a port that is down, then up, to test offline → drain). Same rules as `OAT_WEB_URL`.
    */
   syncUrl: string | undefined;
+  /** Where the Mac's calendar events come from (7.3). */
+  calendar: CalendarConfig;
+  /** Meeting detection's mic-apps signal (7.3, D-21). */
+  detection: DetectionConfig;
+}
+
+/**
+ * `OAT_CALENDAR` (dev only): unset / `off` → no Mac calendar (Google through the web API still works);
+ * `eventkit` → the real calendars through the sidecar (never prompts by itself; access is a human
+ * checkpoint); `fixture:<file>` → normalised events from a JSON (array) or JSON-lines file, in process.
+ * Packaged: always `eventkit`.
+ */
+export type CalendarConfig =
+  { kind: 'off' } | { kind: 'eventkit' } | { kind: 'fixture'; file: string };
+
+/**
+ * `OAT_DETECTION` (dev only): unset / `off` → no detection; `sidecar` → `oat-audio mic-apps watch` (Core Audio
+ * metadata, no capture; its first real run is a human checkpoint); `fixture:<file>` → replay a detection
+ * timeline's `steps[].micApps` (`fixtures/detection/*.json` format) in process, from when detection starts.
+ * Packaged: always `sidecar`.
+ */
+export type DetectionConfig =
+  { kind: 'off' } | { kind: 'sidecar' } | { kind: 'fixture'; file: string };
+
+export function parseCalendarSource(raw: string | undefined): CalendarConfig {
+  const value = raw?.trim() ?? '';
+  if (value === '' || value === 'off') return { kind: 'off' };
+  if (value === 'eventkit') return { kind: 'eventkit' };
+  if (value.startsWith('fixture:') && value.length > 'fixture:'.length) {
+    return { kind: 'fixture', file: value.slice('fixture:'.length) };
+  }
+  throw new DesktopConfigError('OAT_CALENDAR must be off, eventkit or fixture:<file>');
+}
+
+export function parseDetectionSource(raw: string | undefined): DetectionConfig {
+  const value = raw?.trim() ?? '';
+  if (value === '' || value === 'off') return { kind: 'off' };
+  if (value === 'sidecar') return { kind: 'sidecar' };
+  if (value.startsWith('fixture:') && value.length > 'fixture:'.length) {
+    return { kind: 'fixture', file: value.slice('fixture:'.length) };
+  }
+  throw new DesktopConfigError('OAT_DETECTION must be off, sidecar or fixture:<timeline.json>');
 }
 
 export interface AudioInputConfig {
@@ -110,6 +152,8 @@ export function desktopConfigFromEnv(
       audio: { input: 'sidecar', fixture: null, synthetic: false, allowFixtures: false },
       sttUrl: undefined,
       syncUrl: undefined,
+      calendar: { kind: 'eventkit' },
+      detection: { kind: 'sidecar' },
     };
   }
   const e2e = env.OAT_E2E === '1';
@@ -128,5 +172,7 @@ export function desktopConfigFromEnv(
     audio: parseAudioSource(env.OAT_AUDIO_SOURCE),
     sttUrl: blank(env.OAT_STT_URL),
     syncUrl: blank(env.OAT_SYNC_URL) && parseWebUrl(blank(env.OAT_SYNC_URL)!, 'OAT_SYNC_URL'),
+    calendar: parseCalendarSource(env.OAT_CALENDAR),
+    detection: parseDetectionSource(env.OAT_DETECTION),
   };
 }

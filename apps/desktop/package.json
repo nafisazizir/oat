@@ -19,7 +19,9 @@
   "dependencies": {
     "@oat/audio": "workspace:*",
     "@oat/auth": "workspace:*",
+    "@oat/calendar": "workspace:*",
     "@oat/core": "workspace:*",
+    "@oat/detection": "workspace:*",
     "@oat/editor": "workspace:*",
     "@oat/local-store": "workspace:*",
     "@oat/meeting-ui": "workspace:*",

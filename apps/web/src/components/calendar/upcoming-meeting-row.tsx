@@ -2,9 +2,13 @@
 
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
-import { NotebookPenIcon, VideoIcon } from 'lucide-react';
+import { Loader2Icon, NotebookPenIcon, VideoIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
+import { useShellData } from '@/components/app-shell/shell-data';
+import { ApiRequestError, request } from '@/lib/api-client';
 import { useHydrated } from '@/lib/use-hydrated';
 
 /** What a row needs (plain JSON from the server component). */
@@ -29,9 +33,41 @@ const dayFormat = new Intl.DateTimeFormat(undefined, {
 });
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
 
+/**
+ * "Start notes" (7.3): the meeting note for this event — made from it (title, attendees) or the one already
+ * made for the same meeting — in the current workspace, then opened. The server reads the event itself.
+ */
+function useStartNotes(eventId: string) {
+  const router = useRouter();
+  const { workspace } = useShellData();
+  const [pending, setPending] = useState(false);
+  const canCreate = workspace.role !== 'viewer';
+  async function start() {
+    if (pending) return;
+    setPending(true);
+    try {
+      const { documentId } = await request<{ documentId: string; created: boolean }>(
+        'POST',
+        '/api/calendar/notes',
+        { eventId, workspaceId: workspace.id },
+      );
+      router.push(`/d/${documentId}`);
+      router.refresh();
+    } catch (error) {
+      toast.error('Couldn’t start notes', {
+        description:
+          error instanceof ApiRequestError ? error.message : 'Something went wrong. Try again.',
+      });
+      setPending(false);
+    }
+  }
+  return { start, pending, canCreate };
+}
+
 export function UpcomingMeetingRow({ meeting }: { meeting: UpcomingMeetingView }) {
   // False while hydrating: times are formatted in the viewer's own zone, on the client only.
   const isClient = useHydrated();
+  const notes = useStartNotes(meeting.id);
   const start = new Date(meeting.start);
   const end = new Date(meeting.end);
   const meta = [
@@ -90,18 +126,22 @@ export function UpcomingMeetingRow({ meeting }: { meeting: UpcomingMeetingView }
             </a>
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            toast('Notes from calendar events are coming soon', {
-              description: 'For now, start a new note when the meeting begins.',
-            })
-          }
-        >
-          <NotebookPenIcon data-icon="inline-start" />
-          Start notes
-        </Button>
+        {notes.canCreate && (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={notes.pending || !isClient}
+            aria-label={`Start notes for ${meeting.title || 'this meeting'}`}
+            onClick={() => void notes.start()}
+          >
+            {notes.pending ? (
+              <Loader2Icon data-icon="inline-start" className="animate-spin" />
+            ) : (
+              <NotebookPenIcon data-icon="inline-start" />
+            )}
+            Start notes
+          </Button>
+        )}
       </div>
     </div>
   );

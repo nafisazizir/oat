@@ -233,3 +233,16 @@ Local audio belongs to the account that recorded it (refines D-10/D-28): the aud
 recording account's user id; Storage settings list, delete and the retention sweeper act only on the signed-in
 account's recordings; retention policy is per account per Mac. Recordings of other accounts on the same Mac are
 shown only as an aggregate "Other accounts: N GB" with no actions.
+
+## D-31 · 2026-11-15 · accepted · agent
+Notes from calendar events (from 7.3): `meeting.calendar_event_id` holds the **meeting key**
+(`calendarEventKey`, `@oat/calendar`): `ical:<iCalUID>@<start ISO>` when the event has a UID, else the source's
+event id — so the same invite seen through EventKit (desktop) and Google (web) maps to one note, matching the
+`mergeCalendarEvents` rule (all-day events key by start date, `ical:<UID>@YYYY-MM-DD`; a rescheduled occurrence
+gets a new key — its earlier note no longer matches, accepted). A note made from an event keeps `started_at`/`ended_at` empty until a recording
+starts (`started_at` stays "recording start"; nothing looks "in progress" and the post-meeting trigger on
+`ended_at` is not fired); its scheduled time and join link are read from the calendar by key while the calendar
+has the event (no schema change). Such a never-recorded meeting of **mine** may be recorded on any of my Macs (D-24
+refined: no start and no transcript = nothing to continue); a teammate's never-recorded note is not (theirs to
+start) — "Start notes" makes my own. The web resolves the event server-side from the user's own
+calendar and never trusts client-sent titles/attendees; reuse requires `canReadDocument`.

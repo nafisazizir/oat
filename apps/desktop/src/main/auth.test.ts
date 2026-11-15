@@ -46,6 +46,7 @@ function fakeWeb() {
     }),
     syncBackfill: vi.fn(async () => ({ changes: [], next: null })),
     openSyncEvents: vi.fn(async () => new Response('')),
+    calendarUpcoming: vi.fn(async () => ({ connected: false, state: null, events: [] })),
     signOut: vi.fn(async (token: string) => void sessions.delete(token)),
   } satisfies ApiClient;
   return {

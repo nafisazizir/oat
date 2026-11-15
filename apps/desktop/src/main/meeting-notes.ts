@@ -8,24 +8,32 @@
  * - `onChange` tells the windows to reload (list, header, participants). Content autosaves don't announce
  *   themselves: the window that typed them already shows them.
  */
+import { notePrefill } from '@oat/calendar';
+import type { CalendarEvent } from '@oat/core';
 import type {
   MeetingNote,
   MeetingNoteSummary,
   MeetingParticipant,
+  NoteCalendarEvent,
+  StartNotesResult,
   StoredSegment,
 } from '@oat/core/bridge';
 import { sameDocumentContent } from '@oat/core/sync';
-import { type LocalDocument, type LocalStore, uuidv7 } from '@oat/local-store';
+import { type LocalDocument, type LocalMeeting, type LocalStore, uuidv7 } from '@oat/local-store';
+
+import { meetingTitle } from './meeting-persistence.ts';
 
 export interface MeetingNotesOptions {
   /** The signed-in user's local database (`null` while it isn't open). */
   store: () => LocalStore | null;
   /** The signed-in user (`null` when signed out). */
   userId: () => string | null;
-  sync: { kick(): void };
+  sync: { kick(): void; personalWorkspace?(timeoutMs?: number): Promise<string | null> };
   onChange: () => void;
   /** Whether this Mac has audio of the meeting (its parts are in the audio index). Default: no. */
   hasAudio?: (meetingId: string) => Promise<boolean>;
+  /** The calendar event a note was made from, by the key it carries (7.3), while the calendar has it. */
+  calendarEvent?: (key: string) => CalendarEvent | null;
   newId?: () => string;
 }
 
@@ -112,7 +120,10 @@ export class MeetingNotes {
     const doc = documentId ? store.document(documentId) : undefined;
     if (!doc || doc.kind !== 'meeting') return null;
     const workspace = store.workspaces().find((w) => w.id === doc.workspaceId);
-    const recordedHere = meeting ? ((await this.#o.hasAudio?.(meeting.id)) ?? false) : false;
+    const recordedHere = meeting ? await this.#recordable(store, meeting) : false;
+    const event = meeting?.calendarEventId
+      ? (this.#o.calendarEvent?.(meeting.calendarEventId) ?? null)
+      : null;
     return {
       documentId: doc.id,
       meetingId: meeting?.id ?? null,
@@ -128,7 +139,109 @@ export class MeetingNotes {
       endedAt: meeting?.endedAt ?? null,
       updatedAt: doc.updatedAt,
       participants: meeting ? store.participants(meeting.id).map(toParticipant) : [],
+      calendarEvent: event && toNoteEvent(event),
     };
+  }
+
+  /**
+   * D-24 + 7.3: recording on this Mac may add to a meeting whose audio is here, or to **my own** note nothing was
+   * recorded for yet (made from a calendar event, or on the web): no start time and no transcript. A teammate's
+   * never-recorded note isn't: their Mac may be starting it right now (sync hasn't told us), and two devices must
+   * never record one meeting — "Start notes" then makes my own note for the event instead.
+   */
+  async #recordable(store: LocalStore, meeting: LocalMeeting): Promise<boolean> {
+    if ((await this.#o.hasAudio?.(meeting.id)) ?? false) return true;
+    const mine = store.document(meeting.documentId)?.ownerId === this.#o.userId();
+    return mine && meeting.startedAt === null && store.segments(meeting.id).length === 0;
+  }
+
+  /**
+   * The meeting note for one of these calendar keys (`calendarEventKey`, or an event id) — mine first, then
+   * one shared with me; trashed notes don't count. `null` when there is none (or no database).
+   */
+  findByCalendarKeys(keys: readonly string[]): string | null {
+    const store = this.#o.store();
+    const userId = this.#o.userId();
+    if (!store || !userId || keys.length === 0) return null;
+    let shared: string | null = null;
+    for (const n of store.meetingNotes()) {
+      if (!n.meetingId) continue;
+      const key = store.meeting(n.meetingId)?.calendarEventId;
+      if (!key || !keys.includes(key)) continue;
+      if (n.ownerId === userId) return n.documentId;
+      shared ??= n.documentId;
+    }
+    return shared;
+  }
+
+  readonly #creating = new Map<string, Promise<StartNotesResult>>();
+
+  /**
+   * "Start notes" on an event (7.3): the note already made for this meeting, else a new private note in my
+   * personal workspace with the event's title, its key (`meeting.calendar_event_id`) and its attendees
+   * (source `calendar`). Not started (no start time) until a recording starts. Concurrent calls for one event
+   * share one creation.
+   */
+  fromEvent(event: CalendarEvent): Promise<StartNotesResult> {
+    const prefill = notePrefill(event);
+    const running = this.#creating.get(prefill.calendarEventKey);
+    if (running) return running;
+    const work = this.#fromEvent(event, prefill).finally(() =>
+      this.#creating.delete(prefill.calendarEventKey),
+    );
+    this.#creating.set(prefill.calendarEventKey, work);
+    return work;
+  }
+
+  async #fromEvent(
+    event: CalendarEvent,
+    prefill: ReturnType<typeof notePrefill>,
+  ): Promise<StartNotesResult> {
+    const keys =
+      prefill.calendarEventKey === event.id ? [event.id] : [prefill.calendarEventKey, event.id];
+    const existing = this.findByCalendarKeys(keys);
+    if (existing) {
+      const meeting = this.#store().meetingOfDocument(existing);
+      return { documentId: existing, meetingId: meeting!.id, created: false };
+    }
+    const userId = this.#o.userId();
+    const workspaceId = (await this.#o.sync.personalWorkspace?.()) ?? null;
+    const store = this.#store();
+    if (!userId || !workspaceId) {
+      throw new MeetingNotesError(
+        'unavailable',
+        'Oat needs to connect once to set up your notes on this Mac. Check your connection and try again.',
+      );
+    }
+    const newId = this.#o.newId ?? uuidv7;
+    const meetingId = newId();
+    const documentId = newId();
+    store.transaction(() => {
+      store.createMeeting({
+        meetingId,
+        documentId,
+        workspaceId,
+        ownerId: userId,
+        title: prefill.title.slice(0, 200) || meetingTitle(event.start.getTime()),
+        startedAt: null,
+      });
+      store.updateMeeting(meetingId, {
+        calendarEventId: prefill.calendarEventKey,
+        platform: event.conferenceProvider,
+      });
+      for (const p of prefill.participants) {
+        store.saveParticipant({
+          id: newId(),
+          meetingId,
+          name: p.name,
+          email: p.email,
+          source: 'calendar',
+        });
+      }
+    });
+    this.#o.sync.kick();
+    this.#o.onChange();
+    return { documentId, meetingId, created: true };
   }
 
   transcript(documentId: string): StoredSegment[] {
@@ -156,7 +269,7 @@ export class MeetingNotes {
     const doc = meeting ? store.document(meeting.documentId) : undefined;
     if (!meeting || !doc) return 'This meeting isn’t on this Mac.';
     if (!this.#editable(doc)) return 'You can’t add to this note.';
-    if (!(await this.#o.hasAudio?.(meetingId))) {
+    if (!(await this.#recordable(store, meeting))) {
       return 'This meeting was recorded on another device. Start a new note to record here.';
     }
     return null;
@@ -242,6 +355,16 @@ export class MeetingNotes {
     this.#o.sync.kick();
     this.#o.onChange();
   }
+}
+
+function toNoteEvent(event: CalendarEvent): NoteCalendarEvent {
+  return {
+    title: event.title,
+    start: event.start.toISOString(),
+    end: event.end.toISOString(),
+    conferenceUrl: event.conferenceUrl,
+    conferenceProvider: event.conferenceProvider,
+  };
 }
 
 function toParticipant(p: {

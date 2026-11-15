@@ -6,6 +6,7 @@
  * and the token exchange answers with a session cookie we don't want stored anywhere.
  */
 import { AUTH_TOKEN_HEADER, DESKTOP_TOKEN_ENDPOINT } from '@oat/auth/desktop-link';
+import { type CalendarEvent, CalendarEventSchema } from '@oat/core';
 import { type DesktopUser, desktopUserSchema } from '@oat/core/bridge';
 import {
   type SyncBackfillResponse,
@@ -26,6 +27,7 @@ const SYNC_PUSH_PATH = '/api/sync/push';
 const SYNC_PULL_PATH = '/api/sync/pull';
 const SYNC_BACKFILL_PATH = '/api/sync/backfill';
 const SYNC_EVENTS_PATH = '/api/sync/events';
+const CALENDAR_UPCOMING_PATH = '/api/calendar/upcoming';
 /** A push carries up to 500 rows; give it longer than a plain call. */
 const SYNC_TIMEOUT_MS = 30_000;
 
@@ -47,6 +49,12 @@ const sttGrantSchema = z.object({
   expiresIn: z.number().positive().max(86_400),
   listenUrl: z.string().min(1).max(2048),
 });
+const upcomingSchema = z.object({
+  connected: z.boolean(),
+  sources: z.array(z.object({ state: z.enum(['ok', 'reconnect', 'error']) })),
+  events: z.array(z.unknown()),
+});
+
 const TIMEOUT_MS = 10_000;
 
 /** `<session token>.<signature>` as Better Auth's bearer plugin issues it. */
@@ -99,7 +107,7 @@ export function createApiClient({
     path: string,
     init: RequestInit & { token?: string; base?: string; timeoutMs?: number } = {},
   ) {
-    const { token, base = baseUrl, timeoutMs = TIMEOUT_MS, ...rest } = init;
+    const { token, base = baseUrl, timeoutMs = TIMEOUT_MS, signal, ...rest } = init;
     const headers = new Headers(rest.headers);
     headers.set('user-agent', userAgent);
     headers.set('accept', 'application/json');
@@ -109,7 +117,9 @@ export function createApiClient({
         ...rest,
         headers,
         redirect: 'error',
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
+          : AbortSignal.timeout(timeoutMs),
       });
     } catch {
       throw new ApiError(0, `Couldn’t reach ${new URL(base).host}.`);
@@ -266,6 +276,42 @@ export function createApiClient({
         throw new ApiError(401, 'Not signed in.');
       }
       return res;
+    },
+
+    /**
+     * Google Calendar events through the web app (`GET /api/calendar/upcoming`, 7.4): in progress and upcoming
+     * within `days`. Events that don't parse are skipped.
+     */
+    async calendarUpcoming(
+      token: string,
+      { days, limit, signal }: { days: number; limit: number; signal?: AbortSignal },
+    ): Promise<{
+      connected: boolean;
+      state: 'ok' | 'reconnect' | 'error' | null;
+      events: CalendarEvent[];
+    }> {
+      const res = await request(`${CALENDAR_UPCOMING_PATH}?days=${days}&limit=${limit}`, {
+        token,
+        ...(signal ? { signal } : {}),
+      });
+      if (!res.ok) {
+        throw new ApiError(
+          res.status,
+          res.status === 401 ? 'Your session has ended.' : 'Couldn’t load your calendar.',
+        );
+      }
+      const body = upcomingSchema.safeParse(await res.json().catch(() => undefined));
+      if (!body.success) throw new ApiError(502, 'Unexpected calendar response.');
+      const events: CalendarEvent[] = [];
+      for (const raw of body.data.events) {
+        const event = CalendarEventSchema.safeParse(raw);
+        if (event.success) events.push(event.data);
+      }
+      return {
+        connected: body.data.connected,
+        state: body.data.sources[0]?.state ?? null,
+        events,
+      };
     },
 
     /** Revokes the session on the server. */

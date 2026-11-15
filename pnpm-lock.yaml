@@ -381,9 +381,15 @@ importers:
       '@oat/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@oat/calendar':
+        specifier: workspace:*
+        version: link:../../packages/calendar
       '@oat/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@oat/detection':
+        specifier: workspace:*
+        version: link:../../packages/detection
       '@oat/editor':
         specifier: workspace:*
         version: link:../../packages/editor

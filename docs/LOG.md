@@ -95,3 +95,4 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - 2026-11-15 · flake-fix · root cause of recurring web e2e 429s: per-IP rate-limit counters (share page 120/min on 127.0.0.1) shared across parallel e2e servers via the one dev Redis. Added OAT_RATE_LIMIT_NAMESPACE (unique per e2e server).
 - 2026-11-15 · 8.3 · shipped: post-meeting pipeline on eve (D-29): trigger, settings, run log, status/retry, @oat/services layering (squash-merged).
 - 2026-11-15 · 3.7 · shipped: desktop audio playback synced to transcript (oat-audio:// WAV-on-the-fly, multi-part seek, highlight) (squash-merged).
+- 2026-11-15 · 7.3 · shipped: calendar → meeting notes (desktop Upcoming, detection prompt wiring, web Start notes) + D-31 (squash-merged).

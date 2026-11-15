@@ -13,6 +13,7 @@
  */
 import { z } from 'zod';
 
+import { calendarInvokeChannels, calendarSubscribeChannels } from './bridge-calendar.ts';
 import {
   meetingInvokeChannels,
   meetingSendChannels,
@@ -21,6 +22,7 @@ import {
 import { playbackInvokeChannels } from './bridge-playback.ts';
 import { storageInvokeChannels, storageSubscribeChannels } from './bridge-storage.ts';
 
+export * from './bridge-calendar.ts';
 export * from './bridge-meetings.ts';
 export * from './bridge-playback.ts';
 export * from './bridge-storage.ts';
@@ -373,6 +375,8 @@ export const bridgeContract = {
     'window:close-widget': { request: none, response: none },
     /** Meeting note view (3.4). */
     ...meetingInvokeChannels,
+    /** Calendar notes + meeting detection (7.3). */
+    ...calendarInvokeChannels,
     /** Audio archive storage + retention (3.8), `bridge-storage.ts`. */
     ...storageInvokeChannels,
     /** Listening back to a meeting's local audio (3.7), `bridge-playback.ts`. */
@@ -392,6 +396,7 @@ export const bridgeContract = {
     /** Transcript deltas of the active meeting (batched). */
     'transcript:segments': transcriptBatchSchema,
     ...meetingSubscribeChannels,
+    ...calendarSubscribeChannels,
     ...storageSubscribeChannels,
   },
 } as const;

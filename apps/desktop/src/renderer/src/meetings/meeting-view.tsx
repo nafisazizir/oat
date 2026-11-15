@@ -34,6 +34,7 @@ import {
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import { BridgeCallError, call } from '../bridge.ts';
+import { NoteEventLine } from '../calendar/note-event-line.tsx';
 import { IssueBanner, RecordingBar } from '../recording/recording-controls.tsx';
 import { TranscriptPanel } from '../recording/transcript-panel.tsx';
 import { useTranscript } from '../recording-state.ts';
@@ -106,6 +107,7 @@ export function MeetingView({
           onInputChange={onInputChange}
           // D-24: continue only an editable note whose audio is on this Mac; else a new note.
           meetingId={note?.editable && note.recordedHere ? meetingId : null}
+          recorded={note?.startedAt !== null}
           hint={
             note && meetingId && !(note.editable && note.recordedHere)
               ? note.editable
@@ -344,6 +346,7 @@ function NoteBody({
           </div>
         )}
         <MeetingTime startedAt={note.startedAt} endedAt={note.endedAt} live={live} />
+        <NoteEventLine event={note.calendarEvent} />
         <ParticipantChips
           participants={note.participants}
           editable={editable && note.meetingId !== null}

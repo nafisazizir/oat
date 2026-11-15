@@ -33,7 +33,10 @@ import {
 } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 
-import { BridgeCallError, call } from '../bridge.ts';
+import { bridge, BridgeCallError, call } from '../bridge.ts';
+import { useCalendar, useMeetingPrompt } from '../calendar/calendar-state.ts';
+import { PromptBanner } from '../calendar/prompt-banner.tsx';
+import { UpcomingList } from '../calendar/upcoming-list.tsx';
 import { useMainState } from '../main-state.ts';
 import { MeetingList, NewMeetingButton } from '../meetings/meeting-list.tsx';
 import { MeetingView } from '../meetings/meeting-view.tsx';
@@ -300,6 +303,13 @@ function SignedInShell({
       .then(setOptions)
       .catch(() => {});
   }, []);
+  // 7.3: "Upcoming" + the "Start notes?" prompt; main opens a note when a notification is clicked.
+  const calendar = useCalendar(true);
+  const prompt = useMeetingPrompt(true);
+  useEffect(
+    () => bridge().subscribe('notes:open', ({ documentId }) => setSelected(documentId)),
+    [],
+  );
 
   // A recording (re)started: open the note it records into once it exists (its row is created right
   // before the audio starts, so it may take one list reload to appear).
@@ -338,6 +348,13 @@ function SignedInShell({
                   {starting.error}
                 </p>
               )}
+              <UpcomingList
+                snapshot={calendar}
+                onOpen={(documentId) => {
+                  setSelected(documentId);
+                  bumpMeetingsVersion();
+                }}
+              />
               <MeetingList
                 notes={notes}
                 selected={selected}
@@ -351,17 +368,20 @@ function SignedInShell({
           </SignedInCard>
         </div>
       </aside>
-      {settingsOpen ? (
-        <SettingsView onClose={() => setSettingsOpen(false)} />
-      ) : (
-        <MeetingView
-          documentId={selected}
-          snapshot={snapshot}
-          options={options}
-          input={input}
-          onInputChange={setChoice}
-        />
-      )}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col [&>section]:min-h-0">
+        <PromptBanner prompt={prompt} recording={startRequest(input)} />
+        {settingsOpen ? (
+          <SettingsView onClose={() => setSettingsOpen(false)} />
+        ) : (
+          <MeetingView
+            documentId={selected}
+            snapshot={snapshot}
+            options={options}
+            input={input}
+            onInputChange={setChoice}
+          />
+        )}
+      </div>
     </main>
   );
 }

@@ -66,8 +66,13 @@ export class MeetingPersistence implements TranscriptPersistence {
     if (!userId) throw new PersistenceError('Sign in to record.');
     const existing = this.#store().meeting(meetingId);
     if (existing) {
-      // Resuming (D-24): same meeting, same note — and it is in progress again.
-      if (existing.endedAt !== null && this.#store().updateMeeting(meetingId, { endedAt: null })) {
+      // Resuming (D-24): same meeting, same note — and it is in progress again. A note made from a calendar
+      // event (7.3) or on the web has no start yet: its first recording is its start.
+      const patch = {
+        endedAt: null,
+        ...(existing.startedAt === null ? { startedAt: new Date(startedAt).toISOString() } : {}),
+      };
+      if (this.#store().updateMeeting(meetingId, patch)) {
         this.#o.sync.kick();
         this.#o.onChange?.();
       }

@@ -112,6 +112,32 @@ export async function listUpcomingMeetings(
   };
 }
 
+/**
+ * One event of the user's connected calendars by id (7.3 "Start notes"), within the window Home lists (a day
+ * back … three weeks ahead); `null` when it isn't there or the calendar can't be read.
+ */
+export async function findCalendarEvent(
+  userId: string,
+  eventId: string,
+  options: { now?: Date } = {},
+): Promise<CalendarEvent | null> {
+  const now = options.now ?? new Date();
+  const connection = await getGoogleCalendarConnection(userId);
+  if (!connection?.hasCalendarScope) return null;
+  try {
+    const events = await googleSource(connection, userId).fetchEvents({
+      from: new Date(now.getTime() - 24 * 3_600_000),
+      to: new Date(now.getTime() + 21 * 24 * 3_600_000),
+    });
+    return events.find((e) => e.id === eventId) ?? null;
+  } catch (error) {
+    if (!(error instanceof CalendarAccessError)) {
+      console.error('calendar: Google Calendar read failed:', error);
+    }
+    return null;
+  }
+}
+
 /** Revokes and removes the user's Google Calendar grant and forgets its cached events. */
 export async function disconnectGoogleCalendarFor(userId: string) {
   const connection = await getGoogleCalendarConnection(userId);

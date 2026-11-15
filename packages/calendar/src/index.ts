@@ -7,6 +7,13 @@
 export { CalendarCache, type CalendarCacheOptions } from './cache.ts';
 export { mergeCalendarEvents } from './merge.ts';
 export {
+  calendarEventKey,
+  MAX_PREFILL_PARTICIPANTS,
+  notePrefill,
+  type NotePrefill,
+  type PrefillParticipant,
+} from './prefill.ts';
+export {
   filterRange,
   FixtureCalendarSource,
   parseEventLines,

@@ -4,7 +4,7 @@ import { type Page } from '@playwright/test';
 
 import { SIGNED_OUT, signInWithMagicLink, uniqueAddress } from './auth-helpers';
 import { expect, test } from './fixtures';
-import { EVIDENCE_7_4 } from './paths';
+import { EVIDENCE_7_3, EVIDENCE_7_4 } from './paths';
 
 /**
  * 7.4: connect Google Calendar (mock OIDC issuer for consent, the in-process gcal mock from
@@ -15,13 +15,13 @@ import { EVIDENCE_7_4 } from './paths';
 test.use({ storageState: SIGNED_OUT, viewport: { width: 1280, height: 800 } });
 
 /** Screenshot for docs/tasks/evidence/7.4 — only when `E2E_SCREENSHOTS` is set (tracked files). */
-async function evidence(page: Page, name: string) {
+async function evidence(page: Page, name: string, dir = EVIDENCE_7_4) {
   if (!process.env.E2E_SCREENSHOTS) return;
-  mkdirSync(EVIDENCE_7_4, { recursive: true });
+  mkdirSync(dir, { recursive: true });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(300);
   await page.screenshot({
-    path: `${EVIDENCE_7_4}${name}.png`,
+    path: `${dir}${name}.png`,
     style: 'nextjs-portal { display: none !important; }',
   });
 }
@@ -101,8 +101,33 @@ test('connect Google Calendar → upcoming meetings on Home → disconnect', asy
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await evidence(page, 'home-upcoming-phone');
   await page.setViewportSize({ width: 1280, height: 800 });
-  await standup.getByRole('button', { name: 'Start notes' }).click();
-  await expect(page.getByText('Notes from calendar events are coming soon')).toBeVisible();
+
+  // 7.3: "Start notes" makes the meeting note from the event (title, attendees but me) and opens it…
+  await standup.getByRole('button', { name: /^Start notes/ }).click();
+  await page.waitForURL(/\/d\/[^/]+$/);
+  const noteUrl = page.url();
+  await expect(page.getByTestId('document-title').filter({ visible: true })).toHaveValue(
+    'Daily standup',
+  );
+  const chips = page.getByTestId('participant-chip').filter({ visible: true });
+  await expect(chips).toHaveCount(3); // Jordan, Sam, Priya — not Alex (`self`)
+  // All from the calendar; order among attendees added together isn't defined.
+  await expect(chips.and(page.locator('[data-source=calendar]'))).toHaveCount(3);
+  for (const name of ['Jordan Lee', 'Sam Okafor', 'Priya Nair'])
+    await expect(chips.filter({ hasText: name })).toHaveCount(1);
+  await evidence(page, 'web-start-notes', EVIDENCE_7_3);
+  // …and the same event again reopens that note instead of making a second one.
+  await page.goto('/home');
+  await upcoming
+    .getByTestId('upcoming-meeting')
+    .nth(1)
+    .getByRole('button', { name: /^Start notes/ })
+    .click();
+  await page.waitForURL(noteUrl);
+  await expect(page.getByTestId('document-title').filter({ visible: true })).toHaveValue(
+    'Daily standup',
+  );
+  await page.goto('/home');
 
   // The same data over the API (session cookie), as the desktop app will read it.
   const api = await page.request.get('/api/calendar/upcoming?limit=3');

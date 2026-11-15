@@ -5,6 +5,8 @@ import { createRateLimiter, type RateLimiter } from '@oat/auth';
 import { notionConfig, serverEnv } from '@/lib/env';
 
 import { getAuth, getAuthConfig } from '../auth';
+import { findCalendarEvent } from '../calendar';
+import { createCalendarNotesApi } from '../calendar-notes';
 import { getDb } from '../db';
 import { createMeetingApi } from '../meeting';
 import type { NotionDeps } from '../notion';
@@ -66,3 +68,8 @@ export const profileApi = createProfileApi(apiDeps);
 
 /** Meeting side of meeting notes: times, attendees (3.4). */
 export const meetingApi = createMeetingApi(apiDeps);
+
+/** Meeting notes from calendar events (7.3). */
+export const calendarNotesApi = createCalendarNotesApi(apiDeps, (userId, eventId) =>
+  findCalendarEvent(userId, eventId),
+);

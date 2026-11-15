@@ -361,6 +361,16 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   live-transcription websocket the API names (e2e points it at a closed port to test "transcription down").
   `OAT_SYNC_URL` sends `/api/sync/*` to another origin than `OAT_WEB_URL` (same https/loopback rules; e2e
   points it at a dead port, then starts a proxy there, to test offline → drain).
+- **Calendar notes + detection (7.3).** The sidebar's "Upcoming" merges the Mac's calendars with Google Calendar
+  (through `/api/calendar/upcoming`); clicking an event makes (or reopens) its meeting note. Meeting detection
+  shows a "Start notes?" banner + native notification. In dev both Mac sources are **off** unless asked for:
+  `OAT_CALENDAR=off|eventkit|fixture:<file>` (`eventkit` = the real calendars via the sidecar — granting access is
+  a human checkpoint; a fixture is a JSON array of normalised events, `{ "access", "events" }`, or `.jsonl`) and
+  `OAT_DETECTION=off|sidecar|fixture:<timeline.json>` (`sidecar` = real `mic-apps watch`, a human checkpoint; a
+  fixture replays a `fixtures/detection/*.json` timeline's `steps[].micApps` in process from sign-in). Packaged
+  builds always use EventKit + the sidecar. e2e never shows a real notification (recorded on
+  `globalThis.__oatNotifications`). Silenced apps: `<userData>/detection.json`. Details:
+  `docs/tasks/7.3-calendar-notes.md`.
 - **Recording (2.5).** Start/pause/stop in the main window (or Stop in the widget); the transcript is live
   (mic = "me", system = "them"). STT tokens come from `POST /api/stt/token` (the mock in dev, Deepgram with
   `DEEPGRAM_API_KEY`), audio goes to `<userData>/audio/<meeting>/{mic,system}.opus`. Sleep pauses the
@@ -414,7 +424,7 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   the app with a temp profile against `next dev` on a throwaway database (apps/web's `e2e/web-server.ts`,
   `E2E_PORT`, default 3100). `shell.openExternal` is stubbed and deep links are delivered by emitting
   `open-url`, so no browser opens and nothing is registered with the OS. The web half of sign-in runs in
-  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/`, `2.5/`, `2.6/`, `3.5/`, `3.7/` and `3.8/` (screenshots, `cold-start.json`, `latency.json`, `sync.json`, `playback.json`, `storage.json`). Other
+  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/`, `2.5/`, `2.6/`, `3.5/`, `3.7/`, `3.8/` and `7.3/` (screenshots, `cold-start.json`, `latency.json`, `sync.json`, `playback.json`, `storage.json`). Other
   platforms skip it.
 
 ## Database (`@oat/db`)

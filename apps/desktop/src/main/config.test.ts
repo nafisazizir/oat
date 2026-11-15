@@ -42,6 +42,8 @@ describe('desktopConfigFromEnv', () => {
         OAT_E2E: '1',
         OAT_DEVTOOLS: '1',
         ELECTRON_RENDERER_URL: 'http://localhost:5173',
+        OAT_CALENDAR: 'fixture:/tmp/events.json',
+        OAT_DETECTION: 'fixture:/tmp/timeline.json',
       },
       { isPackaged: true, bakedWebUrl: 'https://oat.example' },
     );
@@ -56,7 +58,31 @@ describe('desktopConfigFromEnv', () => {
       audio: { input: 'sidecar', fixture: null, synthetic: false, allowFixtures: false },
       sttUrl: undefined,
       syncUrl: undefined,
+      calendar: { kind: 'eventkit' },
+      detection: { kind: 'sidecar' },
     });
+  });
+
+  it('OAT_CALENDAR / OAT_DETECTION: off by default in dev, fixtures or the sidecar on request', () => {
+    const dev = { isPackaged: false };
+    expect(desktopConfigFromEnv({}, dev).calendar).toEqual({ kind: 'off' });
+    expect(desktopConfigFromEnv({}, dev).detection).toEqual({ kind: 'off' });
+    expect(desktopConfigFromEnv({ OAT_CALENDAR: 'eventkit' }, dev).calendar).toEqual({
+      kind: 'eventkit',
+    });
+    expect(desktopConfigFromEnv({ OAT_CALENDAR: 'fixture:/tmp/e.json' }, dev).calendar).toEqual({
+      kind: 'fixture',
+      file: '/tmp/e.json',
+    });
+    expect(desktopConfigFromEnv({ OAT_DETECTION: 'sidecar' }, dev).detection).toEqual({
+      kind: 'sidecar',
+    });
+    expect(desktopConfigFromEnv({ OAT_DETECTION: 'fixture:/tmp/t.json' }, dev).detection).toEqual({
+      kind: 'fixture',
+      file: '/tmp/t.json',
+    });
+    expect(() => desktopConfigFromEnv({ OAT_CALENDAR: 'google' }, dev)).toThrow(/OAT_CALENDAR/);
+    expect(() => desktopConfigFromEnv({ OAT_DETECTION: 'fixture:' }, dev)).toThrow(/OAT_DETECTION/);
   });
 
   it('OAT_SYNC_URL: dev only, same rules as OAT_WEB_URL', () => {

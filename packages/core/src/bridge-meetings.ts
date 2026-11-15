@@ -6,6 +6,8 @@
  */
 import { z } from 'zod';
 
+import { noteCalendarEventSchema } from './bridge-calendar.ts';
+
 const documentId = z.string().min(1).max(100);
 /** Same rule as `meetingIdSchema` in bridge.ts (audio archive folder names). */
 const meetingId = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/);
@@ -50,13 +52,18 @@ export const meetingNoteSchema = z.object({
   visibility: z.enum(['private', 'workspace', 'link']),
   /** The local copy may be edited (the server still decides when it syncs). */
   editable: z.boolean(),
-  /** Audio of this meeting is on this Mac (recording can continue it, D-24). */
+  /**
+   * Recording on this Mac can add to this meeting (D-24): its audio is here, or nothing was recorded yet
+   * (a note made from a calendar event or on the web).
+   */
   recordedHere: z.boolean(),
   trashed: z.boolean(),
   startedAt: iso.nullable(),
   endedAt: iso.nullable(),
   updatedAt: iso,
   participants: z.array(meetingParticipantSchema).max(1000),
+  /** The calendar event it was made from, while the calendar has it (7.3). */
+  calendarEvent: noteCalendarEventSchema.nullable().default(null),
 });
 export type MeetingNote = z.infer<typeof meetingNoteSchema>;
 

@@ -184,6 +184,7 @@ export function RecordingBar({
   input,
   onInputChange,
   meetingId = null,
+  recorded = true,
   hint = null,
 }: {
   snapshot: RecordingSnapshot | null;
@@ -193,6 +194,8 @@ export function RecordingBar({
   onInputChange: (choice: string) => void;
   /** The open note's meeting, when recording may continue it. */
   meetingId?: string | null;
+  /** That meeting has been recorded before ("Continue recording"); false: its first recording (7.3). */
+  recorded?: boolean;
   /** Why the open note can't be continued (shown under the bar while idle). */
   hint?: string | null;
 }) {
@@ -233,7 +236,7 @@ export function RecordingBar({
             ) : (
               <MicIcon data-icon="inline-start" />
             )}
-            {meetingId ? 'Continue recording' : 'Start recording'}
+            {meetingId && recorded ? 'Continue recording' : 'Start recording'}
           </Button>
         )}
         {status === 'starting' && (

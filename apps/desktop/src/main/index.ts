@@ -15,6 +15,7 @@ import {
   app,
   BrowserWindow,
   ipcMain,
+  Notification,
   powerMonitor,
   protocol,
   safeStorage,
@@ -27,7 +28,15 @@ import { ApiError, createApiClient } from './api-client.ts';
 import { AudioPlayback, PlaybackError } from './audio-playback.ts';
 import { AudioStorage, StorageError } from './audio-storage.ts';
 import { AuthController } from './auth.ts';
+import { CalendarService } from './calendar-service.ts';
+import { createCalendarSetup } from './calendar-setup.ts';
 import { desktopConfigFromEnv } from './config.ts';
+import {
+  DetectionService,
+  DetectionServiceError,
+  type NotifyRequest,
+  type ShownNotification,
+} from './detection-service.ts';
 import { BridgeError, createBridge, type Logger, subscribePayload } from './ipc.ts';
 import { MeetingNotes, MeetingNotesError } from './meeting-notes.ts';
 import { MeetingPersistence } from './meeting-persistence.ts';
@@ -262,6 +271,7 @@ async function start() {
     meetingsTimer = setTimeout(() => {
       meetingsTimer = undefined;
       broadcast('meetings:changed', { seq: ++meetingsSeq });
+      calendar.notesChanged(); // 7.3: "Upcoming" marks events that have a note
     }, 250);
   }
   const sync: SyncService = new SyncService({
@@ -306,6 +316,7 @@ async function start() {
     // D-24: a meeting can be continued only where its audio parts are.
     hasAudio: async (meetingId) =>
       (await audioIndex.list({ meetingId })).some((r) => r.status !== 'deleted'),
+    calendarEvent: (key) => calendar.findByKey(key),
   });
   const notesCall = async <T>(fn: () => T | Promise<T>): Promise<T> => {
     try {
@@ -386,6 +397,7 @@ async function start() {
           storage.recordingEnded();
         });
       }
+      detection.setRecording(status !== 'idle' && status !== 'error');
     },
   });
   quitGracefully(recording, () => notesFlush.request());
@@ -509,6 +521,98 @@ async function start() {
   bridge.handle('recording:get', () => recording.snapshot());
   bridge.handle('transcript:get', () => recording.transcript());
 
+  // --- Calendar notes + meeting detection (7.3) ---
+  const calendarSetup = createCalendarSetup({
+    calendar: config.calendar,
+    detection: config.detection,
+    isPackaged: app.isPackaged,
+    env: process.env,
+    ...(app.isPackaged ? { resourcesPath: process.resourcesPath } : {}),
+    openExternal: (url) => void shell.openExternal(url),
+    log,
+  });
+  const calendar: CalendarService = new CalendarService({
+    local: calendarSetup.localCalendar(),
+    google: {
+      fetch: (signal) =>
+        auth.withSession((token) => api.calendarUpcoming(token, { days: 2, limit: 50, signal })),
+      openConnect: () =>
+        void shell.openExternal(new URL('/settings/integrations', config.webUrl).toString()),
+    },
+    user: signedInUser,
+    noteFor: (keys) => notes.findByCalendarKeys(keys),
+    onEvents: (events) => detection.setEvents(events),
+    onSnapshot: (snapshot) => broadcast('calendar:changed', snapshot),
+    onStartingSoon: (event) => detection.startingSoon(event),
+    log,
+  });
+  const detection: DetectionService = new DetectionService({
+    source: calendarSetup.micApps(),
+    dir: app.getPath('userData'),
+    calendar,
+    startNotes: async ({ event, input, fixture }) => {
+      if (!auth.signedIn) throw new BridgeError('unauthorized', 'Sign in to record.');
+      if (recording.busy) throw new BridgeError('invalid_state', 'Oat is already recording.');
+      let meetingId: string | undefined;
+      let documentId: string | null = null;
+      if (event) {
+        const note = await notes.fromEvent(event);
+        // A note recorded on another device can't be continued here (D-24): record into a new one.
+        if (!(await notes.cannotContinue(note.meetingId))) {
+          ({ meetingId, documentId } = note);
+        }
+      }
+      const spec = setup.resolveInput({
+        ...(input ? { input } : {}),
+        ...(fixture ? { fixture } : {}),
+      });
+      const started = await recording.start({ ...(meetingId ? { meetingId } : {}), spec });
+      documentId ??= (await notes.get({ meetingId: started.meetingId }))?.documentId ?? null;
+      return { documentId };
+    },
+    notify: showNotification,
+    onPrompt: (prompt) => broadcast('prompt:changed', { prompt }),
+    onOpened: (documentId) => {
+      focusMainWindow();
+      if (documentId) broadcast('notes:open', { documentId });
+    },
+    log,
+  });
+  app.once('will-quit', () => {
+    void detection.stop();
+    void calendar.stop();
+  });
+  bridge.handle('calendar:get', () => calendar.snapshot);
+  bridge.handle('calendar:refresh', () => calendar.refresh());
+  bridge.handle('calendar:connect', ({ provider }) => calendar.connect(provider));
+  bridge.handle('calendar:start-notes', ({ eventId }) =>
+    notesCall(async () => {
+      if (!auth.signedIn) throw new BridgeError('unauthorized', 'Sign in first.');
+      const event = calendar.find(eventId);
+      if (!event)
+        throw new BridgeError('invalid_state', 'That event isn’t in your calendar anymore.');
+      return notes.fromEvent(event);
+    }),
+  );
+  bridge.handle('prompt:get', () => detection.prompt);
+  bridge.handle('prompt:respond', ({ promptId, action, input, fixture }) =>
+    recordingCall(() =>
+      notesCall(async () => {
+        try {
+          return await detection.respond(promptId, action, {
+            ...(input ? { input } : {}),
+            ...(fixture ? { fixture } : {}),
+          });
+        } catch (error) {
+          if (error instanceof DetectionServiceError) {
+            throw new BridgeError('invalid_state', error.message);
+          }
+          throw error;
+        }
+      }),
+    ),
+  );
+
   bridge.on('app:rendered', ({ window }) => {
     if (window !== 'main' || coldStartMs !== null) return;
     coldStartMs = Math.round(process.uptime() * 1000);
@@ -518,6 +622,7 @@ async function start() {
     if (isSafeExternalUrl(url)) void shell.openExternal(url);
   });
 
+  let calendarUser: string | null = null;
   store.subscribe((snapshot) => {
     broadcast('state:changed', snapshot);
     if (snapshot.state.auth.status === 'signed-out') credentials.clear();
@@ -534,9 +639,18 @@ async function start() {
         }
       });
     });
+    // 7.3: Google events and "Start notes?" prompts belong to the signed-in account.
+    const user = signedInUser();
+    if (user !== calendarUser) {
+      calendarUser = user;
+      calendar.authChanged();
+      if (user) void detection.start(user);
+      else void detection.stop();
+    }
   });
   openMainWindow();
   await auth.restore();
+  void calendar.start();
 
   deliverLink = (url) => {
     void auth.handleDeepLink(url).then((signedIn) => {
@@ -547,6 +661,24 @@ async function start() {
 
   registerProtocolClient();
   app.on('activate', () => openMainWindow());
+}
+
+/**
+ * A native notification ("Start notes for …?", "… is starting"). e2e never shows one (it would pop up on the
+ * developer's screen): it is recorded on `globalThis.__oatNotifications` for the test to inspect and click.
+ */
+function showNotification(request: NotifyRequest): ShownNotification | null {
+  if (config.e2e) {
+    const g = globalThis as { __oatNotifications?: (NotifyRequest & { closed: boolean })[] };
+    const entry = { ...request, closed: false };
+    (g.__oatNotifications ??= []).push(entry);
+    return { close: () => void (entry.closed = true) };
+  }
+  if (!Notification.isSupported()) return null;
+  const notification = new Notification({ title: request.title, body: request.body });
+  notification.on('click', request.onClick);
+  notification.show();
+  return { close: () => notification.close() };
 }
 
 /**
