@@ -1,0 +1,6 @@
+/*
+ * apps/web styles: everything (Tailwind v4, tokens, fonts, base layer) comes from @oat/ui.
+ * Tailwind scans this app's sources automatically and @oat/ui's via its own `@source`.
+ * Keep app-level CSS to layout glue only; colours, type and spacing come from tokens.
+ */
+@import '@oat/ui/styles.css';

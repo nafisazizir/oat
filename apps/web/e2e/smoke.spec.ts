@@ -1,0 +1,183 @@
+import { expect, sidebarSelector, test } from './fixtures';
+
+test.describe('app shell', () => {
+  test('root redirects to a rendered home', async ({ page }) => {
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/home$/);
+    await expect(page).toHaveTitle('Home · Oat');
+    await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible();
+    await expect(page.getByText('No meeting notes yet')).toBeVisible();
+    await expect(page.getByTestId('workspace-switcher')).toContainText('Personal');
+    await expect(
+      page.getByTestId('page-tree').getByRole('link', { name: 'Reading list' }),
+    ).toBeVisible();
+    const crumbs = page.getByRole('navigation', { name: 'Breadcrumb' });
+    await expect(crumbs).toContainText('Personal');
+    await expect(crumbs.locator('[aria-current="page"]')).toHaveText('Home');
+  });
+
+  // Guard: during 1.4 `next dev` once rebuilt and fully reloaded every page in a loop (HMR
+  // "rebuilding" → reload). Other assertions retry and can pass mid-loop, so count loads explicitly.
+  test('dev server loads a page once (no HMR reload loop)', async ({ page }) => {
+    let loads = 0;
+    page.on('load', () => loads++);
+    await page.goto('/home');
+    await page.waitForTimeout(2500);
+    expect(loads).toBe(1);
+  });
+
+  test('sidebar collapses, remembers it across reloads, and ⌘B expands it', async ({ page }) => {
+    await page.goto('/home');
+    const sidebar = page.locator(sidebarSelector);
+    await expect(sidebar).toHaveAttribute('data-state', 'expanded');
+
+    await page.getByTestId('sidebar-trigger').click();
+    await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+    // Collapsed to icons: labels hidden, icon buttons still there.
+    await expect(page.getByTestId('page-tree').getByText('Getting started')).toBeHidden();
+
+    await page.reload();
+    await expect(page.locator(sidebarSelector)).toHaveAttribute('data-state', 'collapsed');
+
+    await page.locator('body').click();
+    await page.keyboard.press('ControlOrMeta+b');
+    await expect(page.locator(sidebarSelector)).toHaveAttribute('data-state', 'expanded');
+  });
+
+  test('page tree navigates and shows breadcrumbs', async ({ page }) => {
+    await page.goto('/home');
+    await page.getByTestId('page-tree').getByRole('link', { name: 'Reading list' }).click();
+    await expect(page).toHaveURL(/\/d\/reading-list$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Reading list' })).toBeVisible();
+    const crumbs = page.getByRole('navigation', { name: 'Breadcrumb' });
+    // Separators are aria-hidden, so only the four crumbs are list items.
+    await expect(crumbs.getByRole('listitem')).toHaveText([
+      'Personal',
+      'Private',
+      'Ideas',
+      'Reading list',
+    ]);
+    await crumbs.getByRole('link', { name: 'Ideas' }).click();
+    await expect(page).toHaveURL(/\/d\/ideas$/);
+  });
+
+  test('⌘K opens the command palette and navigates', async ({ page }) => {
+    await page.goto('/home');
+    await page.keyboard.press('ControlOrMeta+k');
+    const palette = page.getByRole('dialog', { name: 'Command palette' });
+    await expect(palette).toBeVisible();
+
+    await page.keyboard.type('settings');
+    await page.keyboard.press('Enter');
+    await expect(palette).toBeHidden();
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+
+    // The sidebar's Search item opens it too; pick a page.
+    await page
+      .getByRole('button', { name: /^Search/ })
+      .first()
+      .click();
+    await expect(palette).toBeVisible();
+    await page.keyboard.type('side projects');
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/d\/side-projects$/);
+
+    // ⌘K toggles: a second press closes it.
+    await page.keyboard.press('ControlOrMeta+k');
+    await expect(palette).toBeVisible();
+    await page.keyboard.press('ControlOrMeta+k');
+    await expect(palette).toBeHidden();
+  });
+
+  test('theme toggles between light, dark and system, without a flash on reload', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('/home');
+    const html = page.locator('html');
+    await expect(html).not.toHaveClass(/\bdark\b/);
+
+    await page.getByTestId('theme-menu').click();
+    await page.getByRole('menuitemradio', { name: 'Dark' }).click();
+    await expect(html).toHaveClass(/\bdark\b/);
+
+    // The head script applies the stored theme before hydration: check the very first paint.
+    await page.reload({ waitUntil: 'commit' });
+    await page.waitForSelector('body');
+    expect(await page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(
+      true,
+    );
+    await page.waitForLoadState('load');
+
+    // System follows the OS appearance, live.
+    await page.getByTestId('theme-menu').click();
+    await page.getByRole('menuitemradio', { name: 'System' }).click();
+    await expect(html).not.toHaveClass(/\bdark\b/);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(html).toHaveClass(/\bdark\b/);
+
+    // Command palette theme commands work too.
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.keyboard.type('light theme');
+    await page.keyboard.press('Enter');
+    await expect(html).not.toHaveClass(/\bdark\b/);
+  });
+});
+
+test.describe('routes', () => {
+  test('GET /api/health', async ({ request }) => {
+    const response = await request.get('/api/health');
+    expect(response.status()).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, version: '0.0.0' });
+  });
+
+  test('settings reads the typed env (local mocks by default)', async ({ page }) => {
+    await page.goto('/settings');
+    await expect(page.getByTestId('integration-ai')).toHaveText('Local mock');
+    await expect(page.getByTestId('integration-stt')).toHaveText('Local mock');
+    await expect(page.getByTestId('integration-oauth')).toHaveText('Local mock');
+  });
+
+  test('unknown document shows not-found inside the shell', async ({ page }) => {
+    await page.goto('/d/does-not-exist');
+    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+    await expect(page.locator(sidebarSelector)).toBeVisible();
+  });
+
+  test('sign-in form renders (UI only until 1.6)', async ({ page }) => {
+    await page.goto('/sign-in');
+    await expect(page.getByRole('heading', { level: 1, name: 'Welcome to Oat' })).toBeVisible();
+    await page.getByLabel('Work email').fill('me@example.com');
+    await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
+    await expect(page.getByRole('status')).toContainText('isn’t connected yet');
+  });
+
+  test('share page uses the public read-only layout', async ({ page }) => {
+    await page.goto('/share/abc123token');
+    await expect(page.getByText('Read-only', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Shared note' })).toBeVisible();
+    await expect(page.locator(sidebarSelector)).toHaveCount(0);
+  });
+});
+
+test.describe('error boundary', () => {
+  // The thrown error is logged to the console by React/Next on purpose.
+  test.use({ allowConsoleErrors: true });
+
+  test('a failing page renders error.tsx and keeps the shell', async ({ page }) => {
+    await page.goto('/d/__error');
+    await expect(page.getByRole('alert').filter({ hasText: 'Something went wrong' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+    await expect(page.locator(sidebarSelector)).toBeVisible();
+  });
+
+  test('an error above every error.tsx renders global-error.tsx', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('oat-theme', 'dark'));
+    await page.goto('/dev-probes/global-error');
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/); // keeps the user's theme
+    await expect(page.getByRole('alert').filter({ hasText: 'Oat couldn’t load' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/home');
+  });
+});
