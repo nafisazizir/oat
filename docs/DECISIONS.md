@@ -202,3 +202,11 @@ the thread owner approves (applied at baseVersion inside the locking transaction
 client-supplied history. Per-user chat rate limit 20/min, 500/day. Known trade-off: tool outputs already stored
 in a thread stay in its history after the user later loses access to that note (threads are private to their
 owner; revisit with retention settings).
+
+## D-28 · 2026-11-14 · accepted · agent
+Desktop local store (from 2.6): built-in `node:sqlite` (no native rebuild; WAL works in Electron 45's Node 24).
+One database file per signed-in user; switching accounts keeps the previous user's file and is refused while
+recording. The cache is wiped only on genuine corruption / too-new schema / failed migration, never on
+transient errors. Audio recording metadata lives in a separate, never-wiped index next to the audio folder (D-10,
+D-24). Outbox entries that the server rejects or that can't be sent are parked (visible in sync status), never
+silently dropped and never allowed to block the queue.
