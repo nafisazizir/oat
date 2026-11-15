@@ -1,0 +1,266 @@
+{
+  "description": "A realistic work week (Mon 16 – Fri 20 Nov 2026, US Pacific) for `oat-audio calendar … --fixture`. EventKit-shaped input (see native/oat-audio/PROTOCOL.md → Calendar fixtures); written by us, all people and links are fictional.",
+  "timeZone": "America/Los_Angeles",
+  "authorization": "full_access",
+  "calendars": [
+    { "id": "cal-work", "title": "Work", "color": "#3B82F6" },
+    { "id": "cal-personal", "title": "Personal", "color": "#22C55E" },
+    { "id": "cal-birthdays", "title": "Birthdays", "color": "#A855F7" }
+  ],
+  "events": [
+    {
+      "id": "release-window",
+      "externalId": "release-window@oat.test",
+      "calendarId": "cal-work",
+      "title": "Release window",
+      "start": "2026-11-15T23:00:00-08:00",
+      "end": "2026-11-16T01:00:00-08:00",
+      "timeZone": "America/Los_Angeles",
+      "notes": "On call: Jordan. Spans midnight into Monday."
+    },
+    {
+      "id": "standup",
+      "externalId": "standup-series@oat.test",
+      "calendarId": "cal-work",
+      "title": "Daily standup",
+      "start": "2026-11-16T09:30:00-08:00",
+      "end": "2026-11-16T09:45:00-08:00",
+      "timeZone": "America/Los_Angeles",
+      "url": "https://meet.google.com/abc-defg-hij",
+      "recurring": true,
+      "occurrenceDate": "2026-11-16T09:30:00-08:00",
+      "organizer": { "name": "Jordan Lee", "email": "jordan@oat.test", "status": "accepted" },
+      "attendees": [
+        { "name": "Jordan Lee", "email": "jordan@oat.test", "status": "accepted" },
+        { "name": "Alex Rivera", "email": "alex@oat.test", "status": "accepted", "self": true },
+        { "name": "Sam Okafor", "email": "sam@oat.test", "status": "accepted" },
+        { "name": "Priya Nair", "email": "priya@oat.test", "status": "tentative" }
+      ]
+    },
+    {
+      "id": "product-review",
+      "externalId": "product-review-1116@oat.test",
+      "calendarId": "cal-work",
+      "title": "Product review: onboarding flow",
+      "start": "2026-11-16T11:00:00-08:00",
+      "end": "2026-11-16T12:00:00-08:00",
+      "timeZone": "America/Los_Angeles",
+      "location": "Zoom: https://us02web.zoom.us/j/81234567890?pwd=Q2FsZW5kYXI.",
+      "notes": "Agenda: walkthrough, open questions, next steps.",
+      "organizer": { "name": "Priya Nair", "email": "priya@oat.test", "status": "accepted" },
+      "attendees": [
+        { "name": "Alex Rivera", "email": "alex@oat.test", "status": "tentative", "self": true },
+        { "name": "Sam Okafor", "email": "sam@oat.test", "status": "accepted" },
+        { "name": "Morgan Diaz", "email": "morgan@oat.test", "status": "pending" }
+      ]
+    },
+    {
+      "id": "lunch",
+      "calendarId": "cal-personal",
+      "title": "Lunch",
+      "start": "2026-11-16T12:00:00-08:00",
+      "end": "2026-11-16T13:00:00-08:00",
+      "timeZone": "America/Los_Angeles"
+    },
+    {
+      "id": "standup",
+      "externalId": "standup-series@oat.test",
+      "calendarId": "cal-work",
+      "title": "Daily standup",
+      "start": "2026-11-17T09:30:00-08:00",
+      "end": "2026-11-17T09:45:00-08:00",
+      "timeZone": "America/Los_Angeles",
+      "url": "https://meet.google.com/abc-defg-hij",
+      "recurring": true,
+      "occurrenceDate": "2026-11-17T09:30:00-08:00",
+      "organizer": { "name": "Jordan Lee", "email": "jordan@oat.test", "status": "accepted" },
+      "attendees": [
+        { "name": "Jordan Lee", "email": "jordan@oat.test", "status": "accepted" },
+        { "name": "Alex Rivera", "email": "alex@oat.test", "status": "accepted", "self": true },
+        { "name": "Sam Okafor", "email": "sam@oat.test", "status": "accepted" },
+        { "name": "Priya Nair", "email": "priya@oat.test", "status": "tentative" }
+      ]
+    },
+    {
+      "id": "offsite",
+      "externalId": "offsite-2026@oat.test",
+      "calendarId": "cal-work",
+      "title": "Team offsite",
+      "start": "2026-11-17",
+      "end": "2026-11-19",
+      "allDay": true,
+      "location": "Half Moon Bay"
+    },
+    {
+      "id": "acme-call",
+      "externalId": "040000008200E00074C5B7101A82E008@oat.test",
+      "calendarId": "cal-work",
+      "title": "Customer call: Acme",
+      "start": "2026-11-17T10:00:00-08:00",
+      "end": "2026-11-17T11:00:00-08:00",
+      "timeZone": "America/New_York",
+      "location": "Microsoft Teams Meeting",
+      "notes": "________________________________________________________________________________\nMicrosoft Teams meeting\nJoin on your computer or mobile app\nClick here to join the meeting<https://teams.microsoft.com/l/meetup-join/19%3ameeting_NjM4ZTk2%40thread.v2/0?context=%7b%22Tid%22%3a%22abc%22%7d>\nMeeting ID: 123 456 789",
+      "organizer": {
+        "name": "Chris Wong",
+        "email": "chris.wong@acme.example",
+        "status": "unknown"
+      },
+      "attendees": [
+        { "name": "Alex Rivera", "email": "Alex@Oat.test", "status": "accepted", "self": true },
+        { "name": "Chris Wong", "email": "chris.wong@acme.example", "status": "accepted" },
+        { "name": "Dana Fox", "email": "dana.fox@acme.example", "status": "pending" }
+      ]
+    },
+    {
+      "id": "design-crit",
+      "externalId": "design-crit-1117@oat.test",
+      "calendarId": "cal-work",
+      "title": "Design crit",
+      "start": "2026-11-17T15:00:00-08:00",
+      "end": "2026-11-17T16:00:00-08:00",
+      "timeZone": "America/Los_Angeles",
+      "url": "https://meet.google.com/xyz-wxyz-xyz",
+      "organizer": { "name": "Sam Okafor", "email": "sam@oat.test", "status": "accepted" },
+      "attendees": [
+        { "name": "Alex Rivera", "email": "alex@oat.test", "status": "declined", "self": true },
+        { "name": "Sam Okafor", "email": "sam@oat.test", "status": "accepted" }
+      ]
+    },
+    {
+      "id": "standup",
+      "externalId": "standup-series@oat.test",
+      "calendarId": "cal-work",
+      "title": "Daily standup (moved)",
+      "start": "2026-11-18T10:00:00-08:00",
+      "end": "2026-11-18T10:15:00-08:00",
+      "timeZone": "America/Los_Angeles",
+      "url": "https://meet.google.com/abc-defg-hij",
+      "recurring": true,
+      "detached": true,
+      "occurrenceDate": "2026-11-18T09:30:00-08:00",
+      "organizer": { "name": "Jordan Lee", "email": "jordan@oat.test", "status": "accepted" },
+      "attendees": [
+        { "name": "Jordan Lee", "email": "jordan@oat.test", "status": "accepted" },
+        { "name": "Alex Rivera", "email": "alex@oat.test", "status": "accepted", "self": true },
+        { "name": "Sam Okafor", "email": "sam@oat.test", "status": "accepted" }
+      ]
+    },
+    {
+      "id": "hiring-sync",
+      "externalId": "hiring-sync-1118@oat.test",
+      "calendarId": "cal-work",
+      "title": "Hiring sync",
+      "start": "2026-11-18T13:00:00-08:00",
+      "end": "2026-11-18T14:00:00-08:00",
+      "timeZone": "America/Los_Angeles",
+      "status": "cancelled",
+      "url": "https://meet.google.com/hir-ingx-snc",
+      "organizer": { "name": "Morgan Diaz", "email": "morgan@oat.test", "status": "accepted" },
+      "attendees": [
+        { "name": "Alex Rivera", "email": "alex@oat.test", "status": "accepted", "self": true },
+        { "name": "Morgan Diaz", "email": "morgan@oat.test", "status": "accepted" }
+      ]
+    },
+    {
+      "id": "focus",
+      "calendarId": "cal-work",
+      "title": "Focus time",
+      "start": "2026-11-18T16:00:00-08:00",
+      "end": "2026-11-18T17:00:00-08:00",
+      "timeZone": "America/Los_Angeles"
+    },
+    {
+      "id": "quick-sync",
+      "externalId": "quick-sync-1118@oat.test",
+      "calendarId": "cal-work",
+      "title": "Quick sync with Sam",
+      "start": "2026-11-18T16:30:00-08:00",
+      "end": "2026-11-18T16:45:00-08:00",
+      "timeZone": "America/Los_Angeles",
+      "notes": "Join: https://oat-test.zoom.us/j/99887766554",
+      "organizer": { "name": "Sam Okafor", "email": "sam@oat.test", "status": "accepted" },
+      "attendees": [
+        { "name": "Alex Rivera", "email": "alex@oat.test", "status": "accepted", "self": true },
+        { "name": "Sam Okafor", "email": "sam@oat.test", "status": "accepted" }
+      ]
+    },
+    {
+      "id": "interview",
+      "externalId": "interview-1119@oat.test",
+      "calendarId": "cal-work",
+      "title": "Interview: backend engineer",
+      "start": "2026-11-19T09:00:00-08:00",
+      "end": "2026-11-19T10:00:00-08:00",
+      "timeZone": "America/Los_Angeles",
+      "location": "Room 4A",
+      "notes": "Panel interview.\nVideo: https://zoom.us/j/5551234567 (backup dial-in on request)",
+      "organizer": { "name": "Morgan Diaz", "email": "morgan@oat.test", "status": "accepted" },
+      "attendees": [
+        {
+          "name": "Room 4A",
+          "email": "room-4a@resource.oat.test",
+          "type": "room",
+          "status": "accepted"
+        },
+        { "name": "Alex Rivera", "email": "alex@oat.test", "status": "accepted", "self": true },
+        { "name": "Morgan Diaz", "email": "morgan@oat.test", "status": "accepted" },
+        { "name": "Taylor Kim", "email": "taylor.kim@example.com", "status": "pending" }
+      ]
+    },
+    {
+      "id": "tokyo-call",
+      "externalId": "tokyo-call-1119@oat.test",
+      "calendarId": "cal-work",
+      "title": "Call with Tokyo team",
+      "start": "2026-11-20T10:00:00+09:00",
+      "end": "2026-11-20T11:00:00+09:00",
+      "timeZone": "Asia/Tokyo",
+      "url": "https://teams.microsoft.com/meet/2468013579?p=abc",
+      "organizer": { "name": "Kenji Sato", "email": "kenji@oat.test", "status": "accepted" },
+      "attendees": [
+        { "name": "Kenji Sato", "email": "kenji@oat.test", "status": "accepted" },
+        { "name": "Alex Rivera", "email": "alex@oat.test", "status": "pending", "self": true }
+      ]
+    },
+    {
+      "id": "birthday-sam",
+      "calendarId": "cal-birthdays",
+      "title": "Sam Okafor's birthday",
+      "start": "2026-11-20T00:00:00-08:00",
+      "end": "2026-11-20T23:59:59-08:00",
+      "allDay": true
+    },
+    {
+      "id": "weekly-demo",
+      "externalId": "weekly-demo-series@oat.test",
+      "calendarId": "cal-work",
+      "title": "Weekly demo",
+      "start": "2026-11-20T15:00:00-08:00",
+      "end": "2026-11-20T16:00:00-08:00",
+      "timeZone": "America/Los_Angeles",
+      "notes": "Demos from each team.\nGoogle Meet joining info\nVideo call link: https://meet.google.com/dem-oday-wkl\nOr dial: +1 555-0100",
+      "recurring": true,
+      "occurrenceDate": "2026-11-20T15:00:00-08:00",
+      "organizer": {
+        "name": "Alex Rivera",
+        "email": "alex@oat.test",
+        "status": "accepted",
+        "self": true
+      },
+      "attendees": [
+        { "name": "Jordan Lee", "email": "jordan@oat.test", "status": "accepted" },
+        { "name": "Priya Nair", "email": "priya@oat.test", "status": "accepted" },
+        { "name": "Sam Okafor", "email": "sam@oat.test", "status": "pending" }
+      ]
+    },
+    {
+      "id": "saturday-hike",
+      "calendarId": "cal-personal",
+      "title": "Hike",
+      "start": "2026-11-21T08:00:00-08:00",
+      "end": "2026-11-21T12:00:00-08:00",
+      "timeZone": "America/Los_Angeles"
+    }
+  ]
+}

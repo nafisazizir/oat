@@ -1,0 +1,128 @@
+{
+  "description": "Shared cases for conference-link detection. Run by the Swift sidecar tests (ConferenceLinks) and by @oat/core (detectConferenceLink); both implementations must agree. Fields are searched url → location → notes; expect null when there is no link.",
+  "cases": [
+    {
+      "name": "zoom in url",
+      "url": "https://us02web.zoom.us/j/81234567890?pwd=abc",
+      "expect": { "provider": "zoom", "url": "https://us02web.zoom.us/j/81234567890?pwd=abc" }
+    },
+    {
+      "name": "zoom vanity subdomain in notes with trailing period",
+      "notes": "Join here: https://acme.zoom.us/j/99887766554.",
+      "expect": { "provider": "zoom", "url": "https://acme.zoom.us/j/99887766554" }
+    },
+    {
+      "name": "zoom personal room",
+      "location": "https://zoom.us/my/alex.rivera",
+      "expect": { "provider": "zoom", "url": "https://zoom.us/my/alex.rivera" }
+    },
+    {
+      "name": "zoomgov",
+      "notes": "https://agency.zoomgov.com/j/1601234567",
+      "expect": { "provider": "zoom", "url": "https://agency.zoomgov.com/j/1601234567" }
+    },
+    {
+      "name": "zoom web client join",
+      "notes": "(https://zoom.us/wc/join/81234567890)",
+      "expect": { "provider": "zoom", "url": "https://zoom.us/wc/join/81234567890" }
+    },
+    {
+      "name": "zoom homepage is not a meeting",
+      "notes": "Download Zoom from https://zoom.us/download",
+      "expect": null
+    },
+    {
+      "name": "meet in url",
+      "url": "https://meet.google.com/abc-defg-hij",
+      "expect": { "provider": "google_meet", "url": "https://meet.google.com/abc-defg-hij" }
+    },
+    {
+      "name": "meet with authuser query and uppercase scheme",
+      "notes": "Video call link: HTTPS://meet.google.com/abc-defg-hij?authuser=1&hs=122",
+      "expect": {
+        "provider": "google_meet",
+        "url": "HTTPS://meet.google.com/abc-defg-hij?authuser=1&hs=122"
+      }
+    },
+    {
+      "name": "meet lookup link",
+      "location": "https://meet.google.com/lookup/team-weekly",
+      "expect": { "provider": "google_meet", "url": "https://meet.google.com/lookup/team-weekly" }
+    },
+    {
+      "name": "meet landing page is not a meeting",
+      "notes": "See https://meet.google.com/ for help",
+      "expect": null
+    },
+    {
+      "name": "teams meetup-join inside angle brackets",
+      "notes": "Click here to join the meeting<https://teams.microsoft.com/l/meetup-join/19%3ameeting_NjM4%40thread.v2/0?context=%7b%22Tid%22%3a%22abc%22%7d>\nMeeting ID: 123",
+      "expect": {
+        "provider": "teams",
+        "url": "https://teams.microsoft.com/l/meetup-join/19%3ameeting_NjM4%40thread.v2/0?context=%7b%22Tid%22%3a%22abc%22%7d"
+      }
+    },
+    {
+      "name": "teams short meet link",
+      "url": "https://teams.microsoft.com/meet/2468013579?p=abc",
+      "expect": { "provider": "teams", "url": "https://teams.microsoft.com/meet/2468013579?p=abc" }
+    },
+    {
+      "name": "teams live (consumer)",
+      "notes": "https://teams.live.com/meet/9876543210123",
+      "expect": { "provider": "teams", "url": "https://teams.live.com/meet/9876543210123" }
+    },
+    {
+      "name": "teams cloud.microsoft",
+      "location": "https://teams.cloud.microsoft/meet/1234567890?p=xyz",
+      "expect": {
+        "provider": "teams",
+        "url": "https://teams.cloud.microsoft/meet/1234567890?p=xyz"
+      }
+    },
+    {
+      "name": "url field wins over location and notes",
+      "url": "https://meet.google.com/aaa-bbbb-ccc",
+      "location": "https://zoom.us/j/111",
+      "notes": "https://teams.microsoft.com/meet/222",
+      "expect": { "provider": "google_meet", "url": "https://meet.google.com/aaa-bbbb-ccc" }
+    },
+    {
+      "name": "location wins over notes when url has no link",
+      "url": "https://example.com/agenda",
+      "location": "Room 3 / https://zoom.us/j/333",
+      "notes": "https://meet.google.com/aaa-bbbb-ccc",
+      "expect": { "provider": "zoom", "url": "https://zoom.us/j/333" }
+    },
+    {
+      "name": "earliest link in a field wins regardless of provider",
+      "notes": "Primary: https://teams.microsoft.com/meet/444 backup https://zoom.us/j/555",
+      "expect": { "provider": "teams", "url": "https://teams.microsoft.com/meet/444" }
+    },
+    {
+      "name": "html notes with quoted href",
+      "notes": "<a href=\"https://zoom.us/j/6667778889?pwd=x\">Join Zoom</a>",
+      "expect": { "provider": "zoom", "url": "https://zoom.us/j/6667778889?pwd=x" }
+    },
+    {
+      "name": "trailing markdown punctuation trimmed",
+      "notes": "**Link:** https://meet.google.com/abc-defg-hij**",
+      "expect": { "provider": "google_meet", "url": "https://meet.google.com/abc-defg-hij" }
+    },
+    {
+      "name": "lookalike host is ignored",
+      "notes": "https://zoom.us.evil.example/j/123 and https://notmeet.google.com.example/abc-defg-hij",
+      "expect": null
+    },
+    {
+      "name": "nothing",
+      "location": "Conference room B",
+      "notes": "Bring snacks",
+      "expect": null
+    },
+    {
+      "name": "all empty",
+      "expect": null
+    }
+  ]
+}

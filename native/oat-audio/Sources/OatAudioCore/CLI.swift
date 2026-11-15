@@ -24,6 +24,7 @@ public struct CaptureOptions: Equatable, Sendable {
 public enum CLICommand: Equatable, Sendable {
     case capture(CaptureOptions)
     case permissions
+    case calendar(CalendarCommand)
     case version
     case help
 }
@@ -44,6 +45,16 @@ public enum CLI {
           pipe = stop. --synthetic generates deterministic test tones and needs no permissions.
           Mic echo cancellation (Apple voice processing) is on by default; --no-aec disables it.
       oat-audio permissions   Print microphone / system-audio permission status as JSON (never prompts).
+      oat-audio calendar status [--fixture <file>]
+          Calendars permission as JSON (never prompts).
+      oat-audio calendar request-access
+          Ask for full Calendars access — shows the macOS prompt if undecided (human use only).
+      oat-audio calendar events [--from <iso|day>] [--to <iso|day>] [--fixture <file>]
+          Normalised events overlapping the range as JSON lines (default: 24 h ago … 14 days ahead).
+          A day (2026-11-16) is local midnight for --from and includes the whole day for --to.
+      oat-audio calendar watch [--debounce-ms <ms>] [--fixture <file>]
+          {"type":"ready"} then a {"type":"changed"} line per (debounced) calendar change. Stops on stdin EOF.
+          --fixture serves a JSON file instead of EventKit and needs no permission (see PROTOCOL.md).
       oat-audio version       Print {"version","protocol"} as JSON.
     """
 
@@ -56,6 +67,8 @@ public enum CLI {
         case "permissions":
             try expectNoArgs(rest, sub)
             return .permissions
+        case "calendar":
+            return .calendar(try parseCalendar(rest))
         case "version", "--version":
             try expectNoArgs(rest, sub)
             return .version
@@ -66,7 +79,7 @@ public enum CLI {
         }
     }
 
-    private static func expectNoArgs(_ rest: [String], _ sub: String) throws {
+    static func expectNoArgs(_ rest: [String], _ sub: String) throws {
         if let extra = rest.first { throw CLIError("\(sub): unexpected argument \"\(extra)\"") }
     }
 

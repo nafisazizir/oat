@@ -1,0 +1,28 @@
+{
+  "name": "@oat/calendar",
+  "version": "0.0.0",
+  "private": true,
+  "description": "CalendarSource interface, CalendarCache, FixtureCalendarSource; SidecarCalendarSource (Node entry) over `oat-audio calendar`.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts",
+    "./*": "./src/*.ts",
+    "./*.test": null
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:int": "vitest run --mode int --passWithNoTests"
+  },
+  "dependencies": {
+    "@oat/audio": "workspace:*",
+    "@oat/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

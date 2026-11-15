@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>oat-audio</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Oat records your side of the meeting from the microphone to write the transcript.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Oat records the meeting audio your Mac plays so the other participants appear in the transcript.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Oat reads your calendar to name meetings and remind you when one is about to start.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Oat reads your calendar to name meetings and remind you when one is about to start.</string>
+</dict>
+</plist>

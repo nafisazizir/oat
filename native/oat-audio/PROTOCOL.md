@@ -107,3 +107,127 @@ Extra fields are ignored; blank lines are ignored; an unparseable line produces 
 
 The contract test `scripts/check-frames.mjs` implements a reference parser (`FrameParser`) and validator
 (`validateFrames`) for this document.
+
+## Calendar (`oat-audio calendar …`)
+
+Separate subcommands of the same binary (task 7.1). They do **not** use the binary frames above: stdout is
+**JSON lines** (one object per line, UTF-8), logs go to stderr. Adding them did not change `protocol`
+(capture is untouched); consumers must ignore unknown fields and unknown `type`s. Parsed on the Node side by
+`SidecarCalendarSource` (`@oat/calendar/node`) with `CalendarEventSchema` (`@oat/core`).
+
+| command                                             | prompts? | stdout                                                                                              |
+| --------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `calendar status [--fixture f]`                     | never    | `{"status","canRead","source":"eventkit"\|"fixture","prompted":false}`                              |
+| `calendar request-access`                           | **yes**  | same shape as `status`, after the user answered. **Human use only** — agents and tests never run it |
+| `calendar events [--from x] [--to y] [--fixture f]` | never    | one normalised event per line (below), sorted by start, end, id                                     |
+| `calendar watch [--debounce-ms n] [--fixture f]`    | never    | `{"type":"ready","source":…}` once, then `{"type":"changed"}` per debounced burst of changes        |
+
+- `status` values: `full_access` · `write_only` · `denied` · `restricted` · `not_determined` · `unknown`
+  (`EKEventStore.authorizationStatus(for: .event)`, a read-only query). Only `full_access` can read.
+- `events` / `watch` without full access exit **77** (message on stderr) instead of prompting.
+- `--from` / `--to`: ISO 8601 with zone (`2026-11-16T09:00:00Z`, `…-08:00`) or a day `YYYY-MM-DD` in the
+  store's zone (the Mac's; the fixture's `timeZone` in fixture mode). A day is that midnight for `--from` and
+  **includes the whole day** for `--to`. Defaults: 24 h ago … 14 days after `--from`. Span ≤ 4 years. Events
+  overlapping `[from, to)` are returned (`start < to && end > from`; a zero-length event at `from` counts).
+- `watch` subscribes to `EKEventStoreChanged` (fixture mode: the fixture file, including atomic replaces) and
+  coalesces bursts: a `changed` line comes `--debounce-ms` (default 500, 0…60000) after the last change, and
+  at most 4× that after the first. The consumer then re-runs `events`. It stops on stdin EOF (pipe/TTY),
+  `{"cmd":"stop"}`, SIGINT or SIGTERM, exit 0.
+- Exit codes: `0` ok · `1` failure (unreadable/invalid fixture, EventKit error) · `64` usage · `77` no access.
+
+### Event line
+
+Pretty-printed here; on the wire each event is a single line.
+
+```json
+{
+  "id": "eventkit:standup/2026-11-16T17:30:00.000Z",
+  "source": "eventkit",
+  "calendar": { "id": "cal-work", "title": "Work", "color": "#3B82F6" },
+  "title": "Daily standup",
+  "start": "2026-11-16T17:30:00.000Z",
+  "end": "2026-11-16T17:45:00.000Z",
+  "allDay": false,
+  "allDayStart": null,
+  "allDayEnd": null,
+  "timeZone": "America/Los_Angeles",
+  "location": null,
+  "url": "https://meet.google.com/abc-defg-hij",
+  "conferenceUrl": "https://meet.google.com/abc-defg-hij",
+  "conferenceProvider": "google_meet",
+  "status": "confirmed",
+  "attendees": [
+    {
+      "name": "Alex Rivera",
+      "email": "alex@oat.test",
+      "status": "accepted",
+      "isSelf": true,
+      "isOrganizer": false
+    }
+  ],
+  "recurrenceId": "eventkit:standup",
+  "icalUid": "standup-series@oat.test"
+}
+```
+
+- `id`: `eventkit:<eventIdentifier>`. Occurrences of a recurring event share an `eventIdentifier`, so they get
+  `/<original occurrence start>` appended (a moved occurrence keeps its original time in the id).
+  `recurrenceId` = `eventkit:<eventIdentifier>` for recurring events, else null. `icalUid` =
+  `calendarItemExternalIdentifier`.
+- Times are UTC ISO strings with milliseconds (as `Date.prototype.toISOString`). `timeZone` is the event's
+  IANA zone (null for floating/all-day).
+- All-day: `start`/`end` are midnights in the store's zone, `allDayStart`/`allDayEnd` the days (end
+  exclusive). EventKit's last-day-23:59:59 end becomes the next midnight.
+- `title`, `location`, `url` are trimmed; blank → `""` (title) or null.
+- `conferenceUrl` / `conferenceProvider` (`zoom` · `google_meet` · `teams`): first join link in url →
+  location → notes (earliest in a field). Same rules as `detectConferenceLink` in `@oat/core`; both are tested
+  against `fixtures/calendar/conference-links.json`. Notes themselves are not emitted.
+- `status`: `confirmed` · `tentative` · `cancelled`.
+- `attendees`: people only (rooms/resources dropped), email from the `mailto:` URL lower-cased, de-duplicated
+  by email; `status` `accepted` · `declined` (incl. delegated) · `tentative` · `needs_action` · `unknown`;
+  `isSelf` = EventKit's `isCurrentUser`; the organizer is flagged, or prepended (unknown response → accepted)
+  if EventKit did not list them. Solo events have `[]`.
+
+### Calendar fixtures (`--fixture <file.json>`)
+
+EventKit-shaped input, normalised by the same code as real events, so fixture mode exercises the whole path
+without EventKit or a permission prompt. Re-read on every `events`, watched by `watch`. Example:
+`fixtures/calendar/week.json`.
+
+```json
+{
+  "timeZone": "America/Los_Angeles",
+  "authorization": "full_access",
+  "calendars": [{ "id": "cal-work", "title": "Work", "color": "#3B82F6" }],
+  "events": [
+    {
+      "id": "standup",
+      "externalId": "standup@oat.test",
+      "calendarId": "cal-work",
+      "title": "Daily standup",
+      "start": "2026-11-16T09:30:00-08:00",
+      "end": "2026-11-16T09:45:00-08:00",
+      "allDay": false,
+      "timeZone": "America/Los_Angeles",
+      "location": null,
+      "url": null,
+      "notes": null,
+      "status": "confirmed",
+      "recurring": true,
+      "detached": false,
+      "occurrenceDate": "2026-11-16T09:30:00-08:00",
+      "organizer": { "name": "Jordan", "email": "jordan@oat.test", "status": "accepted" },
+      "attendees": [
+        { "name": "Alex", "email": "alex@oat.test", "status": "accepted", "self": true }
+      ]
+    }
+  ]
+}
+```
+
+All event fields but `calendarId`, `start` and `end` are optional. Dates: ISO with zone, or `YYYY-MM-DD`
+(midnight in `timeZone`; default the Mac's). `authorization` (default `full_access`) is what `status`
+reports. Participant `status` uses EKParticipantStatus names (`unknown` · `pending` · `accepted` · `declined`
+· `tentative` · `delegated` · `completed` · `in_process`), `type` EKParticipantType names (`person` · `room` ·
+`resource` · `group` · `unknown`); `url` (`mailto:…`) may replace `email`. Event `status`: `none` ·
+`confirmed` · `tentative` · `cancelled`.

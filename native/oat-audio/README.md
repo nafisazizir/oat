@@ -38,6 +38,33 @@ A slow reader never stalls capture: old queued audio is dropped and reported wit
 (PROTOCOL.md → _Backpressure_). `scripts/check-frames.mjs` (Node, no deps) is the protocol contract test; it also exports `FrameParser` and
 `validateFrames` for the TypeScript `SidecarSource` (task 2.4).
 
+## Calendar
+
+```sh
+oat-audio calendar status        # Calendars permission as JSON — never prompts
+oat-audio calendar events --fixture ../../fixtures/calendar/week.json --from 2026-11-16 --to 2026-11-20
+oat-audio calendar watch --fixture /tmp/week.json --debounce-ms 200   # edit the file → {"type":"changed"}
+```
+
+`calendar status`, `request-access`, `events [--from] [--to]`, `watch [--debounce-ms]` read macOS calendars
+through EventKit and print JSON lines ([`PROTOCOL.md`](PROTOCOL.md) → _Calendar_). Node side:
+`SidecarCalendarSource` in `@oat/calendar/node`; event shape and helpers in `@oat/core` (`CalendarEvent`).
+
+- **`--fixture <file.json>`** serves an EventKit-shaped JSON file through the same normaliser and needs no
+  permission. Use it in every automated test (Swift tests inject a store protocol instead).
+- **`calendar request-access`** shows the macOS Calendars prompt, and **`calendar events` / `watch` without
+  `--fixture`** read the real calendar: a **human checkpoint**, agents never run them. Checkpoint:
+  `oat-audio calendar request-access` (grant), then `oat-audio calendar status` → `full_access`, then
+  `oat-audio calendar events | head`, and `oat-audio calendar watch` while adding an event in Calendar.app
+  (expect one `changed` line within ~1 s).
+- The executable embeds an `Info.plist` (`Sources/oat-audio/Info.plist`, linked into `__TEXT,__info_plist`)
+  with the usage descriptions for Calendars (`NSCalendarsFullAccessUsageDescription`), microphone and system
+  audio: EventKit checks the purpose string of `Bundle.main` (the sidecar's own plist), and a bare CLI without
+  it is killed by TCC when it asks for calendar access. It has no `CFBundleIdentifier`, so TCC attribution
+  (responsible process) and the signing identifier are unchanged. **After any change to this plist, re-run the
+  real-capture human checkpoint** too. Packaging (9.1): same keys in the Electron app's `Info.plist`, plus the
+  hardened-runtime entitlement `com.apple.security.personal-information.calendars` (see below).
+
 ## Echo cancellation
 
 On speakers the mic hears the far side, which would put "them" into the "me" transcript. The mic path
@@ -68,8 +95,11 @@ same checks.
 - When bundled inside the Electron app, the **app's** `Info.plist` needs:
   - `NSMicrophoneUsageDescription` — mic capture.
   - `NSAudioCaptureUsageDescription` — system audio via process taps ("System Audio Recording Only").
-  - Hardened runtime entitlement `com.apple.security.device.audio-input` for the mic.
-    Sign the sidecar with the app's team ID so it inherits the app's TCC grants.
+  - `NSCalendarsFullAccessUsageDescription` — calendar (task 7.1).
+  - Hardened-runtime entitlements (app **and** sidecar): `com.apple.security.device.audio-input` for the mic,
+    `com.apple.security.personal-information.calendars` for EventKit — without it a signed, hardened build is
+    silently denied Calendars. Sign the sidecar with the app's team ID so it inherits the app's TCC grants.
+  - The sidecar also embeds its own `Info.plist` with the same purpose strings (see _Calendar_ above).
 - A denied system-audio permission does not fail tap creation — the tap delivers silence. The app should
   check `permissions` before starting and treat a silent "them" stream as a probable permission issue.
 
@@ -90,7 +120,11 @@ Sources/OatAudioCore/          testable logic
   Capture/                     SampleHandoff (audio-thread ring, mono mix, tap buffer selection),
                                SourcePipeline (convert off the audio thread), SyntheticSource,
                                MicSource (AVAudioEngine + VPIO), SystemAudioSource (process tap)
+  Calendar/                    CalendarModel (raw EventKit-shaped + normalised event), CalendarNormalizer,
+                               ConferenceLinks, CalendarStore (protocol, FixtureCalendarStore, file watch),
+                               EventKitCalendarStore, Debouncer, CalendarCLI (args + CalendarRunner)
 Sources/oat-audio/main.swift   CLI entry point
+Sources/oat-audio/Info.plist   embedded usage descriptions (Calendars)
 Tests/OatAudioCoreTests/       Swift Testing
 scripts/check-frames.mjs       protocol contract test
 ```
