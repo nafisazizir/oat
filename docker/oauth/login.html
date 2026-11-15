@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dev sign-in (mock Google)</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: Canvas;
+        color: CanvasText;
+      }
+      form {
+        width: min(360px, calc(100vw - 32px));
+        display: grid;
+        gap: 12px;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0;
+      }
+      p {
+        margin: 0;
+        font-size: 13px;
+        opacity: 0.7;
+      }
+      label {
+        display: grid;
+        gap: 4px;
+        font-size: 13px;
+      }
+      input,
+      button {
+        font: inherit;
+        padding: 8px 10px;
+        border-radius: 6px;
+        border: 1px solid GrayText;
+      }
+      button {
+        cursor: pointer;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Local stand-in for "Sign in with Google" (mock-oauth2-server, issuer /google).
+      The server expects a POST with `username` (becomes sub + email) and optional `claims` (JSON).
+      Tests skip this page and POST those two fields to the authorize URL directly.
+    -->
+    <form method="post" id="login">
+      <h1>Dev sign-in</h1>
+      <p>Mock Google account. Any email works; nothing leaves your machine.</p>
+      <label>
+        Email
+        <input name="username" type="email" required autofocus value="dev@oat.localhost" />
+      </label>
+      <label>
+        Name
+        <input id="name" type="text" placeholder="Defaults to the part before @" />
+      </label>
+      <label>
+        Picture URL
+        <input id="picture" type="text" placeholder="Defaults to a generated initial" />
+      </label>
+      <input type="hidden" name="claims" id="claims" />
+      <button type="submit">Sign in</button>
+    </form>
+    <script>
+      document.getElementById('login').addEventListener('submit', function () {
+        var email = this.username.value.trim();
+        var name = document.getElementById('name').value.trim() || email.split('@')[0];
+        var picture = document.getElementById('picture').value.trim();
+        if (!picture) {
+          var initial = (name[0] || '?').toUpperCase().replace(/[<>&]/g, '');
+          picture =
+            'data:image/svg+xml,' +
+            encodeURIComponent(
+              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#7a8b6f"/>' +
+                '<text x="32" y="42" font-family="sans-serif" font-size="30" text-anchor="middle" fill="#fff">' +
+                initial +
+                '</text></svg>',
+            );
+        }
+        document.getElementById('claims').value = JSON.stringify({ name: name, picture: picture });
+      });
+    </script>
+  </body>
+</html>

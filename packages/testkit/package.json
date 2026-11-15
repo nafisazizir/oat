@@ -1,0 +1,29 @@
+{
+  "name": "@oat/testkit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Test helpers for integration tests against the compose stack: throwaway Postgres DBs, Mailpit, waitFor.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts",
+    "./*.test": null
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:int": "vitest run --mode int"
+  },
+  "dependencies": {
+    "pg": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/nodemailer": "catalog:",
+    "@types/pg": "catalog:",
+    "nodemailer": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

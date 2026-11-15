@@ -1,0 +1,23 @@
+{
+  "interactiveLogin": true,
+  "httpServer": "NettyWrapper",
+  "loginPagePath": "/config/login.html",
+  "tokenCallbacks": [
+    {
+      "issuerId": "google",
+      "tokenExpiry": 3600,
+      "requestMappings": [
+        {
+          "requestParam": "grant_type",
+          "match": "*",
+          "claims": {
+            "sub": "${subject}",
+            "email": "${subject}",
+            "email_verified": true,
+            "aud": ["${clientId}"]
+          }
+        }
+      ]
+    }
+  ]
+}

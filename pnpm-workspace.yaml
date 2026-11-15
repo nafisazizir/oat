@@ -6,11 +6,25 @@ packages:
 # Shared dependency versions. Workspace packages reference these with "catalog:".
 catalog:
   '@eslint/js': ^10.0.1
+  '@hono/node-server': ^2.1.8
   '@types/node': ^24.19.2
+  '@types/nodemailer': ^8.0.2
+  '@types/pg': ^8.23.1
+  '@types/ws': ^8.18.2
+  esbuild: ^0.28.2
   eslint: ^10.15.0
   globals: ^17.14.0
+  hono: ^4.13.18
+  nodemailer: ^10.5.0
+  pg: ^8.23.1
   prettier: ^3.10.1
+  tsx: ^4.23.15
   turbo: ^2.11.11
   typescript: ^5.9.3
   typescript-eslint: ^8.72.2
   vitest: ^5.1.0
+  ws: ^8.23.0
+
+# Allow esbuild's postinstall (verifies its platform binary).
+onlyBuiltDependencies:
+  - esbuild
