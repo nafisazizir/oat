@@ -33,7 +33,7 @@ pick ─► PROMPT ─► DESIGN ─► CODE ─► REVIEW ─► VERIFY ─► 
    (empty/loading/error). For architecture tasks: interfaces + data flow. Any real decision → new entry in
    `DECISIONS.md`.
 4. **Code** — implementer works on branch `task/<id>-<slug>`, small commits, adds/updates tests. Must run
-   `pnpm typecheck && pnpm lint && pnpm test` locally before handing back.
+   `pnpm run ci` (or at least `pnpm run ci --fast`) locally before handing back.
 5. **Review** — reviewer reads task file + `git diff main...`. Checks: meets acceptance criteria, correctness,
    security (secrets, authz via `packages/core/permissions`), clean-room compliance, tests meaningful,
    no scope creep. Verdict: `approve` or `changes` with a numbered list. Use `/code-review` where available.
