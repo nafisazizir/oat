@@ -121,6 +121,11 @@ export interface RecordingServiceOptions {
   onTranscriptGap?: (gap: TranscriptGap) => void;
   /** Coarse status for the main store (every window). */
   onStatus?: (status: RecordingStatus, meetingId: string | null) => void;
+  /**
+   * A session's archive files are closed (its rows final) and the meeting is no longer busy — later than the
+   * `idle` status, which comes while the files may still be closing (9.4: the player asked too early).
+   */
+  onArchiveClosed?: (meetingId: string) => void;
   log: Logger;
   /** Wall clock (Unix ms). */
   now?: () => number;
@@ -621,6 +626,11 @@ export class RecordingService {
     })().finally(() => {
       if (this.#session === session) this.#closing = false;
       this.#changed(true);
+      try {
+        this.#o.onArchiveClosed?.(session.meetingId);
+      } catch (error) {
+        this.#o.log.error('recording: archive-closed listener failed', error);
+      }
     });
     return session.finalized;
   }

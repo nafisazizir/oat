@@ -80,6 +80,7 @@ function setup({
   persistence,
   store,
   userId,
+  onArchiveClosed,
 }: {
   speed?: FileSourceSpeed;
   startMs?: number;
@@ -90,6 +91,7 @@ function setup({
   persistence?: TranscriptPersistence;
   store?: AudioRecordingStore;
   userId?: () => string | null;
+  onArchiveClosed?: (meetingId: string, service: RecordingService) => void;
 } = {}): Harness {
   const states: RecordingSnapshot[] = [];
   const batches: TranscriptBatch[] = [];
@@ -116,6 +118,7 @@ function setup({
     ...(persistence ? { persistence } : {}),
     ...(store ? { store } : {}),
     ...(userId ? { userId } : {}),
+    ...(onArchiveClosed ? { onArchiveClosed: (id: string) => onArchiveClosed(id, service) } : {}),
     onState: (s) => states.push(s),
     onSegments: (b) => {
       batches.push(b);
@@ -435,6 +438,33 @@ describe('RecordingService: quit and concurrency (review 2.5 #1)', () => {
     expect(h.service.busy).toBe(false);
     const rows = await h.service.audioStore.list({ meetingId });
     expect(rows.map((r) => r.status)).toEqual(['complete', 'complete']);
+  });
+
+  it('9.4: archive-closed is announced after idle, once the files are closed and the meeting is not busy', async () => {
+    const seen: { meetingId: string; busy: string | null; statuses: string[] }[] = [];
+    let closed!: () => void;
+    const announced = new Promise<void>((resolve) => (closed = resolve));
+    const h = setup({
+      durationMs: 2_000,
+      onArchiveClosed: (id, service) => {
+        seen.push({
+          meetingId: id,
+          busy: service.busyMeetingId,
+          statuses: [...h.statuses],
+        });
+        closed();
+      },
+    });
+    const { meetingId } = await h.service.start({ spec: fixture });
+    await h.waitFor('idle');
+    await announced;
+    // Exactly once, after `idle`, with nothing busy any more: a playable-status read now sees the audio.
+    expect(seen).toEqual([{ meetingId, busy: null, statuses: expect.arrayContaining(['idle']) }]);
+    expect(seen[0]!.statuses.at(-1)).toBe('idle');
+    const rows = await h.service.audioStore.list({ meetingId });
+    expect(rows.map((r) => r.status)).toEqual(['complete', 'complete']);
+    await h.service.shutdown();
+    expect(seen).toHaveLength(1);
   });
 
   it('a second stop shares the first; two concurrent starts → only one runs', async () => {

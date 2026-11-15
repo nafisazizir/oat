@@ -3,6 +3,7 @@ packages:
   - packages/*
   - tools/*
   - agents
+  - e2e/*
 
 # Shared dependency versions. Workspace packages reference these with "catalog:".
 catalog:

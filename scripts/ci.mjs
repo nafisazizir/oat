@@ -325,6 +325,23 @@ const steps = [
     },
   },
   {
+    // 9.4 (SPEC §9): the whole v1 journey in one run, desktop + web + a teammate (docs/DEV.md
+    // "Acceptance journey"). macOS only: it drives the Electron app.
+    name: 'acceptance',
+    slow: true,
+    macOnly: true,
+    needs: 'stack',
+    about: 'v1 acceptance journey (e2e/acceptance: desktop + web + teammate), own free E2E_PORT',
+    async run() {
+      const port = String(await freePort());
+      const scale = e2eTimeoutScale();
+      console.log(`acceptance: E2E_PORT=${port}, E2E_TIMEOUT_SCALE=${scale}`);
+      await must('pnpm', ['--filter', '@oat/acceptance', 'run', 'acceptance'], {
+        env: { E2E_PORT: port, E2E_TIMEOUT_SCALE: scale },
+      });
+    },
+  },
+  {
     name: 'swift:build',
     group: 'swift',
     slow: true,

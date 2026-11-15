@@ -444,13 +444,13 @@ async function start() {
       );
       if (status === 'idle') {
         backfill.kick();
-        queueMicrotask(() => {
-          void sync.recordingEnded();
-          storage.recordingEnded();
-        });
+        queueMicrotask(() => void sync.recordingEnded());
       }
       detection.setRecording(status !== 'idle' && status !== 'error');
     },
+    // Storage (sizes, sweep, the player's `storage:changed`) once the files are closed, not at `idle`, when
+    // they may still be closing and the meeting reads as "recording" (9.4).
+    onArchiveClosed: () => storage.recordingEnded(),
   });
   quitGracefully(
     recording,

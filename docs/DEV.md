@@ -19,7 +19,9 @@ pnpm dev         # app dev servers + index worker + agents server (the mocks alr
 ```
 
 The first `dev:up` pulls images and builds three small local images (postgres, oauth, mocks), so it needs
-network once; after that everything works offline.
+network once; after that everything works offline. To prove the whole v1 journey passes from a clean clone on
+this machine, run `node scripts/acceptance-fresh.mjs` (see "Acceptance journey" → "Proving it works on a new
+machine").
 
 ## Commands
 
@@ -627,6 +629,7 @@ others still run so you see every failure at once (`--bail` stops at the first).
 | `migrate`         | Creates a throwaway `oat_test_*` database, runs `@oat/db db:migrate` against it twice, checks applied = journal entries, drops it |
 | `test:int`        | `pnpm test:int`                                                                                 |
 | `e2e`             | `pnpm --filter <pkg> run e2e` for every package that defines an `e2e` script, one at a time, each with a free port in `E2E_PORT` (Playwright `webServer` should listen there): today `@oat/web` and `@oat/desktop` (macOS only; skips elsewhere). Skipped while no package has one. |
+| `acceptance`      | macOS only: the v1 acceptance journey (`pnpm --filter @oat/acceptance run acceptance`, own free `E2E_PORT`, same `E2E_TIMEOUT_SCALE` rule). See "Acceptance journey" below |
 | `swift:build`     | macOS only: `swift build` in `native/oat-audio`                                                 |
 | `swift:test`      | macOS only: `swift test`                                                                        |
 | `swift:synthetic` | macOS only: `oat-audio capture --synthetic --duration 2 \| check-frames.mjs --expect-seconds 2` (no hardware, no prompts) |
@@ -661,6 +664,50 @@ tag, runs on the same ref cancel each other, no secrets. To lint the workflow by
 `node scripts/ci.mjs --only actionlint`. (Mounting the repo into the actionlint container, as in
 `docker run -v "$PWD":/repo rhysd/actionlint`, fails when Docker Desktop isn't allowed to share the folder,
 e.g. under `~/Documents`; the stdin form avoids that.)
+
+## Acceptance journey (`e2e/acceptance`, 9.4)
+
+One Playwright test (`e2e/acceptance/journey.spec.ts`, package `@oat/acceptance`) walks the whole v1 loop
+(SPEC §9) as one user and a teammate would, each phase a `test.step`:
+
+sign up on the web (magic link) → connect Notion (mock) + "Auto-send meeting notes" → desktop cold start, signed
+in through that browser → "New meeting note" records the `standup-short` fixture (FileSource, real time) with
+the live transcript (me/them), a typed note, the fixture ends → sync → post-meeting pipeline (enhance → index →
+Notion) → the enhanced note on the web and back on the desktop → the Notion mock received the page → share by
+link, a stranger reads it → the note's assistant answers with a transcript citation that jumps there → web ⌘K
+and the desktop's local search find it → a teammate invited to a team workspace signs up, accepts and reads the
+note through the link → desktop playback: clicking a transcript line seeks the audio there.
+
+```bash
+pnpm dev:up
+pnpm --filter @oat/acceptance run acceptance          # builds the desktop app, then runs the journey (~3–4 min)
+E2E_SCREENSHOTS=1 pnpm --filter @oat/acceptance run acceptance   # + docs/tasks/evidence/9.4/ (screenshots, timings.json)
+pnpm run ci --only acceptance                         # the CI step (free port, load-aware E2E_TIMEOUT_SCALE)
+```
+
+- Same server as the desktop e2e (apps/web's `e2e/web-server.ts`: `next dev` on a throwaway database in
+  `.next-acceptance`, in-process LLM/Notion/Calendar mocks, the index worker and this checkout's agents server);
+  live transcription uses the compose STT mock. Nothing real is touched: `OAT_CALENDAR=off`, `OAT_DETECTION=off`,
+  `OAT_AUDIO_SOURCE=file:standup-short`, and `OAT_END_GRACE_MS=0` so the stopped meeting ends at once (7.5).
+- **Timings vs SPEC §8** are printed (`[acceptance] …`) and written to `e2e/acceptance/test-results/acceptance-timings.json`
+  (git-ignored): cold start, first-segment latency per voice, transcript word recall, sync drain, pipeline
+  (stop → completed, enhance/index/Notion step times), chat answer, search, playback seek error. Cold start
+  (< 2 s) and first-segment latency (< 1.5 s) are asserted.
+- macOS only (Electron + Keychain); elsewhere the test skips and the CI step reports `skip`.
+
+### Proving it works on a new machine
+
+```bash
+node scripts/acceptance-fresh.mjs          # [--ref <rev>] [--keep]
+```
+
+Clones the committed `HEAD` into a temp dir (no `node_modules`, no `.env`, no build output, no git-ignored file
+from this checkout), runs `pnpm install --frozen-lockfile --prefer-offline`, `pnpm dev:up` (a no-op when the
+shared stack is healthy) and `pnpm run ci --only acceptance` there, prints a per-phase summary and deletes the
+clone. Uncommitted changes are listed and left out, so commit first. It uses the machine-wide caches any
+developer machine has after its first setup (pnpm store, Playwright's Chromium, Electron's download cache, the
+Docker images); on a truly new machine the first `pnpm install`, `dev:up` and Chromium install need network once
+(D-11), everything after is offline.
 
 ## Troubleshooting
 

@@ -609,6 +609,30 @@ importers:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@24.19.2)(@vitest/coverage-v8@5.1.0)(happy-dom@21.0.4)(jsdom@31.0.1(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
+  e2e/acceptance:
+    devDependencies:
+      '@oat/testkit':
+        specifier: workspace:*
+        version: link:../../packages/testkit
+      '@playwright/test':
+        specifier: 'catalog:'
+        version: 1.65.1
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      eslint:
+        specifier: 'catalog:'
+        version: 10.15.0(jiti@2.7.0)
+      globals:
+        specifier: 'catalog:'
+        version: 17.14.0
+      postgres:
+        specifier: 'catalog:'
+        version: 3.4.9
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   packages/ai:
     dependencies:
       '@ai-sdk/openai-compatible':

@@ -1,0 +1,21 @@
+{
+  "name": "@oat/acceptance",
+  "version": "0.0.0",
+  "private": true,
+  "description": "v1 end-to-end acceptance journey (9.4): desktop (Electron) + web + a teammate, against the compose stack and in-process mocks, fixture audio only.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "acceptance": "pnpm --filter @oat/desktop run build && playwright test"
+  },
+  "devDependencies": {
+    "@oat/testkit": "workspace:*",
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "globals": "catalog:",
+    "postgres": "catalog:",
+    "typescript": "catalog:"
+  }
+}

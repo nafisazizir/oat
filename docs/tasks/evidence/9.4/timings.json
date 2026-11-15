@@ -1,0 +1,43 @@
+{
+  "signUpMs": 5166,
+  "coldStartMs": 546,
+  "firstSegmentLatencyMs": {
+    "mic": 581,
+    "system": 560,
+    "interimFirst": {
+      "mic": true,
+      "system": true
+    }
+  },
+  "recordingMs": 33830,
+  "transcriptWordRecall": {
+    "mic": 1,
+    "system": 1
+  },
+  "syncDrainMs": 17,
+  "pipeline": {
+    "stopToCompletedMs": 1306,
+    "queuedMs": 105,
+    "enhanceMs": 95,
+    "indexMs": 26,
+    "notionMs": 19,
+    "runMs": 250
+  },
+  "chatAnswerMs": 2603,
+  "chatCitations": 3,
+  "webSearchMs": 884,
+  "playbackSeek": {
+    "startMs": 12129,
+    "errorMs": 0,
+    "durationMs": 33561.875
+  },
+  "journeyMs": 63788,
+  "fixture": "standup-short",
+  "specBars": {
+    "interimLatencyMs": "< 1500 (SPEC §8)",
+    "enhanceMs": "< 30000 for a 1-hour meeting (SPEC §8; here a 33 s fixture with the mock LLM)",
+    "coldStartMs": "< 2000 (SPEC §8)"
+  },
+  "timeoutScale": 1,
+  "at": "2026-11-15T12:34:22.614Z"
+}
