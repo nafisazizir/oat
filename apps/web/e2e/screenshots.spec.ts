@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import type { Page } from '@playwright/test';
 
+import { SIGNED_OUT } from './auth-helpers';
 import { expect, test } from './fixtures';
 
 /**
@@ -64,14 +65,18 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `sidebar-collapsed-${theme}`);
     });
 
-    test('public pages', async ({ page }) => {
-      await page.goto('/sign-in');
-      await expect(page.getByText('Welcome to Oat')).toBeVisible();
-      await shoot(page, `sign-in-${theme}`);
+    test.describe('signed out', () => {
+      test.use({ storageState: SIGNED_OUT });
 
-      await page.goto('/share/abc123token');
-      await expect(page.getByRole('heading', { level: 1, name: 'Shared note' })).toBeVisible();
-      await shoot(page, `share-${theme}`);
+      test('public pages', async ({ page }) => {
+        await page.goto('/sign-in');
+        await expect(page.getByText('Welcome to Oat')).toBeVisible();
+        await shoot(page, `sign-in-${theme}`);
+
+        await page.goto('/share/abc123token');
+        await expect(page.getByRole('heading', { level: 1, name: 'Shared note' })).toBeVisible();
+        await shoot(page, `share-${theme}`);
+      });
     });
 
     test.describe('states', () => {

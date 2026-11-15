@@ -130,6 +130,13 @@ services:
       SMTP_PORT: 1025
       SMTP_FROM: Oat <no-reply@oat.localhost>
       MAILPIT_URL: http://mailpit:8025
+      # Auth (Better Auth). The browser reaches the app at localhost:3000, so that's the public URL that
+      # magic links and the Google callback use. The image runs NODE_ENV=production; on a loopback URL
+      # @oat/auth accepts the dev secret and plain http (a public URL needs https + a real secret).
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-oat-dev-secret-not-for-production-0123456789}
+      BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:-}
+      AUTH_MAX_TEAM_WORKSPACES: ${AUTH_MAX_TEAM_WORKSPACES:-}
       # URLs a browser or the desktop app also uses keep their host form: the entrypoint forwards
       # 127.0.0.1:18089 and :14010 inside the container to oauth and mocks, so the OAuth issuer (which
       # mock-oauth2-server derives from the Host header) and every discovery endpoint match the host's view.

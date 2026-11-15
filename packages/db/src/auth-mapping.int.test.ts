@@ -105,16 +105,44 @@ describe('Better Auth on @oat/db', () => {
       .where(eq(schema.membership.workspaceId, org!.id));
     expect(owners).toMatchObject([{ userId: owner.user.id, role: 'owner' }]);
 
-    // Personal workspaces go through the same path with `kind`.
-    const personal = await auth.api.createOrganization({
-      body: { name: 'Owner', slug: `personal-${owner.user.id}`, kind: 'personal' },
+    // `kind` is not client-settable (input: false); personal workspaces are created server-side (here via
+    // the hook's data, in the app by @oat/auth) and Better Auth reads them back with their kind.
+    const sneaky = await auth.api.createOrganization({
+      // @ts-expect-error `kind` is not part of the create body (Better Auth drops it)
+      body: { name: 'Sneaky', slug: `sneaky-${owner.user.id}`, kind: 'personal' },
       headers: owner.headers,
     });
-    const [pws] = await db
+    const [sneakyRow] = await db
       .select()
       .from(schema.workspace)
-      .where(eq(schema.workspace.id, personal!.id));
-    expect(pws?.kind).toBe('personal');
+      .where(eq(schema.workspace.id, sneaky!.id));
+    expect(sneakyRow?.kind).toBe('team');
+    const [pws] = await db
+      .insert(schema.workspace)
+      .values({
+        name: 'Owner',
+        slug: `personal-${owner.user.id}`,
+        kind: 'personal',
+        createdBy: owner.user.id,
+      })
+      .returning();
+    await db
+      .insert(schema.membership)
+      .values({ workspaceId: pws!.id, userId: owner.user.id, role: 'owner' });
+    const personalFull = await auth.api.getFullOrganization({
+      query: { organizationId: pws!.id },
+      headers: owner.headers,
+    });
+    expect(personalFull?.kind).toBe('personal');
+    // At most one personal workspace per creator (partial unique index).
+    await expect(
+      db.insert(schema.workspace).values({
+        name: 'Owner 2',
+        slug: `personal-2-${owner.user.id}`,
+        kind: 'personal',
+        createdBy: owner.user.id,
+      }),
+    ).rejects.toThrow();
 
     await auth.api.setActiveOrganization({
       body: { organizationId: org!.id },

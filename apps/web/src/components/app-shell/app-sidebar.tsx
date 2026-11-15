@@ -8,7 +8,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@oat/ui/components/dropdown-menu';
 import {
@@ -47,15 +46,18 @@ import {
 import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
 import { sections } from '@/lib/navigation';
 import { childrenOf, type DocumentNode, type Workspace } from '@/lib/tree';
+import { switchWorkspace } from '@/server/actions/workspaces';
 
 import { useCommandMenu } from './command-menu';
+import { CreateWorkspaceDialog } from './create-workspace-dialog';
 import { useShellData } from './shell-data';
 import { useNewNote } from './use-new-note';
+import { UserMenu } from './user-menu';
 
 const docHref = (doc: DocumentNode) => `/d/${doc.id}` as Route;
 
@@ -77,64 +79,76 @@ function WorkspaceTile({ workspace, className }: { workspace: Workspace; classNa
 }
 
 function memberLabel(workspace: Workspace) {
-  return workspace.kind === 'personal' ? 'Personal space' : `${workspace.members} members`;
+  if (workspace.kind === 'personal') return 'Personal space';
+  return workspace.members === 1 ? '1 member' : `${workspace.members} members`;
 }
 
 function WorkspaceSwitcher() {
   const { workspace: currentWorkspace, workspaces } = useShellData();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  const switchTo = (workspace: Workspace) =>
+    startTransition(async () => {
+      const result = await switchWorkspace(workspace.id);
+      if (!result.ok) toast.error(result.error);
+    });
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <SidebarMenuButton
-          size="lg"
-          className="data-[state=open]:bg-sidebar-accent group-data-[collapsible=icon]:pl-1!"
-          data-testid="workspace-switcher"
-        >
-          <WorkspaceTile workspace={currentWorkspace} />
-          <div className="flex min-w-0 flex-col gap-0.5 leading-none">
-            <span className="truncate font-medium">{currentWorkspace.name}</span>
-            <span className="truncate text-xs text-muted-foreground">
-              {memberLabel(currentWorkspace)}
-            </span>
-          </div>
-          <ChevronsUpDownIcon className="ml-auto text-muted-foreground" />
-        </SidebarMenuButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className="w-(--radix-dropdown-menu-trigger-width) min-w-56"
-      >
-        <DropdownMenuLabel className="text-xs text-muted-foreground">Workspaces</DropdownMenuLabel>
-        {workspaces.map((workspace) => (
-          <DropdownMenuItem
-            key={workspace.id}
-            className="gap-2 py-1.5"
-            onSelect={() => {
-              if (workspace.id !== currentWorkspace.id) {
-                toast('Team workspaces are coming soon', {
-                  description: `Switching to ${workspace.name} arrives with workspaces and sharing.`,
-                });
-              }
-            }}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <SidebarMenuButton
+            size="lg"
+            className="data-[state=open]:bg-sidebar-accent group-data-[collapsible=icon]:pl-1!"
+            data-testid="workspace-switcher"
+            aria-busy={pending || undefined}
           >
-            <WorkspaceTile workspace={workspace} className="size-5" />
-            <div className="flex min-w-0 flex-col">
-              <span className="truncate">{workspace.name}</span>
+            <WorkspaceTile workspace={currentWorkspace} />
+            <div className="flex min-w-0 flex-col gap-0.5 leading-none">
+              <span className="truncate font-medium">{currentWorkspace.name}</span>
               <span className="truncate text-xs text-muted-foreground">
-                {memberLabel(workspace)}
+                {memberLabel(currentWorkspace)}
               </span>
             </div>
-            {workspace.id === currentWorkspace.id && <CheckIcon className="ml-auto" />}
+            <ChevronsUpDownIcon className="ml-auto text-muted-foreground" />
+          </SidebarMenuButton>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="w-(--radix-dropdown-menu-trigger-width) min-w-56"
+        >
+          <DropdownMenuLabel className="text-xs text-muted-foreground">
+            Workspaces
+          </DropdownMenuLabel>
+          {workspaces.map((workspace) => (
+            <DropdownMenuItem
+              key={workspace.id}
+              className="gap-2 py-1.5"
+              data-testid="workspace-option"
+              onSelect={() => {
+                if (workspace.id !== currentWorkspace.id) switchTo(workspace);
+              }}
+            >
+              <WorkspaceTile workspace={workspace} className="size-5" />
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate">{workspace.name}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {memberLabel(workspace)}
+                </span>
+              </div>
+              {workspace.id === currentWorkspace.id && <CheckIcon className="ml-auto" />}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="gap-2" onSelect={() => setCreateOpen(true)}>
+            <PlusIcon />
+            Create workspace
           </DropdownMenuItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled className="gap-2">
-          <PlusIcon />
-          Create workspace
-          <DropdownMenuShortcut>Soon</DropdownMenuShortcut>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <CreateWorkspaceDialog open={createOpen} onOpenChange={setCreateOpen} />
+    </>
   );
 }
 
@@ -296,6 +310,9 @@ export function AppSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
+          <SidebarMenuItem>
+            <UserMenu />
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />

@@ -27,6 +27,11 @@ export const envSchema = z.object({
   DATABASE_URL: url,
   REDIS_URL: url,
 
+  BETTER_AUTH_SECRET: z.string().min(32),
+  BETTER_AUTH_URL: url,
+  BETTER_AUTH_TRUSTED_ORIGINS: optional,
+  AUTH_MAX_TEAM_WORKSPACES: optional.pipe(z.string().regex(/^\d+$/).optional()),
+
   SMTP_HOST: z.string().min(1),
   SMTP_PORT: z.coerce.number().int().positive(),
   SMTP_USER: optional,

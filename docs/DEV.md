@@ -103,6 +103,12 @@ pnpm dev:app:stop                     # remove the app containers (stack keeps r
   `localhost:18089` → `oauth:8080` and `localhost:14010` → `mocks:14010` inside the container
   (`OAT_LOCALHOST_FORWARDS`, `docker/web/entrypoint.mjs`; unset in production), so the OAuth issuer, the
   token `iss` and every discovery endpoint are identical inside and outside the container.
+- **Auth in the container**: `BETTER_AUTH_URL` (default `http://localhost:3000`, what the browser uses),
+  `BETTER_AUTH_SECRET` (default: the dev secret), `BETTER_AUTH_TRUSTED_ORIGINS` and `AUTH_MAX_TEAM_WORKSPACES`
+  are interpolated from the root `.env` with those defaults. The image runs `NODE_ENV=production`; `@oat/auth`
+  accepts the dev secret and plain http only because the URL is loopback (a public URL needs https and a
+  real secret). Magic links go to Mailpit (`mailpit:1025`), the per-email send limit uses `redis:6379`, and
+  Google goes through the forwarded mock issuer, so both sign-in methods work in the container as on the host.
 - `/api/health` returns `{ ok, version, db }`, with HTTP 503 when Postgres doesn't answer within 2 s.
 - The `oat-web:dev` image is shared by every worktree: it runs whatever the last `dev:app` built. Neither
   `dev:up` nor CI's `stack` step starts the `app` profile.
@@ -198,7 +204,9 @@ Every integration is selected by env: a base URL plus a key. With the key blank,
 | ----------- | --------------------------------------------------------------------------------------- |
 | AI Gateway  | `AI_GATEWAY_API_KEY=...` (`AI_GATEWAY_BASE_URL` only to override the default). On Vercel (`VERCEL`/`VERCEL_OIDC_TOKEN` set) without a key, the gateway uses Vercel OIDC. Otherwise `AI_BASE_URL` (default `${MOCKS_URL}/llm/v1`); with `NODE_ENV=production` and none of these set, `@oat/ai` throws `AiConfigError` instead of using localhost. Models per role: `AI_MODEL_ENHANCE/CHAT/FAST/EMBED` |
 | Deepgram    | `DEEPGRAM_API_KEY=...` (`DEEPGRAM_BASE_URL` only to override the default)               |
-| Google      | `OAUTH_GOOGLE_ISSUER=https://accounts.google.com`, real `OAUTH_GOOGLE_CLIENT_ID/SECRET` |
+| Google      | `OAUTH_GOOGLE_ISSUER=https://accounts.google.com`, real `OAUTH_GOOGLE_CLIENT_ID/SECRET`; register the redirect URI `${BETTER_AUTH_URL}/api/auth/callback/google` |
+| Email       | `SMTP_HOST/PORT/USER/PASSWORD/FROM` of the real provider (port 465 = implicit TLS)        |
+| Auth        | `BETTER_AUTH_URL=https://<public origin>`, `BETTER_AUTH_SECRET=<openssl rand -base64 32>`; with `NODE_ENV=production` on a non-loopback URL the dev secret and plain-http URLs (app or OAuth issuer) are refused |
 | Postgres    | `DATABASE_URL=<Neon URL>` (prod only)                                                   |
 
 Real credentials are human checkpoints (FACTORY §7) and never go in `.env.example`. Real-provider smoke
@@ -208,6 +216,36 @@ tests run only when their key is set.
 already exported in the shell win). `apps/web` does in `next dev`/`next build` (`next.config.ts`). Compose uses
 it only for interpolation: the `web` container takes the provider keys and Google issuer/client from it, and
 nothing else (see "Web app in Docker"). `apps/desktop` must load it itself when it is wired up.
+
+## Signing in locally (`@oat/auth`)
+
+Better Auth (D-9) runs inside `apps/web` at `/api/auth/*`; its config lives in `packages/auth`. With the
+`.env.example` defaults, both sign-in methods work offline:
+
+- **Email link:** enter any address on `/sign-in`; the link arrives in Mailpit (<http://localhost:18025>; the
+  "Check your email" screen links there in dev). It opens `/sign-in/confirm`, where "Continue to Oat"
+  POSTs the token (`/api/sign-in/magic-link`, same-origin only), so mail scanners that prefetch links can't
+  use it up. Links are single-use and expire after 15 minutes; at most 5 are sent per address per 15 minutes
+  (counted in Redis at `REDIS_URL`, in memory without it), on top of Better Auth's per-IP limit.
+- **Continue with Google:** goes to the mock issuer's login page (`localhost:18089`); type any email (and
+  optionally a name) and you're back, signed in. Same email as a magic-link account → the Google account is
+  linked to it.
+- Every new user gets a **personal workspace** (`kind: personal`, slug `personal-<userId>`; one per user,
+  enforced by a partial unique index), and each new session starts in it. Create team workspaces from the
+  workspace switcher (at most `AUTH_MAX_TEAM_WORKSPACES`, default 20, per user). A workspace's `kind` can't
+  be set or changed through the API, a personal workspace's slug can't change, and `personal-` slugs are
+  reserved.
+- Protected pages (`/home`, `/d/*`, `/settings`, `/templates`) redirect to `/sign-in?next=…` without a
+  session: `src/proxy.ts` checks the cookie, `(app)/layout.tsx` validates it.
+- The desktop app (1.8) will authenticate with `Authorization: Bearer <token>` (the signed token from the
+  `set-auth-token` response header); unsigned tokens are rejected.
+
+**Web e2e** (`pnpm --filter @oat/web e2e`, needs `pnpm dev:up`) starts `next dev` through
+`apps/web/e2e/web-server.ts`, which creates a throwaway `oat_test_*` database, migrates it, and drops it on
+exit, so e2e sign-ups never land in the shared `oat` database. Pick a free port per worktree with
+`E2E_PORT=3107`. A `setup` project signs one user in by magic link and the other specs reuse its cookies;
+`auth.spec.ts` covers both sign-in methods with fresh users. `E2E_SCREENSHOTS=1 … playwright test auth`
+writes the 1.6 evidence screenshots.
 
 ## Database (`@oat/db`)
 

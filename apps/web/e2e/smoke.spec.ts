@@ -145,12 +145,11 @@ test.describe('routes', () => {
     await expect(page.locator(sidebarSelector)).toBeVisible();
   });
 
-  test('sign-in form renders (UI only until 1.6)', async ({ page }) => {
+  test('signed-in users skip /sign-in (sign-in flows: auth.spec.ts)', async ({ page }) => {
     await page.goto('/sign-in');
-    await expect(page.getByRole('heading', { level: 1, name: 'Welcome to Oat' })).toBeVisible();
-    await page.getByLabel('Work email').fill('me@example.com');
-    await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
-    await expect(page.getByRole('status')).toContainText('isn’t connected yet');
+    await expect(page).toHaveURL(/\/home$/);
+    await page.goto('/sign-in?next=%2Fsettings');
+    await expect(page).toHaveURL(/\/settings$/);
   });
 
   test('share page uses the public read-only layout', async ({ page }) => {

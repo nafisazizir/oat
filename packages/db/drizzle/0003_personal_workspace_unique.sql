@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "workspace_personal_created_by_uq" ON "workspace" USING btree ("created_by") WHERE "workspace"."kind" = 'personal';

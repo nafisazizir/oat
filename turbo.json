@@ -27,6 +27,7 @@
       "passThroughEnv": [
         "DATABASE_URL",
         "REDIS_URL",
+        "BETTER_AUTH_*",
         "SMTP_*",
         "MAILPIT_URL",
         "MOCKS_URL",
@@ -47,6 +48,7 @@
       "passThroughEnv": [
         "DATABASE_URL",
         "REDIS_URL",
+        "BETTER_AUTH_*",
         "SMTP_*",
         "MAILPIT_URL",
         "MOCKS_URL",

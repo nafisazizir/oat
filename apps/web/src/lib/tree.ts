@@ -23,13 +23,28 @@ export type DocumentNode = {
   updatedAt: string;
 };
 
+/** The signed-in user, as the shell shows them (sidebar account menu). */
+export type ShellUser = {
+  id: string;
+  name: string;
+  email: string;
+  image: string | null;
+};
+
 /** Everything the app frame needs for the current user, loaded once per request in `(app)/layout`. */
 export type ShellData = {
+  user: ShellUser;
+  /** The active workspace (always one of `workspaces`). */
   workspace: Workspace;
   workspaces: readonly Workspace[];
   /** The current workspace's document tree as a flat list (parents referenced by `parentId`). */
   documents: readonly DocumentNode[];
 };
+
+/** A display name: the user's name, else the part of their email before `@`. */
+export function displayName(user: { name?: string | null; email: string }): string {
+  return user.name?.trim() || user.email.split('@')[0] || user.email;
+}
 
 export function findDocument(
   documents: readonly DocumentNode[],

@@ -31,8 +31,14 @@ export const workspace = pgTable(
       .references(() => user.id, { onDelete: 'restrict' }),
     ...timestamps(),
   },
-  // FK lookups when deleting a user.
-  (t) => [index('workspace_created_by_idx').on(t.createdBy)],
+  (t) => [
+    // FK lookups when deleting a user.
+    index('workspace_created_by_idx').on(t.createdBy),
+    // One personal workspace per user (1.6 review); also how @oat/auth finds it.
+    uniqueIndex('workspace_personal_created_by_uq')
+      .on(t.createdBy)
+      .where(sql`${t.kind} = 'personal'`),
+  ],
 );
 
 export const membership = pgTable(
