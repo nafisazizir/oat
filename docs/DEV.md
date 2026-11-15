@@ -72,7 +72,7 @@ All ports bind to `127.0.0.1` and sit in a private range so they don't clash wit
 ## How mocks work (`tools/mocks`)
 
 `@oat/mocks` is a small Hono service. Each third-party API is a *provider* in `src/providers/<name>.ts`,
-mounted under `/<name>` and registered in `src/providers/index.ts` (today only `example`; `llm`, `stt`,
+mounted under `/<name>` and registered in `src/providers/index.ts` (today `example` and `llm`; `stt`,
 `gcal`, `notion` arrive with the tasks that need them). A provider is a Hono sub-app plus optional
 `websockets` routes (raw `ws` sockets, e.g. a Deepgram-style streaming endpoint; see the `/example/ws` echo)
 and an optional `reset()`. Built-in routes:
@@ -105,6 +105,23 @@ and an optional `reset()`. Built-in routes:
 - If a test must use the container, find *your* calls in `/_requests` by a unique value you sent and only
   ever use the scoped `/_reset?provider=<name>`.
 
+### The `llm` provider (stands in for AI Gateway)
+
+OpenAI-compatible, base URL `${MOCKS_URL}/llm/v1` (what `@oat/ai` uses when `AI_GATEWAY_API_KEY` is blank).
+Deterministic: the same request always gets the same content.
+
+| Route                          | Behaviour                                                                  |
+| ------------------------------ | -------------------------------------------------------------------------- |
+| `POST /llm/v1/chat/completions` | Text: up to three sentences quoted from the last user message. `response_format: json_schema`: schema-valid JSON whose strings are sentences from the user messages (title-ish keys get a short phrase). `json_object`: `{ "text": … }`. `stream: true`: SSE word deltas + `[DONE]`, usage chunk with `stream_options.include_usage`. Tools are ignored (never called). |
+| `POST /llm/v1/embeddings`      | Feature-hashed unit vectors (words + trigrams): deterministic, similar text → higher cosine. `dimensions` honoured (default 1536), `encoding_format` float/base64. |
+| `GET /llm/v1/models`           | The registry's default model ids (any id is accepted).                     |
+
+Scenario headers for resilience tests (pass them per call, e.g. `generateText({ headers })`):
+`x-mock-scenario: error` (status from `x-mock-status`, default 500; 429 → `rate_limit_error`),
+`x-mock-scenario: slow` (waits `x-mock-delay-ms`, default 1000), `x-mock-scenario: empty` (empty content /
+no embeddings), and `x-mock-chunk-delay-ms` (pause between SSE chunks). Unit tests that don't need HTTP use
+`createMockModel` / `createMockEmbeddingModel` from `@oat/ai/testing` instead.
+
 Adding a provider: copy `src/providers/example.ts`, keep state inside the factory, implement `reset()`, add
 it to `defaultProviders`, unit-test HTTP routes with `app.request()` and websockets with `startMocks()`. Run
 the service natively while developing:
@@ -120,7 +137,7 @@ Every integration is selected by env: a base URL plus a key. With the key blank,
 
 | Integration | Real setup in `.env`                                                                    |
 | ----------- | --------------------------------------------------------------------------------------- |
-| AI Gateway  | `AI_GATEWAY_API_KEY=...` (`AI_GATEWAY_BASE_URL` only to override the default)           |
+| AI Gateway  | `AI_GATEWAY_API_KEY=...` (`AI_GATEWAY_BASE_URL` only to override the default). On Vercel (`VERCEL`/`VERCEL_OIDC_TOKEN` set) without a key, the gateway uses Vercel OIDC. Otherwise `AI_BASE_URL` (default `${MOCKS_URL}/llm/v1`); with `NODE_ENV=production` and none of these set, `@oat/ai` throws `AiConfigError` instead of using localhost. Models per role: `AI_MODEL_ENHANCE/CHAT/FAST/EMBED` |
 | Deepgram    | `DEEPGRAM_API_KEY=...` (`DEEPGRAM_BASE_URL` only to override the default)               |
 | Google      | `OAUTH_GOOGLE_ISSUER=https://accounts.google.com`, real `OAUTH_GOOGLE_CLIENT_ID/SECRET` |
 | Postgres    | `DATABASE_URL=<Neon URL>` (prod only)                                                   |

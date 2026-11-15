@@ -36,3 +36,4 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - 2026-11-14 · 1.7 · shipped: core domain types + permissions (D-18) (squash-merged).
 - 2026-11-14 · 2.3 · shipped: oat-audio Swift sidecar (synthetic-verified; real capture = human checkpoint) (squash-merged).
 - 2026-11-14 · 2.1 · shipped: AudioSource + FileSource + say-generated fixtures (squash-merged).
+- 2026-11-14 · 4.1 · shipped: packages/ai provider factory + mock LLM/embeddings (squash-merged).

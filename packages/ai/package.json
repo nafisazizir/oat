@@ -13,9 +13,18 @@
     "typecheck": "tsc",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:int": "vitest run --mode int --passWithNoTests"
+    "test:int": "vitest run --mode int"
+  },
+  "dependencies": {
+    "@ai-sdk/openai-compatible": "catalog:",
+    "@ai-sdk/provider": "catalog:",
+    "@oat/core": "workspace:*",
+    "ai": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
+    "@oat/mocks": "workspace:*",
+    "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
