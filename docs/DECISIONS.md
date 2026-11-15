@@ -142,3 +142,15 @@ functions with fixture tests (allowlist + helper→parent map as data, asymmetri
 a calendar event overlaps. Calendar names the meeting (in progress or starting within 90 s, started ≤ 15 min
 ago) and adds a "meeting starting" notification ~1 min before events with attendees. Deferred to IDEAS:
 accessibility-tree reader, browser extension, app-level encryption at rest.
+
+## D-16 · 2026-11-14 · proposed · agent
+`oat-audio` wire protocol (protocol 1, `native/oat-audio/PROTOCOL.md`): stdout carries binary frames — 14-byte
+little-endian header (`u8 kind` audio/event, `u8 source` mic/system/none, `u64 t_us` on one shared monotonic
+capture clock, `u32 payload_len`) + payload (audio = s16le mono PCM at the announced rate, 50 ms frames by
+default; event = UTF-8 JSON `{"type":…}`). Control on stdin = newline-delimited JSON
+`{"cmd":"pause"|"resume"|"stop"}`, EOF on a pipe = stop. Logs on stderr only.
+Why: length-prefixed binary keeps PCM cheap to parse in Node (no base64/JSON per audio frame); one stream for both
+sources + events keeps a single clock and the order between events and audio; JSON events stay debuggable and
+forward compatible (unknown fields/types ignored). Rejected: JSON lines with base64 audio (~33% overhead + parse
+cost); one pipe/socket per source (more fds and lifecycle for Electron, event/audio ordering lost).
+`scripts/check-frames.mjs` is the contract test; breaking changes bump `protocol`.

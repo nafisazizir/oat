@@ -38,7 +38,7 @@ with sign-in working (magic link via Mailpit, Google via mock OAuth).
 Exit: start recording in the desktop app → live two-source transcript appears → segments persisted.
 - [ ] 2.1 `AudioSource` interface + `FileSource` + two-channel WAV fixtures · deps: 1.1
 - [ ] 2.2 `packages/stt`: `SttProvider` interface, `FakeSttProvider`, Deepgram streaming adapter (reconnect, buffering) + Deepgram-compatible mock WS in `tools/mocks` · deps: 2.1, 1.10
-- [ ] 2.3 🧑 `native/oat-audio` Swift sidecar: mic (AVAudioEngine) + system audio (Core Audio process tap), framed PCM over stdout, permission handling; agent verifies `swift build` + `swift test` + a `--synthetic` mode (tone generator, no permissions); real capture is the human step · deps: —
+- [x] 2.3 🧑 `native/oat-audio` Swift sidecar: mic (AVAudioEngine) + system audio (Core Audio process tap), framed PCM over stdout, permission handling; agent verifies `swift build` + `swift test` + a `--synthetic` mode (tone generator, no permissions); real capture is the human step · deps: —
 - [ ] 2.4 `SidecarSource` in desktop main; recording state machine (idle/recording/paused/error) · deps: 2.1, 2.3
 - [ ] 2.5 Transcript panel UI (live interim + final segments, me/them labels, autoscroll) · deps: 1.8, 2.2
 - [ ] 2.6 Persist segments: desktop SQLite (disposable cache, D-19) + trigger-driven outbox → API → Postgres; stable client segment ids, finals only · deps: 1.5, 2.4
