@@ -68,6 +68,9 @@ test('⌘K finds notes and transcript lines; Enter opens the hit; /search has ta
   page,
 }) => {
   const word = uniqueWord();
+  // Created first so it is never the most recent: ranking includes a recency boost, and the Pricing note
+  // (title + body match, newest) must rank first deterministically.
+  await apiCreateDocument(page, { title: `Older ${word} notes` });
   const note = await apiCreateDocument(page, {
     title: `Pricing ${word} plan`,
     visibility: 'workspace',
@@ -80,7 +83,6 @@ test('⌘K finds notes and transcript lines; Enter opens the hit; /search has ta
     headers: { origin: new URL(page.url()).origin },
   });
   expect(res.status(), await res.text()).toBe(200);
-  await apiCreateDocument(page, { title: `Older ${word} notes` });
   const call = await apiCreateDocument(page, { title: 'Customer call', kind: 'meeting' });
   await addTranscript(page, call.id, [
     [12_000, 'Thanks for joining, let me share my screen.'],
