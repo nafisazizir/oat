@@ -5,6 +5,12 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 ## Waiting on human
 - [ ] Hopper (used by REA) is stuck on a dialog since 13:32; REA `close_binary` returns cleanup_incomplete.
       Please dismiss/quit Hopper. Not blocking product work.
+- [ ] **Sidecar real-capture test (2.3)** — needs you at the Mac, ~10 min. Steps in
+      `native/oat-audio/README.md` + Design notes of `docs/tasks/2.3-oat-audio-sidecar.md`:
+      `cd native/oat-audio && swift build -c release && .build/release/oat-audio capture --duration 15 | node scripts/check-frames.mjs`
+      with a call/video playing on speakers; grant Microphone + System Audio Recording when prompted. Check:
+      both sources present, speaker echo removed from mic (AEC), call audio not ducked, AirPods/Bluetooth
+      rate switch (`format_changed` event) handled.
 
 ## Entries
 - 2026-11-14 · setup · Docs written: CLAUDE.md, SPEC, PLAN, FACTORY, IDEAS, DECISIONS. Initial Granola

@@ -79,7 +79,7 @@ are added.
 SPEC §10 open questions resolved with the defaults: Better Auth, Deepgram (behind `SttProvider`), Postgres +
 Drizzle, Swift sidecar, no Windows in v1, product name "Oat".
 
-## D-15 · 2026-11-14 · proposed · agent
+## D-15 · 2026-11-14 · accepted · agent
 Internal workspace packages (`packages/*`, `@oat/<name>`) are **TypeScript-source packages**: `exports` point
 at `./src/*.ts` (`.` → `./src/index.ts`, `./*` → `./src/*.ts`), there is no per-package build step, and
 consumers compile them (Next.js `transpilePackages`, electron-vite/Vite, Vitest). Shared dependency versions
@@ -143,7 +143,7 @@ a calendar event overlaps. Calendar names the meeting (in progress or starting w
 ago) and adds a "meeting starting" notification ~1 min before events with attendees. Deferred to IDEAS:
 accessibility-tree reader, browser extension, app-level encryption at rest.
 
-## D-16 · 2026-11-14 · proposed · agent
+## D-16 · 2026-11-14 · accepted · agent
 `oat-audio` wire protocol (protocol 1, `native/oat-audio/PROTOCOL.md`): stdout carries binary frames — 14-byte
 little-endian header (`u8 kind` audio/event, `u8 source` mic/system/none, `u64 t_us` on one shared monotonic
 capture clock, `u32 payload_len`) + payload (audio = s16le mono PCM at the announced rate, 50 ms frames by
