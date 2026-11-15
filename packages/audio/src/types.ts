@@ -68,7 +68,23 @@ export const SIDECAR_ERROR_CODES = [
 ] as const;
 /** Emitted by an `AudioSource` itself (never the sidecar) when one of its listeners threw; non-fatal. */
 export const LISTENER_ERROR = 'listener_error';
-export type KnownAudioErrorCode = (typeof SIDECAR_ERROR_CODES)[number] | typeof LISTENER_ERROR;
+/**
+ * Emitted by `SidecarSource` (Node side, never by the sidecar itself):
+ * - `sidecar_exited` — the process ended without a `stopped` frame (crash, kill). Non-fatal when it is being
+ *   restarted (the message says so), fatal otherwise.
+ * - `sidecar_protocol_error` — its stdout violated PROTOCOL.md; the process was killed. Fatal unless restarted.
+ * - `sidecar_stop_timeout` — a graceful stop did not finish in time and the process was signalled; non-fatal
+ *   (a `stopped` event follows).
+ */
+export const SIDECAR_HOST_ERROR_CODES = [
+  'sidecar_exited',
+  'sidecar_protocol_error',
+  'sidecar_stop_timeout',
+] as const;
+export type KnownAudioErrorCode =
+  | (typeof SIDECAR_ERROR_CODES)[number]
+  | (typeof SIDECAR_HOST_ERROR_CODES)[number]
+  | typeof LISTENER_ERROR;
 
 export type AudioEvent =
   | {
@@ -194,7 +210,9 @@ export interface AudioSource {
   stop(): Promise<void>;
   /**
    * No frames are delivered while paused. Takes effect at the next frame boundary (a listener that pauses
-   * mid-delivery may still see the other source's frame for the same instant). No-op unless running.
+   * mid-delivery may still see the other source's frame for the same instant). A live source (sidecar) may
+   * still deliver audio captured before the call until its `paused` event, which marks the exact pause
+   * point. `state` changes immediately. No-op unless running.
    */
   pause(): void;
   /** No-op unless paused. */
