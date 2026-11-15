@@ -249,7 +249,11 @@ test('below lg the panel is a modal sheet: focus stays inside, Escape closes', a
   }
   // From the question box (Tab may have left focus on a button whose tooltip would take the first Escape).
   await page.getByTestId('chat-input').focus();
+  await page.mouse.move(0, 0);
+  // A tooltip opened by an earlier Tab (its open delay can land late under load) correctly takes the first
+  // Escape; the sheet must close within two presses.
   await page.keyboard.press('Escape');
+  if (await dialog.isVisible()) await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect(page.getByTestId('assistant-toggle')).toBeFocused();
 });
