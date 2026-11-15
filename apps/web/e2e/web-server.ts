@@ -4,11 +4,16 @@
  * parallel worktrees never see each other's users. The database is dropped when Playwright stops the
  * server (SIGTERM, see `gracefulShutdown` in playwright.config.ts); a hard kill leaks it until the next
  * test run sweeps `oat_test_*` databases older than an hour.
+ *
+ * It also runs an in-process mocks server with the Google Calendar provider (this checkout's code, not the
+ * shared container, which may predate it) and points `GOOGLE_CALENDAR_BASE_URL` at it. Its `next-week`
+ * anchor keeps the fixture week upcoming whenever the tests run.
  */
 import { spawn } from 'node:child_process';
 import { rmSync } from 'node:fs';
 
 import { migrate } from '@oat/db';
+import { gcalProvider, startMocks } from '@oat/mocks';
 import { createTestDatabase } from '@oat/testkit';
 
 const port = process.env.E2E_PORT ?? '3000';
@@ -18,6 +23,7 @@ const port = process.env.E2E_PORT ?? '3000';
 rmSync(new URL('../.next/dev', import.meta.url), { recursive: true, force: true });
 const db = await createTestDatabase();
 await migrate(db.url);
+const mocks = await startMocks({ providers: [() => gcalProvider({ anchor: 'next-week' })] });
 console.log(`[e2e] database ${db.name} ready; starting next dev on :${port}`);
 
 const child = spawn('pnpm', ['exec', 'next', 'dev', '--port', port], {
@@ -26,6 +32,7 @@ const child = spawn('pnpm', ['exec', 'next', 'dev', '--port', port], {
     ...process.env,
     DATABASE_URL: db.url,
     BETTER_AUTH_URL: `http://localhost:${port}`,
+    GOOGLE_CALENDAR_BASE_URL: `${mocks.url}/gcal`,
   },
 });
 
@@ -37,6 +44,7 @@ async function shutdown(code: number) {
     child.kill('SIGTERM');
     await new Promise((resolve) => child.once('exit', resolve));
   }
+  await mocks.close().catch(() => undefined);
   try {
     await db.drop();
   } catch (error) {

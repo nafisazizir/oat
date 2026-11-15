@@ -53,7 +53,7 @@ All ports bind to `127.0.0.1` and sit in a private range so they don't clash wit
 | `redis`    | `redis:7.4.12-alpine`                                | 63790                     | Upstash / managed Redis              | `REDIS_URL`                       |
 | `mailpit`  | `axllent/mailpit:v1.33.1`                            | SMTP 11025, UI/API 18025  | Transactional email provider         | `SMTP_*`, `MAILPIT_URL`           |
 | `oauth`    | `ghcr.io/navikt/mock-oauth2-server:7.0.0` + `docker/oauth` | 18089               | Google OAuth / OIDC                  | `OAUTH_GOOGLE_*`                  |
-| `mocks`    | `tools/mocks` (`@oat/mocks`)                         | 14010                     | AI Gateway, Deepgram, Notion, GCal   | `MOCKS_URL`, `AI_*`, `DEEPGRAM_*` |
+| `mocks`    | `tools/mocks` (`@oat/mocks`)                         | 14010                     | AI Gateway, Deepgram, Notion, GCal   | `MOCKS_URL`, `AI_*`, `DEEPGRAM_*`, `GOOGLE_CALENDAR_BASE_URL` |
 
 - **Postgres**: database/user/password all `oat`. `vector` and `pg_trgm` are enabled in `oat` and in
   `template1`, so every database created later has them too. Connect: `docker compose exec postgres psql -U oat`.
@@ -116,8 +116,8 @@ pnpm dev:app:stop                     # remove the app containers (stack keeps r
 ## How mocks work (`tools/mocks`)
 
 `@oat/mocks` is a small Hono service. Each third-party API is a *provider* in `src/providers/<name>.ts`,
-mounted under `/<name>` and registered in `src/providers/index.ts` (today `example`, `llm` and `stt`;
-`gcal` and `notion` arrive with the tasks that need them). A provider is a Hono sub-app plus optional
+mounted under `/<name>` and registered in `src/providers/index.ts` (today `example`, `llm`, `stt` and
+`gcal`; `notion` arrives with the task that needs it). A provider is a Hono sub-app plus optional
 `websockets` routes (raw `ws` sockets, e.g. a Deepgram-style streaming endpoint; see the `/example/ws` echo,
 with an optional `verify()` that can refuse the handshake with an HTTP status) and an optional `reset()`.
 Built-in routes:
@@ -195,6 +195,32 @@ MOCKS_PORT=14011 pnpm --filter @oat/mocks dev   # tsx watch; point MOCKS_URL at 
   container image bundles the fixture ground truth; it gets the provider once `main` is rebuilt with
   `pnpm dev:build`.
 
+### The `gcal` provider (stands in for the Google Calendar API)
+
+Google Calendar API v3 subset at `${MOCKS_URL}/gcal/calendar/v3/…` (what `@oat/calendar/google` uses when
+`GOOGLE_CALENDAR_BASE_URL` is blank and sign-in isn't real Google). Data: the week in
+`fixtures/calendar/week.json` (3 calendars, ~17 events incl. recurring instances, a moved occurrence, all-day
+events, Meet/Zoom/Teams links, a cancelled meeting), converted to Google's shapes. Full reference in
+`tools/mocks/src/providers/gcal/index.ts`.
+
+| Route                                                  | Behaviour                                                   |
+| ------------------------------------------------------ | ----------------------------------------------------------- |
+| `GET /gcal/calendar/v3/users/me/calendarList`          | The fixture calendars (`cal-work` is `primary`), paginated. |
+| `GET /gcal/calendar/v3/calendars/{id}/events`          | `singleEvents=true` (required), `timeMin`/`timeMax` (RFC 3339 with offset), `orderBy`, `showDeleted`, `maxResults`/`pageToken`, `syncToken` (changes since, deletions as `cancelled`; **410 `fullSyncRequired`** when stale). `primary` alias. |
+| `GET` / `PATCH` / `DELETE` `…/events/{eventId}`, `POST …/events` | Read one / change / delete (→ `cancelled`) / insert: tests use these to change data between syncs. |
+| `POST /gcal/_mock/expire-sync-tokens`                  | Every sync token → 410 from now on.                          |
+| `POST /gcal/_mock/revoke-token` `{ "token": "…" }`     | That bearer gets 401 from now on (refresh tests).            |
+
+- **Auth:** `Authorization: Bearer <token>` required (401 without). Any non-empty token works in dev, except a
+  JWT whose `exp` has passed or a revoked token (401 `authError`) and a JWT with a `scope` claim lacking a
+  calendar scope (403 `insufficientPermissions`). The mock OIDC issuer's tokens carry no `scope` claim.
+- **Dates:** by default the fixture week is shifted by whole weeks (wall-clock time per event zone) so its
+  Monday is the first Monday after now: there are always upcoming meetings to look at. `GCAL_MOCK_ANCHOR=fixture`
+  on the container (or `gcalProvider({ anchor: 'fixture' })` in-process) serves the fixture's own dates
+  (Mon 16 – Fri 20 Nov 2026), which the normaliser parity tests use.
+- The container gets the provider (and bundles `week.json`) once `main` is rebuilt with `pnpm dev:build`;
+  until then int/e2e tests use their own in-process instance (`apps/web/e2e/web-server.ts` starts one).
+
 ## Switching a provider to the real thing
 
 Every integration is selected by env: a base URL plus a key. With the key blank, code uses the mock at
@@ -204,7 +230,7 @@ Every integration is selected by env: a base URL plus a key. With the key blank,
 | ----------- | --------------------------------------------------------------------------------------- |
 | AI Gateway  | `AI_GATEWAY_API_KEY=...` (`AI_GATEWAY_BASE_URL` only to override the default). On Vercel (`VERCEL`/`VERCEL_OIDC_TOKEN` set) without a key, the gateway uses Vercel OIDC. Otherwise `AI_BASE_URL` (default `${MOCKS_URL}/llm/v1`); with `NODE_ENV=production` and none of these set, `@oat/ai` throws `AiConfigError` instead of using localhost. Models per role: `AI_MODEL_ENHANCE/CHAT/FAST/EMBED` |
 | Deepgram    | `DEEPGRAM_API_KEY=...` (`DEEPGRAM_BASE_URL` only to override the default)               |
-| Google      | `OAUTH_GOOGLE_ISSUER=https://accounts.google.com`, real `OAUTH_GOOGLE_CLIENT_ID/SECRET`; register the redirect URI `${BETTER_AUTH_URL}/api/auth/callback/google` |
+| Google      | `OAUTH_GOOGLE_ISSUER=https://accounts.google.com`, real `OAUTH_GOOGLE_CLIENT_ID/SECRET`; register the redirect URIs `${BETTER_AUTH_URL}/api/auth/callback/google` (sign-in) and `${BETTER_AUTH_URL}/api/auth/callback/google-calendar` (Connect Google Calendar), enable the Google Calendar API and add the `calendar.readonly` scope to the consent screen. Calendar reads then go to `https://www.googleapis.com` automatically (`GOOGLE_CALENDAR_BASE_URL` only to override) |
 | Email       | `SMTP_HOST/PORT/USER/PASSWORD/FROM` of the real provider (port 465 = implicit TLS)        |
 | Auth        | `BETTER_AUTH_URL=https://<public origin>`, `BETTER_AUTH_SECRET=<openssl rand -base64 32>`; with `NODE_ENV=production` on a non-loopback URL the dev secret and plain-http URLs (app or OAuth issuer) are refused |
 | Postgres    | `DATABASE_URL=<Neon URL>` (prod only)                                                   |
@@ -231,6 +257,18 @@ Better Auth (D-9) runs inside `apps/web` at `/api/auth/*`; its config lives in `
 - **Continue with Google:** goes to the mock issuer's login page (`localhost:18089`); type any email (and
   optionally a name) and you're back, signed in. Same email as a magic-link account → the Google account is
   linked to it.
+- **Connect Google Calendar** (Settings → Integrations): a separate, link-only grant (`google-calendar`
+  provider: `calendar.readonly`, offline) stored on its own `account` row, so sign-in keeps minimal scopes. On
+  the mock login page type **the email you're signed in with** (Better Auth only links a Google account with
+  the same verified email). Home then lists the next five events from the `gcal` mock (Google-only
+  working-location / out-of-office / focus-time blocks are left out). Disconnect revokes the grant at the
+  issuer and deletes the row. Better Auth's `/get-access-token`, `/refresh-token` and `/account-info` routes
+  are disabled over HTTP: provider tokens never reach a browser (the server uses `auth.api`).
+- **OAuth tokens are encrypted at rest** (XChaCha20-Poly1305, key derived from the auth secret). Rotate the
+  secret with `BETTER_AUTH_SECRETS="2:<new>,1:<old>"` (versioned, newest first; keep `BETTER_AUTH_SECRET` as
+  the legacy fallback until old data is gone): new writes use the newest, old values still decrypt.
+  Changing `BETTER_AUTH_SECRET` alone signs everyone out and makes stored Google tokens undecryptable
+  (calendar shows "Reconnect").
 - Every new user gets a **personal workspace** (`kind: personal`, slug `personal-<userId>`; one per user,
   enforced by a partial unique index), and each new session starts in it. Create team workspaces from the
   workspace switcher (at most `AUTH_MAX_TEAM_WORKSPACES`, default 20, per user). A workspace's `kind` can't

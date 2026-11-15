@@ -1,9 +1,12 @@
 import { Badge } from '@oat/ui/components/badge';
+import { Button } from '@oat/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@oat/ui/components/card';
 import { Input } from '@oat/ui/components/input';
 import { Label } from '@oat/ui/components/label';
 import { Separator } from '@oat/ui/components/separator';
+import { ChevronRightIcon } from 'lucide-react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { connection } from 'next/server';
 
 import { PageContainer, PageHeader } from '@/components/page';
@@ -17,6 +20,7 @@ const integrationLabels = {
   ai: 'AI (AI Gateway)',
   stt: 'Speech-to-text (Deepgram)',
   oauth: 'Google sign-in',
+  calendar: 'Google Calendar',
 } as const;
 
 function Row({
@@ -79,6 +83,23 @@ export default async function SettingsPage() {
             <Badge variant="secondary">
               {currentWorkspace.kind === 'personal' ? 'Personal' : 'Team'}
             </Badge>
+          </Row>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Integrations</CardTitle>
+          <CardDescription>Google Calendar shows your upcoming meetings on Home.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Row label="Calendar" hint="Connect or disconnect Google Calendar.">
+            <Button variant="outline" asChild>
+              <Link href="/settings/integrations">
+                Manage integrations
+                <ChevronRightIcon data-icon="inline-end" />
+              </Link>
+            </Button>
           </Row>
         </CardContent>
       </Card>

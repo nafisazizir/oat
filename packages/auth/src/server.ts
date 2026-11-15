@@ -1,6 +1,7 @@
 /**
  * Better Auth server (D-9): magic link (SMTP → Mailpit in dev), Google through OIDC discovery (the mock
- * issuer in dev, accounts.google.com in prod; same code path), the organization plugin mapped onto
+ * issuer in dev, accounts.google.com in prod; same code path), the link-only Google Calendar grant (7.4,
+ * `google-calendar.ts`), the organization plugin mapped onto
  * workspaces (`@oat/db` auth-mapping) with our roles, and bearer tokens for the desktop app (1.8).
  *
  * Every user gets a personal workspace when they are created; every new session starts in it unless a
@@ -17,9 +18,10 @@ import { bearer, genericOAuth, magicLink, organization } from 'better-auth/plugi
 import { and, count, eq } from 'drizzle-orm';
 
 import { ac, roles } from './access.ts';
-import type { AuthConfig } from './config.ts';
+import { type AuthConfig, isLoopbackUrl } from './config.ts';
 import { desktopAuth } from './desktop.ts';
 import { createSmtpMailer, type Mailer, magicLinkEmail } from './email.ts';
+import { GOOGLE_CALENDAR_PROVIDER_ID, GOOGLE_CALENDAR_SCOPES } from './google-calendar.ts';
 import { magicLinkConfirmUrl } from './magic-link.ts';
 import { GOOGLE_PROVIDER_ID } from './providers.ts';
 import { createRateLimiter, type RateLimiter } from './rate-limit.ts';
@@ -62,6 +64,8 @@ export function createAuth({
   mailer = createSmtpMailer(config.smtp),
   rateLimiter = createRateLimiter(config.redisUrl),
 }: CreateAuthOptions) {
+  // The dev mock issuer (loopback) gets the scope bookkeeping below; a real issuer never does.
+  const mockIssuer = isLoopbackUrl(config.google.issuer);
   return betterAuth({
     appName: 'Oat',
     baseURL: config.baseURL,
@@ -86,9 +90,32 @@ export function createAuth({
       // Link Google to an existing (magic-link) user with the same email: both sides must have a
       // verified email (Better Auth's default rule), which magic-link users and Google always do.
       accountLinking: { enabled: true },
+      // OAuth access/refresh tokens are stored encrypted (Better Auth's symmetricEncrypt: XChaCha20-Poly1305,
+      // key derived from the auth secret; rotate with BETTER_AUTH_SECRETS, see DEV.md). Rows written before
+      // this was on still read as plain text.
+      encryptOAuthTokens: true,
     },
+    // Provider tokens stay on the server: the app reads them through `auth.api` (not affected by this list),
+    // so the HTTP routes that would hand a signed-in browser its plaintext Google tokens are switched off.
+    disabledPaths: ['/get-access-token', '/refresh-token', '/account-info'],
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        const body = ctx.body as { provider?: unknown; idToken?: unknown } | undefined;
+        // The calendar grant is link-only, through the OAuth redirect (`/link-social` from a signed-in
+        // session): it must never sign anyone in, create a user, or be linked from a caller-supplied
+        // id_token + tokens (that path skips the code exchange, so nothing proves what was granted).
+        if (body?.provider === GOOGLE_CALENDAR_PROVIDER_ID) {
+          if (ctx.path === '/sign-in/social') {
+            throw new APIError('BAD_REQUEST', {
+              message: 'Google Calendar can only be connected from settings.',
+            });
+          }
+          if (ctx.path === '/link-social' && body.idToken !== undefined) {
+            throw new APIError('BAD_REQUEST', {
+              message: 'Google Calendar must be connected through Google’s consent screen.',
+            });
+          }
+        }
         if (ctx.path !== '/sign-in/magic-link') return;
         const email = (ctx.body as { email?: unknown } | undefined)?.email;
         if (typeof email !== 'string') return; // the endpoint's own validation rejects it
@@ -108,6 +135,24 @@ export function createAuth({
       }),
     },
     databaseHooks: {
+      account: {
+        create: {
+          // RFC 6749 §5.1: a token response without `scope` granted exactly what was asked for. Google
+          // always says; the dev mock issuer doesn't, so record the requested calendar scopes then — only
+          // with a local (mock) issuer, never a real one, and only for code-exchange links (the id_token
+          // link path is refused above).
+          before: async (account) => {
+            if (
+              !mockIssuer ||
+              account.providerId !== GOOGLE_CALENDAR_PROVIDER_ID ||
+              account.scope
+            ) {
+              return;
+            }
+            return { data: { ...account, scope: GOOGLE_CALENDAR_SCOPES.join(',') } };
+          },
+        },
+      },
       user: {
         create: {
           after: async (user) => {
@@ -155,6 +200,22 @@ export function createAuth({
             clientSecret: config.google.clientSecret,
             scopes: ['openid', 'email', 'profile'],
             pkce: true,
+          },
+          {
+            // Same issuer and OAuth client; its own callback (`/api/auth/callback/google-calendar`, a
+            // second redirect URI to register with Google) and account row. Offline + consent so Google
+            // returns a refresh token every time.
+            providerId: GOOGLE_CALENDAR_PROVIDER_ID,
+            name: 'Google Calendar',
+            discoveryUrl: `${config.google.issuer}/.well-known/openid-configuration`,
+            requireIdTokenVerification: true,
+            clientId: config.google.clientId,
+            clientSecret: config.google.clientSecret,
+            scopes: GOOGLE_CALENDAR_SCOPES,
+            accessType: 'offline',
+            prompt: 'consent',
+            pkce: true,
+            disableSignUp: true,
           },
         ],
       }),

@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { isRealGoogleCalendar, resolveGoogleCalendarBaseUrl } from '@oat/calendar/google';
 import { z } from 'zod';
 
 /**
@@ -49,6 +50,8 @@ export const envSchema = z
     AI_GATEWAY_BASE_URL: optional.pipe(url.optional()),
     DEEPGRAM_API_KEY: optional,
     DEEPGRAM_BASE_URL: optional.pipe(url.optional()),
+    /** Google Calendar API origin (blank: Google with a real issuer, else ${MOCKS_URL}/gcal). */
+    GOOGLE_CALENDAR_BASE_URL: optional.pipe(url.optional()),
 
     /**
      * Desktop sign-in (1.8): the "copy the link for the app" fallback on `/desktop/sign-in`, for dev builds
@@ -107,5 +110,15 @@ export function integrationModes(env: ServerEnv) {
     ai: env.AI_GATEWAY_API_KEY ? 'real' : 'mock',
     stt: env.DEEPGRAM_API_KEY ? 'real' : 'mock',
     oauth: new URL(env.OAUTH_GOOGLE_ISSUER).hostname === 'accounts.google.com' ? 'real' : 'mock',
+    calendar: isRealGoogleCalendar(googleCalendarBaseUrl(env)) ? 'real' : 'mock',
   } as const;
+}
+
+/** Google Calendar API base URL (`@oat/calendar/google` rules: explicit, real Google, else the mock). */
+export function googleCalendarBaseUrl(env: ServerEnv): string {
+  return resolveGoogleCalendarBaseUrl({
+    GOOGLE_CALENDAR_BASE_URL: env.GOOGLE_CALENDAR_BASE_URL,
+    OAUTH_GOOGLE_ISSUER: env.OAUTH_GOOGLE_ISSUER,
+    MOCKS_URL: env.MOCKS_URL,
+  });
 }

@@ -1,9 +1,11 @@
 /**
  * `@oat/calendar`: the `CalendarSource` interface, `CalendarCache` (window, change events) and
- * `FixtureCalendarSource`. Platform-neutral; the sidecar-backed source lives in `@oat/calendar/node`.
+ * `FixtureCalendarSource`. Platform-neutral; the sidecar-backed source lives in `@oat/calendar/node`, Google Calendar in
+ * `@oat/calendar/google`.
  * Event shape and pure helpers (`currentMeetingFor`, `upcoming`, `startingSoon`, …) are in `@oat/core`.
  */
 export { CalendarCache, type CalendarCacheOptions } from './cache.ts';
+export { mergeCalendarEvents } from './merge.ts';
 export {
   filterRange,
   FixtureCalendarSource,

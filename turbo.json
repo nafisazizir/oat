@@ -34,6 +34,7 @@
         "AI_*",
         "DEEPGRAM_*",
         "OAUTH_*",
+        "GOOGLE_CALENDAR_*",
         "OAT_*"
       ]
     },
@@ -55,6 +56,7 @@
         "AI_*",
         "DEEPGRAM_*",
         "OAUTH_*",
+        "GOOGLE_CALENDAR_*",
         "OAT_*"
       ]
     }

@@ -26,6 +26,10 @@ describe('proxy', () => {
     );
     const home = proxy(new NextRequest('http://localhost:3000/home'));
     expect(home.headers.get('location')).toBe('http://localhost:3000/sign-in');
+    const nested = proxy(new NextRequest('http://localhost:3000/settings/integrations'));
+    expect(nested.headers.get('location')).toBe(
+      'http://localhost:3000/sign-in?next=%2Fsettings%2Fintegrations',
+    );
   });
 
   it('lets requests with a session cookie through (the layout validates it)', () => {

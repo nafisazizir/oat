@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@oat/auth": "workspace:*",
+    "@oat/calendar": "workspace:*",
     "@oat/core": "workspace:*",
     "@oat/db": "workspace:*",
     "@oat/editor": "workspace:*",
@@ -32,6 +33,7 @@
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "catalog:",
+    "@oat/mocks": "workspace:*",
     "@oat/testkit": "workspace:*",
     "@playwright/test": "catalog:",
     "@tailwindcss/postcss": "catalog:",

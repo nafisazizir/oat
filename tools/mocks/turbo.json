@@ -3,10 +3,18 @@
   "extends": ["//"],
   "tasks": {
     "test": {
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/fixtures/audio/*.segments.json"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/fixtures/audio/*.segments.json",
+        "$TURBO_ROOT$/fixtures/calendar/week.json"
+      ]
     },
     "build": {
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/fixtures/audio/*.segments.json"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/fixtures/audio/*.segments.json",
+        "$TURBO_ROOT$/fixtures/calendar/week.json"
+      ]
     }
   }
 }

@@ -10,6 +10,8 @@ RUN pnpm install --frozen-lockfile --filter @oat/mocks
 COPY tools/mocks/ tools/mocks/
 # The stt provider bundles fixture ground truth (mock_fixture=<name>); esbuild inlines these JSON files.
 COPY fixtures/audio/*.segments.json fixtures/audio/
+# The gcal provider serves the calendar fixture week.
+COPY fixtures/calendar/week.json fixtures/calendar/
 RUN pnpm --filter @oat/mocks build
 
 FROM node:24.22.3-alpine

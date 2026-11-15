@@ -30,6 +30,18 @@ export {
   magicLinkVerifyUrl,
 } from './magic-link.ts';
 export { magicLinkIdentifier, peekMagicLinkEmail } from './magic-link-lookup.ts';
+export {
+  type AccountTokenApi,
+  disconnectGoogleCalendar,
+  findGoogleCalendarConnection,
+  GOOGLE_CALENDAR_PROVIDER_ID,
+  GOOGLE_CALENDAR_SCOPE,
+  GOOGLE_CALENDAR_SCOPES,
+  type GoogleCalendarConnection,
+  googleCalendarTokenProvider,
+  parseScopes,
+  revokeOAuthToken,
+} from './google-calendar.ts';
 export { GOOGLE_PROVIDER_ID } from './providers.ts';
 export {
   createMemoryRateLimiter,

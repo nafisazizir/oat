@@ -28,6 +28,8 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@oat/calendar": "workspace:*",
+    "@oat/mocks": "workspace:*",
     "@oat/testkit": "workspace:*",
     "@types/node": "catalog:",
     "@types/nodemailer": "catalog:",

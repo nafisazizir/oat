@@ -48,7 +48,12 @@ describe('parseEnv', () => {
 
 describe('integrationModes', () => {
   it('uses the mocks by default', () => {
-    expect(integrationModes(parseEnv(example))).toEqual({ ai: 'mock', stt: 'mock', oauth: 'mock' });
+    expect(integrationModes(parseEnv(example))).toEqual({
+      ai: 'mock',
+      stt: 'mock',
+      oauth: 'mock',
+      calendar: 'mock',
+    });
   });
 
   it('switches to the real provider when a key or the real issuer is set', () => {
@@ -58,7 +63,12 @@ describe('integrationModes', () => {
       DEEPGRAM_API_KEY: 'k',
       OAUTH_GOOGLE_ISSUER: 'https://accounts.google.com',
     });
-    expect(integrationModes(env)).toEqual({ ai: 'real', stt: 'real', oauth: 'real' });
+    expect(integrationModes(env)).toEqual({
+      ai: 'real',
+      stt: 'real',
+      oauth: 'real',
+      calendar: 'real',
+    });
   });
 });
 

@@ -2,11 +2,12 @@
   "name": "@oat/calendar",
   "version": "0.0.0",
   "private": true,
-  "description": "CalendarSource interface, CalendarCache, FixtureCalendarSource; SidecarCalendarSource (Node entry) over `oat-audio calendar`.",
+  "description": "CalendarSource interface, CalendarCache, FixtureCalendarSource, mergeCalendarEvents; SidecarCalendarSource (Node entry) over `oat-audio calendar`; GoogleCalendarSource (`./google`) over the Google Calendar API.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
     "./node": "./src/node.ts",
+    "./google": "./src/google/index.ts",
     "./*": "./src/*.ts",
     "./*.test": null
   },
@@ -18,9 +19,11 @@
   },
   "dependencies": {
     "@oat/audio": "workspace:*",
-    "@oat/core": "workspace:*"
+    "@oat/core": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
+    "@oat/mocks": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

@@ -21,6 +21,7 @@ import {
 } from '@oat/core';
 
 import { CalendarCache } from './cache.ts';
+import { parseEventLines } from './fixture-source.ts';
 import { SidecarCalendarSource } from './sidecar-source.ts';
 import { CalendarAccessError, type CalendarWatch } from './types.ts';
 
@@ -128,6 +129,22 @@ describe.skipIf(!BINARY)('oat-audio calendar (real binary, fixture mode)', () =>
     expect(byId(events, 'hiring-sync')!.status).toBe('cancelled');
     expect(byId(events, 'tokyo-call')).toMatchObject({ timeZone: 'Asia/Tokyo' });
     expect(byId(events, 'tokyo-call')!.start).toEqual(new Date('2026-11-20T01:00:00Z'));
+  });
+
+  it('still prints the golden output the Google normaliser is compared against', async () => {
+    // fixtures/calendar/week.eventkit.jsonl ↔ google/normalize.test.ts. If this fails after a deliberate
+    // normaliser change, regenerate the file with the command in that test and re-run both.
+    const events = await sidecar(WEEK).fetchEvents({
+      from: new Date('2026-11-15T00:00:00Z'),
+      to: new Date('2026-11-23T00:00:00Z'),
+    });
+    const golden = parseEventLines(
+      readFileSync(
+        new URL('../../../fixtures/calendar/week.eventkit.jsonl', import.meta.url),
+        'utf8',
+      ),
+    );
+    expect(events).toEqual(golden);
   });
 
   it('the core helpers make sense on the fixture week', async () => {

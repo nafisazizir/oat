@@ -88,7 +88,7 @@ Exit: upcoming meetings visible; joining a call prompts to start notes; attendee
 - [x] 7.2 🧑 (pending: real mic-apps run) Meeting detection per D-21: sidecar `mic-apps watch`, pure rule functions w/ fixture tests, notification · deps: 7.1
 - [ ] 7.3 Auto-create meeting note from event, attendees as participants · deps: 3.4, 7.1
 - [ ] 7.5 Auto-stop (3-min floor; mic app gone + event end ±5 min, else ask) and auto-enhance (no output yet + min transcript length, grace delay cancelled by resume) · deps: 4.4, 7.2
-- [ ] 7.4 Google Calendar OAuth + events API (mock OAuth + Google Calendar subset in `tools/mocks` for dev) · deps: 1.6
+- [x] 7.4 Google Calendar OAuth + events API (mock OAuth + Google Calendar subset in `tools/mocks` for dev) · deps: 1.6
 
 ## M8 — Integrations & background agents
 Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting.

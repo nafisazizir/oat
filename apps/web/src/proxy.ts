@@ -16,5 +16,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // The `(app)` route group. Keep in sync with `src/app/(app)/*`.
-  matcher: ['/home', '/d/:path*', '/settings', '/templates'],
+  matcher: ['/home', '/d/:path*', '/settings/:path*', '/templates'],
 };

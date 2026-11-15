@@ -6,6 +6,13 @@ export type {
   MockUpgradeRejection,
   MockWebSocketRoute,
 } from './provider.ts';
+export {
+  type CalendarFixture,
+  fixtureAnchor,
+  googleDataFromFixture,
+} from './providers/gcal/fixture.ts';
+export { GCAL_SCOPES, gcalProvider, type GcalProviderOptions } from './providers/gcal/index.ts';
+export type * as GoogleCalendarApi from './providers/gcal/types.ts';
 export { DEFAULT_EMBEDDING_DIMENSIONS, hashEmbedding } from './providers/llm/embedding.ts';
 export { llmProvider, MOCK_LLM_MODELS } from './providers/llm/index.ts';
 export { RequestLog, type LoggedRequest } from './request-log.ts';

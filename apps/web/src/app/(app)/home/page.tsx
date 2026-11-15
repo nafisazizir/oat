@@ -1,8 +1,13 @@
 import { FileTextIcon, NotebookPenIcon, UsersIcon } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
 
 import { NewNoteButton } from '@/components/app-shell/new-note-button';
+import {
+  UpcomingMeetings,
+  UpcomingMeetingsSkeleton,
+} from '@/components/calendar/upcoming-meetings';
 import { EmptyState, PageContainer, PageHeader, SectionHeading } from '@/components/page';
 import { formatDay } from '@/lib/format';
 import { type DocumentNode, titleOf } from '@/lib/tree';
@@ -52,6 +57,11 @@ export default async function HomePage() {
         {/* The empty state carries the call to action until there are notes. */}
         {recentMeetings.length > 0 && <NewNoteButton size="lg" className="hidden sm:inline-flex" />}
       </PageHeader>
+
+      {/* Streams in: a slow calendar never holds up the rest of Home. */}
+      <Suspense fallback={<UpcomingMeetingsSkeleton />}>
+        <UpcomingMeetings />
+      </Suspense>
 
       <section aria-labelledby="recent-notes" className="flex flex-col gap-3">
         <SectionHeading>
