@@ -277,6 +277,15 @@ const steps = [
     },
   },
   {
+    // Int tests (audio sidecar, calendar) spawn the release binary, so it must be fresh first.
+    name: 'swift:release',
+    group: 'swift',
+    slow: true,
+    macOnly: true,
+    about: 'native/oat-audio swift build -c release (used by test:int)',
+    run: () => must('swift', ['build', '-c', 'release'], { cwd: oatAudio }),
+  },
+  {
     name: 'test:int',
     slow: true,
     needs: 'stack',
