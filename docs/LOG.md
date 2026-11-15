@@ -128,3 +128,9 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - Waiting on human (added): run the real macOS "Allow" prompts in onboarding on a packaged build (steps in docs/tasks/9.2-onboarding.md → Verification).
 - 2026-11-15 06:35 · post-merge full `pnpm run ci` on main after 9.2/9.3b → ci: ok.
 - 2026-11-15 · 3.9 · shipped: desktop workspace switcher — record meetings into team workspaces (squash-merged).
+
+## 2026-11-15 07:26 — orchestrator: AUTONOMOUS RUN COMPLETE
+- All agent-doable tasks in PLAN.md are done and merged to local `main` (last: 9.2+9.3b 8f3c91b, 3.9 1e10097). Final full `pnpm run ci` on main (82b216b) → **ci: ok** (format, lint, typecheck, unit, int, web+desktop e2e, v1 acceptance journey incl. team-workspace step, swift build/test/synthetic).
+- Remaining unticked tasks are human-only: 9.1 (signing/notarization/auto-update), 9.6 (prod infra + real keys), 9.5 (prod deploy + a week of real use).
+- Non-blocking review follow-ups were moved to docs/IDEAS.md ("Follow-ups from the autonomous run").
+- Next for the human: see "Waiting on human" above (try the app end to end via docs/DEV.md; real-permission checks for sidecar/calendar/mic-apps/onboarding; confirm D-18..D-31; then 9.6 → 9.5).
