@@ -227,3 +227,9 @@ eve sessions only where a model must decide. Guardrails:
 - Revisit trigger: if an eve upgrade strands runs or costs more than a day of work in a milestone, drop to the
   6.1 Redis worker.
 - Layering: agents must not import `apps/*`; services move into packages (8.3), enforced by lint.
+
+## D-30 · 2026-11-15 · accepted · agent
+Local audio belongs to the account that recorded it (refines D-10/D-28): the audio index records the
+recording account's user id; Storage settings list, delete and the retention sweeper act only on the signed-in
+account's recordings; retention policy is per account per Mac. Recordings of other accounts on the same Mac are
+shown only as an aggregate "Other accounts: N GB" with no actions.
