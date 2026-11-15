@@ -161,3 +161,8 @@ table — so Better Auth writes and FK cascades are captured, not just app code 
 `txid xid8 default pg_current_xact_id()`. Readers return only rows whose transaction is older than the current
 snapshot's xmin, ordered by (txid, seq), so out-of-order commits are never skipped. Workspace hard-deletion via
 Better Auth is disabled; workspace deletion will be a soft-delete path of our own. (From 1.5 review.)
+
+## D-23 · 2026-11-14 · accepted · agent
+Block `origin` editing rule (from 3.1): a newly created block is `me`; an `ai` block keeps `ai` while the user
+edits words inside it; if the user deletes all of an AI block's text and writes their own, it becomes `me`.
+Revisit with real use (an "edited" state could be added later without a migration — it's an attribute).
