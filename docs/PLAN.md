@@ -16,7 +16,7 @@ detection and calendar, each with evidence.
 - [x] 0.2 Electron bundle map: process layout, IPC surface, renderer framework, editor library · deps: 0.1
 - [x] 0.3 Audio path: `screen_capture.node`, `opusscript`, `granola-diarizer` — what captures, encodes, diarizes; which STT provider/protocol · deps: 0.1
 - [ ] 0.4 Detection: `ax_meeting_detector`, `macos_mic_apps_with_devices`, `eventkit`, `meet-consent-host` · deps: 0.1
-- [ ] 0.5 Local storage + sync: SQLite schema (structure only), cache, sync model · deps: 0.1
+- [x] 0.5 Local storage + sync: SQLite schema (structure only), cache, sync model · deps: 0.1
 - [ ] 0.6 Enhancement & chat flow (client side: what is sent, when, streaming shape — not their prompts) · deps: 0.2
 - [ ] 0.7 Write `ARCHITECTURE.md` synthesis + "what we do differently" section · deps: 0.2–0.6
 
