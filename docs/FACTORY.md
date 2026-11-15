@@ -197,3 +197,8 @@ task file `docs/tasks/<file>` first. Keep your final report under 15 lines; put 
 Merging: orchestrator runs `git merge --squash <branch>` on `main`, commits `<id>: <title>`, re-runs
 `pnpm run ci`, then removes the worktree/branch. Merge conflicts on docs files (PLAN/LOG) are resolved by the
 orchestrator; conflicts in code go back to the implementer.
+
+**Migrations in parallel branches:** Drizzle migrations are numbered. Before handing back, an implementer
+merges current `main` and regenerates/renumbers its migration after main's latest (journal must be
+consistent: `pnpm --filter @oat/db db:generate` reports no drift). Branches with migrations merge one at a
+time; the next one re-merges `main` before its squash-merge.
