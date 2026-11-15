@@ -107,8 +107,8 @@ docs/               spec, plan, factory, decisions, tasks, log
 - **Editor content is TipTap/ProseMirror JSON** (canonical). Markdown is derived for AI input, export and
   Notion sync. Never store Markdown as the source of truth.
 - **Postgres is the source of truth**; desktop SQLite is a cache plus an outbox for offline writes.
-  Last-write-wins per document with `updated_at` + version; conflicts on the same document while offline
-  create a "conflicted copy" rather than merging.
+  One sync mechanism for every table (trigger-driven outbox, version acks, cursor pull, SSE invalidation —
+  D-19); a stale base version on push creates a "conflicted copy" rather than merging or overwriting.
 - **Everything carries `workspace_id`.** A personal space is a workspace with one member — no separate code path.
 - **AI via Vercel AI SDK + AI Gateway** (`"provider/model"` strings). Default to the current Claude models;
   verify exact model IDs against the gateway's model list at implementation time.
@@ -132,13 +132,14 @@ document(id, workspace_id, folder_id?, owner_id, kind: meeting|page, title,
          share_token?, version, created_at, updated_at, deleted_at?)
 meeting(id, document_id, calendar_event_id?, started_at, ended_at, platform?, template_id?)
 participant(meeting_id, name, email?, source: calendar|manual)
-transcript_segment(id, meeting_id, source: mic|system, speaker_label?, start_ms, end_ms,
+transcript_segment(id /* client-generated, stable */, meeting_id, source: mic|system, speaker_label?, start_ms, end_ms,
                    text, is_final, created_at)
-enhancement(id, document_id, template_id, model, input_hash, output_json, created_at)
+enhancement(id, document_id, template_id, model, input_hash, input_notes_json, output_json,
+            status: generating|completed|failed, idempotency_key, started_at, completed_at, created_at)  -- D-20
 template(id, workspace_id?, name, instructions, sections_json, is_builtin)
 chunk(id, workspace_id, document_id, segment_range?, text, embedding vector)   -- retrieval
 chat_thread(id, workspace_id, user_id, scope: document|workspace, document_id?, title)
-chat_message(id, thread_id, role, parts_json, created_at)
+chat_message(id, thread_id, role, parts_json, context_json, created_at)
 integration(id, workspace_id, user_id, provider: notion|google|slack, credentials_ref, settings_json)
 ```
 ### Desktop-only (SQLite + filesystem, never synced)
@@ -160,8 +161,9 @@ hold the share token for `link` visibility.
 
 - **Enhance input:** template + my notes (Markdown) + transcript (segments with source + timestamps) +
   meeting metadata (title, attendees) + optional "about me" profile.
-- **Enhance output:** structured JSON (sections → blocks) validated with a schema, converted to TipTap JSON.
-  Blocks derived from my own notes are marked so the UI can render them differently.
+- **Enhance output:** structured JSON (sections → blocks) validated with a schema, converted to TipTap JSON
+  whose blocks carry `origin: me | ai` so the UI renders them differently. Raw notes and every output are
+  kept for undo/restore (D-20).
 - **Grounding:** every factual claim in chat answers cites transcript segments or note blocks.
 - **Evals:** `packages/ai/evals/` holds fixture meetings (transcript + notes + expected properties).
   Enhancement and chat changes must not regress eval scores (see FACTORY verification).

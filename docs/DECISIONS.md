@@ -103,3 +103,42 @@ STT credentials and resilience, informed by `research/granola/audio-path.md`:
 - Reconnect replays a rolling in-memory buffer of recent audio (≥120 s per source) into the new connection;
   longer outages are back-filled by re-transcribing from the local Opus archive (D-10) — our advantage.
 - Mic path uses OS echo cancellation (Apple voice processing) so speaker playback doesn't leak into "me".
+
+## D-18 · 2026-11-14 · accepted · agent
+Private folders belong to their owner; only the owner adds children. Moving a document into a private folder
+requires owning both and makes the document `private`. No cross-workspace moves in v1. Re-enabling link
+sharing rotates the share token. Only owners remove/demote admins. (From 1.7 review.)
+
+## D-19 · 2026-11-14 · accepted · agent
+**Sync design** (from `research/granola/ARCHITECTURE.md` §11, improving on Granola's five ad-hoc mechanisms):
+- One mechanism for every synced table: SQLite triggers enqueue `(table, id, op)` into an outbox with a
+  monotonically increasing version; push acks by version; an "applying remote" flag suppresses echo.
+- Pull: opaque cursor, paged until done, applied in one transaction that also clears matching outbox rows;
+  stale cursor → 409 → full resync.
+- Conflicts: push carries the base `version`; server rejects a stale base with 409; client keeps the server
+  copy and saves its own as a new "conflicted copy" document (never silent overwrite).
+- Realtime: per-user SSE invalidation channel ("pull X / ids Y", sequence numbers, replay-from-seq) plus a
+  periodic poll backstop. No row streaming.
+- Desktop SQLite is a disposable cache: schema version stored, wipe + resync on corruption/too-new/failed
+  migration; single writer, WAL; growing data (segments, outbox) lives in SQLite, never JSON files.
+- `transcript_segment` ids are client-generated and stable; a final replaces its interim; only finals sync.
+
+## D-20 · 2026-11-14 · accepted · agent
+**Enhancement model.** After enhancement the document body *is* the enhanced note: TipTap JSON whose blocks
+carry `origin: me | ai` (set during structured-output → TipTap conversion; drives styling). The user's raw notes
+at enhance time are kept immutably (`enhancement.input_notes_json`), and every enhancement output is kept
+(`enhancement.output_json`, versions) so undo/restore and "show my original notes" work. Enhancement is a
+server job with `status: generating|completed|failed`, an idempotency key, staleness timeout and a resumable
+stream; the client re-attaches after a crash. Templates = title, description, ordered sections
+{heading, instructions}; one prompt builder serves all templates; section budget scales with transcript length.
+One shared `buildMeetingContext()` feeds enhance and note-scoped chat. Regenerating warns when the current body
+differs from the last output.
+
+## D-21 · 2026-11-14 · accepted · agent
+**Detection scope.** Primary signal: a known meeting app holding mic input (Core Audio process objects, macOS
+14.2+, our 14.4 minimum covers it) via a sidecar `mic-apps watch` command (~1 Hz, diffs only). Rules are pure
+functions with fixture tests (allowlist + helper→parent map as data, asymmetric debounce, ~2 s prompt delay,
+2-min rate limit, no prompt while recording, per-app silence). Deliberate difference: browsers prompt only when
+a calendar event overlaps. Calendar names the meeting (in progress or starting within 90 s, started ≤ 15 min
+ago) and adds a "meeting starting" notification ~1 min before events with attendees. Deferred to IDEAS:
+accessibility-tree reader, browser extension, app-level encryption at rest.
