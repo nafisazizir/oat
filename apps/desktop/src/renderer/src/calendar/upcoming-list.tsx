@@ -2,7 +2,8 @@
  * Sidebar "Upcoming" (7.3): today's and tomorrow's meetings from the Mac's calendars and Google Calendar.
  * Clicking one makes its meeting note (title, attendees, the event) — or reopens the one already made — and
  * opens it; recording starts from the note (or from the "Start notes?" prompt). When no calendar can be read,
- * a "Connect" call to action; nothing ever asks for access on its own.
+ * a "Connect" call to action; nothing ever asks for access on its own. A note made in another workspace than
+ * the one the sidebar shows says which (3.9); new notes go to the active workspace (or personal, as a viewer).
  */
 import type { CalendarSnapshot, UpcomingEvent } from '@oat/core/bridge';
 import { Badge } from '@oat/ui/components/badge';
@@ -17,9 +18,12 @@ import { CONFERENCE_LABELS, formatTime, groupByDay } from './calendar-state.ts';
 export function UpcomingList({
   snapshot,
   onOpen,
+  otherWorkspace,
 }: {
   snapshot: CalendarSnapshot | null;
   onOpen: (documentId: string) => void;
+  /** 3.9: the name of the workspace a note lives in when it isn't the one the sidebar shows. */
+  otherWorkspace?: (documentId: string) => string | null;
 }) {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +86,9 @@ export function UpcomingList({
                   <li key={event.id}>
                     <UpcomingRow
                       event={event}
+                      workspace={
+                        event.documentId ? (otherWorkspace?.(event.documentId) ?? null) : null
+                      }
                       now={now}
                       pending={pending === event.id}
                       onStart={() => void start(event)}
@@ -126,11 +133,13 @@ export function UpcomingList({
 
 function UpcomingRow({
   event,
+  workspace,
   now,
   pending,
   onStart,
 }: {
   event: UpcomingEvent;
+  workspace: string | null;
   now: Date;
   pending: boolean;
   onStart: () => void;
@@ -168,6 +177,14 @@ function UpcomingRow({
               <span aria-hidden>·</span>
               <VideoIcon aria-hidden className="size-3" />
               <span className="truncate">{CONFERENCE_LABELS[event.conferenceProvider]}</span>
+            </>
+          )}
+          {workspace && (
+            <>
+              <span aria-hidden>·</span>
+              <span className="truncate" data-testid="upcoming-event-workspace">
+                in {workspace}
+              </span>
             </>
           )}
         </span>

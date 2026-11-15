@@ -7,6 +7,7 @@
 import { z } from 'zod';
 
 import { noteCalendarEventSchema } from './bridge-calendar.ts';
+import { RoleSchema, WorkspaceKindSchema } from './types.ts';
 
 const documentId = z.string().min(1).max(100);
 /** Same rule as `meetingIdSchema` in bridge.ts (audio archive folder names). */
@@ -80,7 +81,38 @@ export const storedSegmentSchema = z.object({
 });
 export type StoredSegment = z.infer<typeof storedSegmentSchema>;
 
+/** A workspace of the signed-in user, as synced to this Mac (3.9). */
+export const desktopWorkspaceSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  kind: WorkspaceKindSchema,
+  /** My role there; `null` until sync has said. */
+  role: RoleSchema.nullable(),
+  /** New notes may be made here (`canCreateInWorkspace`: not as a viewer). The server checks again. */
+  canCreate: z.boolean(),
+});
+export type DesktopWorkspace = z.infer<typeof desktopWorkspaceSchema>;
+
+/**
+ * The sidebar's workspace switcher (3.9): my workspaces (personal first), the active one (remembered per
+ * account on this Mac) and where new meeting notes go — the active workspace when I can create there, else my
+ * personal one (the sidebar then says so).
+ */
+export const workspacesSnapshotSchema = z.object({
+  workspaces: z.array(desktopWorkspaceSchema).max(500),
+  activeId: z.string().nullable(),
+  targetId: z.string().nullable(),
+});
+export type WorkspacesSnapshot = z.infer<typeof workspacesSnapshotSchema>;
+
 export const meetingInvokeChannels = {
+  /** My workspaces on this Mac and the active one (3.9). Reload on `meetings:changed`. */
+  'workspaces:list': { request: z.undefined(), response: workspacesSnapshotSchema },
+  /** Switch the sidebar to a workspace; remembered for this account on this Mac. */
+  'workspaces:set-active': {
+    request: z.strictObject({ workspaceId: z.string().min(1).max(100) }),
+    response: workspacesSnapshotSchema,
+  },
   /** Meeting notes on this Mac, newest first. */
   'meetings:list': {
     request: z.undefined(),

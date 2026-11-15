@@ -37,7 +37,11 @@ const page = (
   hasMore = false,
 ): SyncPullResponse => ({
   changes: [
-    { op: 'upsert', table: 'workspace', row: { id: 'ws', name: 'W', kind: 'team' } },
+    {
+      op: 'upsert',
+      table: 'workspace',
+      row: { id: 'ws', name: 'W', kind: 'team', role: 'member' },
+    },
     ...changes,
   ],
   cursor,

@@ -35,7 +35,11 @@ beforeEach(() => {
   store.applyPull(
     {
       changes: [
-        { op: 'upsert', table: 'workspace', row: { id: 'ws', name: 'Team', kind: 'team' } },
+        {
+          op: 'upsert',
+          table: 'workspace',
+          row: { id: 'ws', name: 'Team', kind: 'team', role: 'member' },
+        },
         // A teammate's note shared with the workspace, a private one (can't be here normally, but the
         // rule must hold), a trashed one, and a page.
         {

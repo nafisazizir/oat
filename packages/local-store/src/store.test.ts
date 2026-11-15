@@ -29,7 +29,13 @@ const page = (changes: SyncPullResponse['changes'], extra: Partial<SyncPullRespo
 
 function withWorkspace() {
   store.applyPull(
-    page([{ op: 'upsert', table: 'workspace', row: { id: 'ws', name: 'Me', kind: 'personal' } }]),
+    page([
+      {
+        op: 'upsert',
+        table: 'workspace',
+        row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+      },
+    ]),
     null,
   );
 }
@@ -390,9 +396,18 @@ describe('pull', () => {
   it('drops workspaces the user left, with their content', () => {
     withWorkspace();
     store.applyPull(
-      page([{ op: 'upsert', table: 'workspace', row: { id: 'team', name: 'T', kind: 'team' } }], {
-        workspaceIds: ['ws', 'team'],
-      }),
+      page(
+        [
+          {
+            op: 'upsert',
+            table: 'workspace',
+            row: { id: 'team', name: 'T', kind: 'team', role: 'member' },
+          },
+        ],
+        {
+          workspaceIds: ['ws', 'team'],
+        },
+      ),
       null,
     );
     store.applyPull(
@@ -408,6 +423,29 @@ describe('pull', () => {
     store.applyPull(page([], { workspaceIds: ['ws'] }), 'c1');
     expect(store.document('td')).toBeUndefined();
     expect(store.workspaces().map((w) => w.id)).toEqual(['ws']);
+  });
+
+  it('keeps my role per workspace (3.9) and follows changes to it; an older pull scope restarts', () => {
+    withWorkspace();
+    const team = (role: 'member' | 'viewer') =>
+      page(
+        [{ op: 'upsert', table: 'workspace', row: { id: 'team', name: 'T', kind: 'team', role } }],
+        {
+          workspaceIds: ['ws', 'team'],
+        },
+      );
+    store.applyPull(team('member'), null);
+    expect(store.workspace('team')).toEqual({
+      id: 'team',
+      name: 'T',
+      kind: 'team',
+      role: 'member',
+    });
+    store.applyPull(team('viewer'), 'c1');
+    expect(store.workspace('team')?.role).toBe('viewer');
+    // A database whose cursor was made under scope 2 (no roles) pulls from the start again.
+    store.setState('pull.scope', '2');
+    expect(store.pullCursor()).toBeNull();
   });
 
   it('joining a workspace restarts the pull from the beginning', () => {

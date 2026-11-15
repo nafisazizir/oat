@@ -25,6 +25,7 @@ import {
   AudioLinesIcon,
   CheckIcon,
   EyeIcon,
+  LayersIcon,
   Loader2Icon,
   LockIcon,
   NotebookPenIcon,
@@ -328,6 +329,13 @@ function NoteBody({
     <article className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-8 py-6" data-testid="note">
       <header className="flex flex-col gap-2.5">
         <div className="flex min-h-7 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          {note.workspaceName && (
+            // 3.9: which workspace the note lives in (it never moves, D-18).
+            <Badge variant="outline" className="gap-1" data-testid="note-workspace">
+              <LayersIcon />
+              {note.workspaceName}
+            </Badge>
+          )}
           <Badge variant="secondary" className="gap-1">
             {note.visibility === 'private' ? <LockIcon /> : <UsersIcon />}
             {note.visibility === 'private'

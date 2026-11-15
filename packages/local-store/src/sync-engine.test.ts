@@ -99,7 +99,11 @@ class FakeServer {
     const slice = this.log.slice(from, from + 3);
     const changes: SyncPullChange[] = slice.map(({ table, id }) => {
       if (table === 'workspace') {
-        return { op: 'upsert', table, row: { id: 'ws', name: 'Me', kind: 'personal' } };
+        return {
+          op: 'upsert',
+          table,
+          row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+        };
       }
       if (table === 'document') return { op: 'upsert', table, row: this.docs.get(id)! };
       const s = this.segments.get(id);

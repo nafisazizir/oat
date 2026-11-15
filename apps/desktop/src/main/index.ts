@@ -53,6 +53,7 @@ import { BridgeError, createBridge, type Logger, subscribePayload } from './ipc.
 import { MeetingEndGrace } from './meeting-end-grace.ts';
 import { MeetingNotes, MeetingNotesError } from './meeting-notes.ts';
 import { MeetingPersistence } from './meeting-persistence.ts';
+import { Workspaces, WorkspacesError } from './workspaces.ts';
 import { NotesFlush } from './notes-flush.ts';
 import { OnboardingStore } from './onboarding-store.ts';
 import {
@@ -345,11 +346,30 @@ async function start() {
   const signedInUser = () =>
     store.state.auth.status === 'signed-in' ? store.state.auth.user.id : null;
 
+  // --- Workspaces (3.9): the sidebar's switcher and where new notes go ---
+  const workspaces = new Workspaces({
+    store: () => sync.store,
+    userId: signedInUser,
+    sync,
+    onChange: meetingsChanged,
+  });
+  bridge.handle('workspaces:list', () => workspaces.snapshot());
+  bridge.handle('workspaces:set-active', ({ workspaceId }) => {
+    try {
+      return workspaces.setActive(workspaceId);
+    } catch (error) {
+      if (error instanceof WorkspacesError) throw new BridgeError('invalid_state', error.message);
+      throw error;
+    }
+  });
+  const newNoteWorkspace = (timeoutMs?: number) => workspaces.newNoteWorkspace(timeoutMs);
+
   // --- Meeting notes (3.4) ---
   const notes = new MeetingNotes({
     store: () => sync.store,
     userId: signedInUser,
     sync,
+    newNoteWorkspace,
     onChange: meetingsChanged,
     // D-24: a meeting can be continued only where its audio parts are.
     hasAudio: async (meetingId) =>
@@ -413,6 +433,7 @@ async function start() {
       store: () => sync.store,
       sync,
       userId: signedInUser,
+      newNoteWorkspace,
       onChange: meetingsChanged,
     }),
     ...(config.endGraceMs !== undefined ? { graceMs: config.endGraceMs } : {}),

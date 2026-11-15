@@ -37,6 +37,7 @@ import { toSyncDocument } from './push';
  * document turned private by its owner, a meeting whose document went to someone else's trash…). Rows
  * of tables the protocol doesn't carry yet are skipped (clients re-pull from the start when the scope
  * grows, `SYNC_PULL_SCOPE`). `workspaceIds` lets the client drop the content of workspaces it left.
+ * Workspace rows carry the actor's role (3.9); a membership change in a workspace re-sends its row.
  *
  * 3.5: a last page that comes back while committed changes are still held back by an open transaction
  * (D-22 visibility rule) says `lagging: true` — the client pulls again shortly — and logs the long
@@ -113,10 +114,15 @@ export async function pullChanges(
   // The last change per row decides (its current state is what we send), in the order of that change.
   const latest = new Map<string, { table: SyncPullTable; id: string }>();
   for (const change of page.changes) {
-    if (!PULL_TABLES.has(change.tableName)) continue;
-    const key = `${change.tableName}:${change.rowId}`;
+    // 3.9: a membership change in one of my workspaces re-sends that workspace's row (it carries my role).
+    const [table, id] =
+      change.tableName === 'membership'
+        ? (['workspace', change.workspaceId] as const)
+        : [change.tableName, change.rowId];
+    if (!PULL_TABLES.has(table)) continue;
+    const key = `${table}:${id}`;
     latest.delete(key);
-    latest.set(key, { table: change.tableName as SyncPullTable, id: change.rowId });
+    latest.set(key, { table: table as SyncPullTable, id });
   }
   const ids = (table: SyncPullTable) =>
     [...latest.values()].filter((c) => c.table === table).map((c) => c.id);
@@ -156,11 +162,12 @@ async function loadReadable(
   if (ids.workspace.length) {
     const rows = await db.select().from(workspace).where(inArray(workspace.id, ids.workspace));
     for (const w of rows) {
-      if (w.deletedAt || roleIn(actor.ctx, w.id) === undefined) continue;
+      const role = roleIn(actor.ctx, w.id);
+      if (w.deletedAt || role === undefined) continue;
       out.set(`workspace:${w.id}`, {
         op: 'upsert',
         table: 'workspace',
-        row: { id: w.id, name: w.name, kind: w.kind },
+        row: { id: w.id, name: w.name, kind: w.kind, role },
       });
     }
   }

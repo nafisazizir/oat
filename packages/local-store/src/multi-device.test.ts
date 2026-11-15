@@ -149,7 +149,11 @@ class Server {
       seen.add(id);
       changes.unshift(
         id === 'ws'
-          ? { op: 'upsert', table: 'workspace', row: { id: 'ws', name: 'Me', kind: 'personal' } }
+          ? {
+              op: 'upsert',
+              table: 'workspace',
+              row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+            }
           : { op: 'upsert', table: 'document', row: this.docs.get(id)! },
       );
     }

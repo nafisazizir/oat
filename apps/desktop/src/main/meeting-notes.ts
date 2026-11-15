@@ -3,8 +3,8 @@
  * the signed-in user's local database (`@oat/local-store`). Every write lands in the outbox (triggers) and
  * nudges sync (2.6), which carries it to the server; the server re-checks every permission there.
  *
- * - "Editable" locally: not trashed, and mine or shared with the workspace. The local cache doesn't know my
- *   role in a team workspace, so a viewer's edit is refused by the server and parked (D-28), never lost.
+ * - "Editable" locally: not trashed, not in a workspace where I'm a viewer (3.9: roles sync), and mine or
+ *   shared with the workspace. Anything the server still refuses is parked (D-28), never lost.
  * - `onChange` tells the windows to reload (list, header, participants). Content autosaves don't announce
  *   themselves: the window that typed them already shows them.
  */
@@ -32,6 +32,8 @@ export interface MeetingNotesOptions {
   onChange: () => void;
   /** Whether this Mac has audio of the meeting (its parts are in the audio index). Default: no. */
   hasAudio?: (meetingId: string) => Promise<boolean>;
+  /** 3.9: where a new note goes (`Workspaces.newNoteWorkspace`). Default: the personal workspace. */
+  newNoteWorkspace?: (timeoutMs?: number) => Promise<string | null>;
   /** The calendar event a note was made from, by the key it carries (7.3), while the calendar has it. */
   calendarEvent?: (key: string) => CalendarEvent | null;
   newId?: () => string;
@@ -83,6 +85,8 @@ export class MeetingNotes {
   }
 
   #editable(doc: LocalDocument): boolean {
+    // 3.9: a viewer's role is known locally now (pull scope 3): their notes there are view-only.
+    if (this.#o.store()?.workspace(doc.workspaceId)?.role === 'viewer') return false;
     return (
       doc.deletedAt === null && (doc.ownerId === this.#o.userId() || doc.visibility !== 'private')
     );
@@ -177,8 +181,8 @@ export class MeetingNotes {
   readonly #creating = new Map<string, Promise<StartNotesResult>>();
 
   /**
-   * "Start notes" on an event (7.3): the note already made for this meeting, else a new private note in my
-   * personal workspace with the event's title, its key (`meeting.calendar_event_id`) and its attendees
+   * "Start notes" on an event (7.3): the note already made for this meeting, else a new private note in the
+   * workspace new notes go to (3.9: the active one when I can create there, else personal) with the event's title, its key (`meeting.calendar_event_id`) and its attendees
    * (source `calendar`). Not started (no start time) until a recording starts. Concurrent calls for one event
    * share one creation.
    */
@@ -205,7 +209,8 @@ export class MeetingNotes {
       return { documentId: existing, meetingId: meeting!.id, created: false };
     }
     const userId = this.#o.userId();
-    const workspaceId = (await this.#o.sync.personalWorkspace?.()) ?? null;
+    const workspaceId =
+      (await (this.#o.newNoteWorkspace?.() ?? this.#o.sync.personalWorkspace?.())) ?? null;
     const store = this.#store();
     if (!userId || !workspaceId) {
       throw new MeetingNotesError(

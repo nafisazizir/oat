@@ -38,6 +38,7 @@ import {
   type DocumentKind,
   type DocumentVisibility,
   documentContentKey,
+  type Role,
   sameDocumentContent,
   SYNC_PULL_SCOPE,
   SYNC_PULL_TABLES,
@@ -65,6 +66,8 @@ export interface LocalWorkspace {
   id: string;
   name: string;
   kind: WorkspaceKind;
+  /** My role there (3.9), `null` until a pull says. */
+  role: Role | null;
 }
 
 export interface LocalDocument {
@@ -302,11 +305,16 @@ export class LocalStore {
   // --- workspaces --------------------------------------------------------------------------------------
 
   workspaces(): LocalWorkspace[] {
-    return this.#all('SELECT id, name, kind FROM workspace ORDER BY name, id').map((r) => ({
+    return this.#all('SELECT id, name, kind, role FROM workspace ORDER BY name, id').map((r) => ({
       id: String(r.id),
       name: String(r.name),
       kind: r.kind as WorkspaceKind,
+      role: (r.role ?? null) as Role | null,
     }));
+  }
+
+  workspace(id: string): LocalWorkspace | undefined {
+    return this.workspaces().find((w) => w.id === id);
   }
 
   /** The user's personal workspace (exactly one per user; pulled from the server). */
@@ -1129,11 +1137,12 @@ export class LocalStore {
 
   #upsertWorkspace(w: SyncWorkspaceRow): void {
     this.#run(
-      `INSERT INTO workspace (id, name, kind) VALUES (?, ?, ?)
-       ON CONFLICT (id) DO UPDATE SET name = excluded.name, kind = excluded.kind`,
+      `INSERT INTO workspace (id, name, kind, role) VALUES (?, ?, ?, ?)
+       ON CONFLICT (id) DO UPDATE SET name = excluded.name, kind = excluded.kind, role = excluded.role`,
       w.id,
       w.name,
       w.kind,
+      w.role ?? null,
     );
   }
 

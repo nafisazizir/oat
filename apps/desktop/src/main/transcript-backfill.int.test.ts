@@ -84,7 +84,11 @@ describe('STT down for 3 minutes (fast FileSource ↔ Deepgram mock)', () => {
     store.applyPull(
       {
         changes: [
-          { op: 'upsert', table: 'workspace', row: { id: 'ws', name: 'Me', kind: 'personal' } },
+          {
+            op: 'upsert',
+            table: 'workspace',
+            row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+          },
         ],
         cursor: 'c',
         hasMore: false,

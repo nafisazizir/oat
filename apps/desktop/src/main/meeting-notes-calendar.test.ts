@@ -76,7 +76,11 @@ beforeEach(() => {
   store.applyPull(
     {
       changes: [
-        { op: 'upsert', table: 'workspace', row: { id: 'ws', name: 'Personal', kind: 'personal' } },
+        {
+          op: 'upsert',
+          table: 'workspace',
+          row: { id: 'ws', name: 'Personal', kind: 'personal', role: 'owner' },
+        },
       ],
       cursor: 'c',
       hasMore: false,

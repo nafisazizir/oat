@@ -54,6 +54,8 @@ import { FirstMeetingGuide } from '../onboarding/first-meeting-guide.tsx';
 import { useOnboarding } from '../onboarding/onboarding-state.ts';
 import { OnboardingView } from '../onboarding/onboarding-view.tsx';
 import { Wordmark } from '../wordmark.tsx';
+import { WorkspaceSwitcher } from '../workspaces/workspace-switcher.tsx';
+import { useWorkspaces } from '../workspaces/workspaces-state.ts';
 
 /**
  * The main window: title bar + the account flow; signed in, the sidebar (account, "New meeting note", the
@@ -297,6 +299,18 @@ function SignedInShell({
 }) {
   const snapshot = useRecording();
   const notes = useMeetingNotes(true);
+  // 3.9: the sidebar shows one workspace's notes; new notes go there when I can create there.
+  const workspaces = useWorkspaces();
+  const activeWorkspace = workspaces.active;
+  const listed = activeWorkspace
+    ? (notes?.filter((n) => n.workspaceId === activeWorkspace.id) ?? null)
+    : notes;
+  const workspaceNames = new Map(workspaces.snapshot?.workspaces.map((w) => [w.id, w.name]));
+  /** "Upcoming": a note made in another workspace than the one shown says where it is. */
+  const otherWorkspace = (documentId: string) => {
+    const ws = notes?.find((n) => n.documentId === documentId)?.workspaceId;
+    return ws && ws !== activeWorkspace?.id ? (workspaceNames.get(ws) ?? null) : null;
+  };
   const [selected, setSelected] = useState<string | null>(null);
   // 3.8: Settings replaces the meeting view (a recording keeps running); opening a note closes it.
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -358,6 +372,7 @@ function SignedInShell({
   return (
     <main className="flex min-h-0 flex-1" data-testid="shell">
       <aside className="flex w-64 shrink-0 flex-col gap-3 border-r bg-sidebar p-3">
+        <WorkspaceSwitcher view={workspaces} />
         {/* 3.5: local search + conflicted copies, refreshed after every sync. */}
         <LocalSearch refreshKey={sync.lastSyncedAt} />
         <ConflictsPanel refreshKey={sync.lastSyncedAt} />
@@ -379,13 +394,15 @@ function SignedInShell({
               )}
               <UpcomingList
                 snapshot={calendar}
+                otherWorkspace={otherWorkspace}
                 onOpen={(documentId) => {
                   setSelected(documentId);
                   bumpMeetingsVersion();
                 }}
               />
               <MeetingList
-                notes={notes}
+                notes={listed}
+                workspaceName={activeWorkspace?.name ?? null}
                 selected={selected}
                 recordingMeetingId={recording ? activeMeetingId : null}
                 onSelect={(id) => {

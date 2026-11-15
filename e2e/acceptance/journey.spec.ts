@@ -11,7 +11,9 @@
  *     reads it through the link;
  *  6. the note's assistant answers with citations (a transcript chip jumps to that moment);
  *  7. search finds it on the web (⌘K) and on the desktop (local FTS);
- *  8. playback on the desktop: clicking a transcript line seeks there.
+ *  8. playback on the desktop: clicking a transcript line seeks there;
+ *  9. (3.9) the owner switches the desktop to the team workspace and records a meeting there; shared with the
+ *     workspace on the web, the teammate finds and opens it on the web — no public link.
  *
  * Every external service is a mock (D-11): the compose stack's STT mock, apps/web's `e2e/web-server.ts`
  * in-process mocks for the LLM and Notion. Timings vs SPEC §8 go to `test-results/acceptance-timings.json`
@@ -56,6 +58,10 @@ const run = Math.random().toString(36).slice(2, 7);
 const TITLE = `Billing standup ${run}`;
 const NOTE = 'Ping finance about the new tax rates';
 const TEAM = `Acceptance team ${run}`;
+/** 3.9: the meeting recorded into the team workspace from the desktop. */
+const TASK_39 = '3.9';
+const TEAM_TITLE = `Team retro ${run}`;
+const TEAM_NOTE = 'Rotate the on-call schedule';
 
 /** Measured durations (ms) and facts, printed as they come and written at the end. */
 const timings: Record<string, unknown> = {};
@@ -501,6 +507,8 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     await local.fill('');
   });
 
+  let teammate!: Page;
+  let teammateContext!: Awaited<ReturnType<typeof browser.newContext>>;
   await test.step('a teammate is invited, signs up, accepts, and reads the shared note', async () => {
     // A team workspace with the teammate in it (5.1/5.2).
     await web.goto(`${webUrl}/home`);
@@ -522,8 +530,8 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     const inviteLink = extractFirstLink(await mailTo(teammateEmail, /invited you to .* on Oat$/))!;
     expect(inviteLink).toMatch(/\/invite\/[A-Za-z0-9_-]{20,}$/);
 
-    const teammateContext = await browser.newContext({ viewport: { width: 1280, height: 860 } });
-    const teammate = hydrationAware(await teammateContext.newPage());
+    teammateContext = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+    teammate = hydrationAware(await teammateContext.newPage());
     watchConsole(teammate, 'teammate');
     await teammate.goto(inviteLink);
     await expect(teammate.getByRole('heading', { level: 1, name: `Join ${TEAM}` })).toBeVisible();
@@ -539,8 +547,9 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     await teammate.waitForURL(/\/home$/, { waitUntil: 'load' });
     await expect(teammate.getByTestId('workspace-switcher')).toContainText(TEAM);
 
-    // The meeting note lives in the owner's personal workspace (the desktop records there; documents
-    // never move between workspaces, D-18): the teammate reads it through the link.
+    // This meeting note lives in the owner's personal workspace (documents never move between
+    // workspaces, D-18): the teammate reads it through the link. (3.9: the next meeting is recorded into
+    // the team workspace — see the last step.)
     const res = await teammate.goto(shareLink);
     expect(res?.status()).toBe(200);
     const view = teammate.getByTestId('shared-document');
@@ -551,7 +560,6 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     expect((await teammate.request.get(`${webUrl}/api/documents/${documentId}`)).status()).not.toBe(
       200,
     );
-    await teammateContext.close();
   });
 
   await test.step('playback on the desktop: a transcript line seeks the audio there', async () => {
@@ -589,6 +597,83 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     });
     await evidence(page, 'desktop-playback', TASK);
   });
+
+  await test.step('3.9: the owner records into the team workspace on the desktop; the teammate reads it on the web', async () => {
+    // The team workspace (and my role there) reached the desktop by sync; switch to it.
+    await expect
+      .poll(
+        async () =>
+          (
+            await invoke<{ workspaces: { name: string }[] }>(page, 'workspaces:list')
+          ).workspaces.map((w) => w.name),
+        { timeout: scaled(20_000) },
+      )
+      .toContain(TEAM);
+    await page.getByTestId('workspace-switcher').click();
+    await page.getByRole('menu').getByTestId('workspace-option').filter({ hasText: TEAM }).click();
+    await expect(page.getByTestId('workspace-switcher')).toContainText(TEAM);
+    await expect(page.getByTestId('workspace-hint')).toHaveCount(0);
+
+    // "New meeting note" records into the team workspace; a few seconds of the fixture are enough.
+    await page.getByTestId('new-meeting').click();
+    await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
+    const { meetingId: teamMeetingId } = await invoke<{ meetingId: string }>(page, 'recording:get');
+    await expect(page.getByTestId('note-workspace')).toHaveText(TEAM);
+    const item = page.getByTestId('meeting-list-item');
+    await expect(item).toHaveCount(1); // the list shows the team workspace's notes only
+    const teamDocumentId = (await item.first().getAttribute('data-document-id'))!;
+    await page.getByTestId('note-title').fill(TEAM_TITLE);
+    await page.getByRole('textbox', { name: 'My notes' }).click();
+    await page.keyboard.type(TEAM_NOTE);
+    await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', 'saved');
+    await expect(
+      page.getByTestId('transcript-panel').locator('[data-testid=transcript-segment]').first(),
+    ).toBeVisible({ timeout: scaled(20_000) });
+    await page.getByRole('button', { name: 'Stop recording' }).click();
+    await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
+      timeout: scaled(30_000),
+    });
+    expect(
+      (
+        await invoke<{ meetingId: string | null }>(page, 'meeting:get', {
+          documentId: teamDocumentId,
+        })
+      ).meetingId,
+    ).toBe(teamMeetingId);
+    await evidence(page, 'desktop-team-recording', TASK_39);
+    await expect
+      .poll(async () => (await invoke<{ pending: number }>(page, 'sync:now')).pending, {
+        timeout: scaled(30_000),
+      })
+      .toBe(0);
+
+    // On the server it is in the team workspace, private (D-25 default): the teammate can't open it yet.
+    const teamDocUrl = `${webUrl}/api/documents/${teamDocumentId}`;
+    expect((await teammate.request.get(teamDocUrl)).status()).not.toBe(200);
+
+    // The owner shares it with the workspace on the web (not a public link).
+    await web.goto(`${webUrl}/d/${teamDocumentId}`);
+    await expect(web.getByTestId('visibility-badge')).toHaveText('Private');
+    await web.getByTestId('share-button').click();
+    const dialog = web.getByTestId('share-dialog');
+    await expect(dialog).toBeVisible();
+    await dialog.getByText('Workspace', { exact: true }).click();
+    await expect(dialog.getByTestId('share-link')).toHaveCount(0);
+    await web.keyboard.press('Escape');
+    await expect(web.getByTestId('visibility-badge')).toContainText(TEAM);
+
+    // The teammate finds it in the team workspace on the web and opens it — no share link involved.
+    await teammate.goto(`${webUrl}/home`);
+    await expect(teammate.getByTestId('workspace-switcher')).toContainText(TEAM);
+    const entry = teammate.getByTestId('tree-item').filter({ hasText: TEAM_TITLE });
+    await expect(entry.first()).toBeVisible({ timeout: scaled(15_000) });
+    await entry.first().click();
+    await expect(teammate).toHaveURL(new RegExp(`/d/${teamDocumentId}`));
+    await expect(teammate.getByText(TEAM_NOTE)).toBeVisible();
+    expect((await teammate.request.get(teamDocUrl)).status()).toBe(200);
+    await evidence(teammate, 'teammate-team-note', TASK_39);
+  });
+  await teammateContext.close();
 
   record('journeyMs', Date.now() - journeyStart);
   expect(consoleErrors, 'browser console errors').toEqual([]);

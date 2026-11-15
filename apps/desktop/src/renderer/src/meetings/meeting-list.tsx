@@ -1,6 +1,6 @@
 /**
  * Sidebar: "New meeting note" (creates the note and starts recording it) and the meeting notes on this Mac,
- * newest first (3.4). The one being recorded carries a live dot.
+ * newest first (3.4), of the workspace the switcher shows (3.9). The one being recorded carries a live dot.
  */
 import type { MeetingNoteSummary } from '@oat/core/bridge';
 import { shortWhen } from '@oat/meeting-ui';
@@ -37,11 +37,14 @@ export function NewMeetingButton({
 
 export function MeetingList({
   notes,
+  workspaceName = null,
   selected,
   recordingMeetingId,
   onSelect,
 }: {
   notes: MeetingNoteSummary[] | null;
+  /** 3.9: the workspace whose notes these are (the list is filtered by the switcher). */
+  workspaceName?: string | null;
   selected: string | null;
   recordingMeetingId: string | null;
   onSelect: (documentId: string) => void;
@@ -52,7 +55,9 @@ export function MeetingList({
       <h2 className="px-2.5 pt-1 text-xs font-medium text-muted-foreground">Meetings</h2>
       {notes === null ? null : notes.length === 0 ? (
         <p className="px-2.5 text-xs text-muted-foreground" data-testid="meeting-list-empty">
-          Your meeting notes appear here.
+          {workspaceName
+            ? `Meeting notes in ${workspaceName} appear here.`
+            : 'Your meeting notes appear here.'}
         </p>
       ) : (
         <ul

@@ -173,6 +173,10 @@ INSERT INTO segment_fts (rowid, text) SELECT rowid, text FROM transcript_segment
   `
 ALTER TABLE transcript_segment ADD COLUMN backfilled INTEGER NOT NULL DEFAULT 0 CHECK (backfilled IN (0, 1));
 `,
+  // 4 — 3.9: my role in each workspace (pull scope 3 re-pulls every row with it; NULL = not known yet).
+  `
+ALTER TABLE workspace ADD COLUMN role TEXT CHECK (role IN ('owner', 'admin', 'member', 'viewer'));
+`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

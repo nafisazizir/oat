@@ -13,9 +13,9 @@ import type {
   SyncPushResponse,
   SyncPushResult,
 } from '@oat/core';
-import { document, meeting, transcriptSegment } from '@oat/db';
+import { document, meeting, membership, transcriptSegment } from '@oat/db';
 import { LocalStore, SyncEngine, SyncTransportError } from '@oat/local-store';
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { denies } from '../api/authz-markers';
@@ -282,6 +282,43 @@ describe('push', () => {
     expect(await serverSegments(teamMeeting.meetingId)).toHaveLength(1);
   });
 
+  it('3.9: a meeting note recorded into a team workspace — members may, viewers may not (nor once demoted)', async () => {
+    denies('POST /api/sync/push');
+    const writer = await h.signUp('sync-39-writer');
+    const watcher = await h.signUp('sync-39-viewer');
+    const ws = await h.teamWorkspace(owner, [
+      [writer, 'member'],
+      [watcher, 'viewer'],
+    ]);
+    // A member's desktop recording: document + meeting + segment, private and theirs, in the team workspace.
+    const ok = await meetingOf(writer, ws);
+    const okSeg = segEntry(uid('s'), ok.meetingId, 'recorded in the team');
+    expect(statusOf((await push(writer, [okSeg])).body.results, okSeg).status).toBe('ok');
+    const [created] = await h.db.select().from(document).where(eq(document.id, ok.docId));
+    expect(created).toMatchObject({ workspaceId: ws, ownerId: writer.id, visibility: 'private' });
+
+    // A viewer's desktop can't create there: the document, and the meeting/segment under it, are refused.
+    const vDoc = docEntry(uid('doc'), ws);
+    const vMeeting = meetingEntry(uid('mtg'), vDoc.row.id);
+    const vSeg = segEntry(uid('s'), (vMeeting as { row: { id: string } }).row.id, 'viewer words');
+    const r = (await push(watcher, [vDoc, vMeeting, vSeg])).body.results;
+    expect(statusOf(r, vDoc)).toMatchObject({ status: 'rejected', code: 'forbidden' });
+    expect(statusOf(r, vMeeting).status).toBe('rejected');
+    expect(statusOf(r, vSeg).status).toBe('rejected');
+    expect(await h.db.select().from(document).where(eq(document.id, vDoc.row.id))).toEqual([]);
+
+    // Demoted to viewer: new notes there are refused, and so are more words for the earlier one.
+    await h.db
+      .update(membership)
+      .set({ role: 'viewer' })
+      .where(and(eq(membership.workspaceId, ws), eq(membership.userId, writer.id)));
+    const late = docEntry(uid('doc'), ws);
+    const lateSeg = segEntry(uid('s'), ok.meetingId, 'after demotion');
+    const r2 = (await push(writer, [late, lateSeg])).body.results;
+    expect(statusOf(r2, late)).toMatchObject({ status: 'rejected', code: 'forbidden' });
+    expect(statusOf(r2, lateSeg)).toMatchObject({ status: 'rejected', code: 'forbidden' });
+  });
+
   it('anonymous → 401; cookie writes need our origin', async () => {
     expect((await push(null, [segEntry('x', 'y')], { origin: BASE })).status).toBe(401);
     const res = await push(owner, [segEntry('x', 'y')], {
@@ -476,6 +513,31 @@ describe('pull', () => {
       table: 'document',
       id: shared.docId,
     });
+  });
+
+  it('3.9: workspace rows carry my role; a change to my membership re-sends the row', async () => {
+    const m = await h.signUp('pull-39-member');
+    const ws = await h.teamWorkspace(owner, [[m, 'member']]);
+    const role = (changes: SyncPullResponse['changes']) =>
+      changes.flatMap((c) =>
+        c.op === 'upsert' && c.table === 'workspace' && c.row.id === ws ? [c.row.role] : [],
+      );
+    const first = await pullUntil(m, null, (cs) => role(cs).length > 0);
+    expect(role(first.changes).at(-1)).toBe('member');
+    const personal = first.changes.find(
+      (c) => c.op === 'upsert' && c.table === 'workspace' && c.row.kind === 'personal',
+    );
+    expect(personal).toMatchObject({ row: { role: 'owner' } });
+    // The owner sees their own role in the same workspace.
+    const mine = await pullUntil(owner, null, (cs) => role(cs).length > 0);
+    expect(role(mine.changes).at(-1)).toBe('owner');
+
+    await h.db
+      .update(membership)
+      .set({ role: 'viewer' })
+      .where(and(eq(membership.workspaceId, ws), eq(membership.userId, m.id)));
+    const next = await pullUntil(m, first.cursor, (cs) => role(cs).length > 0);
+    expect(role(next.changes)).toEqual(['viewer']);
   });
 
   it('an unusable cursor is 409 stale_cursor; a malformed limit is 400', async () => {

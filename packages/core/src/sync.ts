@@ -24,6 +24,7 @@ import {
   DocumentKindSchema,
   DocumentVisibilitySchema,
   ParticipantSourceSchema,
+  RoleSchema,
   TranscriptSourceSchema,
   WorkspaceKindSchema,
 } from './types.ts';
@@ -43,9 +44,9 @@ export type SyncPullTable = (typeof SYNC_PULL_TABLES)[number];
 
 /**
  * Bumped whenever {@link SYNC_PULL_TABLES} or a pulled row grows: a client with an older scope restarts its
- * cursor. 2 = 3.5 (conflicted-copy fields on documents).
+ * cursor. 2 = 3.5 (conflicted-copy fields on documents). 3 = 3.9 (the user's `role` on workspace rows).
  */
-export const SYNC_PULL_SCOPE = 2;
+export const SYNC_PULL_SCOPE = 3;
 
 /** Most entries in one push; most changes in one pull page. */
 export const MAX_PUSH_ENTRIES = 500;
@@ -65,6 +66,12 @@ export const syncWorkspaceRowSchema = z.object({
   id: Id,
   name: z.string(),
   kind: WorkspaceKindSchema,
+  /**
+   * 3.9: the pulling user's role in this workspace (the desktop decides where new notes may go; the server
+   * still checks every push). A change of the user's membership re-sends the row. `null` = not known (a row
+   * from before scope 3).
+   */
+  role: RoleSchema.nullable().default(null),
 });
 export type SyncWorkspaceRow = z.infer<typeof syncWorkspaceRowSchema>;
 

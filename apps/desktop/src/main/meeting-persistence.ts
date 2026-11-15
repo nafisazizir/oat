@@ -4,7 +4,8 @@
  * pushes it).
  *
  * - Start: the meeting row and its `meeting` document (private, workspace root, owned by the user, in
- *   their personal workspace) are created before the audio starts; resuming a meeting reuses them.
+ *   the active workspace when they may create there, else their personal one — 3.9) are created before the
+ *   audio starts; resuming a meeting reuses them.
  * - Finals only (D-19: a final replaces its interim; interims never reach the database). An empty final is
  *   a retraction and deletes the segment.
  * - Stop: `ended_at` is stamped.
@@ -25,6 +26,11 @@ export interface MeetingPersistenceOptions {
   workspaceTimeoutMs?: number;
   /** A meeting note was created or ended (3.4: the windows reload their list). */
   onChange?: () => void;
+  /**
+   * 3.9: the workspace a new note goes to (the active one when I can create there, else personal —
+   * `Workspaces.newNoteWorkspace`). Default: the personal workspace.
+   */
+  newNoteWorkspace?: (timeoutMs?: number) => Promise<string | null>;
 }
 
 /** Thrown by `beginMeeting`; the message is shown to the user. */
@@ -78,7 +84,9 @@ export class MeetingPersistence implements TranscriptPersistence {
       }
       return;
     }
-    const workspaceId = await this.#o.sync.personalWorkspace(this.#o.workspaceTimeoutMs);
+    const workspaceId = await (
+      this.#o.newNoteWorkspace ?? this.#o.sync.personalWorkspace.bind(this.#o.sync)
+    )(this.#o.workspaceTimeoutMs);
     const store = this.#store();
     if (!workspaceId) {
       throw new PersistenceError(

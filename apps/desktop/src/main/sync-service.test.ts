@@ -24,7 +24,11 @@ const log: Logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
 const page = (workspace: string): SyncPullResponse => ({
   changes: [
-    { op: 'upsert', table: 'workspace', row: { id: workspace, name: 'Me', kind: 'personal' } },
+    {
+      op: 'upsert',
+      table: 'workspace',
+      row: { id: workspace, name: 'Me', kind: 'personal', role: 'owner' },
+    },
   ],
   cursor: '1.1',
   hasMore: false,
