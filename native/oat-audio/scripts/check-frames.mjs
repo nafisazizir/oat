@@ -31,12 +31,19 @@ export class FrameParser {
       const source = this.#buf.readUInt8(off + 1);
       const tUs = this.#buf.readBigUInt64LE(off + 2);
       const len = this.#buf.readUInt32LE(off + 10);
-      if (kind !== KIND.AUDIO && kind !== KIND.EVENT) throw new Error(`unknown frame kind ${kind} at byte ${off}`);
+      if (kind !== KIND.AUDIO && kind !== KIND.EVENT)
+        throw new Error(`unknown frame kind ${kind} at byte ${off}`);
       if (!(source in SOURCE_NAMES)) throw new Error(`unknown source ${source} at byte ${off}`);
       if (len > MAX_PAYLOAD) throw new Error(`payload too large (${len}) at byte ${off}`);
       if (this.#buf.length - off - HEADER_SIZE < len) break;
       const payload = this.#buf.subarray(off + HEADER_SIZE, off + HEADER_SIZE + len);
-      const frame = { kind, source, sourceName: SOURCE_NAMES[source], tUs, payload: Buffer.from(payload) };
+      const frame = {
+        kind,
+        source,
+        sourceName: SOURCE_NAMES[source],
+        tUs,
+        payload: Buffer.from(payload),
+      };
       if (kind === KIND.EVENT) {
         try {
           frame.event = JSON.parse(payload.toString('utf8'));
@@ -68,16 +75,22 @@ export function validateFrames(frames, opts = {}) {
   const stopped = events.find((f) => f.event?.type === 'stopped');
 
   if (!frames.length) fail('no frames');
-  if (frames.length && frames[0].event?.type !== 'started') fail('first frame is not a `started` event');
-  if (frames.length && frames.at(-1).event?.type !== 'stopped') fail('last frame is not a `stopped` event');
-  if (events.filter((f) => f.event?.type === 'started').length > 1) fail('more than one `started` event');
-  if (events.filter((f) => f.event?.type === 'stopped').length > 1) fail('more than one `stopped` event');
-  if (opts.trailingBytes) fail(`${opts.trailingBytes} trailing bytes after the last complete frame`);
+  if (frames.length && frames[0].event?.type !== 'started')
+    fail('first frame is not a `started` event');
+  if (frames.length && frames.at(-1).event?.type !== 'stopped')
+    fail('last frame is not a `stopped` event');
+  if (events.filter((f) => f.event?.type === 'started').length > 1)
+    fail('more than one `started` event');
+  if (events.filter((f) => f.event?.type === 'stopped').length > 1)
+    fail('more than one `stopped` event');
+  if (opts.trailingBytes)
+    fail(`${opts.trailingBytes} trailing bytes after the last complete frame`);
 
   for (const f of events) {
     if (typeof f.event?.type !== 'string') fail(`event without string "type" at t_us=${f.tUs}`);
   }
-  if (started && started.event.protocol !== 1) fail(`unsupported protocol ${started.event.protocol}`);
+  if (started && started.event.protocol !== 1)
+    fail(`unsupported protocol ${started.event.protocol}`);
 
   const sampleRate = started?.event.sample_rate ?? 16000;
   const frameMs = started?.event.frame_ms ?? 50;
@@ -85,7 +98,8 @@ export function validateFrames(frames, opts = {}) {
   const expectedSources = opts.sources ?? started?.event.sources ?? ['mic', 'system'];
 
   const perSource = {};
-  for (const name of expectedSources) perSource[name] = { frames: 0, bytes: 0, firstUs: null, lastUs: null };
+  for (const name of expectedSources)
+    perSource[name] = { frames: 0, bytes: 0, firstUs: null, lastUs: null };
 
   for (const f of frames) {
     if (f.kind !== KIND.AUDIO) continue;
@@ -93,7 +107,13 @@ export function validateFrames(frames, opts = {}) {
       fail(`audio frame with source none at t_us=${f.tUs}`);
       continue;
     }
-    const s = (perSource[f.sourceName] ??= { frames: 0, bytes: 0, firstUs: null, lastUs: null, unexpected: true });
+    const s = (perSource[f.sourceName] ??= {
+      frames: 0,
+      bytes: 0,
+      firstUs: null,
+      lastUs: null,
+      unexpected: true,
+    });
     if (f.payload.length % 2) fail(`${f.sourceName}: odd audio payload length ${f.payload.length}`);
     if (f.payload.length > frameSamples * 2) {
       fail(`${f.sourceName}: frame of ${f.payload.length} bytes exceeds frame_ms=${frameMs}`);
@@ -128,8 +148,10 @@ export function validateFrames(frames, opts = {}) {
   for (const f of events.filter((e) => e.event?.type === 'overrun')) {
     const ev = f.event;
     if (f.source === SOURCE.NONE) fail(`overrun event without a source at t_us=${f.tUs}`);
-    if (!['capture', 'output'].includes(ev.stage)) fail(`overrun event with unknown stage ${ev.stage}`);
-    if (!Number.isInteger(ev.dropped_samples) || ev.dropped_samples < 0) fail('overrun event without dropped_samples');
+    if (!['capture', 'output'].includes(ev.stage))
+      fail(`overrun event with unknown stage ${ev.stage}`);
+    if (!Number.isInteger(ev.dropped_samples) || ev.dropped_samples < 0)
+      fail('overrun event without dropped_samples');
     droppedSamples[f.sourceName] = (droppedSamples[f.sourceName] ?? 0) + (ev.dropped_samples ?? 0);
   }
 
@@ -185,7 +207,9 @@ function parseArgs(argv) {
 }
 
 function usage(msg) {
-  process.stderr.write(`check-frames: ${msg}\nusage: ... | node check-frames.mjs [--expect-seconds s] [--max-seconds s] [--sources mic,system] [--json]\n`);
+  process.stderr.write(
+    `check-frames: ${msg}\nusage: ... | node check-frames.mjs [--expect-seconds s] [--max-seconds s] [--sources mic,system] [--json]\n`,
+  );
   process.exit(2);
 }
 
@@ -200,12 +224,20 @@ async function main() {
     process.exit(1);
   }
   const { errors, summary } = validateFrames(frames, { ...opts, trailingBytes: parser.pending });
-  if (opts.json) process.stdout.write(JSON.stringify({ ok: errors.length === 0, errors, summary }, null, 2) + '\n');
+  if (opts.json)
+    process.stdout.write(
+      JSON.stringify({ ok: errors.length === 0, errors, summary }, null, 2) + '\n',
+    );
   else {
     const src = Object.entries(summary.sources)
-      .map(([n, s]) => `${n}: ${s.frames} frames, ${s.bytes} bytes (${s.seconds}s)${s.droppedSamples ? `, ${s.droppedSamples} samples dropped (overrun)` : ''}`)
+      .map(
+        ([n, s]) =>
+          `${n}: ${s.frames} frames, ${s.bytes} bytes (${s.seconds}s)${s.droppedSamples ? `, ${s.droppedSamples} samples dropped (overrun)` : ''}`,
+      )
       .join('; ');
-    process.stdout.write(`frames=${summary.frames} ${src}; level events=${summary.levelEvents}; stop reason=${summary.stopReason}\n`);
+    process.stdout.write(
+      `frames=${summary.frames} ${src}; level events=${summary.levelEvents}; stop reason=${summary.stopReason}\n`,
+    );
     for (const e of errors) process.stderr.write(`check-frames: FAIL: ${e}\n`);
     process.stdout.write(errors.length ? `FAIL (${errors.length} problems)\n` : 'OK\n');
   }

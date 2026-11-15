@@ -8,13 +8,13 @@ number; any incompatible change to anything below bumps it (D-16).
 
 Every frame is a 14-byte header followed by the payload. All integers are little-endian.
 
-| offset | size | field | meaning |
-|---|---|---|---|
-| 0 | 1 | `kind` | `1` = audio, `2` = event |
-| 1 | 1 | `source` | `0` = mic ("me"), `1` = system ("them"), `255` = none (session-level event) |
-| 2 | 8 | `t_us` | u64 microseconds since capture start (see *Clock*) |
-| 10 | 4 | `payload_len` | u32 byte length of the payload |
-| 14 | `payload_len` | payload | see below |
+| offset | size          | field         | meaning                                                                     |
+| ------ | ------------- | ------------- | --------------------------------------------------------------------------- |
+| 0      | 1             | `kind`        | `1` = audio, `2` = event                                                    |
+| 1      | 1             | `source`      | `0` = mic ("me"), `1` = system ("them"), `255` = none (session-level event) |
+| 2      | 8             | `t_us`        | u64 microseconds since capture start (see _Clock_)                          |
+| 10     | 4             | `payload_len` | u32 byte length of the payload                                              |
+| 14     | `payload_len` | payload       | see below                                                                   |
 
 Readers must handle frames split across arbitrary read boundaries. Unknown `kind`/`source` values are a
 protocol error. Payloads are never larger than 16 MiB (real frames are a few KiB).
@@ -36,16 +36,16 @@ Payload is one UTF-8 JSON object with a string `type`. Consumers must ignore unk
 `source` is `255` for session-level events and `0`/`1` for per-source events (also repeated as a `"source"`
 string field).
 
-| type | source | fields | when |
-|---|---|---|---|
-| `started` | none | `protocol`, `version`, `sample_rate`, `frame_ms`, `sources` (`["mic","system"]`), `synthetic`, `aec` | always the **first** frame |
-| `stopped` | none | `reason` (`duration`·`command`·`stdin_eof`·`signal`·`error`·`output_closed`), `samples` (`{"mic":n,"system":n}` samples emitted) | always the **last** frame; nothing follows |
-| `paused` / `resumed` | none | — | after a `pause` / `resume` command; no audio is emitted while paused |
-| `error` | none / mic / system | `code`, `message`, `fatal` | `fatal: true` = that source has stopped; other sources keep running. If no source is left, `stopped` (`reason: "error"`) follows |
-| `device_changed` | mic / system | `device` (name) | default input/output device switched; capture continued on the new device |
-| `format_changed` | mic / system | `device_sample_rate`, `previous_device_sample_rate`, `channels` | the *same* device changed its own format (e.g. a Bluetooth headset dropping 48 → 16 kHz when its mic opens); capture was reconfigured and continues. Informational — audio frames stay at `sample_rate` |
-| `level` | mic / system | `rms_db`, `peak_db` (dBFS, −100 = silence) | every 250 ms of audio per source, for meters |
-| `overrun` | mic / system | `stage` (`capture`·`output`), `dropped_samples` (at `sample_rate`), `dropped_ms` | audio was dropped because a consumer fell behind — see *Backpressure*. `dropped_samples` is exact. `t_us` = time of the first dropped audio (`output`) or emission time (`capture`; it sits in stream order between the last audio before the gap and the first after it) |
+| type                 | source              | fields                                                                                                                           | when                                                                                                                                                                                                                                                                      |
+| -------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `started`            | none                | `protocol`, `version`, `sample_rate`, `frame_ms`, `sources` (`["mic","system"]`), `synthetic`, `aec`                             | always the **first** frame                                                                                                                                                                                                                                                |
+| `stopped`            | none                | `reason` (`duration`·`command`·`stdin_eof`·`signal`·`error`·`output_closed`), `samples` (`{"mic":n,"system":n}` samples emitted) | always the **last** frame; nothing follows                                                                                                                                                                                                                                |
+| `paused` / `resumed` | none                | —                                                                                                                                | after a `pause` / `resume` command; no audio is emitted while paused                                                                                                                                                                                                      |
+| `error`              | none / mic / system | `code`, `message`, `fatal`                                                                                                       | `fatal: true` = that source has stopped; other sources keep running. If no source is left, `stopped` (`reason: "error"`) follows                                                                                                                                          |
+| `device_changed`     | mic / system        | `device` (name)                                                                                                                  | default input/output device switched; capture continued on the new device                                                                                                                                                                                                 |
+| `format_changed`     | mic / system        | `device_sample_rate`, `previous_device_sample_rate`, `channels`                                                                  | the _same_ device changed its own format (e.g. a Bluetooth headset dropping 48 → 16 kHz when its mic opens); capture was reconfigured and continues. Informational — audio frames stay at `sample_rate`                                                                   |
+| `level`              | mic / system        | `rms_db`, `peak_db` (dBFS, −100 = silence)                                                                                       | every 250 ms of audio per source, for meters                                                                                                                                                                                                                              |
+| `overrun`            | mic / system        | `stage` (`capture`·`output`), `dropped_samples` (at `sample_rate`), `dropped_ms`                                                 | audio was dropped because a consumer fell behind — see _Backpressure_. `dropped_samples` is exact. `t_us` = time of the first dropped audio (`output`) or emission time (`capture`; it sits in stream order between the last audio before the gap and the first after it) |
 
 Error codes currently emitted (start failures carry the specific code; `start_failed` is only the fallback):
 `tap_create_failed`, `tap_format`, `aggregate_failed`, `ioproc_failed`, `device_start_failed`, `no_device`,

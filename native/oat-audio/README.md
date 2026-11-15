@@ -35,7 +35,7 @@ the system stream), `--no-aec`.
   `oat-audio capture --duration 10 | node scripts/check-frames.mjs` with a call playing, after granting access.
 
 A slow reader never stalls capture: old queued audio is dropped and reported with `overrun` events
-(PROTOCOL.md → *Backpressure*). `scripts/check-frames.mjs` (Node, no deps) is the protocol contract test; it also exports `FrameParser` and
+(PROTOCOL.md → _Backpressure_). `scripts/check-frames.mjs` (Node, no deps) is the protocol contract test; it also exports `FrameParser` and
 `validateFrames` for the TypeScript `SidecarSource` (task 2.4).
 
 ## Echo cancellation
@@ -54,7 +54,7 @@ restarting" lines on stderr with AEC on (VPIO restart loop).
 
 **Bluetooth headset (AirPods) checkpoint:** start capture with AirPods as output, play a call, then let the
 mic open (or start capture with AirPods as input too). The headset drops from 48 kHz to its call profile
-(16/24 kHz) on the *same* device: expect one `format_changed` event per affected source, no `error`, and
+(16/24 kHz) on the _same_ device: expect one `format_changed` event per affected source, no `error`, and
 "them" keeping correct pitch and duration (compare `samples` in `stopped` with wall-clock duration) and staying
 in sync with "me". Also switch outputs at different rates (speakers ↔ AirPods) mid-capture: `device_changed`,
 same checks.
@@ -63,13 +63,13 @@ same checks.
 
 - `oat-audio permissions` reads the mic status via `AVCaptureDevice.authorizationStatus` and the system-audio
   status via TCC preflight (`kTCCServiceAudioCapture`, looked up with `dlsym`; reports `unknown` if missing).
-  Neither prompts. For an unbundled binary TCC attributes access to the *responsible* process (Terminal while
+  Neither prompts. For an unbundled binary TCC attributes access to the _responsible_ process (Terminal while
   developing, the Oat app once spawned by Electron).
 - When bundled inside the Electron app, the **app's** `Info.plist` needs:
   - `NSMicrophoneUsageDescription` — mic capture.
   - `NSAudioCaptureUsageDescription` — system audio via process taps ("System Audio Recording Only").
   - Hardened runtime entitlement `com.apple.security.device.audio-input` for the mic.
-  Sign the sidecar with the app's team ID so it inherits the app's TCC grants.
+    Sign the sidecar with the app's team ID so it inherits the app's TCC grants.
 - A denied system-audio permission does not fail tap creation — the tap delivers silence. The app should
   check `permissions` before starting and treat a silent "them" stream as a probable permission issue.
 
