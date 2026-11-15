@@ -1,4 +1,5 @@
-# Oat local dev stack (D-11). Use the root scripts: `pnpm dev:up | dev:build | dev:down | dev:reset | dev:logs | dev:ps`.
+# Oat local dev stack (D-11). Use the root scripts: `pnpm dev:up | dev:build | dev:down | dev:reset | dev:logs | dev:ps`,
+# and `pnpm dev:app | dev:app:stop` for the web app itself (profile `app`).
 # Host ports are in a private range so they don't clash with other local stacks, and bind to 127.0.0.1 only.
 # The project name is fixed, so every git worktree shares this one stack. Nothing is bind-mounted from the
 # repo (config is baked into small images), so the stack keeps working after the worktree that built it is gone.
@@ -90,6 +91,80 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+    restart: unless-stopped
+
+  # --- profile `app`: the web app itself in containers (1.9). `pnpm dev:app` builds these two images from
+  # the current checkout and starts them; plain `pnpm dev:up` leaves them out. ---------------------------
+
+  migrate:
+    # One-shot: applies @oat/db migrations from this checkout to the compose database, then exits 0.
+    # `web` starts only after it succeeds. Separate from `web` so the runtime image carries no migration
+    # tooling and several web replicas would never race (prod runs migrations as a deploy step too).
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: migrate
+    image: oat-migrate:dev
+    environment:
+      DATABASE_URL: postgres://oat:oat@postgres:5432/oat
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  web:
+    # apps/web (Next standalone, node:24-alpine). http://localhost:3000. Stands in for Vercel.
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: web
+    image: oat-web:dev
+    init: true
+    environment:
+      # Server-to-server connections use compose service names.
+      DATABASE_URL: postgres://oat:oat@postgres:5432/oat
+      REDIS_URL: redis://redis:6379
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_FROM: Oat <no-reply@oat.localhost>
+      MAILPIT_URL: http://mailpit:8025
+      # URLs a browser or the desktop app also uses keep their host form: the entrypoint forwards
+      # 127.0.0.1:18089 and :14010 inside the container to oauth and mocks, so the OAuth issuer (which
+      # mock-oauth2-server derives from the Host header) and every discovery endpoint match the host's view.
+      OAT_LOCALHOST_FORWARDS: 18089=oauth:8080,14010=mocks:14010
+      OAUTH_GOOGLE_ISSUER: ${OAUTH_GOOGLE_ISSUER:-http://localhost:18089/google}
+      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-oat-dev}
+      OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-oat-dev-secret}
+      MOCKS_URL: http://localhost:14010
+      # Blank = mocks. Real keys come from the root .env (compose interpolation), like on the host.
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+      AI_GATEWAY_BASE_URL: ${AI_GATEWAY_BASE_URL:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
+      DEEPGRAM_BASE_URL: ${DEEPGRAM_BASE_URL:-}
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+      oauth:
+        condition: service_healthy
+      mocks:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/api/health']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
     restart: unless-stopped
 
 volumes:

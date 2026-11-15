@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Dev stack helper behind `pnpm dev:up | dev:build | dev:down | dev:reset | dev:logs | dev:ps`
-// (D-11, docs/DEV.md).
+// Dev stack helper behind `pnpm dev:up | dev:build | dev:down | dev:reset | dev:logs | dev:ps` and
+// `pnpm dev:app | dev:app:stop` (D-11, docs/DEV.md).
 // Plain Node (no shell-isms) so it behaves the same on macOS and Linux. Extra args are passed to compose,
 // e.g. `pnpm dev:logs mocks` or `pnpm dev:up postgres`.
 import { spawnSync } from 'node:child_process';
@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
+/** @type {Record<string, string[] | string[][]>} One compose invocation, or several run in order. */
 const commands = {
   // The stack is shared by every worktree, so `up` never rebuilds: it builds the local images
   // (postgres/oauth/mocks) only if they don't exist yet and leaves running, healthy containers alone.
@@ -22,6 +23,15 @@ const commands = {
   reset: ['down', '--volumes', '--remove-orphans'],
   logs: ['logs', '--follow', '--tail', '200'],
   ps: ['ps', '--all'],
+  // Profile `app` (1.9): builds the web + migrate images from *this* checkout (only those two: the shared
+  // images are never rebuilt here), then starts web. Compose brings up its dependencies, runs the one-shot
+  // migrate, and recreates web only if its image or definition changed. Waits until web is healthy.
+  app: [
+    ['--profile', 'app', 'build', 'migrate', 'web'],
+    ['--profile', 'app', 'up', '--detach', '--wait', 'web'],
+  ],
+  // Stops and removes just the app containers (frees :3000); the shared stack keeps running.
+  'app:stop': ['--profile', 'app', 'rm', '--stop', '--force', 'web', 'migrate'],
 };
 
 const [command, ...extra] = process.argv.slice(2);
@@ -46,7 +56,7 @@ function compose(args) {
   return result.status ?? 1;
 }
 
-const starts = command === 'up' || command === 'build';
+const starts = command === 'up' || command === 'build' || command === 'app';
 if (starts) {
   const env = join(root, '.env');
   if (!existsSync(env)) {
@@ -55,12 +65,21 @@ if (starts) {
   }
 }
 
-const status = compose([...commands[command], ...extra]);
+const spec = commands[command];
+const steps = Array.isArray(spec[0])
+  ? /** @type {string[][]} */ (spec)
+  : [/** @type {string[]} */ (spec)];
+let status = 0;
+for (const [index, args] of steps.entries()) {
+  // Extra args go to the last step (e.g. `pnpm dev:app --force-recreate`).
+  status = compose(index === steps.length - 1 ? [...args, ...extra] : args);
+  if (status !== 0) break;
+}
 if (starts && status !== 0) {
   console.error(
     '\ndev: stack did not become healthy. Check `pnpm dev:ps` and `pnpm dev:logs <service>`;' +
       ' port clashes and fixes are in docs/DEV.md#troubleshooting.',
   );
 }
-if (starts && status === 0) compose(['ps']);
+if (starts && status === 0) compose(command === 'app' ? ['--profile', 'app', 'ps'] : ['ps']);
 process.exit(status);

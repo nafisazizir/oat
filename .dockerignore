@@ -1,13 +1,24 @@
-# Build context is the repo root; send only what images need.
+# Build context is the repo root; send only what images need (docker/*/ builds use their own folder).
 **/node_modules
 **/dist
 **/out
 **/.next
 **/.turbo
 **/coverage
+**/playwright-report
+**/test-results
+**/*.tsbuildinfo
+**/.DS_Store
 .git
 .claude
 .env*
 !.env.example
 research
 docs
+# Swift sidecar build products (the images never build native code).
+native/**/.build
+native/**/.swiftpm
+# Fixture audio: images only need the ground-truth JSON (tools/mocks bundles *.segments.json).
+fixtures/audio/*.wav
+fixtures/audio/*.opus
+fixtures/audio/*.m4a

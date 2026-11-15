@@ -126,10 +126,10 @@ test.describe('app shell', () => {
 });
 
 test.describe('routes', () => {
-  test('GET /api/health', async ({ request }) => {
+  test('GET /api/health (includes a Postgres round-trip)', async ({ request }) => {
     const response = await request.get('/api/health');
     expect(response.status()).toBe(200);
-    expect(await response.json()).toEqual({ ok: true, version: '0.0.0' });
+    expect(await response.json()).toEqual({ ok: true, version: '0.0.0', db: 'ok' });
   });
 
   test('settings reads the typed env (local mocks by default)', async ({ page }) => {

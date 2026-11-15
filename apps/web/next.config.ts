@@ -32,6 +32,11 @@ function loadRootEnv(phase: string) {
 export default function config(phase: string): NextConfig {
   loadRootEnv(phase);
   return {
+    // 1.9: `next build` also emits `.next/standalone` (server.js + only the traced node_modules), which the
+    // Docker image ships. Tracing starts at the monorepo root so workspace packages and pnpm's
+    // `node_modules/.pnpm` store are included. `next dev` and Vercel ignore it.
+    output: 'standalone',
+    outputFileTracingRoot: findRepoRoot(),
     reactStrictMode: true,
     typedRoutes: true,
     // D-15: every @oat/* dependency is TypeScript source; Next compiles them (derived from package.json).

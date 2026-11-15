@@ -31,13 +31,15 @@ network once; after that everything works offline.
 | `pnpm dev:reset` | `down --volumes`: also wipes Postgres, Redis and Mailpit data (dev data only).   |
 | `pnpm dev:logs`  | Follows logs. `pnpm dev:logs mocks` for one service.                             |
 | `pnpm dev:ps`    | Service status and health.                                                       |
+| `pnpm dev:app`   | Profile `app`: builds the `web` + `migrate` images from *this* checkout, runs migrations, starts the web app on <http://localhost:3000> and waits until it is healthy. See "Web app in Docker". |
+| `pnpm dev:app:stop` | Stops and removes the `web` and `migrate` containers (frees :3000); the rest of the stack keeps running. |
 
 Extra arguments are passed to `docker compose` (e.g. `pnpm dev:up postgres`). The scripts live in
 `scripts/dev.mjs`. The compose project is always called `oat`, so all git worktrees share one stack; run plain
 `docker compose …` commands from the repo root (e.g. `docker compose exec postgres psql -U oat`).
 
-**Shared stack rules.** One stack serves every worktree, so: `dev:up` is the only stack command task branches
-run; `dev:build` and `dev:reset` happen from the main checkout (they recreate containers / wipe data that
+**Shared stack rules.** One stack serves every worktree, so: `dev:up` (and `dev:app`, which only builds and
+recreates its own two containers) are the only stack commands task branches run; `dev:build` and `dev:reset` happen from the main checkout (they recreate containers / wipe data that
 other runs are using). Changes to `docker-compose.yml` or `docker/` reach the shared stack only once merged to
 `main` and built there. To test unmerged mocks code, use the in-process mocks (below), not the container.
 
@@ -65,9 +67,45 @@ All ports bind to `127.0.0.1` and sit in a private range so they don't clash wit
   local images (`docker/*/Dockerfile`), so the shared stack keeps working after the worktree that built it is
   deleted. Run `pnpm dev:build` (from main) after they change.
 - **OAuth issuer and Host header**: mock-oauth2-server derives the issuer from the request's Host header. Code
-  on the host reaches it as `localhost:18089`, matching `OAUTH_GOOGLE_ISSUER`. A container (e.g. `web` in
-  1.9) calling `http://oauth:8080` would see a different `iss`; it must use the same public URL (or the
-  issuer must be pinned) so tokens validate.
+  on the host reaches it as `localhost:18089`, matching `OAUTH_GOOGLE_ISSUER`. A container calling
+  `http://oauth:8080` would see a different `iss` (and discovery endpoints a browser can't reach), so the
+  `web` container keeps the host URL and forwards `localhost:18089` to `oauth:8080` internally (see "Web app
+  in Docker").
+
+## Web app in Docker (profile `app`)
+
+`pnpm dev:app` runs the whole web app in containers next to the stack: a new machine can demo Oat with only
+Docker, and the production image path gets exercised. Day-to-day development still uses `pnpm dev` (hot
+reload); both want port 3000, so stop one before starting the other (`pnpm dev:app:stop`).
+
+```bash
+pnpm dev:app                          # build web + migrate from this checkout, migrate, start, wait healthy
+curl -s localhost:3000/api/health     # {"ok":true,"version":"0.0.0","db":"ok"}
+pnpm dev:logs web                     # follow its logs
+pnpm dev:app:stop                     # remove the app containers (stack keeps running)
+```
+
+- **Images** (`apps/web/Dockerfile`, build context = repo root): target `web` (default) is Next's
+  standalone output (`output: 'standalone'` in `next.config.ts`: `server.js` + only the traced
+  `node_modules`; workspace packages are compiled in) on `node:24-alpine`, as the `node` user, with a
+  healthcheck on `/api/health`; ~300 MB, most of it the Node base image. Target `migrate` runs
+  `packages/db/src/cli/migrate.ts` with Node's built-in type stripping and prod deps only. Dependencies are
+  installed from the workspace manifests + lockfile alone, so a source edit reuses the install layer and
+  only re-runs `next build`; the pnpm store is a BuildKit cache mount.
+- **Startup order**: `migrate` (one-shot, needs healthy Postgres) applies this checkout's migrations to the
+  compose `oat` database and exits 0; `web` starts only after that and once postgres, redis, mailpit, oauth
+  and mocks are healthy. Migrations from an unmerged branch land in the shared dev database, same as running
+  `db:migrate` from that worktree; `db:reset` (from main) undoes it.
+- **Env**: set in `docker-compose.yml`, not from `.env` (except real provider keys and the Google
+  issuer/client, which compose interpolates from the root `.env`, so real keys work as on the host).
+  Server-to-server connections use service names (`postgres:5432`, `redis:6379`, `mailpit:1025`).
+  URLs that a browser or the desktop app also uses keep their host form: the image's entrypoint forwards
+  `localhost:18089` → `oauth:8080` and `localhost:14010` → `mocks:14010` inside the container
+  (`OAT_LOCALHOST_FORWARDS`, `docker/web/entrypoint.mjs`; unset in production), so the OAuth issuer, the
+  token `iss` and every discovery endpoint are identical inside and outside the container.
+- `/api/health` returns `{ ok, version, db }`, with HTTP 503 when Postgres doesn't answer within 2 s.
+- The `oat-web:dev` image is shared by every worktree: it runs whatever the last `dev:app` built. Neither
+  `dev:up` nor CI's `stack` step starts the `app` profile.
 
 ## How mocks work (`tools/mocks`)
 
@@ -167,9 +205,9 @@ Real credentials are human checkpoints (FACTORY §7) and never go in `.env.examp
 tests run only when their key is set.
 
 **Who reads the root `.env`.** Integration tests do: `vitest.shared.ts` loads it in `--mode int` (variables
-already exported in the shell win). Compose only uses it for interpolation (it has none today). Apps don't
-read it yet: `apps/web` (1.6/1.9) and `apps/desktop` must load the root `.env` themselves when they are wired
-up (Next.js on its own only reads `apps/web/.env*`). Until then, editing `.env` affects tests only.
+already exported in the shell win). `apps/web` does in `next dev`/`next build` (`next.config.ts`). Compose uses
+it only for interpolation: the `web` container takes the provider keys and Google issuer/client from it, and
+nothing else (see "Web app in Docker"). `apps/desktop` must load it itself when it is wired up.
 
 ## Database (`@oat/db`)
 
@@ -213,7 +251,7 @@ others still run so you see every failure at once (`--bail` stops at the first).
 | `format`          | `pnpm format:check` (Prettier)                                                                  |
 | `actionlint`      | `.github/workflows/*.yml` through the pinned `rhysd/actionlint` image (files go in on stdin; skipped if Docker is missing) |
 | `typecheck`       | `pnpm typecheck`                                                                                |
-| `lint`            | `pnpm lint` (turbo `lint` + ESLint on `scripts/`)                                               |
+| `lint`            | `pnpm lint` (turbo `lint` + ESLint on `scripts/` and `docker/`)                                 |
 | `test`            | `pnpm test` (unit, no containers)                                                               |
 | `stack`           | No-op when every compose service is running and healthy; otherwise `pnpm dev:up` (builds local images only if missing, never rebuilds). Never `down`/`reset`/`build`. |
 | `migrate`         | Creates a throwaway `oat_test_*` database, runs `@oat/db db:migrate` against it twice, checks applied = journal entries, drops it |
@@ -243,7 +281,7 @@ e.g. under `~/Documents`; the stdin form avoids that.)
 ## Troubleshooting
 
 - **Port already allocated** on `dev:up`: something else uses one of 54329, 63790, 11025, 18025, 18089,
-  14010. Find it with `lsof -nP -iTCP:<port> -sTCP:LISTEN` (macOS) or `ss -ltnp 'sport = :<port>'` (Linux),
+  14010 (or 3000 on `dev:app`, usually a `pnpm dev` server). Find it with `lsof -nP -iTCP:<port> -sTCP:LISTEN` (macOS) or `ss -ltnp 'sport = :<port>'` (Linux),
   or `docker ps --format '{{.Names}} {{.Ports}}'`,
   and stop it. The ports are fixed by D-11; don't change them locally.
 - **A service never gets healthy**: `pnpm dev:ps`, then `pnpm dev:logs <service>`.

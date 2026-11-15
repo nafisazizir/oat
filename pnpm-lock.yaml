@@ -263,6 +263,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@oat/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@oat/ui':
         specifier: workspace:*
         version: link:../../packages/ui
