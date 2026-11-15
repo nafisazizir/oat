@@ -68,6 +68,8 @@ const child = spawn('pnpm', ['exec', 'next', 'dev', '--port', port], {
   env: {
     ...process.env,
     DATABASE_URL: db.url,
+    // Own rate-limit counters: parallel e2e servers share one dev Redis and all clients are 127.0.0.1.
+    OAT_RATE_LIMIT_NAMESPACE: `e2e-${db.name}`,
     BETTER_AUTH_URL: `http://localhost:${port}`,
     GOOGLE_CALENDAR_BASE_URL: `${mocks.url}/gcal`,
     AI_BASE_URL: `${mocks.url}/llm/v1`,

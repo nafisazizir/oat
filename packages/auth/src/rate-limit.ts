@@ -71,10 +71,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<
  */
 export function createRedisRateLimiter(
   redisUrl: string,
-  options: { timeoutMs?: number; onError?: (error: unknown) => void } = {},
+  options: { timeoutMs?: number; onError?: (error: unknown) => void; namespace?: string } = {},
 ): RateLimiter {
-  const { timeoutMs = 1000, onError = (e) => console.warn('rate limit: redis unavailable', e) } =
-    options;
+  const {
+    timeoutMs = 1000,
+    onError = (e) => console.warn('rate limit: redis unavailable', e),
+    // Isolates counters of parallel test servers that share one dev Redis (e.g. per-IP limits on 127.0.0.1).
+    namespace = process.env.OAT_RATE_LIMIT_NAMESPACE,
+  } = options;
+  const prefix = namespace ? `oat:rl:${namespace}:` : 'oat:rl:';
   let client: ReturnType<typeof createClient> | undefined;
   let connecting: Promise<unknown> | undefined;
   let reportedDown = false;
@@ -111,7 +116,7 @@ export function createRedisRateLimiter(
         const c = ensureClient();
         if (!c.isReady) await withTimeout(connecting!, timeoutMs, 'connect');
         const reply = await withTimeout(
-          c.eval(HIT_SCRIPT, { keys: [`oat:rl:${hashed}`], arguments: [String(windowSec)] }),
+          c.eval(HIT_SCRIPT, { keys: [`${prefix}${hashed}`], arguments: [String(windowSec)] }),
           timeoutMs,
           'EVAL',
         );
