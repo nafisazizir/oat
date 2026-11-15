@@ -15,6 +15,8 @@ export type Workspace = {
   members: number;
   /** The signed-in user's role here (viewers can't create). */
   role: Role;
+  /** Emoji icon (5.1), if set. */
+  icon?: string | null;
 };
 
 export type DocumentKind = 'page' | 'meeting' | 'folder';

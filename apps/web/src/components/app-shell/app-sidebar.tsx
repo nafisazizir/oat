@@ -1,7 +1,5 @@
 'use client';
 
-import { cn } from '@oat/ui';
-import { Avatar, AvatarFallback } from '@oat/ui/components/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,11 +23,13 @@ import {
   ChevronsUpDownIcon,
   HomeIcon,
   LayoutTemplateIcon,
+  LogOutIcon,
   PlusIcon,
   SearchIcon,
   SettingsIcon,
   SquarePenIcon,
   Trash2Icon,
+  UserPlusIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -39,6 +39,8 @@ import { toast } from 'sonner';
 import { sections } from '@/lib/navigation';
 import { rootsOf, type Workspace } from '@/lib/tree';
 import { switchWorkspace } from '@/server/actions/workspaces';
+import { LeaveWorkspaceDialog } from '@/components/workspace/leave-workspace-dialog';
+import { WorkspaceAvatar } from '@/components/workspace/workspace-avatar';
 
 import { useCommandMenu } from './command-menu';
 import { CreateWorkspaceDialog } from './create-workspace-dialog';
@@ -49,20 +51,7 @@ import { useNewNote } from './use-new-note';
 import { UserMenu } from './user-menu';
 
 function WorkspaceTile({ workspace, className }: { workspace: Workspace; className?: string }) {
-  return (
-    <Avatar className={cn('rounded-md after:rounded-md', className)} size="sm">
-      <AvatarFallback
-        className={cn(
-          'rounded-md text-xs font-semibold',
-          workspace.kind === 'personal'
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-secondary text-secondary-foreground',
-        )}
-      >
-        {workspace.name.charAt(0)}
-      </AvatarFallback>
-    </Avatar>
-  );
+  return <WorkspaceAvatar workspace={workspace} {...(className ? { className } : {})} />;
 }
 
 function memberLabel(workspace: Workspace) {
@@ -73,7 +62,11 @@ function memberLabel(workspace: Workspace) {
 function WorkspaceSwitcher() {
   const { workspace: currentWorkspace, workspaces } = useShellData();
   const [createOpen, setCreateOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const isTeam = currentWorkspace.kind === 'team';
+  const canInvite =
+    isTeam && (currentWorkspace.role === 'owner' || currentWorkspace.role === 'admin');
 
   const switchTo = (workspace: Workspace) =>
     startTransition(async () => {
@@ -128,13 +121,40 @@ function WorkspaceSwitcher() {
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
+          <DropdownMenuItem asChild className="gap-2">
+            <Link href="/settings/workspace">
+              <SettingsIcon />
+              Workspace settings
+            </Link>
+          </DropdownMenuItem>
+          {canInvite && (
+            <DropdownMenuItem asChild className="gap-2">
+              <Link href="/settings/workspace/members">
+                <UserPlusIcon />
+                Invite members
+              </Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem className="gap-2" onSelect={() => setCreateOpen(true)}>
             <PlusIcon />
             Create workspace
           </DropdownMenuItem>
+          {isTeam && (
+            <DropdownMenuItem className="gap-2" onSelect={() => setLeaveOpen(true)}>
+              <LogOutIcon />
+              Leave {currentWorkspace.name}
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
       <CreateWorkspaceDialog open={createOpen} onOpenChange={setCreateOpen} />
+      {isTeam && (
+        <LeaveWorkspaceDialog
+          workspace={currentWorkspace}
+          open={leaveOpen}
+          onOpenChange={setLeaveOpen}
+        />
+      )}
     </>
   );
 }

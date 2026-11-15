@@ -3,7 +3,7 @@ import { readdirSync } from 'node:fs';
 import { NextRequest } from 'next/server';
 import { describe, expect, it } from 'vitest';
 
-import { config, proxy } from './proxy';
+import { config, INVITE_HEADERS, proxy } from './proxy';
 
 const appRoutes = readdirSync(new URL('./app/(app)/', import.meta.url), { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
@@ -40,5 +40,14 @@ describe('proxy', () => {
       expect(res.headers.get('location')).toBeNull();
       expect(res.headers.get('x-middleware-next')).toBe('1');
     }
+  });
+
+  it('invite pages: public (no redirect), with no-referrer and no-store headers', () => {
+    const res = proxy(new NextRequest('http://localhost:3000/invite/abc123'));
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('referrer-policy')).toBe('no-referrer');
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(INVITE_HEADERS['Referrer-Policy']).toBe('no-referrer');
+    expect(config.matcher).toContain('/invite/:path*');
   });
 });

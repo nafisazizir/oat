@@ -8,21 +8,27 @@
  * workspace is already active. Guards on the organization plugin keep personal workspaces single-member
  * and invitations within `@oat/core` rules.
  */
-import { canInvite, createPermissionContext, type Role, ROLES } from '@oat/core';
+import { canInvite, canManageMembers, createPermissionContext, type Role, ROLES } from '@oat/core';
 import { type Db, membership, newId, organizationOptions, schema, workspace } from '@oat/db';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { APIError, createAuthMiddleware } from 'better-auth/api';
+import { APIError, createAuthMiddleware, getSessionFromCtx } from 'better-auth/api';
 import { nextCookies } from 'better-auth/next-js';
 import { bearer, genericOAuth, magicLink, organization } from 'better-auth/plugins';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, eq, inArray, isNotNull } from 'drizzle-orm';
 
 import { ac, roles } from './access.ts';
 import { type AuthConfig, isLoopbackUrl } from './config.ts';
 import { desktopAuth } from './desktop.ts';
-import { createSmtpMailer, type Mailer, magicLinkEmail } from './email.ts';
+import { createSmtpMailer, invitationEmail, type Mailer, magicLinkEmail } from './email.ts';
 import { GOOGLE_CALENDAR_PROVIDER_ID, GOOGLE_CALENDAR_SCOPES } from './google-calendar.ts';
 import { magicLinkConfirmUrl } from './magic-link.ts';
+import {
+  INVITE_EXPIRES_IN,
+  inviterMayStillInvite,
+  inviteTokenFor,
+  isLiveWorkspace,
+} from './members.ts';
 import { GOOGLE_PROVIDER_ID } from './providers.ts';
 import { createRateLimiter, type RateLimiter } from './rate-limit.ts';
 import {
@@ -40,8 +46,53 @@ export const MAGIC_LINK_EXPIRES_IN = 15 * 60;
  */
 export const MAGIC_LINK_EMAIL_LIMIT = { max: 5, windowSec: 15 * 60 } as const;
 
-/** Workspace fields an owner/admin may change through `organization/update`. */
-const UPDATABLE_WORKSPACE_FIELDS = new Set(['name', 'slug', 'logo', 'metadata']);
+/**
+ * Workspace fields an owner/admin may change through `organization/update` (the slug: owners only).
+ * Lengths mirror the settings form.
+ */
+const UPDATABLE_WORKSPACE_FIELDS = new Set(['name', 'slug', 'logo']);
+const MAX_WORKSPACE_NAME = 60;
+const MAX_WORKSPACE_LOGO = 16;
+const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
+
+/**
+ * Invitation emails (create and resend), on top of Better Auth's per-IP limit: per recipient and per
+ * inviter, so nobody can mail-bomb an address or relay text from Oat's domain. Fails open like the
+ * magic-link limit when Redis is down.
+ */
+export const INVITE_EMAIL_LIMITS = {
+  perRecipient: { max: 3, windowSec: 60 * 60 },
+  perInviter: { max: 30, windowSec: 60 * 60 },
+} as const;
+
+/**
+ * Better Auth read endpoints scoped to one workspace (`organizationId` in the query/body, else the
+ * session's active one): a soft-deleted workspace is not served.
+ */
+const WORKSPACE_READ_PATHS: ReadonlySet<string> = new Set([
+  '/organization/get-full-organization',
+  '/organization/list-members',
+  '/organization/list-invitations',
+  '/organization/get-active-member',
+  '/organization/get-active-member-role',
+]);
+
+/**
+ * Better Auth member endpoints we don't serve: role changes, removals and leaving go through
+ * `members.ts`, which checks `@oat/core` and the last-owner rule under a row lock in one transaction
+ * (Better Auth's versions can't). Workspace deletion is our own soft delete (D-22).
+ */
+export const BLOCKED_ORGANIZATION_PATHS: ReadonlySet<string> = new Set([
+  '/organization/update-member-role',
+  '/organization/remove-member',
+  '/organization/leave',
+  '/organization/delete',
+]);
+
+/** The `/invite/<token>` page an invitation email links to. */
+export function inviteUrl(baseURL: string, token: string): string {
+  return new URL(`/invite/${encodeURIComponent(token)}`, baseURL).toString();
+}
 
 export interface CreateAuthOptions {
   db: Db;
@@ -100,6 +151,115 @@ export function createAuth({
     disabledPaths: ['/get-access-token', '/refresh-token', '/account-info'],
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        if (BLOCKED_ORGANIZATION_PATHS.has(ctx.path)) {
+          throw new APIError('NOT_FOUND', { message: 'Not found.' });
+        }
+        if (ctx.path === '/organization/invite-member') {
+          const session = await getSessionFromCtx(ctx);
+          const email = (ctx.body as { email?: unknown } | undefined)?.email;
+          if (!session || typeof email !== 'string') return; // the endpoint rejects these itself
+          // Policy before anything is written or mailed — including Better Auth's `resend` branch, which
+          // skips `beforeCreateInvitation`: live workspace + `@oat/core` canInvite on current rows.
+          const body = ctx.body as { organizationId?: unknown; role?: unknown };
+          const workspaceId =
+            typeof body.organizationId === 'string'
+              ? body.organizationId
+              : session.session.activeOrganizationId;
+          if (
+            !workspaceId ||
+            typeof body.role !== 'string' ||
+            !(await inviterMayStillInvite(db, {
+              inviterId: session.user.id,
+              workspaceId,
+              role: body.role,
+            }))
+          ) {
+            throw forbidden('You can’t invite people with that role to this workspace.');
+          }
+          const { perRecipient, perInviter } = INVITE_EMAIL_LIMITS;
+          const [to, from] = await Promise.all([
+            rateLimiter.hit(
+              `invite:to:${email.trim().toLowerCase()}`,
+              perRecipient.max,
+              perRecipient.windowSec,
+            ),
+            rateLimiter.hit(`invite:from:${session.user.id}`, perInviter.max, perInviter.windowSec),
+          ]);
+          const blocked = [to, from].find((hit) => !hit.allowed);
+          if (blocked) {
+            throw new APIError(
+              'TOO_MANY_REQUESTS',
+              { message: 'Too many invitations. Try again later.' },
+              { 'retry-after': String(blocked.retryAfter) },
+            );
+          }
+          return;
+        }
+        if (WORKSPACE_READ_PATHS.has(ctx.path)) {
+          const session = await getSessionFromCtx(ctx);
+          if (!session) return; // the endpoint answers 401 itself
+          const input = { ...(ctx.query ?? {}), ...((ctx.body as object | undefined) ?? {}) } as {
+            organizationId?: unknown;
+            organizationSlug?: unknown;
+          };
+          const id =
+            typeof input.organizationId === 'string'
+              ? input.organizationId
+              : typeof input.organizationSlug === 'string'
+                ? undefined
+                : (session.session.activeOrganizationId ?? undefined);
+          const slug =
+            typeof input.organizationSlug === 'string' ? input.organizationSlug : undefined;
+          if (id === undefined && slug === undefined) return;
+          const [row] = await db
+            .select({ id: workspace.id, kind: workspace.kind, deletedAt: workspace.deletedAt })
+            .from(workspace)
+            .where(id !== undefined ? eq(workspace.id, id) : eq(workspace.slug, slug!));
+          if (row && row.deletedAt !== null) {
+            throw new APIError('NOT_FOUND', { message: 'Workspace not found.' });
+          }
+          // Pending invitations (invitee addresses) are for the people who manage members.
+          if (row && ctx.path === '/organization/list-invitations') {
+            const ctxRows = await db
+              .select({
+                workspaceId: membership.workspaceId,
+                userId: membership.userId,
+                role: membership.role,
+              })
+              .from(membership)
+              .where(
+                and(eq(membership.workspaceId, row.id), eq(membership.userId, session.user.id)),
+              );
+            const permissions = createPermissionContext({
+              userId: session.user.id,
+              memberships: ctxRows,
+            });
+            if (!canManageMembers(permissions, { id: row.id, kind: row.kind })) {
+              throw new APIError('FORBIDDEN', {
+                message: 'Only owners and admins see invitations.',
+              });
+            }
+          }
+          return;
+        }
+        if (ctx.path === '/organization/set-active') {
+          // A soft-deleted workspace can't become active again (it's hidden everywhere).
+          const body = ctx.body as
+            { organizationId?: unknown; organizationSlug?: unknown } | undefined;
+          const id = typeof body?.organizationId === 'string' ? body.organizationId : undefined;
+          const slug =
+            typeof body?.organizationSlug === 'string' ? body.organizationSlug : undefined;
+          if (id !== undefined || slug !== undefined) {
+            const [row] = await db
+              .select({ deletedAt: workspace.deletedAt })
+              .from(workspace)
+              .where(id !== undefined ? eq(workspace.id, id) : eq(workspace.slug, slug!));
+            if (row && row.deletedAt !== null) {
+              throw new APIError('BAD_REQUEST', { message: 'Workspace not found.' });
+            }
+          }
+          return;
+        }
         const body = ctx.body as { provider?: unknown; idToken?: unknown } | undefined;
         // The calendar grant is link-only, through the OAuth redirect (`/link-social` from a signed-in
         // session): it must never sign anyone in, create a user, or be linked from a caller-supplied
@@ -132,6 +292,23 @@ export function createAuth({
             { 'retry-after': String(hit.retryAfter) },
           );
         }
+      }),
+      // `organization/list` never shows soft-deleted workspaces (our own lists skip them too).
+      after: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== '/organization/list') return;
+        const returned = ctx.context.returned;
+        if (!Array.isArray(returned) || returned.length === 0) return;
+        const ids = returned.map((o: { id: string }) => o.id);
+        const deleted = new Set(
+          (
+            await db
+              .select({ id: workspace.id })
+              .from(workspace)
+              .where(and(inArray(workspace.id, ids), isNotNull(workspace.deletedAt)))
+          ).map((r) => r.id),
+        );
+        if (deleted.size === 0) return;
+        return ctx.json(returned.filter((o: { id: string }) => !deleted.has(o.id)));
       }),
     },
     databaseHooks: {
@@ -226,6 +403,32 @@ export function createAuth({
         creatorRole: 'owner',
         // Explicit: accepting an invite needs a verified email (magic link and Google both verify).
         requireEmailVerificationOnInvitation: true,
+        invitationExpiresIn: INVITE_EXPIRES_IN,
+        // Our template, linking to `/invite/<token>` (the invite's own secret, not its id). Better Auth
+        // calls this after the invite row is written (outside any transaction), so our connection sees it.
+        // Backstop for the `invite-member` before-hook (Better Auth's resend path skips
+        // `beforeCreateInvitation`). Better Auth logs, not returns, errors thrown here: nothing is sent.
+        sendInvitationEmail: async ({ id, email, role, organization: org, inviter }) => {
+          const allowed = await inviterMayStillInvite(db, {
+            inviterId: inviter.user.id,
+            workspaceId: org.id,
+            role,
+          });
+          if (!allowed)
+            throw forbidden('You can’t invite people with that role to this workspace.');
+          const token = await inviteTokenFor(db, id);
+          if (!token) throw new Error('invitation row missing after create');
+          await mailer.send(
+            invitationEmail({
+              to: email,
+              url: inviteUrl(config.baseURL, token),
+              workspaceName: org.name,
+              inviterName: inviter.user.name || inviter.user.email,
+              role,
+              expiresInDays: INVITE_EXPIRES_IN / 86_400,
+            }),
+          );
+        },
         // Cap on team workspaces a user creates (`AUTH_MAX_TEAM_WORKSPACES`). `true` = limit reached.
         organizationLimit: async (user) => {
           const [row] = await db
@@ -252,11 +455,38 @@ export function createAuth({
               }
             }
             const [current] = await db
-              .select({ kind: workspace.kind, slug: workspace.slug })
+              .select({
+                kind: workspace.kind,
+                slug: workspace.slug,
+                deletedAt: workspace.deletedAt,
+              })
               .from(workspace)
               .where(eq(workspace.id, member.organizationId));
-            if (!current) throw forbidden('Unknown workspace.');
+            if (!current || current.deletedAt !== null) throw forbidden('Unknown workspace.');
+            if ('name' in changes) {
+              const name = typeof changes.name === 'string' ? changes.name.trim() : '';
+              if (name.length === 0 || name.length > MAX_WORKSPACE_NAME) {
+                throw new APIError('BAD_REQUEST', {
+                  message: `Workspace names are 1–${MAX_WORKSPACE_NAME} characters.`,
+                });
+              }
+            }
+            if (
+              'logo' in changes &&
+              changes.logo != null &&
+              (typeof changes.logo !== 'string' || changes.logo.length > MAX_WORKSPACE_LOGO)
+            ) {
+              throw new APIError('BAD_REQUEST', { message: 'The workspace icon is one emoji.' });
+            }
             if (typeof changes.slug === 'string' && changes.slug !== current.slug) {
+              if (member.role !== 'owner') {
+                throw forbidden('Only owners can change the workspace address.');
+              }
+              if (!SLUG.test(changes.slug)) {
+                throw new APIError('BAD_REQUEST', {
+                  message: 'That workspace address isn’t valid.',
+                });
+              }
               if (current.kind === 'personal') {
                 throw forbidden('A personal workspace’s address can’t be changed.');
               }
@@ -267,6 +497,7 @@ export function createAuth({
           },
           beforeCreateInvitation: async ({ invitation, inviter, organization: org }) => {
             if (!isRole(invitation.role)) throw forbidden('Unknown role.');
+            if (!(await isLiveWorkspace(db, org.id))) throw forbidden('Unknown workspace.');
             const rows = await db
               .select({
                 workspaceId: membership.workspaceId,
@@ -283,8 +514,19 @@ export function createAuth({
           beforeAddMember: async ({ organization: org }) => {
             if (org.kind === 'personal') throw forbidden('Personal workspaces have one member.');
           },
-          beforeAcceptInvitation: async ({ organization: org }) => {
+          beforeAcceptInvitation: async ({ organization: org, invitation }) => {
             if (org.kind === 'personal') throw forbidden('Personal workspaces have one member.');
+            if (!(await isLiveWorkspace(db, org.id))) {
+              throw forbidden('This workspace was deleted.');
+            }
+            // The invite only carries its sender's authority while they still have it (removed or
+            // demoted since → refused).
+            const stillAllowed = await inviterMayStillInvite(db, {
+              inviterId: invitation.inviterId,
+              workspaceId: org.id,
+              role: invitation.role,
+            });
+            if (!stillAllowed) throw forbidden('This invitation is no longer valid.');
           },
           beforeUpdateMemberRole: async ({ organization: org, newRole }) => {
             if (org.kind === 'personal') throw forbidden('Personal workspaces have one member.');

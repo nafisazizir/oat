@@ -16,7 +16,10 @@ export { DESKTOP_CODE_TTL_SECONDS, desktopAuth, desktopCodeIdentifier } from './
 export * from './desktop-link.ts';
 export {
   createSmtpMailer,
+  emailSafeText,
   escapeHtml,
+  invitationEmail,
+  unlinkable,
   magicLinkEmail,
   type EmailMessage,
   type Mailer,
@@ -42,6 +45,30 @@ export {
   parseScopes,
   revokeOAuthToken,
 } from './google-calendar.ts';
+export {
+  changeMemberRole,
+  deleteWorkspace,
+  findInvite,
+  findInviteByToken,
+  findLiveWorkspace,
+  INVITE_EXPIRES_IN,
+  inviterMayStillInvite,
+  inviteState,
+  inviteTokenFor,
+  isLiveWorkspace,
+  isNotFoundError,
+  leaveWorkspace,
+  listMembers,
+  listPendingInvites,
+  NotFoundError,
+  removeMember,
+  WORKSPACE_RESTORE_DAYS,
+  type InviteDetails,
+  type InviteState,
+  type PendingInvite,
+  type WorkspaceMember,
+  type WorkspaceSummary,
+} from './members.ts';
 export { GOOGLE_PROVIDER_ID } from './providers.ts';
 export {
   createMemoryRateLimiter,
@@ -51,7 +78,10 @@ export {
   type RateLimitResult,
 } from './rate-limit.ts';
 export {
+  BLOCKED_ORGANIZATION_PATHS,
+  INVITE_EMAIL_LIMITS,
   createAuth,
+  inviteUrl,
   MAGIC_LINK_EMAIL_LIMIT,
   MAGIC_LINK_EXPIRES_IN,
   type Auth,

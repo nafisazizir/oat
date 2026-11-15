@@ -29,6 +29,12 @@ export const workspace = pgTable(
     createdBy: text('created_by')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),
+    /**
+     * Soft delete (D-22: Better Auth's hard delete is disabled). A deleted workspace is hidden everywhere
+     * (`@oat/auth` workspace lists and permission contexts skip it) and stays restorable for 30 days;
+     * purging is a later job. Only team workspaces are ever deleted.
+     */
+    deletedAt: timestamptz('deleted_at'),
     ...timestamps(),
   },
   (t) => [
@@ -38,6 +44,8 @@ export const workspace = pgTable(
     uniqueIndex('workspace_personal_created_by_uq')
       .on(t.createdBy)
       .where(sql`${t.kind} = 'personal'`),
+    // Personal workspaces are never deleted (5.1).
+    check('workspace_deleted_team_only_ck', sql`${t.deletedAt} is null or ${t.kind} = 'team'`),
   ],
 );
 

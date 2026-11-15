@@ -40,6 +40,8 @@ export const organizationSchema = {
         input: false as const,
       },
       createdBy: { type: 'string' as const, required: false as const, input: false as const },
+      /** Soft delete (5.1, D-22): set only by `@oat/auth` `deleteWorkspace`; never from a request body. */
+      deletedAt: { type: 'date' as const, required: false as const, input: false as const },
     },
   },
   member: {

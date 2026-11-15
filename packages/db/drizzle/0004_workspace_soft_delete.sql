@@ -1,0 +1,2 @@
+ALTER TABLE "workspace" ADD COLUMN "deleted_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "workspace" ADD CONSTRAINT "workspace_deleted_team_only_ck" CHECK ("workspace"."deleted_at" is null or "workspace"."kind" = 'team');

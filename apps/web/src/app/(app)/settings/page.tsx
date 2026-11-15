@@ -1,8 +1,6 @@
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@oat/ui/components/card';
-import { Input } from '@oat/ui/components/input';
-import { Label } from '@oat/ui/components/label';
 import { Separator } from '@oat/ui/components/separator';
 import { ChevronRightIcon } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -68,21 +66,22 @@ export default async function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Workspace</CardTitle>
-          <CardDescription>Editing arrives with workspaces and sharing.</CardDescription>
+          <CardDescription>The workspace you’re in now.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col divide-y">
-          <Row label={<Label htmlFor="workspace-name">Name</Label>}>
-            <Input
-              id="workspace-name"
-              defaultValue={currentWorkspace.name}
-              disabled
-              className="sm:max-w-60"
-            />
-          </Row>
-          <Row label="Type" hint="A personal space is a workspace with one member.">
-            <Badge variant="secondary">
-              {currentWorkspace.kind === 'personal' ? 'Personal' : 'Team'}
-            </Badge>
+          <Row
+            label={currentWorkspace.name}
+            hint={
+              currentWorkspace.kind === 'personal'
+                ? 'Personal workspace, just for you.'
+                : 'Team workspace: name, icon, members and invites.'
+            }
+          >
+            <Button asChild variant="outline">
+              <Link href="/settings/workspace">
+                {currentWorkspace.kind === 'personal' ? 'About this workspace' : 'Manage workspace'}
+              </Link>
+            </Button>
           </Row>
         </CardContent>
       </Card>

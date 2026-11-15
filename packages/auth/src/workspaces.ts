@@ -5,7 +5,7 @@
  */
 import { createPermissionContext, type PermissionContext, type Role } from '@oat/core';
 import { type Db, membership, workspace } from '@oat/db';
-import { and, asc, count, eq, sql } from 'drizzle-orm';
+import { and, asc, count, eq, isNull, sql } from 'drizzle-orm';
 
 /** Display name of every personal workspace. */
 export const PERSONAL_WORKSPACE_NAME = 'Personal';
@@ -66,11 +66,13 @@ export interface UserWorkspace {
   name: string;
   slug: string;
   kind: 'personal' | 'team';
+  /** Workspace icon: an emoji (5.1), or null. */
+  logo: string | null;
   role: Role;
   memberCount: number;
 }
 
-/** Every workspace the user is a member of: personal first, then by name. */
+/** Every live (not soft-deleted) workspace the user is a member of: personal first, then by name. */
 export async function listUserWorkspaces(db: Db, userId: string): Promise<UserWorkspace[]> {
   const memberCounts = db
     .select({ workspaceId: membership.workspaceId, n: count().as('n') })
@@ -83,13 +85,14 @@ export async function listUserWorkspaces(db: Db, userId: string): Promise<UserWo
       name: workspace.name,
       slug: workspace.slug,
       kind: workspace.kind,
+      logo: workspace.logo,
       role: membership.role,
       memberCount: sql<number>`${memberCounts.n}::int`,
     })
     .from(membership)
     .innerJoin(workspace, eq(workspace.id, membership.workspaceId))
     .innerJoin(memberCounts, eq(memberCounts.workspaceId, workspace.id))
-    .where(eq(membership.userId, userId))
+    .where(and(eq(membership.userId, userId), isNull(workspace.deletedAt)))
     .orderBy(sql`${workspace.kind} = 'personal' desc`, asc(workspace.name), asc(workspace.id));
 }
 
@@ -108,7 +111,10 @@ export function pickActiveWorkspace<W extends Pick<UserWorkspace, 'id' | 'kind'>
   );
 }
 
-/** The `@oat/core` permission context for a signed-in user (all their memberships). */
+/**
+ * The `@oat/core` permission context for a signed-in user: their memberships in live workspaces. A
+ * soft-deleted workspace contributes no role, so nothing in it is readable or writable.
+ */
 export async function loadPermissionContext(db: Db, userId: string): Promise<PermissionContext> {
   const rows = await db
     .select({
@@ -117,7 +123,8 @@ export async function loadPermissionContext(db: Db, userId: string): Promise<Per
       role: membership.role,
     })
     .from(membership)
-    .where(eq(membership.userId, userId));
+    .innerJoin(workspace, eq(workspace.id, membership.workspaceId))
+    .where(and(eq(membership.userId, userId), isNull(workspace.deletedAt)));
   return createPermissionContext({ userId, memberships: rows });
 }
 

@@ -21,6 +21,8 @@ import {
   type Workspace,
 } from '@/lib/tree';
 
+import { workspaceIcon } from '@/lib/workspace';
+
 import type { Actor } from './actor';
 import { ApiError } from './api/errors';
 import { getDb } from './db';
@@ -40,6 +42,7 @@ const toWorkspace = (w: UserWorkspace): Workspace => ({
   name: w.name,
   kind: w.kind,
   members: w.memberCount,
+  icon: workspaceIcon(w.logo),
   role: w.role,
 });
 

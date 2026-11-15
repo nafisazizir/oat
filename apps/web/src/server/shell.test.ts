@@ -13,10 +13,19 @@ const workspaces: UserWorkspace[] = [
     name: 'Personal',
     slug: 'personal-u1',
     kind: 'personal',
+    logo: null,
     role: 'owner',
     memberCount: 1,
   },
-  { id: 't1', name: 'Acme', slug: 'acme-1', kind: 'team', role: 'member', memberCount: 6 },
+  {
+    id: 't1',
+    name: 'Acme',
+    slug: 'acme-1',
+    kind: 'team',
+    logo: '🌾',
+    role: 'member',
+    memberCount: 6,
+  },
 ];
 const user = { id: 'u1', name: '', email: 'ada@example.test', image: null };
 const access = { edit: true, delete: true };
@@ -62,6 +71,7 @@ describe('buildShellData (session + memberships + tree → shell)', () => {
       name: 'Acme',
       kind: 'team',
       members: 6,
+      icon: '🌾',
       role: 'member',
     });
     expect(data.workspaces.map((w) => w.id)).toEqual(['p1', 't1']);
