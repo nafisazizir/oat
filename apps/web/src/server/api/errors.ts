@@ -70,5 +70,8 @@ export function errorResponse(error: ApiError): Response {
     error: { code: error.code, message: error.message },
     ...error.extra,
   };
-  return Response.json(body, { status: error.status, headers: { 'cache-control': 'no-store' } });
+  const headers = new Headers({ 'cache-control': 'no-store' });
+  if (error.extra.retryAfter !== undefined)
+    headers.set('retry-after', String(error.extra.retryAfter));
+  return Response.json(body, { status: error.status, headers });
 }

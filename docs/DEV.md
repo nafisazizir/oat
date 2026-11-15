@@ -53,7 +53,7 @@ All ports bind to `127.0.0.1` and sit in a private range so they don't clash wit
 | `redis`    | `redis:7.4.12-alpine`                                | 63790                     | Upstash / managed Redis              | `REDIS_URL`                       |
 | `mailpit`  | `axllent/mailpit:v1.33.1`                            | SMTP 11025, UI/API 18025  | Transactional email provider         | `SMTP_*`, `MAILPIT_URL`           |
 | `oauth`    | `ghcr.io/navikt/mock-oauth2-server:7.0.0` + `docker/oauth` | 18089               | Google OAuth / OIDC                  | `OAUTH_GOOGLE_*`                  |
-| `mocks`    | `tools/mocks` (`@oat/mocks`)                         | 14010                     | AI Gateway, Deepgram, Notion, GCal   | `MOCKS_URL`, `AI_*`, `DEEPGRAM_*`, `GOOGLE_CALENDAR_BASE_URL` |
+| `mocks`    | `tools/mocks` (`@oat/mocks`)                         | 14010                     | AI Gateway, Deepgram, Notion, GCal   | `MOCKS_URL`, `AI_*`, `DEEPGRAM_*`, `GOOGLE_CALENDAR_BASE_URL`, `NOTION_*` |
 
 - **Postgres**: database/user/password all `oat`. `vector`, `pg_trgm` and `unaccent` are enabled in `oat` and in
   `template1`, so every database created later has them too. Connect: `docker compose exec postgres psql -U oat`.
@@ -116,8 +116,8 @@ pnpm dev:app:stop                     # remove the app containers (stack keeps r
 ## How mocks work (`tools/mocks`)
 
 `@oat/mocks` is a small Hono service. Each third-party API is a *provider* in `src/providers/<name>.ts`,
-mounted under `/<name>` and registered in `src/providers/index.ts` (today `example`, `llm`, `stt` and
-`gcal`; `notion` arrives with the task that needs it). A provider is a Hono sub-app plus optional
+mounted under `/<name>` and registered in `src/providers/index.ts` (today `example`, `llm`, `stt`, `gcal`
+and `notion`). A provider is a Hono sub-app plus optional
 `websockets` routes (raw `ws` sockets, e.g. a Deepgram-style streaming endpoint; see the `/example/ws` echo,
 with an optional `verify()` that can refuse the handshake with an HTTP status) and an optional `reset()`.
 Built-in routes:
@@ -221,6 +221,31 @@ events, Meet/Zoom/Teams links, a cancelled meeting), converted to Google's shape
 - The container gets the provider (and bundles `week.json`) once `main` is rebuilt with `pnpm dev:build`;
   until then int/e2e tests use their own in-process instance (`apps/web/e2e/web-server.ts` starts one).
 
+### The `notion` provider (stands in for the Notion API)
+
+Notion public API subset, version `2022-06-28`, at `${MOCKS_URL}/notion/v1/…` (what `@oat/integrations-notion`
+uses when `NOTION_OAUTH_CLIENT_ID` is blank). Full reference in `tools/mocks/src/providers/notion/index.ts`.
+
+| Route                                                  | Behaviour                                                   |
+| ------------------------------------------------------ | ----------------------------------------------------------- |
+| `GET /notion/v1/oauth/authorize`                       | Auto-approves (dev): 302 to `redirect_uri?code&state`. Needs `client_id`, `response_type=code`. |
+| `POST /notion/v1/oauth/token` / `…/oauth/revoke`       | HTTP Basic client auth; single-use codes bound to the redirect URI; tokens `ntn_mock_…`. Revoked tokens get 401. |
+| `POST /notion/v1/search`                               | Seeded workspace "Oat Mock Notion": pages Team Home, Meeting notes, Scratchpad; databases Meetings (Name, Date, Attendees, Oat link, Tags) and Reading list. Plus whatever was created. `filter`, `query`, paging. |
+| `GET /notion/v1/databases/{id}`, `GET /notion/v1/pages/{id}` | Schema / page (archived pages still readable, `archived: true`). |
+| `POST /notion/v1/pages`, `PATCH /notion/v1/pages/{id}` | Create under a page (title only) or database (typed properties); update properties / archive. |
+| `GET` / `PATCH /notion/v1/blocks/{id}/children`, `DELETE /notion/v1/blocks/{id}` | List (paged) / append (`after`) / archive blocks. |
+| `GET /notion/_mock/view/{id}`                          | HTML rendering of a page: the `url` of every page, so "Open in Notion" works offline. |
+| `GET /notion/_mock/pages/{id}/tree`, `POST /notion/_mock/revoke-token`, `POST /notion/_mock/rate-limit` | Test controls: live block tree; revoke a token; next N calls → 429 + `Retry-After`. |
+
+- **Validation like Notion's:** `Notion-Version` required (400 `missing_version`; other versions refused),
+  block types/shapes, ≤ 2000 characters per rich-text item and link URL, ≤ 100 rich-text items, ≤ 100 blocks
+  per children array, two levels of nesting, ≤ 1000 blocks / 500 KB per request; failures are 400
+  `validation_error` with the offending path. Errors are `{ object: 'error', status, code, message }`.
+- **Auth:** `Authorization: Bearer ntn_mock_…`; any token with that prefix is accepted unless revoked (so a
+  stored dev token survives a container restart), anything else is 401 `unauthorized`.
+- The container gets the provider once `main` is rebuilt with `pnpm dev:build`; until then int/e2e tests use
+  their own in-process instance (`apps/web/e2e/web-server.ts` sets `NOTION_BASE_URL`).
+
 ## Switching a provider to the real thing
 
 Every integration is selected by env: a base URL plus a key. With the key blank, code uses the mock at
@@ -231,6 +256,7 @@ Every integration is selected by env: a base URL plus a key. With the key blank,
 | AI Gateway  | `AI_GATEWAY_API_KEY=...` (`AI_GATEWAY_BASE_URL` only to override the default). On Vercel (`VERCEL`/`VERCEL_OIDC_TOKEN` set) without a key, the gateway uses Vercel OIDC. Otherwise `AI_BASE_URL` (default `${MOCKS_URL}/llm/v1`); with `NODE_ENV=production` and none of these set, `@oat/ai` throws `AiConfigError` instead of using localhost. Models per role: `AI_MODEL_ENHANCE/CHAT/FAST/EMBED` |
 | Deepgram    | `DEEPGRAM_API_KEY=...` (`DEEPGRAM_BASE_URL` only to override the default)               |
 | Google      | `OAUTH_GOOGLE_ISSUER=https://accounts.google.com`, real `OAUTH_GOOGLE_CLIENT_ID/SECRET`; register the redirect URIs `${BETTER_AUTH_URL}/api/auth/callback/google` (sign-in) and `${BETTER_AUTH_URL}/api/auth/callback/google-calendar` (Connect Google Calendar), enable the Google Calendar API and add the `calendar.readonly` scope to the consent screen. Calendar reads then go to `https://www.googleapis.com` automatically (`GOOGLE_CALENDAR_BASE_URL` only to override) |
+| Notion      | `NOTION_OAUTH_CLIENT_ID/SECRET` of a Notion *public* integration (capabilities: read + insert + update content), redirect URI `${BETTER_AUTH_URL}/api/integrations/notion/callback`. The API then goes to `https://api.notion.com` (`NOTION_BASE_URL` only to override). In production with nothing set, Notion is hidden ("Not available") |
 | Email       | `SMTP_HOST/PORT/USER/PASSWORD/FROM` of the real provider (port 465 = implicit TLS)        |
 | Auth        | `BETTER_AUTH_URL=https://<public origin>`, `BETTER_AUTH_SECRET=<openssl rand -base64 32>`; with `NODE_ENV=production` on a non-loopback URL the dev secret and plain-http URLs (app or OAuth issuer) are refused |
 | Postgres    | `DATABASE_URL=<Neon URL>` (prod only)                                                   |
@@ -269,6 +295,12 @@ Better Auth (D-9) runs inside `apps/web` at `/api/auth/*`; its config lives in `
   the legacy fallback until old data is gone): new writes use the newest, old values still decrypt.
   Changing `BETTER_AUTH_SECRET` alone signs everyone out and makes stored Google tokens undecryptable
   (calendar shows "Reconnect").
+- **Connect Notion** (Settings → Integrations, per Oat workspace: the active one): "Connect Notion" posts to
+  `/api/integrations/notion/connect`, which redirects to Notion's consent page (the mock approves at once) with
+  a signed, short-lived state cookie; the callback stores the token encrypted on the `integration` row
+  (`@oat/auth` `encryptSecret`, same key and rotation as the OAuth tokens above). Then choose a page or
+  database to send notes to; on a note, "Send to Notion" creates the page and "Update in Notion" replaces its
+  content. Open the result through the "In Notion" link (the mock's HTML view in dev).
 - Every new user gets a **personal workspace** (`kind: personal`, slug `personal-<userId>`; one per user,
   enforced by a partial unique index), and each new session starts in it. Create team workspaces from the
   workspace switcher (at most `AUTH_MAX_TEAM_WORKSPACES`, default 20, per user). A workspace's `kind` can't

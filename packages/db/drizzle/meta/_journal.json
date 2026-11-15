@@ -57,6 +57,13 @@
       "when": 1794719671828,
       "tag": "0007_chunk_indexing",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794720518870,
+      "tag": "0008_notion_export",
+      "breakpoints": true
     }
   ]
 }

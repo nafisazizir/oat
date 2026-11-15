@@ -7,13 +7,14 @@
  *
  * It also runs an in-process mocks server with the Google Calendar provider (this checkout's code, not the
  * shared container, which may predate it) and points `GOOGLE_CALENDAR_BASE_URL` at it. Its `next-week`
- * anchor keeps the fixture week upcoming whenever the tests run.
+ * anchor keeps the fixture week upcoming whenever the tests run. The same server runs the Notion provider
+ * (8.1) for `NOTION_BASE_URL`.
  */
 import { spawn } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 
 import { migrate } from '@oat/db';
-import { gcalProvider, startMocks } from '@oat/mocks';
+import { gcalProvider, notionProvider, startMocks } from '@oat/mocks';
 import { createTestDatabase } from '@oat/testkit';
 
 import { databaseUrlFile } from './paths';
@@ -25,7 +26,9 @@ const port = process.env.E2E_PORT ?? '3000';
 rmSync(new URL('../.next/dev', import.meta.url), { recursive: true, force: true });
 const db = await createTestDatabase();
 await migrate(db.url);
-const mocks = await startMocks({ providers: [() => gcalProvider({ anchor: 'next-week' })] });
+const mocks = await startMocks({
+  providers: [() => gcalProvider({ anchor: 'next-week' }), () => notionProvider()],
+});
 // Specs that need rows the API can't create yet (e.g. transcript segments) write them here directly.
 mkdirSync(new URL('./.auth/', import.meta.url), { recursive: true });
 writeFileSync(databaseUrlFile(port), db.url);
@@ -38,6 +41,9 @@ const child = spawn('pnpm', ['exec', 'next', 'dev', '--port', port], {
     DATABASE_URL: db.url,
     BETTER_AUTH_URL: `http://localhost:${port}`,
     GOOGLE_CALENDAR_BASE_URL: `${mocks.url}/gcal`,
+    NOTION_BASE_URL: `${mocks.url}/notion`,
+    NOTION_OAUTH_CLIENT_ID: '',
+    NOTION_OAUTH_CLIENT_SECRET: '',
   },
 });
 

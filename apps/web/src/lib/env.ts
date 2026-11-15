@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { isRealGoogleCalendar, resolveGoogleCalendarBaseUrl } from '@oat/calendar/google';
+import { type NotionConfig, resolveNotionConfig } from '@oat/integrations-notion/config';
 import { z } from 'zod';
 
 /**
@@ -52,6 +53,11 @@ export const envSchema = z
     DEEPGRAM_BASE_URL: optional.pipe(url.optional()),
     /** Google Calendar API origin (blank: Google with a real issuer, else ${MOCKS_URL}/gcal). */
     GOOGLE_CALENDAR_BASE_URL: optional.pipe(url.optional()),
+    /** Notion API origin (blank: api.notion.com with a client id, else ${MOCKS_URL}/notion). */
+    NOTION_BASE_URL: optional.pipe(url.optional()),
+    /** Notion public-integration OAuth client (blank: the mock's dev client). */
+    NOTION_OAUTH_CLIENT_ID: optional,
+    NOTION_OAUTH_CLIENT_SECRET: optional,
 
     /**
      * Desktop sign-in (1.8): the "copy the link for the app" fallback on `/desktop/sign-in`, for dev builds
@@ -111,6 +117,7 @@ export function integrationModes(env: ServerEnv) {
     stt: env.DEEPGRAM_API_KEY ? 'real' : 'mock',
     oauth: new URL(env.OAUTH_GOOGLE_ISSUER).hostname === 'accounts.google.com' ? 'real' : 'mock',
     calendar: isRealGoogleCalendar(googleCalendarBaseUrl(env)) ? 'real' : 'mock',
+    notion: notionConfig(env)?.mode ?? 'off',
   } as const;
 }
 
@@ -120,5 +127,16 @@ export function googleCalendarBaseUrl(env: ServerEnv): string {
     GOOGLE_CALENDAR_BASE_URL: env.GOOGLE_CALENDAR_BASE_URL,
     OAUTH_GOOGLE_ISSUER: env.OAUTH_GOOGLE_ISSUER,
     MOCKS_URL: env.MOCKS_URL,
+  });
+}
+
+/** Notion API + OAuth client (`@oat/integrations-notion` rules); `null` when not configured (production). */
+export function notionConfig(env: ServerEnv): NotionConfig | null {
+  return resolveNotionConfig({
+    NOTION_BASE_URL: env.NOTION_BASE_URL,
+    NOTION_OAUTH_CLIENT_ID: env.NOTION_OAUTH_CLIENT_ID,
+    NOTION_OAUTH_CLIENT_SECRET: env.NOTION_OAUTH_CLIENT_SECRET,
+    MOCKS_URL: env.MOCKS_URL,
+    NODE_ENV: env.NODE_ENV,
   });
 }

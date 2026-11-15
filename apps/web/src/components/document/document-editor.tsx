@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useTreeActions } from '@/components/app-shell/tree-actions';
+import { NotionExportButton } from '@/components/notion/notion-export-button';
 import { PageContainer } from '@/components/page';
 import type { DocumentDetail } from '@/lib/api-types';
 import { formatDay } from '@/lib/format';
@@ -147,7 +148,8 @@ export function DocumentEditor({
             />
           )}
           {!trashed && (
-            <div className="ml-auto">
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <NotionExportButton documentId={doc.id} beforeSend={autosave.flush} />
               <ShareDialog documentId={doc.id} />
             </div>
           )}

@@ -1,9 +1,15 @@
 import 'server-only';
 
+import { createRateLimiter, type RateLimiter } from '@oat/auth';
+
+import { notionConfig, serverEnv } from '@/lib/env';
+
 import { getAuth, getAuthConfig } from '../auth';
 import { getDb } from '../db';
+import type { NotionDeps } from '../notion';
 import { createSttTokenRoute } from '../stt-token';
 import { createApi } from './handlers';
+import { createNotionApi } from './notion';
 import type { ApiDeps } from './route';
 
 /** The real database and Better Auth, as API deps (shared by every route family). */
@@ -21,6 +27,29 @@ export const apiDeps: ApiDeps = {
 
 /** The app's API handlers, bound to the real deps (route files re-export these). */
 export const api = createApi(apiDeps);
+
+const holder = globalThis as typeof globalThis & { __oatApiRateLimiter?: RateLimiter };
+
+/** Redis-backed (shared across instances) per-user limits for API routes. */
+function rateLimiter(): RateLimiter {
+  holder.__oatApiRateLimiter ??= createRateLimiter(serverEnv().REDIS_URL);
+  return holder.__oatApiRateLimiter;
+}
+
+export function notionDeps(): NotionDeps {
+  const config = getAuthConfig();
+  return {
+    db: getDb(),
+    auth: getAuth(),
+    config: notionConfig(serverEnv()),
+    appUrl: config.baseURL,
+    stateSecret: config.secret,
+    rateLimiter: rateLimiter(),
+  };
+}
+
+/** Notion (8.1) routes. */
+export const notionApi = createNotionApi(apiDeps, notionDeps);
 
 /** `POST /api/stt/token` (2.5, D-17). */
 export const sttToken = createSttTokenRoute({

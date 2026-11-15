@@ -48,6 +48,7 @@ describe('schema', () => {
         'chat_thread',
         'chunk',
         'document',
+        'document_export',
         'enhancement',
         'folder',
         'integration',

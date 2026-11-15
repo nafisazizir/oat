@@ -31,5 +31,7 @@ export type ChatMessageRow = typeof s.chatMessage.$inferSelect;
 export type NewChatMessageRow = typeof s.chatMessage.$inferInsert;
 export type IntegrationRow = typeof s.integration.$inferSelect;
 export type NewIntegrationRow = typeof s.integration.$inferInsert;
+export type DocumentExportRow = typeof s.documentExport.$inferSelect;
+export type NewDocumentExportRow = typeof s.documentExport.$inferInsert;
 export type ChangeLogRow = typeof s.changeLog.$inferSelect;
 export type NewChangeLogRow = typeof s.changeLog.$inferInsert;

@@ -34,3 +34,8 @@ export const databaseUrlFile = (port: string | number) =>
 export const EVIDENCE_5_3 = fileURLToPath(
   new URL('../../../docs/tasks/evidence/5.3/', import.meta.url),
 );
+
+/** Evidence screenshots for task 8.1 (written only with `E2E_SCREENSHOTS=1`). */
+export const EVIDENCE_8_1 = fileURLToPath(
+  new URL('../../../docs/tasks/evidence/8.1/', import.meta.url),
+);

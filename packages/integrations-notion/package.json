@@ -1,0 +1,28 @@
+{
+  "name": "@oat/integrations-notion",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Notion integration: TipTap JSON → Notion blocks, meeting properties, a fetch-based Notion API/OAuth client and push/re-push (replace) of a note.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts",
+    "./*.test": null
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:int": "vitest run --mode int --passWithNoTests"
+  },
+  "dependencies": {
+    "@oat/editor": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@oat/mocks": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

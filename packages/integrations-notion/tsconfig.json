@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    // @oat/editor's TipTap extensions (pulled in through `@oat/editor/callout`) reference DOM types.
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["src", "vitest.config.ts"]
+}

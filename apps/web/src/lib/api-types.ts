@@ -78,6 +78,8 @@ export type UpdateSharingInput = {
 export type ApiErrorBody = {
   error: { code: ApiErrorCode; message: string };
   document?: DocumentDetail;
+  /** Seconds to wait, on a 429. */
+  retryAfter?: number;
 };
 
 export type ApiErrorCode =
@@ -93,6 +95,14 @@ export type ApiErrorCode =
   /** Templates: built-ins are read-only (duplicate them instead). */
   | 'builtin_read_only'
   | 'cross_site'
+  | 'rate_limited'
+  // Notion (8.1)
+  | 'not_configured'
+  | 'notion_not_connected'
+  | 'notion_no_target'
+  | 'notion_reconnect'
+  | 'notion_busy'
+  | 'notion_error'
   | 'stt_unavailable';
 
 /** `POST /api/stt/token` (2.5, D-17): a short-lived live-transcription credential for the desktop. */
@@ -139,3 +149,51 @@ export type CreateFolderInput = {
 export type RenameFolderInput = { name: string };
 
 export type MoveFolderInput = { parentId: string | null; makePrivate?: boolean };
+
+// Notion (8.1): `/api/integrations/notion…`, `/api/documents/:id/notion` -----------------------------
+
+/** A Notion page or database the connection can see (target picker). */
+export type NotionTargetOption = {
+  type: 'page' | 'database';
+  id: string;
+  title: string;
+  /** Emoji icon, if the page has one. */
+  icon: string | null;
+  url: string | null;
+};
+
+/** The signed-in user's Notion connection for one Oat workspace. Tokens never leave the server. */
+export type NotionConnectionInfo = {
+  workspaceId: string;
+  notionWorkspaceName: string | null;
+  notionWorkspaceIcon: string | null;
+  connectedAt: string;
+  /** Notion revoked access (or the stored token is unusable): connect again. */
+  needsReconnect: boolean;
+  /** Where new notes go. */
+  target: { type: 'page' | 'database'; id: string; title: string; url: string | null } | null;
+};
+
+/** `GET /api/documents/:id/notion`. */
+export type NotionDocumentStatus = {
+  /** Notion is set up on this server. */
+  configured: boolean;
+  /** The user's connection for the note's workspace, if any. */
+  connection: NotionConnectionInfo | null;
+  /** The Notion page this note was last sent to by this user. */
+  export: {
+    url: string | null;
+    pushedAt: string;
+    pushedVersion: number;
+    changedSince: boolean;
+  } | null;
+};
+
+/** `POST /api/documents/:id/notion`. */
+export type NotionPushResult = {
+  url: string;
+  /** A new Notion page (first send, or the old page was gone). */
+  created: boolean;
+  pushedAt: string;
+  pushedVersion: number;
+};

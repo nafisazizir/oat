@@ -3,7 +3,7 @@ import { parseEnv as parseDotenv } from 'node:util';
 
 import { describe, expect, it } from 'vitest';
 
-import { desktopDevHandoff, EnvError, integrationModes, parseEnv } from './env';
+import { desktopDevHandoff, EnvError, integrationModes, notionConfig, parseEnv } from './env';
 
 const example = parseDotenv(
   readFileSync(new URL('../../../../.env.example', import.meta.url), 'utf8'),
@@ -53,6 +53,7 @@ describe('integrationModes', () => {
       stt: 'mock',
       oauth: 'mock',
       calendar: 'mock',
+      notion: 'mock',
     });
   });
 
@@ -62,13 +63,24 @@ describe('integrationModes', () => {
       AI_GATEWAY_API_KEY: 'k',
       DEEPGRAM_API_KEY: 'k',
       OAUTH_GOOGLE_ISSUER: 'https://accounts.google.com',
+      NOTION_OAUTH_CLIENT_ID: 'id',
+      NOTION_OAUTH_CLIENT_SECRET: 'secret',
     });
     expect(integrationModes(env)).toEqual({
       ai: 'real',
       stt: 'real',
       oauth: 'real',
       calendar: 'real',
+      notion: 'real',
     });
+  });
+
+  it('reports Notion off when it isn’t configured in production', () => {
+    const env = parseEnv({ ...example, NODE_ENV: 'production', MOCKS_URL: example.MOCKS_URL });
+    expect(integrationModes(env).notion).toBe('mock'); // MOCKS_URL set: still the mock
+    expect(
+      notionConfig(parseEnv({ ...example, NOTION_BASE_URL: 'https://api.notion.com' })),
+    ).toBeNull();
   });
 });
 
