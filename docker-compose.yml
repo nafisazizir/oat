@@ -11,6 +11,8 @@ services:
     # pgvector/pgvector:0.8.7-pg17 + docker/postgres/init (enables vector + pg_trgm).
     build: ./docker/postgres
     image: oat-postgres:dev
+    # Many worktrees/agents run int tests against this one stack in parallel; the default 100 runs out.
+    command: ['postgres', '-c', 'max_connections=400']
     environment:
       POSTGRES_DB: oat
       POSTGRES_USER: oat
