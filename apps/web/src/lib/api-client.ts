@@ -9,10 +9,12 @@ import type {
   CreateDocumentInput,
   CreateFolderInput,
   DocumentDetail,
+  DocumentSharing,
   FolderSummary,
   MoveDocumentInput,
   MoveFolderInput,
   UpdateDocumentInput,
+  UpdateSharingInput,
 } from './api-types';
 
 export class ApiRequestError extends Error {
@@ -78,6 +80,12 @@ export const documentsApi = {
   trash: (id: string) => request<DocumentDetail>('DELETE', `/api/documents/${enc(id)}`),
   restore: (id: string) => request<DocumentDetail>('POST', `/api/documents/${enc(id)}/restore`),
   deleteForever: (id: string) => request<void>('DELETE', `/api/documents/${enc(id)}?permanent=1`),
+};
+
+export const sharingApi = {
+  get: (id: string) => request<DocumentSharing>('GET', `/api/documents/${enc(id)}/share`),
+  update: (id: string, input: UpdateSharingInput) =>
+    request<DocumentSharing>('PATCH', `/api/documents/${enc(id)}/share`, input),
 };
 
 export const foldersApi = {

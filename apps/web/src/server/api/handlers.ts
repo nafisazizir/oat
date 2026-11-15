@@ -1,4 +1,4 @@
-import { DocumentKindSchema, FolderVisibilitySchema } from '@oat/core';
+import { DocumentKindSchema, DocumentVisibilitySchema, FolderVisibilitySchema } from '@oat/core';
 import { z } from 'zod';
 
 import {
@@ -12,6 +12,7 @@ import {
   updateDocument,
 } from '../documents';
 import { createFolder, deleteFolder, listFolders, moveFolder, renameFolder } from '../folders';
+import { getSharing, updateSharing } from '../sharing';
 import { badRequest } from './errors';
 import { type ApiDeps, apiRoute, readJson } from './route';
 
@@ -30,6 +31,9 @@ import { type ApiDeps, apiRoute, readJson } from './route';
  *   DELETE /api/documents/:id                        move to trash; `?permanent=1` deletes a trashed doc
  *   POST   /api/documents/:id/move                   { folderId, makePrivate? }
  *   POST   /api/documents/:id/restore                out of the trash
+ *   GET    /api/documents/:id/share                  DocumentSharing (5.3)
+ *   PATCH  /api/documents/:id/share                  { visibility?, shareTranscript?, rotateLink? }
+ *                                                    (409 `private_folder` inside a private folder)
  *   GET    /api/folders?workspaceId=…                folders the actor can see
  *   POST   /api/folders                              create → 201 FolderSummary
  *   PATCH  /api/folders/:id                          { name }
@@ -60,6 +64,12 @@ const UpdateDocument = z.strictObject({
 const MoveDocument = z.strictObject({
   folderId: Id.nullable(),
   makePrivate: z.boolean().optional(),
+});
+
+const UpdateSharing = z.strictObject({
+  visibility: DocumentVisibilitySchema.optional(),
+  shareTranscript: z.boolean().optional(),
+  rotateLink: z.boolean().optional(),
 });
 
 const CreateFolder = z.strictObject({
@@ -120,6 +130,15 @@ export function createApi(deps: ApiDeps) {
     documentRestore: {
       POST: apiRoute<IdParams>(deps, async ({ db, actor, params }) =>
         restoreDocument(db, actor, params.id),
+      ),
+    },
+    /** `/api/documents/[id]/share` */
+    documentShare: {
+      GET: apiRoute<IdParams>(deps, async ({ db, actor, params }) =>
+        getSharing(db, actor, params.id),
+      ),
+      PATCH: apiRoute<IdParams>(deps, async ({ db, actor, params, request }) =>
+        updateSharing(db, actor, params.id, await readJson(request, UpdateSharing)),
       ),
     },
     /** `/api/folders` */

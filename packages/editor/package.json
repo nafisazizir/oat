@@ -38,10 +38,12 @@
     "@tiptap/pm": "catalog:",
     "@tiptap/react": "catalog:",
     "@tiptap/starter-kit": "catalog:",
+    "@tiptap/static-renderer": "catalog:",
     "@tiptap/suggestion": "catalog:",
     "lucide-react": "catalog:",
     "markdown-it": "catalog:",
-    "markdown-it-mark": "catalog:"
+    "markdown-it-mark": "catalog:",
+    "sanitize-html": "catalog:"
   },
   "devDependencies": {
     "@playwright/test": "catalog:",
@@ -52,6 +54,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@types/sanitize-html": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "eslint-plugin-react-hooks": "catalog:",
     "globals": "catalog:",

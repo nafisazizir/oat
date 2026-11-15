@@ -1,0 +1,1 @@
+ALTER TABLE "document" ADD COLUMN "share_transcript" boolean DEFAULT false NOT NULL;

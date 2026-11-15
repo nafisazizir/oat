@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ThemeMenu } from '@/components/theme-toggle';
 import { Wordmark } from '@/components/wordmark';
 
-/** Public, read-only layout for anyone-with-the-link pages (viewer lands in 5.4). No sidebar. */
+/** Public, read-only layout for anyone-with-the-link pages (`share/[token]`, 5.3). No app chrome. */
 export default function ShareLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-svh flex-col">

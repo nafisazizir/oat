@@ -68,7 +68,9 @@ for (const theme of ['light', 'dark'] as const) {
     });
 
     test.describe('signed out', () => {
-      test.use({ storageState: SIGNED_OUT });
+      // The share 404 is recovered on the client by Next.js, and React (dev) warns about the root
+      // layout's theme script while doing so (see docs/tasks/5.3-sharing.md, Design notes).
+      test.use({ storageState: SIGNED_OUT, allowConsoleErrors: true });
 
       test('public pages', async ({ page }) => {
         await page.goto('/sign-in');
@@ -76,7 +78,9 @@ for (const theme of ['light', 'dark'] as const) {
         await shoot(page, `sign-in-${theme}`);
 
         await page.goto('/share/abc123token');
-        await expect(page.getByRole('heading', { level: 1, name: 'Shared note' })).toBeVisible();
+        await expect(
+          page.getByRole('heading', { name: 'This link isn’t available' }),
+        ).toBeVisible();
         await shoot(page, `share-${theme}`);
       });
     });

@@ -10,7 +10,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { DocumentDetail, DocumentSummary, FolderSummary } from '@/lib/api-types';
 
-import { call, type CallOptions, createHarness, type Harness, type TestUser } from './test-harness';
+import {
+  call,
+  type CallOptions,
+  createHarness,
+  denies,
+  type Harness,
+  type TestUser,
+} from './test-harness';
 
 let h: Harness;
 let owner: TestUser; // owner of the team workspace
@@ -222,6 +229,7 @@ describe('create + read', () => {
   });
 
   it('non-members get 404 for the workspace; viewers can read but not create', async () => {
+    denies('GET /api/documents', 'POST /api/documents');
     expect((await create(outsider, { workspaceId: team })).status).toBe(404);
     expect((await list(outsider, team)).status).toBe(404);
     const v = await create(viewer, { workspaceId: team });
@@ -230,6 +238,13 @@ describe('create + read', () => {
   });
 
   it('hides another member’s private document as 404 (read, write, trash, move)', async () => {
+    denies(
+      'GET /api/documents/[id]',
+      'PATCH /api/documents/[id]',
+      'DELETE /api/documents/[id]',
+      'POST /api/documents/[id]/move',
+      'POST /api/documents/[id]/restore',
+    );
     const secret = await created(owner, { workspaceId: team, title: 'Secret' });
     expect(secret.visibility).toBe('private');
     for (const user of [member, admin, viewer, outsider]) {

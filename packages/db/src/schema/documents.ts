@@ -1,6 +1,15 @@
 /** Folders and documents (SPEC §6, folder rules D-18, sync versioning D-19). */
 import { sql } from 'drizzle-orm';
-import { type AnyPgColumn, check, index, integer, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
+import {
+  type AnyPgColumn,
+  boolean,
+  check,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+} from 'drizzle-orm/pg-core';
 import { user } from './auth.ts';
 import { id, timestamps, timestamptz } from './columns.ts';
 import { documentKindEnum, documentVisibilityEnum, folderVisibilityEnum } from './enums.ts';
@@ -58,6 +67,11 @@ export const document = pgTable(
     visibility: documentVisibilityEnum('visibility').notNull().default('private'),
     /** Secret for `link` visibility; rotated whenever the document enters `link` (D-18). */
     shareToken: text('share_token').unique(),
+    /**
+     * Whether people opening the share link also see the meeting transcript (5.3). Off by default: the
+     * transcript stays private unless the sharer opts in. Only meaningful for `link` visibility.
+     */
+    shareTranscript: boolean('share_transcript').notNull().default(false),
     /**
      * Monotonic version for sync (D-19): every accepted write bumps it; a push carrying a stale base version
      * is rejected with 409.

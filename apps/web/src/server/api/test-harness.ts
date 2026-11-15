@@ -142,6 +142,8 @@ export type CallOptions = {
 
 export type CallResult<T> = { status: number; body: T; error?: ApiErrorBody['error'] };
 
+export { denies } from './authz-markers';
+
 /** Calls a route handler like Next.js does and parses the JSON answer. */
 export async function call<T = unknown>(
   handler: RouteHandler<never> | RouteHandler<{ id: string }> | RouteHandler<Record<string, never>>,

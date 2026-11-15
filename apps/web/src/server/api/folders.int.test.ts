@@ -11,7 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { DocumentDetail, FolderSummary } from '@/lib/api-types';
 
-import { call, createHarness, type Harness, type TestUser } from './test-harness';
+import { call, createHarness, denies, type Harness, type TestUser } from './test-harness';
 
 let h: Harness;
 let owner: TestUser;
@@ -114,6 +114,13 @@ describe('folders', () => {
   });
 
   it('deny: non-members 404, viewers 403, other people’s private folders 404', async () => {
+    denies(
+      'GET /api/folders',
+      'POST /api/folders',
+      'PATCH /api/folders/[id]',
+      'DELETE /api/folders/[id]',
+      'POST /api/folders/[id]/move',
+    );
     expect((await createFolder(outsider, { workspaceId: team, name: 'x' })).status).toBe(404);
     expect((await listFolders(outsider, team)).status).toBe(404);
     expect((await createFolder(viewer, { workspaceId: team, name: 'x' })).status).toBe(403);

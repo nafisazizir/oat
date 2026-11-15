@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ApiErrorBody } from '@/lib/api-types';
 import type { TemplateDetail, TemplateDto, TemplateList } from '@/lib/templates';
 
+import { denies } from '../api/authz-markers';
 import type { RouteHandler } from '../api/route';
 import { createTemplatesApi, type TemplatesApi } from './api';
 
@@ -221,6 +222,7 @@ describe('custom templates', () => {
   });
 
   it('viewers and outsiders cannot create', async () => {
+    denies('POST /api/templates');
     const viewer = await create(users.viewer, { workspaceId: teamId, ...retro });
     expect(viewer.status).toBe(403);
     const outsider = await create(users.outsider, { workspaceId: teamId, ...retro });
@@ -230,6 +232,12 @@ describe('custom templates', () => {
   });
 
   it('outsiders cannot see them at all (404, not 403)', async () => {
+    denies(
+      'GET /api/templates',
+      'GET /api/templates/[id]',
+      'PATCH /api/templates/[id]',
+      'DELETE /api/templates/[id]',
+    );
     expect((await list(users.outsider)).status).toBe(404);
     expect((await get(users.outsider, created.id)).status).toBe(404);
     expect((await patch(users.outsider, created.id, { name: 'x' })).status).toBe(404);

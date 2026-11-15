@@ -51,6 +51,14 @@ export const confirmPrivate = () =>
     'Moving this into a private folder makes it private. Confirm with makePrivate: true.',
   );
 
+/** D-18: documents inside a private folder can't be shared (5.3). */
+export const inPrivateFolder = () =>
+  new ApiError(
+    409,
+    'private_folder',
+    'This page is in a private folder. Move it out of the folder to share it.',
+  );
+
 export function toApiError(error: unknown): ApiError | undefined {
   if (error instanceof ApiError) return error;
   if (isForbiddenError(error)) return forbidden();

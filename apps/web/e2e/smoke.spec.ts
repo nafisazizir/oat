@@ -154,13 +154,6 @@ test.describe('routes', () => {
     await page.goto('/sign-in?next=%2Fsettings');
     await expect(page).toHaveURL(/\/settings$/);
   });
-
-  test('share page uses the public read-only layout', async ({ page }) => {
-    await page.goto('/share/abc123token');
-    await expect(page.getByText('Read-only', { exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1, name: 'Shared note' })).toBeVisible();
-    await expect(page.locator(sidebarSelector)).toHaveCount(0);
-  });
 });
 
 test.describe('error boundary', () => {

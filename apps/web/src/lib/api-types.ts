@@ -3,7 +3,7 @@
  * handlers (`src/server/api`), the server loaders and the browser client (`src/lib/api-client.ts`).
  * Plain types only: dates are ISO strings, content is TipTap JSON (D-4).
  */
-import type { DocumentKind, DocumentVisibility, FolderVisibility } from '@oat/core';
+import type { DocumentKind, DocumentVisibility, FolderVisibility, WorkspaceKind } from '@oat/core';
 import type { JSONContent } from '@oat/editor';
 
 /** What the actor may do with an item (computed by `@oat/core` permissions on the server). */
@@ -44,6 +44,36 @@ export type FolderSummary = {
   access: Access;
 };
 
+/**
+ * Sharing settings of a document (`GET`/`PATCH /api/documents/:id/share`, 5.3). Readable by anyone who can
+ * read the document; changing them needs `shareDocument` (`access.share`).
+ */
+export type DocumentSharing = {
+  documentId: string;
+  kind: DocumentKind;
+  visibility: DocumentVisibility;
+  /** `/share/<token>` while visibility is `link`, else `null`. Prefix with the app origin to copy. */
+  sharePath: string | null;
+  /** Link viewers also see the meeting transcript (default off). */
+  shareTranscript: boolean;
+  /** The actor may change visibility, the transcript toggle and the link. */
+  canShare: boolean;
+  /** D-18: a document inside a private folder stays private (move it out to share it). */
+  inPrivateFolder: boolean;
+  owner: { id: string; name: string };
+  workspace: { id: string; name: string; kind: WorkspaceKind; memberCount: number };
+};
+
+/**
+ * Change sharing. Entering `link` always issues a fresh token (D-18); leaving it clears the token;
+ * `rotateLink` issues a new token for a document that stays `link` (the old URL stops working).
+ */
+export type UpdateSharingInput = {
+  visibility?: DocumentVisibility;
+  shareTranscript?: boolean;
+  rotateLink?: boolean;
+};
+
 /** Error body of every non-2xx response. A 409 `stale_version` also carries the server copy. */
 export type ApiErrorBody = {
   error: { code: ApiErrorCode; message: string };
@@ -59,6 +89,7 @@ export type ApiErrorCode =
   | 'stale_version'
   | 'not_in_trash'
   | 'confirm_private'
+  | 'private_folder'
   /** Templates: built-ins are read-only (duplicate them instead). */
   | 'builtin_read_only'
   | 'cross_site';

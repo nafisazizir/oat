@@ -25,6 +25,7 @@ import type { DocumentDetail } from '@/lib/api-types';
 import { formatDay } from '@/lib/format';
 import { documentNode } from '@/lib/tree';
 
+import { ShareDialog } from './share-dialog';
 import { type SaveState, useAutosave } from './use-autosave';
 
 type Editor = Parameters<NonNullable<OatEditorProps['onReady']>>[0];
@@ -144,6 +145,11 @@ export function DocumentEditor({
               onRetry={autosave.retry}
               onReload={reload}
             />
+          )}
+          {!trashed && (
+            <div className="ml-auto">
+              <ShareDialog documentId={doc.id} />
+            </div>
           )}
         </div>
         <textarea
