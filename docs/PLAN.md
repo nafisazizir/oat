@@ -57,7 +57,7 @@ Exit: create/edit pages and meeting notes on desktop and web; content syncs; Mar
 - [x] 3.7 Audio playback in meeting view: player (mic/system/mixed), click segment → seek, highlight segment while playing; "audio on another device" state · deps: 2.8, 3.4
 - [x] 3.8 Storage settings: retention policy (forever / N days / max GB), per-meeting delete, disk usage, show in Finder · deps: 2.8
 
-- [x] 3.9 Desktop workspace switcher — record meetings into team workspaces (found by 9.4) · deps: 9.2, 5.1, 2.6 · in review (branch task/3.9-desktop-workspaces)
+- [x] 3.9 Desktop workspace switcher — record meetings into team workspaces (found by 9.4) · deps: 9.2, 5.1, 2.6
 
 ## M4 — Enhance
 Exit: after a meeting, one click (or auto) produces structured notes from notes + transcript + template; evals pass.

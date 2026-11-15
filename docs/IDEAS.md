@@ -46,3 +46,10 @@ Slack · Linear · Gmail drafts · HubSpot/Attio · Google Drive · Obsidian vau
 - How much of the workspace UI lives on web vs desktop only?
 - Pricing/hosting if teammates use it (costs of STT + LLM per meeting hour).
 - Retention policy for transcripts in team workspaces.
+
+## Follow-ups from the autonomous run (non-blocking review notes)
+- Back-to-back meetings in the same app: meeting B isn't prompted after A ends (needs a D-21 change; see LOG 7.5 note).
+- 9.2: calendar "Allow" while status is still "unknown" is a no-op; "Ask about this note" one-frame jump (useLayoutEffect); reopened Setup shows the previous test-recording result; unit-test the OAT_E2E permission guard in desktop `index.ts`.
+- 3.9: a recording made while a view-only workspace is active lands in Personal but isn't visible until switching; transient "You can view X" hint before the first role re-pull; no in-recording notice when demoted/removed mid-meeting.
+- 3.9 (optional per task): remember the workspace per calendar event.
+- Flake: `transcript-backfill.int.test.ts` can exceed its 80 s budget under heavy parallel CI load.
