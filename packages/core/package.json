@@ -12,10 +12,14 @@
   "scripts": {
     "typecheck": "tsc",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "test:int": "vitest run --mode int --passWithNoTests"
   },
+  "dependencies": {
+    "zod": "catalog:"
+  },
   "devDependencies": {
+    "@vitest/coverage-v8": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
