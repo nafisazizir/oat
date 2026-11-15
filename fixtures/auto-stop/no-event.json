@@ -1,0 +1,43 @@
+{
+  "description": "A Zoom call with no calendar event at all ends: asked, never stopped automatically.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 3000,
+      "recording": true,
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 720000,
+      "micApps": []
+    },
+    {
+      "at": 780000,
+      "recording": false
+    }
+  ],
+  "expect": [
+    {
+      "at": 750000,
+      "type": "ask",
+      "reason": "meeting_ended"
+    },
+    {
+      "at": 780000,
+      "type": "cancel",
+      "reason": "recording_ended"
+    }
+  ]
+}

@@ -99,3 +99,4 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - 2026-11-15 · 9.3 · web design pass → review on `task/9.3-design-pass-web`: sweep + axe e2e, 22-item punch list in the task file; LOG earmarks done (sheet-Escape flake, share CSP in a prod build via `e2e:prod`, web Scheduled/Join line, search perf run). Tickets for 9.3b: editor task-checkbox target size, anchor the assistant button to the note column, doc header overflow menu; 9.4: search snippet list markers.
 - 2026-11-15 · 9.3 · shipped: design pass (web + shared UI): 22-item punch list, axe-clean routes, Escape fix, prod CSP check (squash-merged).
 - 2026-11-15 · 2.7 · shipped: recording resilience: startup crash recovery, STT gap detection, archive backfill via batch STT (+2.9) (squash-merged).
+- 2026-11-15 · 7.5 · shipped: auto-stop (rules + undo + prompt) and auto-enhance grace period (squash-merged).

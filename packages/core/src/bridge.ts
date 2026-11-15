@@ -13,6 +13,7 @@
  */
 import { z } from 'zod';
 
+import { autoStopInvokeChannels, autoStopSubscribeChannels } from './bridge-auto-stop.ts';
 import { calendarInvokeChannels, calendarSubscribeChannels } from './bridge-calendar.ts';
 import {
   meetingInvokeChannels,
@@ -23,6 +24,7 @@ import { playbackInvokeChannels } from './bridge-playback.ts';
 import { storageInvokeChannels, storageSubscribeChannels } from './bridge-storage.ts';
 import { transcriptInvokeChannels } from './bridge-transcript.ts';
 
+export * from './bridge-auto-stop.ts';
 export * from './bridge-calendar.ts';
 export * from './bridge-meetings.ts';
 export * from './bridge-playback.ts';
@@ -381,6 +383,8 @@ export const bridgeContract = {
     ...meetingInvokeChannels,
     /** Calendar notes + meeting detection (7.3). */
     ...calendarInvokeChannels,
+    /** Auto-stop, the post-stop grace period and the post-meeting status (7.5), `bridge-auto-stop.ts`. */
+    ...autoStopInvokeChannels,
     /** Audio archive storage + retention (3.8), `bridge-storage.ts`. */
     ...storageInvokeChannels,
     /** Listening back to a meeting's local audio (3.7), `bridge-playback.ts`. */
@@ -403,6 +407,7 @@ export const bridgeContract = {
     'transcript:segments': transcriptBatchSchema,
     ...meetingSubscribeChannels,
     ...calendarSubscribeChannels,
+    ...autoStopSubscribeChannels,
     ...storageSubscribeChannels,
   },
 } as const;

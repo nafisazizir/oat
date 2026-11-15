@@ -1,0 +1,71 @@
+{
+  "description": "A plain recording (no note event) of a Zoom call: Zoom drops for 40 s at 17:29 \u2014 long enough for the toast \u2014 and comes back while it is up: the toast goes away (the same meeting: its event hasn't ended). The next end (17:31) inherits the call: toast and stop.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "weekly",
+          "title": "Weekly sync",
+          "start": "2026-11-16T17:00:00Z",
+          "end": "2026-11-16T17:30:00Z",
+          "others": 3
+        }
+      ],
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 3000,
+      "recording": true,
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 1740000,
+      "micApps": []
+    },
+    {
+      "at": 1775000,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 1860000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 1770000,
+      "type": "stopping",
+      "reason": "meeting_ended"
+    },
+    {
+      "at": 1775000,
+      "type": "cancel",
+      "reason": "meeting_resumed"
+    },
+    {
+      "at": 1890000,
+      "type": "stopping",
+      "reason": "meeting_ended"
+    },
+    {
+      "at": 1900000,
+      "type": "stop",
+      "reason": "meeting_ended"
+    }
+  ]
+}

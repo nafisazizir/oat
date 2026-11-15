@@ -1,0 +1,70 @@
+{
+  "description": "Back-to-back meetings in Zoom: 'Weekly sync' (17:00\u201317:30) then 'Design review' (17:30\u201318:00). Zoom lets go at 17:29:58 and takes the mic again 5 s later, after Weekly sync ended and while Design review is current: the next meeting, not a resume \u2014 Weekly sync's note stops as usual.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "weekly",
+          "title": "Weekly sync",
+          "start": "2026-11-16T17:00:00Z",
+          "end": "2026-11-16T17:30:00Z",
+          "others": 3
+        },
+        {
+          "id": "review",
+          "title": "Design review",
+          "start": "2026-11-16T17:30:00Z",
+          "end": "2026-11-16T18:00:00Z",
+          "others": 2
+        }
+      ],
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 3000,
+      "recording": {
+        "eventId": "weekly"
+      },
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 1798000,
+      "micApps": []
+    },
+    {
+      "at": 1803000,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 2700000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 1828000,
+      "type": "stopping",
+      "reason": "meeting_ended"
+    },
+    {
+      "at": 1838000,
+      "type": "stop",
+      "reason": "meeting_ended"
+    }
+  ]
+}

@@ -52,8 +52,15 @@ let startNotes: ReturnType<typeof vi.fn>;
 let opened: (string | null)[];
 let service: DetectionService;
 
+let ended: unknown[];
+let calls: boolean[];
+let apps: string[];
+
 function create(source: FixtureMicAppsSource | null = mic) {
   return new DetectionService({
+    onMeetingEnded: (action) => ended.push(action),
+    onCallChanged: (open) => calls.push(open),
+    onAppsChanged: (ids) => apps.push(ids.join() || '-'),
     source,
     dir,
     calendar: {
@@ -81,6 +88,9 @@ beforeEach(() => {
   prompts = [];
   shown = [];
   opened = [];
+  ended = [];
+  calls = [];
+  apps = [];
   startNotes = vi.fn(async () => ({ documentId: 'doc-1' }));
   service = create();
 });
@@ -94,6 +104,26 @@ afterEach(async () => {
 const current = () => prompts.at(-1) ?? null;
 
 describe('DetectionService', () => {
+  it('7.5: passes calls opening/closing and ending on to auto-stop; sign-out closes an open call', async () => {
+    await service.start('u1');
+    mic.setApps([ZOOM]);
+    await vi.advanceTimersByTimeAsync(2_100);
+    expect(calls).toEqual([true]);
+    service.setRecording(true);
+    mic.setApps([]);
+    await vi.advanceTimersByTimeAsync(2_100);
+    expect(calls).toEqual([true, false]);
+    expect(ended).toEqual([
+      expect.objectContaining({ type: 'meetingEnded', recording: true, prompted: true }),
+    ]);
+    mic.setApps([ZOOM]);
+    await vi.advanceTimersByTimeAsync(2_100);
+    await service.stop();
+    expect(calls).toEqual([true, false, true, false]);
+    // The raw apps change at once (no eligibility, no debounce): a returning app is seen immediately.
+    expect(apps).toEqual(['zoom', '-', 'zoom', '-']);
+  });
+
   it('Zoom takes the mic during an event → "Start notes for <event>?" → start records into the event’s note', async () => {
     await service.start('u1');
     mic.setApps([ZOOM]);

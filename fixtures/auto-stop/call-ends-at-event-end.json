@@ -1,0 +1,50 @@
+{
+  "description": "Notes started from the prompt for a Zoom call during 'Weekly sync' (17:00\u201317:30). Zoom releases the mic at 17:29, a minute before the event ends: the end counts (recording started during the call), holds for the 30 s confirmation and the event ends within \u00b15 min \u2192 the 'Stopping\u2026' toast, then the stop 10 s later.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "weekly",
+          "title": "Weekly sync",
+          "start": "2026-11-16T17:00:00Z",
+          "end": "2026-11-16T17:30:00Z",
+          "others": 3
+        }
+      ],
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 3000,
+      "recording": {
+        "eventId": "weekly"
+      },
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 1740000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 1770000,
+      "type": "stopping",
+      "reason": "meeting_ended"
+    },
+    {
+      "at": 1780000,
+      "type": "stop",
+      "reason": "meeting_ended"
+    }
+  ]
+}

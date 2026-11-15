@@ -1,7 +1,10 @@
 /**
+ * Dev/e2e mic-apps sources, in process: no sidecar binary, no Core Audio.
+ *
  * `OAT_DETECTION=fixture:<timeline.json>` (dev/e2e only): replays the `steps[].micApps` of a detection timeline
  * (`fixtures/detection/*.json` format, the same steps the sidecar's `mic-apps watch --fixture` replays) in
  * process, starting when the watch starts. No sidecar binary, no Core Audio: what the e2e drives detection with.
+ * `OAT_DETECTION=file:<apps.json>`: see {@link FileMicAppsSource}.
  */
 import { readFileSync } from 'node:fs';
 
@@ -74,6 +77,62 @@ export class ReplayMicAppsSource implements MicAppsSource {
       stop: async () => {
         stopped = true;
         for (const t of timers) clearTimeout(t);
+      },
+    };
+  }
+}
+
+/**
+ * `OAT_DETECTION=file:<apps.json>` (dev/e2e only, 7.5): the mic-using processes are the JSON array in the file
+ * (`[{ "pid": 501, "bundleId": "us.zoom.xos" }]`), re-read whenever it changes (polled every `intervalMs`). A
+ * missing, unreadable or half-written file keeps the last list. Lets a test end a call — or bring it back —
+ * exactly when it wants, however long sign-in took.
+ */
+export class FileMicAppsSource implements MicAppsSource {
+  readonly name = 'file';
+  readonly #file: string;
+  readonly #intervalMs: number;
+  #current: MicAppProcess[] = [];
+
+  constructor(file: string, { intervalMs = 100 }: { intervalMs?: number } = {}) {
+    this.#file = file;
+    this.#intervalMs = intervalMs;
+  }
+
+  #read(): MicAppProcess[] | null {
+    try {
+      return parseApps(z.array(z.unknown()).parse(JSON.parse(readFileSync(this.#file, 'utf8'))));
+    } catch {
+      return null;
+    }
+  }
+
+  async list(): Promise<MicAppProcess[]> {
+    return this.#read() ?? [...this.#current];
+  }
+
+  async watch(onApps: (apps: MicAppProcess[]) => void): Promise<MicAppsWatch> {
+    let last: string | null = null;
+    let stopped = false;
+    const poll = () => {
+      if (stopped) return;
+      const apps = this.#read();
+      if (!apps) return;
+      const key = JSON.stringify(apps);
+      if (key === last) return;
+      last = key;
+      this.#current = apps;
+      onApps([...apps]);
+    };
+    // `watch` reports the current list right away (the source contract), then every change.
+    poll();
+    if (last === null) onApps([...this.#current]);
+    const timer = setInterval(poll, this.#intervalMs);
+    timer.unref?.();
+    return {
+      stop: async () => {
+        stopped = true;
+        clearInterval(timer);
       },
     };
   }

@@ -1,0 +1,54 @@
+{
+  "description": "Zoom lets go at the event's end but the other side is still audible (system audio at a talking level after the release \u2014 e.g. the call moved to another app or device): asked, not stopped.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "weekly",
+          "title": "Weekly sync",
+          "start": "2026-11-16T17:00:00Z",
+          "end": "2026-11-16T17:30:00Z",
+          "others": 3
+        }
+      ],
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 3000,
+      "recording": {
+        "eventId": "weekly"
+      },
+      "levels": {
+        "mic": -22,
+        "system": -28
+      }
+    },
+    {
+      "at": 1740000,
+      "micApps": []
+    },
+    {
+      "at": 1860000,
+      "recording": false
+    }
+  ],
+  "expect": [
+    {
+      "at": 1770000,
+      "type": "ask",
+      "reason": "meeting_ended"
+    },
+    {
+      "at": 1860000,
+      "type": "cancel",
+      "reason": "recording_ended"
+    }
+  ]
+}

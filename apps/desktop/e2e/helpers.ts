@@ -55,6 +55,9 @@ export async function launchApp(
       OAT_E2E: '1',
       OAT_USER_DATA_DIR: userDataDir,
       OAT_WEB_URL: webUrl,
+      // 7.5: a stopped meeting ends at once in the suites that don't test the post-stop grace period
+      // (auto-stop.spec.ts sets its own).
+      OAT_END_GRACE_MS: '0',
       ...extraEnv,
     },
   });

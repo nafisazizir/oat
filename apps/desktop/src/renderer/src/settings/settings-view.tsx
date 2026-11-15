@@ -1,11 +1,12 @@
 import { Button } from '@oat/ui/components/button';
 import { ArrowLeftIcon } from 'lucide-react';
 
+import { RecordingSettings } from './recording-settings.tsx';
 import { StorageSettings } from './storage-settings.tsx';
 
 /**
- * The desktop Settings view (3.8), shown in place of the meeting view. Storage is its only section for
- * now; later settings (audio devices, account…) stack below it. A recording keeps running meanwhile.
+ * The desktop Settings view (3.8), shown in place of the meeting view: Recording (7.5: auto-stop) and Storage;
+ * later settings (audio devices, account…) stack below. A recording keeps running meanwhile.
  */
 export function SettingsView({ onClose }: { onClose: () => void }) {
   return (
@@ -18,7 +19,8 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
         <h1 className="font-heading text-sm font-semibold">Settings</h1>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
-        <div className="mx-auto w-full max-w-2xl px-6 py-6">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-6 py-6">
+          <RecordingSettings />
           <StorageSettings />
         </div>
       </div>

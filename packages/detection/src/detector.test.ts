@@ -45,6 +45,23 @@ describe('Detector', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it('reports the state after every input (the call span opening and closing, for 7.5)', async () => {
+    const { source, detector } = setup();
+    const open: boolean[] = [];
+    const off = detector.onState((s) => {
+      const now = s.meeting !== null;
+      if (open.at(-1) !== now) open.push(now);
+    });
+    await detector.start();
+    source.setApps([ZOOM]);
+    await vi.advanceTimersByTimeAsync(2000);
+    source.setApps([]);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(open).toEqual([false, true, false]);
+    off();
+    await detector.stop();
+  });
+
   it('feeds recording, calendar, silence and promptClosed', async () => {
     const { source, detector, actions } = setup({ silenced: ['slack'] });
     detector.setEvents([

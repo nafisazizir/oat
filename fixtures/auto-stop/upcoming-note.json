@@ -1,0 +1,58 @@
+{
+  "description": "Notes started from 'Upcoming' a minute before the stand-up (recording first, Zoom joins later: no prompt, recordingStartedDuringMeeting false). The call overlaps the note's own event, so its end counts \u2014 but only loosely: asked, even though the event ends right then.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "standup",
+          "title": "Stand-up",
+          "start": "2026-11-16T17:01:00Z",
+          "end": "2026-11-16T17:15:00Z",
+          "others": 5
+        }
+      ],
+      "recording": {
+        "eventId": "standup"
+      },
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 60000,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 840000,
+      "micApps": []
+    },
+    {
+      "at": 880000,
+      "answer": "keep"
+    },
+    {
+      "at": 960000,
+      "recording": false
+    }
+  ],
+  "expect": [
+    {
+      "at": 870000,
+      "type": "ask",
+      "reason": "meeting_ended"
+    },
+    {
+      "at": 880000,
+      "type": "cancel",
+      "reason": "keep"
+    }
+  ]
+}

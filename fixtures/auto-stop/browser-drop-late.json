@@ -1,0 +1,63 @@
+{
+  "description": "A Google Meet call in Chrome (browsers count only with a current event) during 'Planning' (17:00\u201318:00). Chrome's audio restarts at minute 55 (10 s gap): no toast. Back, Chrome never re-qualifies (the event started > 15 min ago), so detect reports no end \u2014 the resumed call's apps letting go at 18:00 is the end, carrying the prompt's event \u2192 stop.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "planning",
+          "title": "Planning",
+          "start": "2026-11-16T17:00:00Z",
+          "end": "2026-11-16T18:00:00Z",
+          "others": 4
+        }
+      ],
+      "micApps": [
+        {
+          "pid": 700,
+          "bundleId": "com.google.Chrome.helper"
+        }
+      ]
+    },
+    {
+      "at": 3000,
+      "recording": {
+        "eventId": "planning"
+      },
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 3300000,
+      "micApps": []
+    },
+    {
+      "at": 3310000,
+      "micApps": [
+        {
+          "pid": 700,
+          "bundleId": "com.google.Chrome.helper"
+        }
+      ]
+    },
+    {
+      "at": 3600000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 3630000,
+      "type": "stopping",
+      "reason": "meeting_ended"
+    },
+    {
+      "at": 3640000,
+      "type": "stop",
+      "reason": "meeting_ended"
+    }
+  ]
+}

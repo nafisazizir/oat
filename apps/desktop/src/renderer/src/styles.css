@@ -32,3 +32,13 @@
 @utility app-no-drag {
   -webkit-app-region: no-drag;
 }
+
+/* 7.5: the auto-stop toast's bar drains over the undo window. */
+@keyframes autostop-drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}

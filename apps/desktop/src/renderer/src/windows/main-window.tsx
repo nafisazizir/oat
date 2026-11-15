@@ -34,6 +34,8 @@ import {
 import { type ReactNode, useEffect, useState } from 'react';
 
 import { bridge, BridgeCallError, call } from '../bridge.ts';
+import { AutoStopQuestion, AutoStopToast } from '../auto-stop/auto-stop-notice.tsx';
+import { useAutoStopNotice } from '../auto-stop/auto-stop-state.ts';
 import { useCalendar, useMeetingPrompt } from '../calendar/calendar-state.ts';
 import { PromptBanner } from '../calendar/prompt-banner.tsx';
 import { UpcomingList } from '../calendar/upcoming-list.tsx';
@@ -306,6 +308,7 @@ function SignedInShell({
   // 7.3: "Upcoming" + the "Start notes?" prompt; main opens a note when a notification is clicked.
   const calendar = useCalendar(true);
   const prompt = useMeetingPrompt(true);
+  const autoStop = useAutoStopNotice();
   useEffect(
     () => bridge().subscribe('notes:open', ({ documentId }) => setSelected(documentId)),
     [],
@@ -368,8 +371,9 @@ function SignedInShell({
           </SignedInCard>
         </div>
       </aside>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col [&>section]:min-h-0">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col [&>section]:min-h-0">
         <PromptBanner prompt={prompt} recording={startRequest(input)} />
+        <AutoStopQuestion notice={autoStop} />
         {settingsOpen ? (
           <SettingsView onClose={() => setSettingsOpen(false)} />
         ) : (
@@ -381,6 +385,7 @@ function SignedInShell({
             onInputChange={setChoice}
           />
         )}
+        <AutoStopToast notice={autoStop} />
       </div>
     </main>
   );

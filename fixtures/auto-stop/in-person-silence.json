@@ -1,0 +1,58 @@
+{
+  "description": "In-person recording (no meeting app). Both sources go quiet at 5 min: 10 min later 'Meeting over?' (never a stop: in-person). 'Keep going' restarts the silence clock \u2192 asked again 10 min later; sound coming back takes the question away.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "recording": true,
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 300000,
+      "levels": {
+        "mic": -70,
+        "system": -80
+      }
+    },
+    {
+      "at": 960000,
+      "answer": "keep"
+    },
+    {
+      "at": 1620000,
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 1800000,
+      "recording": false
+    }
+  ],
+  "expect": [
+    {
+      "at": 900000,
+      "type": "ask",
+      "reason": "silence"
+    },
+    {
+      "at": 960000,
+      "type": "cancel",
+      "reason": "keep"
+    },
+    {
+      "at": 1560000,
+      "type": "ask",
+      "reason": "silence"
+    },
+    {
+      "at": 1620000,
+      "type": "cancel",
+      "reason": "sound"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "description": "As call-ends-at-event-end, but the user clicks 'Keep recording' 3 s into the toast: no stop. A later call that starts while recording (not part of this recording, no own event) is ignored; the recording goes on until the user stops it.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "weekly",
+          "title": "Weekly sync",
+          "start": "2026-11-16T17:00:00Z",
+          "end": "2026-11-16T17:30:00Z",
+          "others": 3
+        }
+      ],
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 3000,
+      "recording": true,
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 1740000,
+      "micApps": []
+    },
+    {
+      "at": 1773000,
+      "answer": "keep"
+    },
+    {
+      "at": 1860000,
+      "micApps": [
+        {
+          "pid": 77,
+          "bundleId": "com.apple.avconferenced"
+        }
+      ]
+    },
+    {
+      "at": 1920000,
+      "micApps": []
+    },
+    {
+      "at": 2100000,
+      "recording": false
+    }
+  ],
+  "expect": [
+    {
+      "at": 1770000,
+      "type": "stopping",
+      "reason": "meeting_ended"
+    },
+    {
+      "at": 1773000,
+      "type": "cancel",
+      "reason": "undo"
+    }
+  ]
+}

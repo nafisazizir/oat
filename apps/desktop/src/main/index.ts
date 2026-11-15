@@ -33,6 +33,7 @@ import { ApiError, createApiClient } from './api-client.ts';
 import { AudioPlayback, PlaybackError } from './audio-playback.ts';
 import { AudioStorage, StorageError } from './audio-storage.ts';
 import { AuthController } from './auth.ts';
+import { AutoStopService, AutoStopServiceError } from './auto-stop-service.ts';
 import { CalendarService } from './calendar-service.ts';
 import { createCalendarSetup } from './calendar-setup.ts';
 import { desktopConfigFromEnv } from './config.ts';
@@ -43,6 +44,7 @@ import {
   type ShownNotification,
 } from './detection-service.ts';
 import { BridgeError, createBridge, type Logger, subscribePayload } from './ipc.ts';
+import { MeetingEndGrace } from './meeting-end-grace.ts';
 import { MeetingNotes, MeetingNotesError } from './meeting-notes.ts';
 import { MeetingPersistence } from './meeting-persistence.ts';
 import { NotesFlush } from './notes-flush.ts';
@@ -246,6 +248,7 @@ async function start() {
   bridge.handle('auth:sign-out', async () => {
     // Stop (and finish saving) a recording first: its transcription needs the session.
     if (recording.busy) await recording.shutdown();
+    grace.flush(); // 7.5: a meeting in its grace period ends now, in this account's database
     await auth.signOut();
   });
   bridge.handle('api:me', () => auth.me());
@@ -387,6 +390,29 @@ async function start() {
     credentials,
     log,
   });
+  // 7.5: a stopped meeting's end (which starts the post-meeting pipeline once synced) waits for a grace period,
+  // so "Continue recording" meanwhile never starts a run.
+  const grace: MeetingEndGrace = new MeetingEndGrace({
+    inner: new MeetingPersistence({
+      store: () => sync.store,
+      sync,
+      userId: signedInUser,
+      onChange: meetingsChanged,
+    }),
+    ...(config.endGraceMs !== undefined ? { graceMs: config.endGraceMs } : {}),
+    userId: () => sync.storeUser,
+    // Survives a crash inside the period: ended at the next launch, once that account's database is open.
+    file: join(app.getPath('userData'), 'grace-pending.json'),
+    onChange: (pending) =>
+      broadcast('grace:changed', {
+        grace: pending && {
+          meetingId: pending.meetingId,
+          endedAt: pending.endedAt,
+          dueAt: pending.dueAt,
+        },
+      }),
+    log,
+  });
   const recording: RecordingService = new RecordingService({
     baseDir: app.getPath('userData'),
     // 2.7: every start path (UI, detection, calendar, auto-start) waits for crash recovery first.
@@ -394,18 +420,14 @@ async function start() {
     store: audioIndex,
     // D-30: audio rows name the account that recorded them.
     userId: signedInUser,
-    persistence: new MeetingPersistence({
-      store: () => sync.store,
-      sync,
-      userId: signedInUser,
-      onChange: meetingsChanged,
-    }),
+    persistence: grace,
     createSource: setup.createSource,
     createStt: setup.createStt,
     log,
     power: powerMonitor,
     onState: (snapshot) => {
       broadcast('recording:state', snapshot);
+      autoStop.recordingState(snapshot);
       // Transcription came back: retry back-fill jobs that failed while it was down (2.7).
       const open = (['mic', 'system'] as const).filter((s) => snapshot.stt[s] === 'open');
       if (open.some((s) => sttOpen[s] !== true)) backfill.kick(undefined, true);
@@ -430,7 +452,19 @@ async function start() {
       detection.setRecording(status !== 'idle' && status !== 'error');
     },
   });
-  quitGracefully(recording, () => notesFlush.request());
+  quitGracefully(
+    recording,
+    () => notesFlush.request(),
+    async () => {
+      // A meeting in its grace period ends now; push it (≤ 5 s) so its notes are finished without waiting
+      // for the next launch.
+      if (!grace.flush()) return;
+      await Promise.race([
+        sync.syncNow().catch(() => undefined),
+        new Promise((resolve) => setTimeout(resolve, 5_000)),
+      ]);
+    },
+  );
 
   // --- Transcript back-fill from the archive + crash recovery (2.7, D-17) ---
   let sttOpen: { mic: boolean; system: boolean } = { mic: false, system: false };
@@ -601,7 +635,10 @@ async function start() {
     },
     user: signedInUser,
     noteFor: (keys) => notes.findByCalendarKeys(keys),
-    onEvents: (events) => detection.setEvents(events),
+    onEvents: (events) => {
+      detection.setEvents(events);
+      autoStop.setEvents(events);
+    },
     onSnapshot: (snapshot) => broadcast('calendar:changed', snapshot),
     onStartingSoon: (event) => detection.startingSoon(event),
     log,
@@ -636,8 +673,71 @@ async function start() {
       focusMainWindow();
       if (documentId) broadcast('notes:open', { documentId });
     },
+    // 7.5: calls ending / coming back drive auto-stop.
+    onMeetingEnded: (action) => autoStop.meetingEnded(action),
+    onCallChanged: (open) => autoStop.callChanged(open),
+    onAppsChanged: (appIds) => autoStop.appsChanged(appIds),
     log,
   });
+
+  // --- Auto-stop + the grace period + post-meeting status (7.5) ---
+  const autoStop: AutoStopService = new AutoStopService({
+    settingsFile: join(app.getPath('userData'), 'auto-stop.json'),
+    config: config.autoStop,
+    stop: () => recording.stop(),
+    // The note's own event (made from the calendar, 7.3: `calendar_event_id` holds the meeting key).
+    eventOf: (meetingId) => {
+      const key = sync.store?.meeting(meetingId)?.calendarEventId;
+      return key ? (calendar.findByKey(key)?.id ?? null) : null;
+    },
+    notify: showNotification,
+    onNotice: (notice) => broadcast('autostop:changed', { notice }),
+    onOpen: () => focusMainWindow(),
+    log,
+  });
+  autoStop.setEvents(calendar.events);
+  app.once('will-quit', () => {
+    autoStop.dispose();
+    grace.dispose();
+  });
+  bridge.handle('autostop:get', () => autoStop.notice);
+  bridge.handle('autostop:respond', async ({ id, action }) => {
+    try {
+      await autoStop.respond(id, action);
+    } catch (error) {
+      if (error instanceof AutoStopServiceError) {
+        throw new BridgeError('invalid_state', error.message);
+      }
+      throw error;
+    }
+  });
+  bridge.handle('autostop:get-settings', () => autoStop.settings);
+  bridge.handle('autostop:set-settings', (patch) => autoStop.setSettings(patch));
+  bridge.handle('grace:get', () => {
+    const p = grace.pending;
+    return p && { meetingId: p.meetingId, endedAt: p.endedAt, dueAt: p.dueAt };
+  });
+  bridge.handle('grace:finish-now', ({ meetingId }) => void grace.flush(meetingId));
+  const pipelineCall = async (documentId: string, retry: boolean) => {
+    if (!auth.signedIn) throw new BridgeError('unauthorized', 'Sign in first.');
+    try {
+      return await auth.withSession((token) => api.pipeline(token, documentId, { retry }));
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw new BridgeError(
+          error.status === 401
+            ? 'unauthorized'
+            : error.status === 403 || error.status === 409
+              ? 'invalid_state'
+              : 'unavailable',
+          error.message,
+        );
+      }
+      throw error;
+    }
+  };
+  bridge.handle('pipeline:get', ({ documentId }) => pipelineCall(documentId, false));
+  bridge.handle('pipeline:retry', ({ documentId }) => pipelineCall(documentId, true));
   app.once('will-quit', () => {
     void detection.stop();
     void calendar.stop();
@@ -685,6 +785,8 @@ async function start() {
   let calendarUser: string | null = null;
   store.subscribe((snapshot) => {
     broadcast('state:changed', snapshot);
+    // 7.5: an account change ends a meeting in its grace period first, while its database is still the open one.
+    if (grace.pending && grace.pending.userId !== signedInUser()) grace.flush();
     if (snapshot.state.auth.status === 'signed-out') credentials.clear();
     // After this change has reached every listener (sync's own status updates go through the store).
     queueMicrotask(() => {
@@ -692,6 +794,7 @@ async function start() {
       void sync.setUser(user).then(() => {
         // 3.8 / D-30: the storage view and the sweeper follow the account whose database is open.
         const current = sync.storeUser;
+        grace.accountOpened(current); // 7.5: ends held from before a crash/quit, or for this account
         if (current !== storageUser) {
           storageUser = current;
           playback.revokeAll(); // D-30: another account's player URLs stop working
@@ -747,10 +850,16 @@ function showNotification(request: NotifyRequest): ShownNotification | null {
  * - note edits still in the main window's autosave debounce are written (3.4; at most 1 s);
  * - a recording (or a stop / an ended session's files still closing — `busy`) is shut down: last transcript
  *   finals, closed audio files, so a quit never leaves a half-written recording behind (recovery of crashed
- *   files is `recoverRecordings`).
+ *   files is `recoverRecordings`);
+ * - then a meeting still in its post-stop grace period (7.5) is ended and pushed (at most 5 s more).
  * Further quit requests while this runs wait for it too.
  */
-function quitGracefully(recording: RecordingService, flushNotes: () => Promise<unknown>) {
+function quitGracefully(
+  recording: RecordingService,
+  flushNotes: () => Promise<unknown>,
+  /** After the recording is shut down (7.5: end a meeting still in its grace period, and push it). */
+  afterRecording: () => Promise<void>,
+) {
   let ready = false;
   let running = false;
   app.on('before-quit', (event) => {
@@ -759,12 +868,13 @@ function quitGracefully(recording: RecordingService, flushNotes: () => Promise<u
     if (running) return;
     running = true;
     if (recording.busy) log.info('quit: stopping the recording first');
-    void Promise.allSettled([flushNotes(), recording.busy ? recording.shutdown() : undefined]).then(
-      () => {
+    void Promise.allSettled([flushNotes(), recording.busy ? recording.shutdown() : undefined])
+      .then(() => afterRecording())
+      .catch((error: unknown) => log.error('quit: could not finish the meeting', error))
+      .then(() => {
         ready = true;
         app.quit();
-      },
-    );
+      });
   });
 }
 

@@ -151,6 +151,8 @@ beforeAll(async () => {
     // Test knobs for D-26 (production uses the web app's 2 min / 3 min); deadline = stale + 60 s.
     OAT_AGENTS_ENHANCE_STALE_MS: String(STALE_MS),
     OAT_AGENTS_ENHANCE_TIMEOUT_MS: '20000',
+    // 7.5: the seeded transcripts have 18 s of speech; the short one below has 4.5 s.
+    OAT_AUTO_ENHANCE_MIN_SPEECH_MS: '10000',
   };
   port = await freePort();
   server = await startAgent(serverEnv, port, { schedules: true });
@@ -201,7 +203,7 @@ const SEGMENTS = [
 
 /** A team workspace, its owner, an ended meeting note with notes + transcript, and a Notion connection. */
 async function seedMeeting(
-  options: { autoPush?: boolean; autoEnhance?: boolean; editor?: boolean } = {},
+  options: { autoPush?: boolean; autoEnhance?: boolean; editor?: boolean; short?: boolean } = {},
 ) {
   const ownerId = newId();
   await db.insert(user).values({ id: ownerId, email: `${ownerId}@example.test`, name: 'Ada' });
@@ -236,7 +238,7 @@ async function seedMeeting(
   });
   await db.insert(participant).values({ meetingId, name: 'Dana', source: 'manual' });
   await db.insert(transcriptSegment).values(
-    SEGMENTS.map((text, i) => ({
+    (options.short ? SEGMENTS.slice(0, 1) : SEGMENTS).map((text, i) => ({
       id: `${meetingId}-s${i}`,
       meetingId,
       source: i % 2 === 0 ? ('mic' as const) : ('system' as const),
@@ -540,16 +542,25 @@ describe('post-meeting pipeline on eve (offline)', () => {
     expect((await finished(lost.meetingId, 60_000, 2)).status).toBe('completed');
   }, 180_000);
 
-  it('respects the switches: Notion auto-send off / not connected, auto-enhance off', async () => {
+  it('respects the switches: Notion auto-send off / not connected, auto-enhance off, too short', async () => {
     const off = await seedMeeting({ autoPush: false });
     const none = await seedMeeting();
     const raw = await seedMeeting({ autoPush: true, autoEnhance: false });
-    await Promise.all([request(off), request(none), request(raw)]);
-    const [a, b, c] = await Promise.all([
+    const short = await seedMeeting({ short: true });
+    await Promise.all([request(off), request(none), request(raw), request(short)]);
+    const [a, b, c, d] = await Promise.all([
       finished(off.meetingId),
       finished(none.meetingId),
       finished(raw.meetingId),
+      finished(short.meetingId),
     ]);
+    // 7.5: under the minimum speech the notes stay as written.
+    expect(outcomes(d)).toEqual({
+      enhance: 'transcript too short',
+      index: 'ran',
+      notion: 'not connected',
+    });
+    expect(await enhancementsOf(short.documentId)).toEqual([]);
     expect(outcomes(a)).toEqual({ enhance: 'ran', index: 'ran', notion: 'auto-push off' });
     expect(outcomes(b)).toEqual({ enhance: 'ran', index: 'ran', notion: 'not connected' });
     // Not enhanced: the notes as written are indexed and sent.

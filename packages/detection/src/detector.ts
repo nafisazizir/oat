@@ -44,6 +44,7 @@ export class Detector {
   #running = false;
   readonly #actionListeners = new Set<(action: DetectionAction) => void>();
   readonly #errorListeners = new Set<(error: Error) => void>();
+  readonly #stateListeners = new Set<(state: DetectionState) => void>();
 
   constructor(options: DetectorOptions) {
     this.#source = options.source;
@@ -68,6 +69,12 @@ export class Detector {
   onAction(listener: (action: DetectionAction) => void): () => void {
     this.#actionListeners.add(listener);
     return () => this.#actionListeners.delete(listener);
+  }
+
+  /** After every input, with the new state (e.g. whether a call — a meeting span — is open, for 7.5). */
+  onState(listener: (state: DetectionState) => void): () => void {
+    this.#stateListeners.add(listener);
+    return () => this.#stateListeners.delete(listener);
   }
 
   /** The mic-apps watch died on its own; call `start` again to resume. */
@@ -124,6 +131,7 @@ export class Detector {
     this.#state = state;
     this.#arm();
     for (const action of actions) for (const l of this.#actionListeners) l(action);
+    for (const l of this.#stateListeners) l(state);
   }
 
   #arm(): void {

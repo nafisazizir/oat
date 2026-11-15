@@ -82,6 +82,12 @@ const agents = await startAgent(
     NOTION_OAUTH_CLIENT_SECRET: '',
     BETTER_AUTH_URL: `http://localhost:${port}`,
     OAT_AGENTS_TOKEN: agentsToken,
+    // 7.5: auto-enhance needs 60 s of speech in production; e2e transcripts (fixtures) are a few seconds.
+    OAT_AUTO_ENHANCE_MIN_SPEECH_MS: '5000',
+    // A suite that watches the pipeline's steps in a header (the desktop's, 7.5) slows the agents' mock LLM.
+    ...(process.env.OAT_E2E_AGENTS_AI_DELAY_MS
+      ? { AI_MOCK_CHUNK_DELAY_MS: process.env.OAT_E2E_AGENTS_AI_DELAY_MS }
+      : {}),
   },
   await freePort(),
 );

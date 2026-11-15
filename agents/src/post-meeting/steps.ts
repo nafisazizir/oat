@@ -13,7 +13,7 @@ import { loadActor } from '@oat/services/actor';
 import { startEnhancement } from '@oat/services/enhance/service';
 import { ApiError } from '@oat/services/errors';
 import { sendToNotion } from '@oat/services/notion';
-import { pipelineSwitches } from '@oat/services/pipeline';
+import { meetingSpeechMs, pipelineSwitches } from '@oat/services/pipeline';
 import { and, desc, eq } from 'drizzle-orm';
 
 import type { StepContext } from './context.ts';
@@ -76,8 +76,8 @@ async function enhancementByKey(
 }
 
 /**
- * (1) Enhance the note unless it already has a completed enhancement, or the owner switched "Auto-enhance after
- * meetings" off for this workspace (8.3). The template is the meeting's, else the default (`startEnhancement`). Runs the web app's enhance job as the
+ * (1) Enhance the note unless it already has a completed enhancement, the owner switched "Auto-enhance after
+ * meetings" off for this workspace (8.3), or the transcript has less than `autoEnhanceMinSpeechMs` of speech (7.5). The template is the meeting's, else the default (`startEnhancement`). Runs the web app's enhance job as the
  * note's owner, under an idempotency key derived from the workflow run: a replayed step finds the run it
  * started instead of starting another. A key whose run failed is chained (`…:<failed run id>`), so a fresh
  * attempt starts a fresh run, deterministically.
@@ -95,6 +95,11 @@ export async function ensureEnhanced(
   const { autoEnhance } = await pipelineSwitches(ctx.db, m.ownerId, m.workspaceId);
   if (!autoEnhance) {
     return { step: 'enhance', outcome: 'skipped', reason: 'auto-enhance off', at: now() };
+  }
+  // 7.5: a few seconds of recording isn't enhanced on its own (the Enhance button still works).
+  const minSpeech = ctx.config.autoEnhanceMinSpeechMs;
+  if (minSpeech > 0 && (await meetingSpeechMs(ctx.db, m.meetingId)) < minSpeech) {
+    return { step: 'enhance', outcome: 'skipped', reason: 'transcript too short', at: now() };
   }
   const [latest] = await ctx.db
     .select()

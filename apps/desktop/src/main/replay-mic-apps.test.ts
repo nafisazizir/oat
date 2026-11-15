@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { readCalendarFixture } from './calendar-setup.ts';
-import { parseReplay, ReplayMicAppsSource } from './replay-mic-apps.ts';
+import { FileMicAppsSource, parseReplay, ReplayMicAppsSource } from './replay-mic-apps.ts';
 
 const ZOOM_BASIC = fileURLToPath(
   new URL('../../../../fixtures/detection/zoom-basic.json', import.meta.url),
@@ -77,5 +77,28 @@ describe('readCalendarFixture', () => {
     );
     const source = readCalendarFixture(noAccess);
     expect(await source.status()).toEqual({ status: 'not_determined', canRead: false });
+  });
+});
+
+describe('FileMicAppsSource (OAT_DETECTION=file:, 7.5)', () => {
+  it('reports the file’s list right away and every change; keeps the last list on a bad write', async () => {
+    const file = join(dir, 'apps.json');
+    const source = new FileMicAppsSource(file, { intervalMs: 20 });
+    const seen: number[][] = [];
+    // No file yet: an empty list.
+    const watch = await source.watch((apps) => seen.push(apps.map((a) => a.pid)));
+    expect(seen).toEqual([[]]);
+    writeFileSync(file, JSON.stringify([{ pid: 501, bundleId: 'us.zoom.xos' }]));
+    await vi.waitFor(() => expect(seen).toEqual([[], [501]]));
+    writeFileSync(file, '[{"pid": 5');
+    await new Promise((r) => setTimeout(r, 80));
+    expect(seen).toEqual([[], [501]]);
+    expect((await source.list()).map((a) => a.pid)).toEqual([501]);
+    writeFileSync(file, '[]');
+    await vi.waitFor(() => expect(seen).toEqual([[], [501], []]));
+    await watch.stop();
+    writeFileSync(file, JSON.stringify([{ pid: 7, bundleId: 'us.zoom.xos' }]));
+    await new Promise((r) => setTimeout(r, 80));
+    expect(seen).toHaveLength(3);
   });
 });

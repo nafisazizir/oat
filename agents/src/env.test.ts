@@ -1,3 +1,4 @@
+import { MIN_AUTO_ENHANCE_SPEECH_MS } from '@oat/services/pipeline';
 import { describe, expect, it } from 'vitest';
 
 import { agentServerEnv } from './cli/serve.ts';
@@ -9,6 +10,7 @@ import {
   DEFAULT_WORKFLOW_DATABASE_URL,
   DEV_JOBS_TOKEN,
   workflowDatabaseProblem,
+  DEFAULT_AUTO_ENHANCE_MIN_SPEECH_MS,
 } from './env.ts';
 
 const TOKEN = 'a'.repeat(32);
@@ -29,6 +31,7 @@ describe('agentsConfig', () => {
       stuckAfterMs: 10 * 60_000,
       enhanceStaleMs: undefined,
       enhanceTimeoutMs: undefined,
+      autoEnhanceMinSpeechMs: 60_000,
     });
   });
 
@@ -53,6 +56,17 @@ describe('agentsConfig', () => {
       busyDeadlineMs: 70_000, // follows a shortened staleness
     });
     expect(() => agentsConfig({ OAT_AGENTS_BUSY_RETRY_MS: '-1' })).toThrow(/positive integer/);
+    expect(agentsConfig({ OAT_AUTO_ENHANCE_MIN_SPEECH_MS: '0' }).autoEnhanceMinSpeechMs).toBe(0);
+    expect(DEFAULT_AUTO_ENHANCE_MIN_SPEECH_MS).toBe(MIN_AUTO_ENHANCE_SPEECH_MS);
+    expect(() => agentsConfig({ OAT_AUTO_ENHANCE_MIN_SPEECH_MS: '-5' })).toThrow(/non-negative/);
+    expect(
+      agentsConfig({ NODE_ENV: 'production', OAT_AUTO_ENHANCE_MIN_SPEECH_MS: '5000' })
+        .autoEnhanceMinSpeechMs,
+    ).toBe(60_000);
+    expect(
+      agentsConfig({ NODE_ENV: 'production', OAT_AUTO_ENHANCE_MIN_SPEECH_MS: '90000' })
+        .autoEnhanceMinSpeechMs,
+    ).toBe(90_000);
   });
 
   it('accepts the current and the previous jobs token, only when ≥ 32 characters', () => {

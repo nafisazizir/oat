@@ -8,6 +8,7 @@
  * - At most one prompt at a time; a detected call replaces a "starting" prompt (it is the more specific one).
  *   The D-21 rate limit is the detector's and covers detected prompts only.
  *   A recording dismisses both (the detector does it for its own; D-21: no prompt while recording).
+ * - 7.5: calls ending (`meetingEnded`) and calls opening/closing are passed on to auto-stop.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -51,6 +52,12 @@ export interface DetectionServiceOptions {
   onPrompt: (prompt: MeetingPrompt | null) => void;
   /** A notification was clicked and its notes started: show the window. */
   onOpened?: (documentId: string | null) => void;
+  /** A call ended (7.5 auto-stop decides what it means for the recording). */
+  onMeetingEnded?: (action: Extract<DetectionAction, { type: 'meetingEnded' }>) => void;
+  /** A call (D-21 meeting span) opened or closed (7.5). */
+  onCallChanged?: (open: boolean) => void;
+  /** The meeting apps holding the mic changed, eligible or not (7.5: one coming back = the call resumed). */
+  onAppsChanged?: (appIds: readonly string[]) => void;
   now?: () => Date;
   /** How long a "starting" prompt stays up. Default 2 min (like a detected one). */
   startingTimeoutMs?: number;
@@ -75,6 +82,8 @@ export class DetectionService {
   #startingSeq = 0;
   #running = false;
   #user: string | null = null;
+  #callOpen = false;
+  #apps = '';
 
   constructor(options: DetectionServiceOptions) {
     this.#o = options;
@@ -114,6 +123,10 @@ export class DetectionService {
       recording: this.#recording,
     });
     detector.onAction((action) => this.#onAction(action));
+    detector.onState((state) => {
+      this.#setApps(state.presences.filter((p) => p.goneSince === null).map((p) => p.app.id));
+      this.#setCallOpen(state.meeting !== null);
+    });
     detector.onError((error) => {
       this.#o.log?.warn(`detection: mic-apps watch stopped: ${error.message}; restarting in 5 s`);
       const timer = setTimeout(() => {
@@ -142,6 +155,8 @@ export class DetectionService {
     const detector = this.#detector;
     this.#detector = null;
     this.#clear();
+    this.#setApps([]);
+    this.#setCallOpen(false);
     await detector?.stop();
   }
 
@@ -225,9 +240,22 @@ export class DetectionService {
         if (this.#prompt?.id === action.promptId) this.#clear();
         break;
       case 'meetingEnded':
-        // Auto-stop is 7.5; nothing to do yet.
+        this.#o.onMeetingEnded?.(action);
         break;
     }
+  }
+
+  #setApps(appIds: string[]): void {
+    const key = appIds.join();
+    if (key === this.#apps) return;
+    this.#apps = key;
+    this.#o.onAppsChanged?.(appIds);
+  }
+
+  #setCallOpen(open: boolean): void {
+    if (open === this.#callOpen) return;
+    this.#callOpen = open;
+    this.#o.onCallChanged?.(open);
   }
 
   #show(prompt: MeetingPrompt): void {

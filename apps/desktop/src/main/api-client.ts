@@ -7,7 +7,12 @@
  */
 import { AUTH_TOKEN_HEADER, DESKTOP_TOKEN_ENDPOINT } from '@oat/auth/desktop-link';
 import { type CalendarEvent, CalendarEventSchema } from '@oat/core';
-import { type DesktopUser, desktopUserSchema } from '@oat/core/bridge';
+import {
+  type DesktopUser,
+  desktopUserSchema,
+  type PipelineStatus,
+  pipelineStatusSchema,
+} from '@oat/core/bridge';
 import {
   type SyncBackfillResponse,
   type SyncPullChange,
@@ -28,6 +33,8 @@ const SYNC_PULL_PATH = '/api/sync/pull';
 const SYNC_BACKFILL_PATH = '/api/sync/backfill';
 const SYNC_EVENTS_PATH = '/api/sync/events';
 const CALENDAR_UPCOMING_PATH = '/api/calendar/upcoming';
+const pipelinePath = (documentId: string) =>
+  `/api/documents/${encodeURIComponent(documentId)}/pipeline`;
 /** A push carries up to 500 rows; give it longer than a plain call. */
 const SYNC_TIMEOUT_MS = 30_000;
 
@@ -312,6 +319,38 @@ export function createApiClient({
         state: body.data.sources[0]?.state ?? null,
         events,
       };
+    },
+
+    /**
+     * The note's post-meeting run (8.3, `GET /api/documents/:id/pipeline`), or with `retry` a start/retry
+     * (`POST`, owner/editor). Only what the meeting header shows is kept.
+     */
+    async pipeline(
+      token: string,
+      documentId: string,
+      { retry = false }: { retry?: boolean } = {},
+    ): Promise<PipelineStatus> {
+      const res = await request(pipelinePath(documentId), {
+        token,
+        ...(retry
+          ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }
+          : {}),
+      });
+      if (!res.ok) {
+        throw new ApiError(
+          res.status,
+          res.status === 401
+            ? 'Your session has ended.'
+            : res.status === 404
+              ? 'This note isn’t on the server yet.'
+              : res.status === 403
+                ? 'Only people who can edit this note can run its post-meeting steps.'
+                : 'Couldn’t load the post-meeting status.',
+        );
+      }
+      const body = pipelineStatusSchema.safeParse(await res.json().catch(() => undefined));
+      if (!body.success) throw new ApiError(502, 'Unexpected post-meeting status response.');
+      return body.data;
     },
 
     /** Revokes the session on the server. */

@@ -378,6 +378,20 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   builds always use EventKit + the sidecar. e2e never shows a real notification (recorded on
   `globalThis.__oatNotifications`). Silenced apps: `<userData>/detection.json`. Details:
   `docs/tasks/7.3-calendar-notes.md`.
+- **Auto-stop + auto-enhance (7.5).** While recording, `@oat/detection`'s `autoStop` rules watch detection's
+  call spans, the calendar and the audio levels: a call that ends within ±5 min of its event's end → "Stopping the
+  recording in 10 s · Keep recording" toast, then stop (every end must hold 30 s first; the app coming back
+  = the call resumed); other ends of *this recording's* call, and 10 min of
+  silence → "Meeting over? Keep going / Stop recording"; never in the first 3 min; in-person recordings only
+  stop by themselves with Settings → Recording → "Also stop in-person recordings". Settings live in
+  `<userData>/auto-stop.json` (per Mac). After any stop the meeting's end is held back 60 s (the header shows
+  "Post-meeting steps in … s · Start now"): continuing meanwhile never writes the end, so no pipeline run
+  starts. Held ends are kept in `<userData>/grace-pending.json` and written at the next launch after a crash. Then the header follows the run (`pipeline:get` → `GET /api/documents/:id/pipeline`).
+  Dev/e2e knobs: `OAT_AUTO_STOP` (JSON: `floorMs`, `confirmMs`, `undoMs`, `silenceMs`, `silenceDb`, `speechDb`,
+  `eventEndWindowMs`),
+  `OAT_END_GRACE_MS`, and `OAT_DETECTION=file:<apps.json>` (the mic-using apps are that JSON array, re-read on
+  change: a test ends a call by emptying it). The agents skip enhance below 60 s of speech
+  (`OAT_AUTO_ENHANCE_MIN_SPEECH_MS`; e2e 5 s). Details: `docs/tasks/7.5-auto-stop-enhance.md`.
 - **Recording (2.5).** Start/pause/stop in the main window (or Stop in the widget); the transcript is live
   (mic = "me", system = "them"). STT tokens come from `POST /api/stt/token` (the mock in dev, Deepgram with
   `DEEPGRAM_API_KEY`), audio goes to `<userData>/audio/<meeting>/{mic,system}.opus`. Sleep pauses the
@@ -431,7 +445,7 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   the app with a temp profile against `next dev` on a throwaway database (apps/web's `e2e/web-server.ts`,
   `E2E_PORT`, default 3100). `shell.openExternal` is stubbed and deep links are delivered by emitting
   `open-url`, so no browser opens and nothing is registered with the OS. The web half of sign-in runs in
-  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/`, `2.5/`, `2.6/`, `3.5/`, `3.7/`, `3.8/` and `7.3/` (screenshots, `cold-start.json`, `latency.json`, `sync.json`, `playback.json`, `storage.json`). Other
+  Chromium. `E2E_SCREENSHOTS=1` writes `docs/tasks/evidence/1.8/`, `2.5/`, `2.6/`, `3.5/`, `3.7/`, `3.8/`, `7.3/` and `7.5/` (screenshots, `cold-start.json`, `latency.json`, `sync.json`, `playback.json`, `storage.json`). Other
   platforms skip it.
 
 ## Database (`@oat/db`)

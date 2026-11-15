@@ -7,6 +7,7 @@ import {
   DispatchError,
   dispatchBackoffMs,
   type PostMeetingJob,
+  speechMs,
 } from './pipeline.ts';
 
 const job: PostMeetingJob = { pipelineRunId: 'r1', attempt: 2, meetingId: 'm1', workspaceId: 'w1' };
@@ -68,5 +69,22 @@ describe('dispatchBackoffMs', () => {
   it('doubles from 5 s up to 5 min', () => {
     expect([1, 2, 3, 4].map(dispatchBackoffMs)).toEqual([5_000, 10_000, 20_000, 40_000]);
     expect(dispatchBackoffMs(20)).toBe(5 * 60_000);
+  });
+});
+
+describe('speechMs (7.5: auto-enhance needs a minimum transcript)', () => {
+  it('sums the time covered by segments, overlaps once, empty/backwards segments ignored', () => {
+    expect(speechMs([])).toBe(0);
+    expect(
+      speechMs([
+        { startMs: 10_000, endMs: 20_000 },
+        { startMs: 0, endMs: 4000 },
+        // "them" over "me": counted once
+        { startMs: 15_000, endMs: 25_000 },
+        { startMs: 18_000, endMs: 19_000 },
+        { startMs: 30_000, endMs: 30_000 },
+        { startMs: 40_000, endMs: 35_000 },
+      ]),
+    ).toBe(4000 + 15_000);
   });
 });

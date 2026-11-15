@@ -57,6 +57,8 @@ export default defineConfig({
           E2E_PORT: String(port),
           // Own build folder, never the web e2e's `.next` (see apps/web/next.config.ts).
           OAT_NEXT_DIST_DIR: '.next-desktop-e2e',
+          // 7.5: the post-meeting pipeline takes a few seconds, so the header can be seen following it.
+          OAT_E2E_AGENTS_AI_DELAY_MS: '100',
           AI_GATEWAY_API_KEY: '',
           DEEPGRAM_API_KEY: '',
           OAUTH_GOOGLE_ISSUER: 'http://localhost:18089/google',

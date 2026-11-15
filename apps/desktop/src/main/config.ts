@@ -39,6 +39,69 @@ export interface DesktopConfig {
   calendar: CalendarConfig;
   /** Meeting detection's mic-apps signal (7.3, D-21). */
   detection: DetectionConfig;
+  /**
+   * Auto-stop timings (7.5): `OAT_AUTO_STOP` (dev only), a JSON object of `@oat/detection` `AutoStopConfig`
+   * fields (`floorMs`, `confirmMs`, `undoMs`, `silenceMs`, `silenceDb`, `speechDb`, `eventEndWindowMs`):
+   * e2e can't wait minutes.
+   */
+  autoStop: AutoStopTimings;
+  /** `OAT_END_GRACE_MS` (dev only): the grace period after a stop (default 60 s). */
+  endGraceMs: number | undefined;
+}
+
+export interface AutoStopTimings {
+  floorMs?: number;
+  confirmMs?: number;
+  speechDb?: number;
+  undoMs?: number;
+  silenceMs?: number;
+  silenceDb?: number;
+  eventEndWindowMs?: number;
+}
+
+const TIMING_KEYS = [
+  'floorMs',
+  'confirmMs',
+  'undoMs',
+  'silenceMs',
+  'silenceDb',
+  'speechDb',
+  'eventEndWindowMs',
+] as const;
+
+export function parseAutoStopTimings(raw: string | undefined): AutoStopTimings {
+  const value = raw?.trim() ?? '';
+  if (value === '') return {};
+  let json: unknown;
+  try {
+    json = JSON.parse(value);
+  } catch {
+    throw new DesktopConfigError('OAT_AUTO_STOP must be a JSON object');
+  }
+  if (typeof json !== 'object' || json === null || Array.isArray(json)) {
+    throw new DesktopConfigError('OAT_AUTO_STOP must be a JSON object');
+  }
+  const out: AutoStopTimings = {};
+  for (const [key, v] of Object.entries(json)) {
+    const k = TIMING_KEYS.find((t) => t === key);
+    const ok =
+      typeof v === 'number' &&
+      Number.isFinite(v) &&
+      (k === 'silenceDb' || k === 'speechDb' || v >= 0);
+    if (!k || !ok) throw new DesktopConfigError(`OAT_AUTO_STOP: bad ${key}`);
+    out[k] = v as number;
+  }
+  return out;
+}
+
+function parseGraceMs(raw: string | undefined): number | undefined {
+  const value = raw?.trim() ?? '';
+  if (value === '') return undefined;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0) {
+    throw new DesktopConfigError('OAT_END_GRACE_MS must be a non-negative integer (ms)');
+  }
+  return n;
 }
 
 /**
@@ -53,11 +116,15 @@ export type CalendarConfig =
 /**
  * `OAT_DETECTION` (dev only): unset / `off` → no detection; `sidecar` → `oat-audio mic-apps watch` (Core Audio
  * metadata, no capture; its first real run is a human checkpoint); `fixture:<file>` → replay a detection
- * timeline's `steps[].micApps` (`fixtures/detection/*.json` format) in process, from when detection starts.
- * Packaged: always `sidecar`.
+ * timeline's `steps[].micApps` (`fixtures/detection/*.json` format) in process, from when detection starts;
+ * `file:<apps.json>` → the mic-using processes are whatever that JSON array says, re-read when it changes (e2e
+ * drives calls ending and coming back with it, 7.5). Packaged: always `sidecar`.
  */
 export type DetectionConfig =
-  { kind: 'off' } | { kind: 'sidecar' } | { kind: 'fixture'; file: string };
+  | { kind: 'off' }
+  | { kind: 'sidecar' }
+  | { kind: 'fixture'; file: string }
+  | { kind: 'file'; file: string };
 
 export function parseCalendarSource(raw: string | undefined): CalendarConfig {
   const value = raw?.trim() ?? '';
@@ -76,7 +143,12 @@ export function parseDetectionSource(raw: string | undefined): DetectionConfig {
   if (value.startsWith('fixture:') && value.length > 'fixture:'.length) {
     return { kind: 'fixture', file: value.slice('fixture:'.length) };
   }
-  throw new DesktopConfigError('OAT_DETECTION must be off, sidecar or fixture:<timeline.json>');
+  if (value.startsWith('file:') && value.length > 'file:'.length) {
+    return { kind: 'file', file: value.slice('file:'.length) };
+  }
+  throw new DesktopConfigError(
+    'OAT_DETECTION must be off, sidecar, fixture:<timeline.json> or file:<apps.json>',
+  );
 }
 
 export interface AudioInputConfig {
@@ -154,6 +226,8 @@ export function desktopConfigFromEnv(
       syncUrl: undefined,
       calendar: { kind: 'eventkit' },
       detection: { kind: 'sidecar' },
+      autoStop: {},
+      endGraceMs: undefined,
     };
   }
   const e2e = env.OAT_E2E === '1';
@@ -174,5 +248,7 @@ export function desktopConfigFromEnv(
     syncUrl: blank(env.OAT_SYNC_URL) && parseWebUrl(blank(env.OAT_SYNC_URL)!, 'OAT_SYNC_URL'),
     calendar: parseCalendarSource(env.OAT_CALENDAR),
     detection: parseDetectionSource(env.OAT_DETECTION),
+    autoStop: parseAutoStopTimings(env.OAT_AUTO_STOP),
+    endGraceMs: parseGraceMs(env.OAT_END_GRACE_MS),
   };
 }

@@ -30,6 +30,7 @@ import {
   pipelineRun,
   type PipelineRunRow,
   pipelineSetting,
+  transcriptSegment,
 } from '@oat/db';
 import { and, asc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 
@@ -704,6 +705,44 @@ export async function finishPipelineRun(
       .where(eq(pipelineRun.id, row.id));
     return 'finished';
   });
+}
+
+// --- auto-enhance: minimum transcript (7.5) --------------------------------------------------------------------
+
+/**
+ * Auto-enhance needs this much speech in the transcript (7.5): an accidental few seconds of recording is left as
+ * written (the Enhance button still works). The agents' enhance step checks it (`OAT_AUTO_ENHANCE_MIN_SPEECH_MS`
+ * overrides it in tests).
+ */
+export const MIN_AUTO_ENHANCE_SPEECH_MS = 60_000;
+
+/** Time covered by transcript segments (ms), overlaps counted once (both sources talking = one stretch). */
+export function speechMs(segments: readonly { startMs: number; endMs: number }[]): number {
+  const sorted = segments
+    .filter((s) => s.endMs > s.startMs)
+    .map((s) => [s.startMs, s.endMs] as const)
+    .sort((a, b) => a[0] - b[0]);
+  let total = 0;
+  let from = -Infinity;
+  let to = -Infinity;
+  for (const [start, end] of sorted) {
+    if (start > to) {
+      if (to > from) total += to - from;
+      from = start;
+      to = end;
+    } else if (end > to) to = end;
+  }
+  if (to > from) total += to - from;
+  return total;
+}
+
+/** {@link speechMs} of a meeting's stored transcript (finals, like every other read). */
+export async function meetingSpeechMs(db: Db, meetingId: string): Promise<number> {
+  const rows = await db
+    .select({ startMs: transcriptSegment.startMs, endMs: transcriptSegment.endMs })
+    .from(transcriptSegment)
+    .where(and(eq(transcriptSegment.meetingId, meetingId), eq(transcriptSegment.isFinal, true)));
+  return speechMs(rows);
 }
 
 // --- settings --------------------------------------------------------------------------------------------------

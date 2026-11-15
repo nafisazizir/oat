@@ -1,0 +1,45 @@
+{
+  "description": "Paused time is not silence: quiet from 1 min, paused from 2 to 30 min \u2192 the silence question comes 10 min after the resume.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "recording": true,
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 60000,
+      "levels": {
+        "mic": -70,
+        "system": -80
+      }
+    },
+    {
+      "at": 120000,
+      "paused": true
+    },
+    {
+      "at": 1800000,
+      "paused": false
+    },
+    {
+      "at": 2460000,
+      "recording": false
+    }
+  ],
+  "expect": [
+    {
+      "at": 2400000,
+      "type": "ask",
+      "reason": "silence"
+    },
+    {
+      "at": 2460000,
+      "type": "cancel",
+      "reason": "recording_ended"
+    }
+  ]
+}

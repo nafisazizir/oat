@@ -1,0 +1,97 @@
+{
+  "description": "Never in the first 3 min: a check-in (17:00\u201317:02) ends at 17:01; the decision waits for the floor (3 min after the recording started at 3 s), then stops as usual. In the second recording the call comes back before the floor, which cancels the pending end.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "checkin",
+          "title": "Check-in",
+          "start": "2026-11-16T17:00:00Z",
+          "end": "2026-11-16T17:02:00Z",
+          "others": 1
+        },
+        {
+          "id": "later",
+          "title": "Later sync",
+          "start": "2026-11-16T17:10:00Z",
+          "end": "2026-11-16T17:20:00Z",
+          "others": 1
+        }
+      ],
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 3000,
+      "recording": {
+        "eventId": "checkin"
+      },
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 60000,
+      "micApps": []
+    },
+    {
+      "at": 600000,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 603000,
+      "recording": {
+        "eventId": "later"
+      },
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 660000,
+      "micApps": []
+    },
+    {
+      "at": 710000,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 840000,
+      "recording": false
+    },
+    {
+      "at": 900000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 183000,
+      "type": "stopping",
+      "reason": "meeting_ended"
+    },
+    {
+      "at": 193000,
+      "type": "stop",
+      "reason": "meeting_ended"
+    }
+  ]
+}

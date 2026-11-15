@@ -31,8 +31,9 @@ import {
   PanelRightOpenIcon,
   UsersIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { type ReactNode, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
+import { useMeetingGrace } from '../auto-stop/auto-stop-state.ts';
 import { BridgeCallError, call } from '../bridge.ts';
 import { NoteEventLine } from '../calendar/note-event-line.tsx';
 import { IssueBanner, RecordingBar } from '../recording/recording-controls.tsx';
@@ -46,6 +47,7 @@ import {
   useStoredTranscript,
   useTranscriptStatus,
 } from './meetings-state.ts';
+import { GraceLine, PipelineLine } from './post-meeting.tsx';
 import { type AutosaveState, NoteAutosave } from './note-autosave.ts';
 
 type Content = MeetingNote['contentJson'];
@@ -98,6 +100,24 @@ export function MeetingView({
     playable ? activeSegmentAt(segments, player.clock.ms) : undefined,
   );
 
+  // 7.5: just stopped → the grace period (the end isn't written yet); ended → the post-meeting pipeline.
+  const grace = useMeetingGrace();
+  const graceHere =
+    grace && meetingId && grace.meetingId === meetingId && !recordingThis ? grace : null;
+  let postMeeting: ReactNode = null;
+  if (note && meetingId && !recordingThis) {
+    if (graceHere) {
+      postMeeting = (
+        <GraceLine
+          dueAt={graceHere.dueAt}
+          onFinishNow={() => call('grace:finish-now', { meetingId })}
+        />
+      );
+    } else if (note.endedAt) {
+      postMeeting = <PipelineLine documentId={note.documentId} endedAt={note.endedAt} />;
+    }
+  }
+
   // Home (no note open) shows the recording's state; a note shows it only while it is the one recorded.
   const showsRecording = documentId === null || recordingThis;
   const followLive = recordingThis || (meetingId !== null && live.meetingId === meetingId);
@@ -141,6 +161,10 @@ export function MeetingView({
               key={note.documentId}
               note={note}
               live={recordingThis}
+              endedAt={
+                note.endedAt ?? (graceHere ? new Date(graceHere.endedAt).toISOString() : null)
+              }
+              postMeeting={postMeeting}
               transcriptCount={segments.length}
               panelOpen={panelOpen}
               onOpenPanel={() => setPanelOpen(true)}
@@ -228,12 +252,18 @@ function StartScreen() {
 function NoteBody({
   note,
   live,
+  endedAt,
+  postMeeting,
   transcriptCount,
   panelOpen,
   onOpenPanel,
 }: {
   note: MeetingNote;
   live: boolean;
+  /** The meeting's end, also while it waits out the grace period (not written yet). */
+  endedAt: string | null;
+  /** The post-meeting line (7.5): grace countdown or pipeline status. */
+  postMeeting: ReactNode;
   transcriptCount: number;
   panelOpen: boolean;
   onOpenPanel: () => void;
@@ -304,6 +334,7 @@ function NoteBody({
             </Badge>
           )}
           <SaveStatus state={save.state} error={save.error} />
+          {postMeeting}
           {!panelOpen && (
             <Button
               variant="ghost"
@@ -352,7 +383,7 @@ function NoteBody({
             </Button>
           </div>
         )}
-        <MeetingTime startedAt={note.startedAt} endedAt={note.endedAt} live={live} />
+        <MeetingTime startedAt={note.startedAt} endedAt={endedAt} live={live} />
         <NoteEventLine event={note.calendarEvent} />
         <ParticipantChips
           participants={note.participants}

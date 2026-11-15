@@ -152,3 +152,52 @@ describe('sync', () => {
     ).rejects.toBeInstanceOf(ApiError);
   });
 });
+
+describe('pipeline (7.5: the meeting header’s post-meeting status)', () => {
+  const run = {
+    id: 'r1',
+    meetingId: 'm1',
+    documentId: 'doc 1',
+    status: 'running',
+    attempt: 1,
+    currentStep: 'enhance',
+    steps: [{ step: 'enhance', outcome: 'skipped', reason: 'transcript too short', at: 'x' }],
+    error: null,
+    retryable: false,
+    createdAt: 'x',
+    startedAt: null,
+    finishedAt: null,
+    updatedAt: 'x',
+  };
+
+  it('reads the run with the bearer token and keeps only what the header shows', async () => {
+    const { api, fetch } = client(() => json({ run, meetingEnded: true, canRun: true }));
+    expect(await api.pipeline('tok.sig', 'doc 1')).toEqual({
+      run: {
+        status: 'running',
+        currentStep: 'enhance',
+        error: null,
+        retryable: false,
+        steps: [{ step: 'enhance', outcome: 'skipped', reason: 'transcript too short' }],
+      },
+      meetingEnded: true,
+      canRun: true,
+    });
+    const [url, init] = fetch.mock.calls[0]!;
+    expect(String(url)).toBe(`${BASE}/api/documents/doc%201/pipeline`);
+    expect(init?.method).toBeUndefined();
+    expect(new Headers(init?.headers).get('authorization')).toBe('Bearer tok.sig');
+  });
+
+  it('retry posts; refusals carry their status', async () => {
+    const { api, fetch } = client(() => json({ run: null, meetingEnded: false, canRun: false }));
+    await api.pipeline('tok.sig', 'd1', { retry: true });
+    expect(fetch.mock.calls[0]![1]?.method).toBe('POST');
+    for (const status of [401, 403, 404, 500]) {
+      const failing = client(() => json({ error: 'x' }, { status }));
+      await expect(failing.api.pipeline('t.s', 'd1')).rejects.toMatchObject({ status });
+    }
+    const odd = client(() => json({ run: { status: 'weird' } }));
+    await expect(odd.api.pipeline('t.s', 'd1')).rejects.toBeInstanceOf(ApiError);
+  });
+});

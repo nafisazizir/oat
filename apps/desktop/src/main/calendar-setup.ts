@@ -21,7 +21,7 @@ import { z } from 'zod';
 import type { LocalCalendar } from './calendar-service.ts';
 import type { CalendarConfig, DetectionConfig } from './config.ts';
 import type { Logger } from './ipc.ts';
-import { ReplayMicAppsSource } from './replay-mic-apps.ts';
+import { FileMicAppsSource, ReplayMicAppsSource } from './replay-mic-apps.ts';
 import { sidecarLocateOptions } from './sidecar.ts';
 
 /** System Settings → Privacy & Security → Calendars. */
@@ -114,6 +114,7 @@ export function createCalendarSetup(o: CalendarSetupOptions) {
   function micApps(): MicAppsSource | null {
     const d = o.detection;
     if (d.kind === 'off') return null;
+    if (d.kind === 'file') return new FileMicAppsSource(d.file);
     if (d.kind === 'fixture') {
       try {
         return ReplayMicAppsSource.fromFile(d.file);

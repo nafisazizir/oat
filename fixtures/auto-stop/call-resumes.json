@@ -1,0 +1,63 @@
+{
+  "description": "Muting / a headset switch: Zoom lets go of the mic for 8 s at 17:28 and takes it again. Nothing is shown (the end didn't hold for 30 s). The resumed call keeps what it was: when Zoom really ends at 17:30 (its reopened span has no prompt and started after the recording), the end still counts as the recording's call and stops.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "weekly",
+          "title": "Weekly sync",
+          "start": "2026-11-16T17:00:00Z",
+          "end": "2026-11-16T17:30:00Z",
+          "others": 3
+        }
+      ],
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 3000,
+      "recording": {
+        "eventId": "weekly"
+      },
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 1680000,
+      "micApps": []
+    },
+    {
+      "at": 1688000,
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 1800000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 1830000,
+      "type": "stopping",
+      "reason": "meeting_ended"
+    },
+    {
+      "at": 1840000,
+      "type": "stop",
+      "reason": "meeting_ended"
+    }
+  ]
+}

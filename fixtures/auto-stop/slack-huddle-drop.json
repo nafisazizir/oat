@@ -1,0 +1,63 @@
+{
+  "description": "A Slack huddle (messaging app: 15 s minimum hold unless an event is current) during 'Design huddle' (17:00\u201317:30). Slack drops the mic for 20 s at 17:29:50 \u2014 at the event's end \u2014 and comes back: no toast, the raw reappearance counts as resumed even before Slack re-qualifies. Its real end at 17:33 inherits the call (event ended 3 min before: near) \u2192 stop.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "huddle",
+          "title": "Design huddle",
+          "start": "2026-11-16T17:00:00Z",
+          "end": "2026-11-16T17:30:00Z",
+          "others": 2
+        }
+      ],
+      "micApps": [
+        {
+          "pid": 600,
+          "bundleId": "com.tinyspeck.slackmacgap"
+        }
+      ]
+    },
+    {
+      "at": 3000,
+      "recording": {
+        "eventId": "huddle"
+      },
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 1790000,
+      "micApps": []
+    },
+    {
+      "at": 1810000,
+      "micApps": [
+        {
+          "pid": 600,
+          "bundleId": "com.tinyspeck.slackmacgap"
+        }
+      ]
+    },
+    {
+      "at": 1980000,
+      "micApps": []
+    }
+  ],
+  "expect": [
+    {
+      "at": 2010000,
+      "type": "stopping",
+      "reason": "meeting_ended"
+    },
+    {
+      "at": 2020000,
+      "type": "stop",
+      "reason": "meeting_ended"
+    }
+  ]
+}

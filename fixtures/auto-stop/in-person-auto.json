@@ -1,0 +1,36 @@
+{
+  "description": "In-person recording with 'Also stop in-person recordings' on: the silence fallback stops it (toast + undo window) instead of asking.",
+  "start": "2026-11-16T17:00:00Z",
+  "settings": {
+    "inPerson": true
+  },
+  "steps": [
+    {
+      "at": 0,
+      "recording": true,
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 300000,
+      "levels": {
+        "mic": -65,
+        "system": null
+      }
+    }
+  ],
+  "expect": [
+    {
+      "at": 900000,
+      "type": "stopping",
+      "reason": "silence"
+    },
+    {
+      "at": 910000,
+      "type": "stop",
+      "reason": "silence"
+    }
+  ]
+}

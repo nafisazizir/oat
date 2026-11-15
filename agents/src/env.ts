@@ -21,6 +21,12 @@ export const MIN_JOBS_TOKEN_LENGTH = 32;
 /** The dev default in `.env.example`; refused with `NODE_ENV=production`. */
 export const DEV_JOBS_TOKEN = 'oat-dev-agents-token-not-for-production-0123456789';
 
+/**
+ * 7.5: `MIN_AUTO_ENHANCE_SPEECH_MS` of `@oat/services/pipeline`, repeated so this config module keeps no
+ * server-code imports (it is loaded by the CLI and the channels); `env.test.ts` checks they agree.
+ */
+export const DEFAULT_AUTO_ENHANCE_MIN_SPEECH_MS = 60_000;
+
 /** D-26: an enhancement still `generating` after 3 min is stale (the web app's `ENHANCE_STALE_MS`). */
 const D26_STALE_MS = 3 * 60_000;
 
@@ -55,6 +61,32 @@ export interface AgentsConfig {
   /** Test knobs only (`OAT_AGENTS_ENHANCE_STALE_MS`/`…_TIMEOUT_MS`): in production the web app's D-26 values. */
   enhanceStaleMs: number | undefined;
   enhanceTimeoutMs: number | undefined;
+  /**
+   * `OAT_AUTO_ENHANCE_MIN_SPEECH_MS` (7.5): the enhance step is skipped ("transcript too short") below this much
+   * speech. Default 60 s; tests with short fixture transcripts lower it.
+   */
+  autoEnhanceMinSpeechMs: number;
+}
+
+function nonNegativeInt(env: Env, name: string): number | undefined {
+  const raw = value(env, name);
+  if (raw === undefined) return undefined;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0)
+    throw new Error(`${name} must be a non-negative integer, got "${raw}"`);
+  return n;
+}
+
+/**
+ * A test knob: like the dev jobs token, a value below the 60 s minimum is ignored with `NODE_ENV=production`
+ * (raising it is fine).
+ */
+function minSpeechMs(env: Env, production: boolean): number {
+  const ms = nonNegativeInt(env, 'OAT_AUTO_ENHANCE_MIN_SPEECH_MS');
+  if (ms === undefined || (production && ms < DEFAULT_AUTO_ENHANCE_MIN_SPEECH_MS)) {
+    return DEFAULT_AUTO_ENHANCE_MIN_SPEECH_MS;
+  }
+  return ms;
 }
 
 function positiveInt(env: Env, name: string): number | undefined {
@@ -86,6 +118,7 @@ export function agentsConfig(env: Env = process.env): AgentsConfig {
     stuckAfterMs: positiveInt(env, 'OAT_AGENTS_STUCK_AFTER_MS') ?? 10 * 60_000,
     enhanceStaleMs,
     enhanceTimeoutMs: positiveInt(env, 'OAT_AGENTS_ENHANCE_TIMEOUT_MS'),
+    autoEnhanceMinSpeechMs: minSpeechMs(env, production),
   };
 }
 

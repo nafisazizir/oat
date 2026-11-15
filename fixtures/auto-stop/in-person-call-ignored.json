@@ -1,0 +1,41 @@
+{
+  "description": "A FaceTime call during an in-person recording (started before the call, not from a prompt, no own event) ends right at a calendar event's end: not this recording's call \u2192 ignored (7.2 contract). Sound throughout: no silence question either.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "other",
+          "title": "Someone else's call",
+          "start": "2026-11-16T17:00:00Z",
+          "end": "2026-11-16T17:20:00Z",
+          "others": 1
+        }
+      ],
+      "recording": true,
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 300000,
+      "micApps": [
+        {
+          "pid": 77,
+          "bundleId": "com.apple.avconferenced"
+        }
+      ]
+    },
+    {
+      "at": 1200000,
+      "micApps": []
+    },
+    {
+      "at": 1500000,
+      "recording": false
+    }
+  ],
+  "expect": []
+}

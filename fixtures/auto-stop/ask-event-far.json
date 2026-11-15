@@ -1,0 +1,49 @@
+{
+  "description": "The call ends 40 min before its event does (17:00\u201318:00): not clearly over \u2192 'Meeting over?' instead of a stop. The user answers 'Stop recording'.",
+  "start": "2026-11-16T17:00:00Z",
+  "steps": [
+    {
+      "at": 0,
+      "events": [
+        {
+          "id": "planning",
+          "title": "Planning",
+          "start": "2026-11-16T17:00:00Z",
+          "end": "2026-11-16T18:00:00Z",
+          "others": 4
+        }
+      ],
+      "micApps": [
+        {
+          "pid": 501,
+          "bundleId": "us.zoom.xos"
+        }
+      ]
+    },
+    {
+      "at": 3000,
+      "recording": {
+        "eventId": "planning"
+      },
+      "levels": {
+        "mic": -22,
+        "system": -60
+      }
+    },
+    {
+      "at": 1200000,
+      "micApps": []
+    },
+    {
+      "at": 1240000,
+      "answer": "stop"
+    }
+  ],
+  "expect": [
+    {
+      "at": 1230000,
+      "type": "ask",
+      "reason": "meeting_ended"
+    }
+  ]
+}

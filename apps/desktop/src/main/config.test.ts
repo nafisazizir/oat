@@ -44,6 +44,8 @@ describe('desktopConfigFromEnv', () => {
         ELECTRON_RENDERER_URL: 'http://localhost:5173',
         OAT_CALENDAR: 'fixture:/tmp/events.json',
         OAT_DETECTION: 'fixture:/tmp/timeline.json',
+        OAT_AUTO_STOP: '{"floorMs":0}',
+        OAT_END_GRACE_MS: '0',
       },
       { isPackaged: true, bakedWebUrl: 'https://oat.example' },
     );
@@ -60,7 +62,26 @@ describe('desktopConfigFromEnv', () => {
       syncUrl: undefined,
       calendar: { kind: 'eventkit' },
       detection: { kind: 'sidecar' },
+      autoStop: {},
+      endGraceMs: undefined,
     });
+  });
+
+  it('OAT_AUTO_STOP / OAT_END_GRACE_MS (7.5): dev-only timing overrides, validated', () => {
+    const dev = { isPackaged: false };
+    expect(desktopConfigFromEnv({}, dev)).toMatchObject({ autoStop: {}, endGraceMs: undefined });
+    expect(
+      desktopConfigFromEnv(
+        { OAT_AUTO_STOP: '{"floorMs":2000,"undoMs":5000,"silenceDb":-40}', OAT_END_GRACE_MS: '0' },
+        dev,
+      ),
+    ).toMatchObject({ autoStop: { floorMs: 2000, undoMs: 5000, silenceDb: -40 }, endGraceMs: 0 });
+    expect(() => desktopConfigFromEnv({ OAT_AUTO_STOP: '[1]' }, dev)).toThrow(/OAT_AUTO_STOP/);
+    expect(() => desktopConfigFromEnv({ OAT_AUTO_STOP: '{"floorMs":-1}' }, dev)).toThrow(/floorMs/);
+    expect(() => desktopConfigFromEnv({ OAT_AUTO_STOP: '{"nope":1}' }, dev)).toThrow(/nope/);
+    expect(() => desktopConfigFromEnv({ OAT_END_GRACE_MS: '1.5' }, dev)).toThrow(
+      /OAT_END_GRACE_MS/,
+    );
   });
 
   it('OAT_CALENDAR / OAT_DETECTION: off by default in dev, fixtures or the sidecar on request', () => {
@@ -80,6 +101,10 @@ describe('desktopConfigFromEnv', () => {
     expect(desktopConfigFromEnv({ OAT_DETECTION: 'fixture:/tmp/t.json' }, dev).detection).toEqual({
       kind: 'fixture',
       file: '/tmp/t.json',
+    });
+    expect(desktopConfigFromEnv({ OAT_DETECTION: 'file:/tmp/apps.json' }, dev).detection).toEqual({
+      kind: 'file',
+      file: '/tmp/apps.json',
     });
     expect(() => desktopConfigFromEnv({ OAT_CALENDAR: 'google' }, dev)).toThrow(/OAT_CALENDAR/);
     expect(() => desktopConfigFromEnv({ OAT_DETECTION: 'fixture:' }, dev)).toThrow(/OAT_DETECTION/);
