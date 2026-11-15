@@ -94,3 +94,12 @@ Consumer requirements: Next.js (`apps/web`) must list every `@oat/*` package in 
 electron-vite (`apps/desktop`) externalizes dependencies in its main/preload builds by default, so `@oat/*` must
 be excluded from externalization (bundled) — otherwise Node tries to load `.ts` files at runtime.
 Package `exports` map `./*` → `./src/*.ts` but block test files with `"./*.test": null`.
+
+## D-17 · 2026-11-14 · accepted · agent
+STT credentials and resilience, informed by `research/granola/audio-path.md`:
+- The desktop never holds a long-lived STT key. `apps/web` issues short-lived STT tokens to signed-in clients
+  (Deepgram temporary keys/grants in prod; the mocks service implements the same grant endpoint in dev).
+- One STT stream per source (mic, system) — never mixed; segments tagged by source.
+- Reconnect replays a rolling in-memory buffer of recent audio (≥120 s per source) into the new connection;
+  longer outages are back-filled by re-transcribing from the local Opus archive (D-10) — our advantage.
+- Mic path uses OS echo cancellation (Apple voice processing) so speaker playback doesn't leak into "me".

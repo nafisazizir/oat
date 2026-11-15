@@ -3,7 +3,8 @@
 Append-only. Newest at the bottom. Orchestrator writes one entry per state change.
 
 ## Waiting on human
-(nothing yet — autonomous run in progress)
+- [ ] Hopper (used by REA) is stuck on a dialog since 13:32; REA `close_binary` returns cleanup_incomplete.
+      Please dismiss/quit Hopper. Not blocking product work.
 
 ## Entries
 - 2026-11-14 · setup · Docs written: CLAUDE.md, SPEC, PLAN, FACTORY, IDEAS, DECISIONS. Initial Granola
@@ -19,3 +20,4 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   changes (vitest .tsx globs, turbo strict-env passThroughEnv) → back to implementer.
 - 2026-11-14 · 1.1 · shipped: monorepo skeleton (pnpm catalog, turbo, TS-source packages D-15) squash-merged to main.
 - 2026-11-14 · 0.1/0.2 · done: REA healthy; bundle map in research/granola/bundle-map.md (one renderer w/ hash routes, 14 utility processes around native addons, typed preload bridge w/ sender checks, TipTap+Yjs renderer).
+- 2026-11-14 · 0.3 · done: audio-path.md (Chromium capture in renderer, 16 kHz PCM 100 ms blocks, Deepgram WS per source w/ short-lived tokens, 120 s replay buffer, no audio stored). → D-17; 2.3 gets AEC requirement.
