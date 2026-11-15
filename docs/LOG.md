@@ -18,6 +18,22 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - [ ] **Mic-apps detection test (7.2)** — first real `oat-audio mic-apps watch` (README "Mic apps"): join a Zoom/
       Meet/Teams call and confirm the app appears/disappears and no permission prompt is shown; note any
       unrecognised bundle ids.
+- [ ] **Try the whole app end to end (dev stack, ~20 min)** — `pnpm i && pnpm dev:up && pnpm dev`, open
+      http://localhost:3000 (sign in via Mailpit http://localhost:18025) and the desktop app; record a real call
+      (needs the permission tests above), enhance, chat, share. Mock AI/STT output is placeholder text by design
+      (D-13) until real keys are set (9.6). Report anything odd as a LOG entry or IDEAS item.
+- [ ] **Decisions to confirm (agent-made, reversible)**: D-18 (private folders/no cross-workspace moves), D-23
+      (origin rule), D-24 (multi-part audio), D-26 (enhance), D-27 (assistant history after access loss),
+      D-28/D-30 (local store, per-account audio), D-29 (eve for durable pipelines, rc pinned), D-31 (calendar
+      event keys). All in `docs/DECISIONS.md`; tell the factory if any should change.
+- [ ] **9.6 Production infra + real keys** (human checkpoint): Neon Postgres, Vercel project link + deploys,
+      AI Gateway key (`AI_GATEWAY_API_KEY`), Deepgram (`DEEPGRAM_API_KEY`), Google OAuth client (sign-in +
+      calendar), Notion OAuth app, email provider (SMTP/Resend), Redis (Upstash), BETTER_AUTH_SECRET(S),
+      service token for agents; eve prod world (D-29 says deferred — decide Vercel Workflow vs worker fallback).
+      Then run the real-model eval quality tier (`pnpm --filter @oat/ai eval -- --model real`) to set baselines.
+- [ ] **9.1 Signing/notarization/auto-update** (Apple Developer account needed): bundle `oat-audio` with
+      entitlements (audio-input, calendars), declare `oat://` scheme, ship THIRD_PARTY_NOTICES.md, bake prod URL.
+- [ ] **9.5 One week of real use + sign-off.**
 
 ## Entries
 - 2026-11-14 · setup · Docs written: CLAUDE.md, SPEC, PLAN, FACTORY, IDEAS, DECISIONS. Initial Granola
