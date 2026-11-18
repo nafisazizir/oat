@@ -1,6 +1,6 @@
 # Oat — Plan & Task Board
 
-Rules: tasks are picked top-down when deps are done (see `FACTORY.md` §2). Each task gets a file in
+Rules: tasks are picked top-down when deps are done (see `.agent/FACTORY.md` §2). Each task gets a file in
 `docs/tasks/` when started. Tick `[x]` only after verification evidence is recorded. 🧑 = needs a human
 checkpoint at some point in the task. Dev is containerised and offline (D-11): a 🧑 on a task now means only
 the *real-device / real-credential* step is human; the agent builds and verifies everything else against

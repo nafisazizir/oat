@@ -4,7 +4,7 @@ A personal AI meeting-notes app. Oat captures mic + system audio on the desktop 
 live, and turns your rough notes plus the transcript into clean notes, inside a Notion-like workspace with
 private pages, team spaces, sharing and AI assistants.
 
-- Start here: [`CLAUDE.md`](CLAUDE.md), then the docs it points to (`docs/SPEC.md`, `docs/PLAN.md`, ...).
+- Start here: [`AGENTS.md`](AGENTS.md), then the docs it points to (`docs/SPEC.md`, `docs/PLAN.md`, ...).
 - Local development setup: `docs/DEV.md` (coming in task 1.10).
 
 ## Monorepo

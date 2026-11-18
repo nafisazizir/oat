@@ -4,11 +4,15 @@ Goal: from these docs alone, an orchestrator session can run long-lived, spawn s
 task through **prompt → design → code → review → verify → ship** until the v1 definition of "ready"
 (`SPEC.md` §9) is met — stopping only for the human checkpoints below.
 
+This document is tool-agnostic: anything that depends on a specific agent tool (how to loop, how to
+isolate subagents, which client REA configures) lives in that tool's entry file — e.g. `CLAUDE.md` for
+Claude Code — while `AGENTS.md` is the entry point every agent reads.
+
 ## 1. Roles
 
 | Role | Runs as | Owns | Must not |
 |---|---|---|---|
-| **Orchestrator** | Long-running main session (`/loop` self-paced, or a workflow) | Picking tasks, `PLAN.md`, `LOG.md`, spawning others, merging | Write large features itself; skip gates |
+| **Orchestrator** | Long-running main session (self-paced loop or a scheduled workflow) | Picking tasks, `PLAN.md`, `LOG.md`, spawning others, merging | Write large features itself; skip gates |
 | **Researcher** | Subagent with REA + web | `research/granola/*` | Write product code; copy Granola code/prompts/assets |
 | **Designer** | Subagent | UI composition with `packages/ui`, design notes in the task file | Invent one-off colours/spacing outside tokens |
 | **Implementer** | Subagent in its own git worktree | Code + tests for one task | Touch files outside the task's scope without noting it |
@@ -27,7 +31,7 @@ pick ─► PROMPT ─► DESIGN ─► CODE ─► REVIEW ─► VERIFY ─► 
 
 1. **Pick** — next unchecked task in `PLAN.md` whose `deps` are all checked. Tasks without shared files may
    run in parallel (max 3 implementers at once), each in its own worktree.
-2. **Prompt** — write `docs/tasks/<id>-<slug>.md` from the template (§5): goal, context links, scope,
+2. **Prompt** — write `docs/tasks/<id>-<slug>.md` per `.agent/skills/task-file`: goal, context links, scope,
    acceptance criteria, verification commands. This file *is* the brief every later subagent receives.
 3. **Design** — for UI tasks: layout sketch (ASCII ok), components used from `packages/ui`, states
    (empty/loading/error). For architecture tasks: interfaces + data flow. Any real decision → new entry in
@@ -36,7 +40,8 @@ pick ─► PROMPT ─► DESIGN ─► CODE ─► REVIEW ─► VERIFY ─► 
    `pnpm run ci` (or at least `pnpm run ci --fast`) locally before handing back.
 5. **Review** — reviewer reads task file + `git diff main...`. Checks: meets acceptance criteria, correctness,
    security (secrets, authz via `packages/core/permissions`), clean-room compliance, tests meaningful,
-   no scope creep. Verdict: `approve` or `changes` with a numbered list. Use `/code-review` where available.
+   no scope creep. Verdict: `approve` or `changes` with a numbered list. Use your tool's review command
+   where it has one (e.g. `/code-review`).
 6. **Verify** — verifier runs every command in the task's *Verification* section plus the global gates (§3)
    and pastes the outputs (trimmed) into the task file. UI tasks need a screenshot or Playwright trace.
 7. **Ship** — orchestrator squash-merges the task branch into local `main` (D-12), re-runs `pnpm run ci` on
@@ -46,9 +51,9 @@ pick ─► PROMPT ─► DESIGN ─► CODE ─► REVIEW ─► VERIFY ─► 
 **Research on demand (any phase, any milestone).** When a task hits a "how does Granola do X?" question —
 e.g. the system-audio tap fails, meeting detection is flaky, sync conflicts behave oddly — first check
 `research/granola/`. If the answer isn't there, the orchestrator spawns a **Researcher** with one specific
-question; it uses REA (§8) and writes the answer to `research/granola/<topic>.md`, then the task continues
-from that note. Implementers never run REA themselves or read `research/granola/raw/` (clean room). Log each
-research request in the task file under *Context*.
+question; it uses REA (`.agent/skills/rea-research`) and writes the answer to `research/granola/<topic>.md`,
+then the task continues from that note. Implementers never run REA themselves or read
+`research/granola/raw/` (clean room). Log each research request in the task file under *Context*.
 
 A task that fails review or verification 3 times goes to `blocked` with a summary of what was tried, and the
 orchestrator moves on to other unblocked work.
@@ -84,46 +89,20 @@ The factory only works if agents can check their own work. Design for it:
   is plain TS with unit tests.
 - **Sync:** property-style tests for outbox replay and conflict handling.
 
-## 5. Task file template (`docs/tasks/<id>-<slug>.md`)
+## 5. Task files
 
-```markdown
-# <id> — <title>
-status: todo | in-progress | review | verify | blocked | done
-milestone: M<n> · deps: <ids> · branch: task/<id>-<slug>
+`docs/tasks/<id>-<slug>.md` is the brief every later subagent receives. Template and rules:
+`.agent/skills/task-file/SKILL.md`.
 
-## Goal
-One paragraph: what and why.
+## 6. Running long sessions
 
-## Context
-Links to SPEC sections, DECISIONS entries, research notes, related code.
-
-## Scope
-In: … · Out: …
-
-## Acceptance criteria
-- [ ] Observable behaviour 1
-- [ ] …
-
-## Verification
-Commands / steps the verifier runs, with expected results.
-
-## Design notes
-(designer / implementer)
-
-## Review
-(reviewer verdicts, numbered findings, resolution)
-
-## Evidence
-(verifier: command outputs, screenshots, preview URL)
-```
-
-## 6. Running long sessions in Claude Code
-
-- **Start the orchestrator:** a session with a prompt like *"Act as Orchestrator per docs/FACTORY.md.
-  Continue until SPEC §9 is met or you hit a human checkpoint."* Use `/loop` (no interval) so it self-paces
-  and resumes; it re-reads `PLAN.md` and `LOG.md` on every wake-up instead of relying on memory.
-- **Subagents:** spawn implementers with `isolation: worktree`; reviewer/verifier as fresh agents with the
-  task file path and branch name as the whole brief.
+- **Start the orchestrator:** a session with a prompt like *"Act as Orchestrator per .agent/FACTORY.md.
+  Continue until SPEC §9 is met or you hit a human checkpoint."* Give it a self-pacing mechanism — whatever
+  the tool provides (a loop/resume command, a scheduled workflow, or an outer script) — so it re-reads
+  `PLAN.md` and `LOG.md` on every wake-up instead of relying on memory.
+- **Subagents:** spawn implementers in isolated working copies (a `git worktree`, or your tool's own
+  isolation — Claude Code: `isolation: worktree`; Devin: child sessions each get a fresh checkout);
+  reviewer/verifier as fresh agents with the task file path and branch name as the whole brief.
 - **Fan-out:** multi-agent workflows (review across dimensions, parallel tasks) only when the human has opted
   in for that run — they're token-expensive.
 - **Context hygiene:** subagents report back short summaries; details go in the task file, not the chat.
@@ -146,59 +125,10 @@ needed, then continue with any other unblocked task.
 
 ## 8. Research with REA (rea.tools)
 
-[REA — "Reverse Engineer Anything"](https://rea.tools/) (npm `rea-agents`, repo `morluto/rea`) is an MCP
-server + CLI that gives the agent tools to inspect software without source: JavaScript/Electron apps
-(static), native Mach-O binaries (via Hopper/Ghidra/IDA providers), SQLite databases, websites and HAR
-captures. Findings come back with evidence records. It is the **Researcher's** tool — never a code source.
+REA is the **Researcher's** tool for inspecting Granola without source — static analysis only, under
+clean-room rules. Setup, commands and rules: `.agent/skills/rea-research/SKILL.md`.
 
-Setup (human checkpoint the first time, since it edits client config):
-```bash
-npx rea-agents@latest setup --client claude_code     # adds MCP entry + REA skill; restart Claude Code
-npx -y rea-agents@latest doctor --client claude_code --json   # expect "healthy": true
-```
-Useful commands for Granola:
-```bash
-rea analyze-javascript-application /Applications/Granola.app --json   # Electron bundle structure
-rea analyze /Applications/Granola.app/Contents/Resources/native/<addon>.node
-rea inspect-sqlite-database <path-to-local-db> --json                # schema only, never row data
-rea capabilities --json
-```
-Rules for research:
-- Answer a specific question per run (e.g. "how is meeting detection triggered?"), write the answer as
-  prose + diagrams in `research/granola/<topic>.md` with REA evidence IDs.
-- Raw dumps go in `research/granola/raw/` (git-ignored). Implementers do not read `raw/`.
-- Never extract or use auth tokens, never call Granola endpoints, never read the user's meeting content
-  from Granola's database — schemas and structure only.
+## 9. Standard subagent briefs
 
-## 9. Standard subagent briefs (orchestrator copies these)
-
-All briefs start with: *"You are the <Role> in the Oat factory. Read `CLAUDE.md`, `docs/FACTORY.md` and your
-task file `docs/tasks/<file>` first. Keep your final report under 15 lines; put details in the task file."*
-
-- **Implementer** (Agent, `isolation: worktree`): "Implement task <id> on branch `task/<id>-<slug>` (create it
-  from `main`). Work only within the task's scope. Commit in small steps. Before finishing run
-  `pnpm install && pnpm run ci` (the full gate; `--fast` while iterating). The compose stack is shared: `ci`
-  starts it if it's down and leaves it alone if healthy; never `dev:reset`/`dev:down`/`dev:build`.
-  Fill *Design notes* in the task file. Report: branch name, worktree path, what was done, check results,
-  anything out of scope you touched. If review findings are attached, fix exactly those."
-- **Reviewer** (fresh Agent, read-only intent): "Review branch `<branch>` against task <id>. Read the task file
-  and `git diff main...<branch>` only — not the implementer's report. Check acceptance criteria, correctness,
-  security/authz, clean-room, tests meaningful, scope creep, D-11 (no external calls). Write the verdict under
-  *Review* in the task file **on that branch's worktree** and report `approve` or `changes` + numbered list."
-- **Verifier** (fresh Agent): "In worktree `<path>` (branch `<branch>`), run every command in the task's
-  *Verification* section plus the global gates (`pnpm run ci`, paste its summary table). Paste trimmed outputs into *Evidence*, commit the task file.
-  UI tasks: Playwright screenshot saved under `docs/tasks/evidence/<id>/`. Report `pass` or `fail` + reasons.
-  Never edit product code."
-- **Researcher** (fresh Agent, REA MCP): "Answer: <one question> about /Applications/Granola.app using REA
-  static analysis (MCP `mcp__rea__*`, load via ToolSearch). Rules: FACTORY §8 — structure only, no tokens, no
-  network, no user content, no copying strings/prompts/code. Raw dumps → `research/granola/raw/`. Write prose
-  answer with evidence IDs to `research/granola/<topic>.md`. Close REA sessions when done."
-
-Merging: orchestrator runs `git merge --squash <branch>` on `main`, commits `<id>: <title>`, re-runs
-`pnpm run ci`, then removes the worktree/branch. Merge conflicts on docs files (PLAN/LOG) are resolved by the
-orchestrator; conflicts in code go back to the implementer.
-
-**Migrations in parallel branches:** Drizzle migrations are numbered. Before handing back, an implementer
-merges current `main` and regenerates/renumbers its migration after main's latest (journal must be
-consistent: `pnpm --filter @oat/db db:generate` reports no drift). Branches with migrations merge one at a
-time; the next one re-merges `main` before its squash-merge.
+The briefs the orchestrator copies when spawning each role — implementer, reviewer, verifier, researcher —
+plus merge and migration-ordering rules: `.agent/skills/subagent-briefs/SKILL.md`.
