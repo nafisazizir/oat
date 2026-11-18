@@ -1,7 +1,12 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "ui": "stream",
-  "globalDependencies": ["tsconfig.base.json", "eslint.config.js", "vitest.shared.ts"],
+  "globalDependencies": [
+    "tsconfig.base.json",
+    "eslint.config.js",
+    "vitest.shared.ts",
+    "fixtures/**"
+  ],
   "tasks": {
     "transit": {
       "dependsOn": ["^transit"]
