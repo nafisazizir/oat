@@ -134,3 +134,4 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - Remaining unticked tasks are human-only: 9.1 (signing/notarization/auto-update), 9.6 (prod infra + real keys), 9.5 (prod deploy + a week of real use).
 - Non-blocking review follow-ups were moved to docs/IDEAS.md ("Follow-ups from the autonomous run").
 - Next for the human: see "Waiting on human" above (try the app end to end via docs/DEV.md; real-permission checks for sidecar/calendar/mic-apps/onboarding; confirm D-18..D-31; then 9.6 → 9.5).
+- 2026-11-18 · ci · GitHub Actions: first run on main failed (swift: setup-node pnpm cache without pnpm; checks: unit property-test timeout + backfill int tolerance on a 4-vCPU runner). Sped up: no Playwright `--with-deps` apt step (~9 min), turbo cache, caches saved on failure.
