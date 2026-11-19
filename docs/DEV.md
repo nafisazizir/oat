@@ -628,8 +628,8 @@ Real runs never happen in `pnpm run ci` (D-11, D-13).
 ## CI (`pnpm run ci` is the gate)
 
 `pnpm run ci` (`scripts/ci.mjs`, plain Node) runs every gate in order and prints a summary table with
-durations; it exits non-zero if any step fails. GitHub Actions runs the same command (D-12: no remote yet, the
-workflow is checked locally by the `actionlint` step). A step whose prerequisite failed is skipped; the
+durations; it exits non-zero if any step fails. GitHub Actions runs the same command (D-12) on pushes to `main`
+and on PRs; the `actionlint` step lints the workflow. A step whose prerequisite failed is skipped; the
 others still run so you see every failure at once (`--bail` stops at the first).
 
 | Step              | What it does                                                                                    |
@@ -671,10 +671,11 @@ makes `next dev` compile and hydrate pages several times slower. The e2e suites 
 `process.env.E2E_PORT` (fallback to a fixed port for manual runs). Chromium is installed once per machine with
 `pnpm --filter @oat/ui exec playwright install chromium`.
 
-**GitHub Actions** (`.github/workflows/ci.yml`): job `checks` on `ubuntu-24.04` (pnpm store and Playwright
-browser caches, `pnpm run ci`; the `stack` step brings up the compose stack on the runner, Swift steps report
+**GitHub Actions** (`.github/workflows/ci.yml`): job `checks` on `ubuntu-24.04` (pnpm store, turbo and Playwright
+browser caches, saved even when the run fails; Chromium only, no `--with-deps` apt step; `pnpm run ci`; the `stack` step brings up the compose stack on the runner, Swift steps report
 `skip`) and job `swift` on `macos-26` (`node scripts/ci.mjs --only swift`, no install). Actions are pinned by
-tag, runs on the same ref cancel each other, no secrets. To lint the workflow by hand:
+tag, runs on the same ref cancel each other, no secrets. The 4-vCPU runner sets `OAT_TEST_TIMEOUT_SCALE=3` (vitest
+timeouts) and `E2E_TIMEOUT_SCALE=2`; `pnpm run ci` caps turbo at half the cores for the vitest steps. To lint the workflow by hand:
 `node scripts/ci.mjs --only actionlint`. (Mounting the repo into the actionlint container, as in
 `docker run -v "$PWD":/repo rhysd/actionlint`, fails when Docker Desktop isn't allowed to share the folder,
 e.g. under `~/Documents`; the stdin form avoids that.)

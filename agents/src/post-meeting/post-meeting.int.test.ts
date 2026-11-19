@@ -341,6 +341,16 @@ async function workflowRun(runId: string): Promise<RunView> {
   return (await res.json()) as RunView;
 }
 
+/** The last step finalises the pipeline row just before the Workflow run itself settles. */
+const settledWorkflowRun = (runId: string) =>
+  waitFor(
+    async () => {
+      const view = await workflowRun(runId);
+      return view.status === 'pending' || view.status === 'running' ? undefined : view;
+    },
+    { timeout: 10_000, interval: 100, message: `workflow run ${runId} did not settle` },
+  );
+
 const outcomes = (row: { steps: { step: string; outcome: string; reason?: string }[] }) =>
   Object.fromEntries(row.steps.map((s) => [s.step, s.reason ?? s.outcome]));
 
@@ -410,7 +420,7 @@ describe('post-meeting pipeline on eve (offline)', () => {
     expect(row.startedAt).toBeInstanceOf(Date);
     expect(row.finishedAt).toBeInstanceOf(Date);
     expect(outcomes(row)).toEqual({ enhance: 'ran', index: 'ran', notion: 'ran' });
-    const view = await workflowRun(row.workflowRunId!);
+    const view = await settledWorkflowRun(row.workflowRunId!);
     expect(view.status).toBe('completed');
     expect(view.result).toMatchObject({ pipelineRunId: row.id, documentId: m.documentId });
 
@@ -685,7 +695,7 @@ describe('post-meeting pipeline on eve (offline)', () => {
     expect(c.status).toBe('failed');
     expect(c.steps.map((s) => s.step)).toEqual(['enhance', 'index']);
     expect(c.error).toBe('Sending to Notion stayed blocked by another send. Try again.');
-    const view = await workflowRun(c.workflowRunId!);
+    const view = await settledWorkflowRun(c.workflowRunId!);
     expect(view.status).toBe('failed');
   }, 420_000);
 });

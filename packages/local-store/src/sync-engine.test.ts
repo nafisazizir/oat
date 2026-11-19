@@ -455,5 +455,6 @@ describe('SyncEngine', () => {
       expect(server.docs.get('d1')!.title).toBe(store.document('d1')!.title);
       e.stop();
     }
-  });
+    // CPU-bound: well under 1 s alone, but over the 5 s default inside a parallel `turbo run test` on a 4-vCPU runner.
+  }, 30_000);
 });

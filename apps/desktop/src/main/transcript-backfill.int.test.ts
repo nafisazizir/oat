@@ -160,7 +160,8 @@ describe('STT down for 3 minutes (fast FileSource ↔ Deepgram mock)', () => {
       expect(g.startMs).toBeGreaterThan(DOWN_AT_MS - 10_000);
       expect(g.startMs).toBeLessThanOrEqual(DOWN_AT_MS + 1000);
       expect(g.endMs - g.startMs).toBeGreaterThan(OUTAGE_MS - 120_000 - 5000);
-      expect(g.endMs).toBeLessThan(DOWN_AT_MS + OUTAGE_MS - 120_000 + 5000);
+      // Reconnect lag in wall time × SPEED: ~375 ms on a loaded 4-vCPU runner was 7.5 s of audio.
+      expect(g.endMs).toBeLessThan(DOWN_AT_MS + OUTAGE_MS - 120_000 + 15_000);
     }
     expect(service.snapshot().issues.some((i) => i.code === 'replay_overflow')).toBe(true);
 

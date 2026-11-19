@@ -5,6 +5,12 @@ import { configDefaults, defineConfig, type ViteUserConfig } from 'vitest/config
 const ROOT_ENV = new URL('./.env', import.meta.url);
 
 /**
+ * Timeout multiplier: `OAT_TEST_TIMEOUT_SCALE` (default 1; set on the 4-vCPU GitHub runner). Timeouts only
+ * bound a stuck test, so a larger budget costs nothing when tests pass.
+ */
+const scale = Math.max(1, Number(process.env.OAT_TEST_TIMEOUT_SCALE) || 1);
+
+/**
  * Shared Vitest config for every workspace package (used from each package's `vitest.config.ts`).
  *
  * - `vitest run`            unit tests: `src/**` `*.test.{ts,tsx}`, excluding `*.int.test.*`. No services.
@@ -23,7 +29,8 @@ export function defineOatConfig(overrides: ViteUserConfig['test'] = {}) {
           ? [...configDefaults.exclude]
           : [...configDefaults.exclude, 'src/**/*.int.test.{ts,tsx}'],
         // Int tests share one compose stack with other worktrees/agents; 5 s defaults flake under load.
-        ...(integration ? { testTimeout: 20_000, hookTimeout: 30_000 } : {}),
+        testTimeout: (integration ? 20_000 : 5_000) * scale,
+        hookTimeout: (integration ? 30_000 : 10_000) * scale,
         ...overrides,
       },
     };
