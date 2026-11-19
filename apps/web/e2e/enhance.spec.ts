@@ -92,6 +92,10 @@ test('enhances a meeting note: streams, re-attaches after a reload, keeps my lin
   await seedMeeting(page, doc.id);
   await page.goto(`/d/${doc.id}`);
 
+  // Compile the SSE route before generation: completed runs skip preview events.
+  const streamWarmup = await page.request.get(`/api/enhancements/${doc.id}/stream`);
+  expect(streamWarmup.status()).toBe(404);
+
   await editor(page).click();
   await page.keyboard.type('pilot in two clinics');
   await page.keyboard.press('Enter');
