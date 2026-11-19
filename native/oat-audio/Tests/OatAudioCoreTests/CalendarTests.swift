@@ -448,12 +448,13 @@ private func waitUntil(timeout: Double = 3, _ check: () -> Bool) async throws {
 struct CalendarWatchTests {
     @Test func debounceCoalescesABurst() async throws {
         let c = Counter()
-        let d = Debouncer(delay: 0.08) { c.bump() }
+        // Delay well above the 10 ms signal gap: a loaded CI VM can oversleep a 10 ms sleep past 80 ms.
+        let d = Debouncer(delay: 0.3) { c.bump() }
         for _ in 0..<5 {
             d.signal()
             try await Task.sleep(for: .milliseconds(10))
         }
-        try await Task.sleep(for: .milliseconds(250))
+        try await Task.sleep(for: .milliseconds(700))
         #expect(c.value == 1)
         d.signal()
         try await waitUntil { c.value == 2 }

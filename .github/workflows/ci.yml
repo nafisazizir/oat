@@ -18,6 +18,9 @@ permissions:
 
 env:
   TURBO_TELEMETRY_DISABLED: '1'
+  # The 4-vCPU runner is several times slower than a dev machine: stretch timeouts, never the waits.
+  OAT_TEST_TIMEOUT_SCALE: '3'
+  E2E_TIMEOUT_SCALE: '2'
 
 jobs:
   checks:

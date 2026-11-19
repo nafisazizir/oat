@@ -1,6 +1,7 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "ui": "stream",
+  "globalPassThroughEnv": ["OAT_TEST_TIMEOUT_SCALE"],
   "globalDependencies": [
     "tsconfig.base.json",
     "eslint.config.js",
