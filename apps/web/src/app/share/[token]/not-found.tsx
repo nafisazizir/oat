@@ -1,6 +1,13 @@
-import { LinkIcon } from 'lucide-react';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
+import { IconLinkOff } from '@tabler/icons-react';
 
-import { EmptyState, PageContainer } from '@/components/page';
+import { PageContainer } from '@/components/page';
 
 /**
  * Any share link that doesn't resolve: unknown, turned off, reset or in the trash. One message for all,
@@ -9,13 +16,20 @@ import { EmptyState, PageContainer } from '@/components/page';
 export default function ShareNotFound() {
   return (
     <PageContainer data-share-missing="">
-      <EmptyState
-        icon={LinkIcon}
-        title="This link isn’t available"
-        titleAs="h1"
-        description="It may have been turned off or replaced with a new link. Ask the person who shared it for an up-to-date one."
-        className="mt-6"
-      />
+      <Empty className="mt-6">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <IconLinkOff />
+          </EmptyMedia>
+          <EmptyTitle>
+            <h1>This link isn’t available</h1>
+          </EmptyTitle>
+          <EmptyDescription>
+            It may have been turned off or replaced with a new link. Ask the person who shared it
+            for an up-to-date one.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     </PageContainer>
   );
 }

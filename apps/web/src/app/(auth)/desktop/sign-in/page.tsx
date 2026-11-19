@@ -32,9 +32,9 @@ export default async function DesktopSignInPage({
 
   if (!isDesktopAuthValue(state) || !isDesktopAuthValue(challenge)) {
     return (
-      <Card className="shadow-md">
+      <Card>
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">
+          <CardTitle className="text-heading-24">
             <h1>This link is incomplete</h1>
           </CardTitle>
           <CardDescription>
@@ -51,17 +51,14 @@ export default async function DesktopSignInPage({
   if (!session) redirect(signInPath(here) as Route);
 
   return (
-    <Card className="shadow-md">
+    <Card>
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">
+        <CardTitle className="text-heading-24">
           <h1>Sign in to the Oat app</h1>
         </CardTitle>
         <CardDescription>
           You’re signed in as
-          <span
-            className="my-1 block font-medium break-all text-foreground"
-            data-testid="desktop-email"
-          >
+          <span className="my-1 block break-all text-gray-1000" data-testid="desktop-email">
             {session.user.email}
           </span>
           The Oat app on this computer will use this account.

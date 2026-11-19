@@ -9,34 +9,36 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@oat/ui/components/dropdown-menu';
+import { Kbd } from '@oat/ui/components/kbd';
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
 } from '@oat/ui/components/sidebar';
 import {
-  CheckIcon,
-  ChevronsUpDownIcon,
-  HomeIcon,
-  LayoutTemplateIcon,
-  LogOutIcon,
-  PlusIcon,
-  ListTodoIcon,
-  SearchIcon,
-  SettingsIcon,
-  SparklesIcon,
-  SquarePenIcon,
-  Trash2Icon,
-  UserPlusIcon,
-} from 'lucide-react';
+  IconCheck,
+  IconChecklist,
+  IconEdit,
+  IconHome,
+  IconLayoutGrid,
+  IconLogout,
+  IconPlus,
+  IconSearch,
+  IconSelector,
+  IconSettings,
+  IconSparkles,
+  IconTrash,
+  IconUserPlus,
+} from '@tabler/icons-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useOptimistic, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
 import { inSection, sections } from '@/lib/navigation';
@@ -63,7 +65,9 @@ function memberLabel(workspace: Workspace) {
 }
 
 function WorkspaceSwitcher() {
-  const { workspace: currentWorkspace, workspaces } = useShellData();
+  const { workspace: loadedWorkspace, workspaces } = useShellData();
+  // The picked workspace shows in the switcher right away; the rest of the shell follows the refresh.
+  const [currentWorkspace, showWorkspace] = useOptimistic(loadedWorkspace);
   const [createOpen, setCreateOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -73,6 +77,7 @@ function WorkspaceSwitcher() {
 
   const switchTo = (workspace: Workspace) =>
     startTransition(async () => {
+      showWorkspace(workspace);
       const result = await switchWorkspace(workspace.id);
       if (!result.ok) toast.error(result.error);
     });
@@ -84,30 +89,27 @@ function WorkspaceSwitcher() {
           render={
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent group-data-[collapsible=icon]:pl-1!"
+              className="data-popup-open:bg-gray-alpha-100 group-data-[collapsible=icon]:ps-1!"
               data-testid="workspace-switcher"
               aria-busy={pending || undefined}
             />
           }
         >
           <WorkspaceTile workspace={currentWorkspace} />
-          <div className="flex min-w-0 flex-col gap-0.5 leading-none">
-            <span className="truncate font-medium">{currentWorkspace.name}</span>
-            <span className="truncate text-xs text-muted-foreground">
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate text-button-14 text-gray-1000">{currentWorkspace.name}</span>
+            <span className="truncate text-label-12 text-gray-900">
               {memberLabel(currentWorkspace)}
             </span>
           </div>
-          <ChevronsUpDownIcon className="ml-auto text-muted-foreground" />
+          <IconSelector className="ms-auto text-gray-900" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-(--anchor-width) min-w-56">
           <DropdownMenuGroup>
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Workspaces
-            </DropdownMenuLabel>
+            <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
             {workspaces.map((workspace) => (
               <DropdownMenuItem
                 key={workspace.id}
-                className="gap-2 py-1.5"
                 data-testid="workspace-option"
                 onClick={() => {
                   if (workspace.id !== currentWorkspace.id) switchTo(workspace);
@@ -116,39 +118,34 @@ function WorkspaceSwitcher() {
                 <WorkspaceTile workspace={workspace} className="size-5" />
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate">{workspace.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">
+                  <span className="truncate text-label-12 text-gray-900">
                     {memberLabel(workspace)}
                   </span>
                 </div>
-                {workspace.id === currentWorkspace.id && <CheckIcon className="ml-auto" />}
+                {workspace.id === currentWorkspace.id && <IconCheck className="ms-auto" />}
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              nativeButton={false}
-              render={<Link href="/settings/workspace" />}
-              className="gap-2"
-            >
-              <SettingsIcon />
+            <DropdownMenuItem nativeButton={false} render={<Link href="/settings/workspace" />}>
+              <IconSettings />
               Workspace settings
             </DropdownMenuItem>
             {canInvite && (
               <DropdownMenuItem
                 nativeButton={false}
                 render={<Link href="/settings/workspace/members" />}
-                className="gap-2"
               >
-                <UserPlusIcon />
+                <IconUserPlus />
                 Invite members
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem className="gap-2" onClick={() => setCreateOpen(true)}>
-              <PlusIcon />
+            <DropdownMenuItem onClick={() => setCreateOpen(true)}>
+              <IconPlus />
               Create workspace
             </DropdownMenuItem>
             {isTeam && (
-              <DropdownMenuItem className="gap-2" onClick={() => setLeaveOpen(true)}>
-                <LogOutIcon />
+              <DropdownMenuItem onClick={() => setLeaveOpen(true)}>
+                <IconLogout />
                 Leave {currentWorkspace.name}
               </DropdownMenuItem>
             )}
@@ -164,14 +161,6 @@ function WorkspaceSwitcher() {
         />
       )}
     </>
-  );
-}
-
-function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="ml-auto rounded-sm border bg-background px-1.5 font-sans text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-      {children}
-    </kbd>
   );
 }
 
@@ -197,18 +186,20 @@ export function AppSidebar() {
             <SidebarMenuButton
               tooltip="New note"
               onClick={newNote}
-              className="font-medium text-primary hover:text-primary"
+              className="text-brand-900 hover:text-brand-1000"
             >
-              <SquarePenIcon />
+              <IconEdit />
               <span>New note</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Search · ⌘K" onClick={() => openCommandMenu(true)}>
-              <SearchIcon />
+              <IconSearch />
               <span>Search</span>
-              <Kbd>⌘K</Kbd>
             </SidebarMenuButton>
+            <SidebarMenuBadge>
+              <Kbd>⌘K</Kbd>
+            </SidebarMenuBadge>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -216,7 +207,7 @@ export function AppSidebar() {
               isActive={pathname === sections.home.href}
               tooltip={sections.home.label}
             >
-              <HomeIcon />
+              <IconHome />
               <span>{sections.home.label}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -226,7 +217,7 @@ export function AppSidebar() {
               isActive={pathname === sections.tasks.href}
               tooltip={sections.tasks.label}
             >
-              <ListTodoIcon />
+              <IconChecklist />
               <span>{sections.tasks.label}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -236,7 +227,7 @@ export function AppSidebar() {
               isActive={inSection(pathname, sections.assistant.href)}
               tooltip={sections.assistant.label}
             >
-              <SparklesIcon />
+              <IconSparkles />
               <span>{sections.assistant.label}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -252,18 +243,16 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Trash" onClick={openTrash} data-testid="open-trash">
-              <Trash2Icon />
+              <IconTrash />
               <span>Trash</span>
-              {trash.length > 0 && (
-                <span className="ml-auto text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
-                  {trash.length}
-                </span>
-              )}
             </SidebarMenuButton>
+            {trash.length > 0 && (
+              <SidebarMenuBadge className="text-gray-900">{trash.length}</SidebarMenuBadge>
+            )}
           </SidebarMenuItem>
           {[
-            { ...sections.templates, Icon: LayoutTemplateIcon },
-            { ...sections.settings, Icon: SettingsIcon },
+            { ...sections.templates, Icon: IconLayoutGrid },
+            { ...sections.settings, Icon: IconSettings },
           ].map(({ href, label, Icon }) => (
             <SidebarMenuItem key={href}>
               <SidebarMenuButton

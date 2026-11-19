@@ -9,9 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@oat/ui/components/dialog';
+import { Field, FieldError, FieldLabel } from '@oat/ui/components/field';
 import { Input } from '@oat/ui/components/input';
-import { Label } from '@oat/ui/components/label';
-import { Loader2Icon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
@@ -60,8 +60,8 @@ export function CreateWorkspaceDialog({
               A shared space for your team’s notes. You can invite people once it exists.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="workspace-name">Name</Label>
+          <Field data-invalid={error ? true : undefined}>
+            <FieldLabel htmlFor="workspace-name">Name</FieldLabel>
             <Input
               id="workspace-name"
               name="name"
@@ -73,18 +73,14 @@ export function CreateWorkspaceDialog({
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? 'workspace-name-error' : undefined}
             />
-            {error && (
-              <p id="workspace-name-error" role="alert" className="text-xs text-destructive">
-                {error}
-              </p>
-            )}
-          </div>
+            {error && <FieldError id="workspace-name-error">{error}</FieldError>}
+          </Field>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+              {pending && <Spinner data-icon="inline-start" />}
               Create workspace
             </Button>
           </DialogFooter>

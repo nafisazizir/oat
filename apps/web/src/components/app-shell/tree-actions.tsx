@@ -1,7 +1,16 @@
 'use client';
 
 import type { DocumentKind as ApiDocumentKind } from '@oat/core';
-import { Button } from '@oat/ui/components/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@oat/ui/components/alert-dialog';
 import {
   Command,
   CommandDialog,
@@ -11,15 +20,7 @@ import {
   CommandItem,
   CommandList,
 } from '@oat/ui/components/command';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@oat/ui/components/dialog';
-import { FolderIcon, LockIcon, UsersIcon } from 'lucide-react';
+import { IconFolder, IconLock, IconUsers } from '@tabler/icons-react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   createContext,
@@ -45,20 +46,23 @@ import { canRebase } from '@/lib/json-equal';
 import {
   type Area,
   areaOf,
-  childrenOf,
   type DocumentNode,
+  folderNode,
   pathOf,
   subtreeIds,
   titleOf,
 } from '@/lib/tree';
 
-import { useShellData } from './shell-data';
+import { PENDING_ID_PREFIX } from './optimistic-tree';
+import { useOptimisticTree, useShellData } from './shell-data';
 import { TrashDialog } from './trash-dialog';
 
 /*
  * Every sidebar mutation (create, rename, move, trash, restore, delete) goes through here: one place
  * that calls the API (`src/lib/api-client.ts`), refreshes the server-rendered shell (`router.refresh()`)
  * and shows the dialogs (Move to…, the D-18 "this becomes private" confirmation, folder delete, trash).
+ * Each mutation shows in the sidebar right away (`useOptimisticTree`) and rolls back with a toast if the
+ * server refuses it.
  */
 
 type NewPageOptions = { area?: Area; folderId?: string | null; kind?: ApiDocumentKind };
@@ -104,24 +108,48 @@ type Confirm = {
   run: () => Promise<void>;
 };
 
+let pendingIds = 0;
+
 export function TreeActionsProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { workspace, documents, user } = useShellData();
+  const tree = useOptimisticTree();
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [moving, setMoving] = useState<DocumentNode | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
-  const [confirmPending, setConfirmPending] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
   const canCreate = workspace.role !== 'viewer';
   const busy = useRef(false);
 
   const refresh = useCallback(() => router.refresh(), [router]);
 
+  /** A row for an item the server hasn't created yet (it can't be opened until it has an id). */
+  const placeholder = useCallback(
+    (kind: DocumentNode['kind'], title: string, area: Area, parentId: string | null) => {
+      const parent = parentId ? documents.find((d) => d.id === parentId) : undefined;
+      return {
+        id: `${PENDING_ID_PREFIX}${++pendingIds}`,
+        title,
+        kind,
+        visibility: parent?.visibility ?? (area === 'shared' ? 'workspace' : 'private'),
+        parentId,
+        ownerId: user.id,
+        updatedAt: new Date().toISOString(),
+        access: { edit: false, delete: false },
+      } satisfies DocumentNode;
+    },
+    [documents, user.id],
+  );
+
   const newPage = useCallback(
     async ({ area = 'private', folderId = null, kind = 'page' }: NewPageOptions = {}) => {
       if (busy.current) return;
       busy.current = true;
+      const shown = tree.apply({
+        type: 'create',
+        node: placeholder(kind === 'meeting' ? 'meeting' : 'page', '', area, folderId),
+      });
       try {
         const doc = await documentsApi.create({
           workspaceId: workspace.id,
@@ -129,9 +157,11 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
           kind,
           ...(folderId ? {} : { visibility: area === 'shared' ? 'workspace' : 'private' }),
         });
+        shown.confirm();
         router.push(`/d/${doc.id}`);
         refresh();
       } catch (error) {
+        shown.rollback();
         errorToast(
           error,
           kind === 'meeting' ? 'Couldn’t create the note' : 'Couldn’t create the page',
@@ -140,11 +170,15 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
         busy.current = false;
       }
     },
-    [workspace.id, router, refresh],
+    [workspace.id, router, refresh, tree, placeholder],
   );
 
   const newFolder = useCallback(
     async ({ area = 'private', parentId = null }: { area?: Area; parentId?: string | null }) => {
+      const shown = tree.apply({
+        type: 'create',
+        node: placeholder('folder', 'New folder', area, parentId),
+      });
       try {
         const folder = await foldersApi.create({
           workspaceId: workspace.id,
@@ -152,13 +186,17 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
           name: 'New folder',
           ...(parentId ? {} : { visibility: area === 'shared' ? 'workspace' : 'private' }),
         });
-        refresh();
+        // Swap the placeholder for the real folder so it can be renamed right away.
+        tree.apply({ type: 'create', node: folderNode(folder) }).confirm();
+        shown.rollback();
         setRenamingId(folder.id);
+        refresh();
       } catch (error) {
+        shown.rollback();
         errorToast(error, 'Couldn’t create the folder');
       }
     },
-    [workspace.id, refresh],
+    [workspace.id, refresh, tree, placeholder],
   );
 
   // Newest version seen per document in this tab (autosaves, moves, restores announce theirs), so a
@@ -193,14 +231,17 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
       setRenamingId(null);
       const next = name.trim();
       if (next === node.title.trim() || (!next && node.kind === 'folder')) return;
+      const shown = tree.apply({ type: 'rename', id: node.id, title: next });
       try {
         if (node.kind === 'folder') {
           await foldersApi.rename(node.id, next);
         } else {
           announceDocumentChange(await renameDocument(node, next));
         }
+        shown.confirm();
         refresh();
       } catch (error) {
+        shown.rollback();
         if (isApiError(error, 'stale_version')) {
           toast.error('This page was renamed elsewhere', {
             description: 'Reload to get the latest version, then rename it again.',
@@ -212,21 +253,33 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
         errorToast(error, 'Couldn’t rename');
       }
     },
-    [refresh, renameDocument],
+    [refresh, renameDocument, tree],
   );
 
   const doMove = useCallback(
     async (node: DocumentNode, folderId: string | null, makePrivate: boolean) => {
-      if (node.kind === 'folder') {
-        await foldersApi.move(node.id, { parentId: folderId, makePrivate });
-      } else {
-        announceDocumentChange(await documentsApi.move(node.id, { folderId, makePrivate }));
+      const shown = tree.apply({
+        type: 'move',
+        id: node.id,
+        parentId: folderId,
+        ...(makePrivate ? { visibility: 'private' } : {}),
+      });
+      try {
+        if (node.kind === 'folder') {
+          await foldersApi.move(node.id, { parentId: folderId, makePrivate });
+        } else {
+          announceDocumentChange(await documentsApi.move(node.id, { folderId, makePrivate }));
+        }
+      } catch (error) {
+        shown.rollback();
+        throw error;
       }
+      shown.confirm();
       refresh();
       const target = folderId ? pathOf(documents, folderId) : null;
       toast.success(`Moved ${titleOf(node)}`, target ? { description: `Now in ${target}` } : {});
     },
-    [documents, refresh],
+    [documents, refresh, tree],
   );
 
   const move = useCallback(
@@ -269,24 +322,38 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
     [documents, doMove, user.id],
   );
 
+  const restore = useCallback(
+    async (node: DocumentNode, { quiet = false } = {}) => {
+      const shown = tree.apply({ type: 'restore', id: node.id });
+      try {
+        announceDocumentChange(await documentsApi.restore(node.id));
+        shown.confirm();
+        refresh();
+        if (!quiet) toast.success(`Restored ${titleOf(node)}`);
+      } catch (error) {
+        shown.rollback();
+        errorToast(error, 'Couldn’t restore');
+      }
+    },
+    [refresh, tree],
+  );
+
   const trashDocument = useCallback(
     async (node: DocumentNode) => {
+      const shown = tree.apply({ type: 'trash', id: node.id, deletedAt: new Date().toISOString() });
       try {
         announceDocumentChange(await documentsApi.trash(node.id));
+        shown.confirm();
         refresh();
         toast.success(`Moved ${titleOf(node)} to the trash`, {
-          action: {
-            label: 'Undo',
-            onClick: () => {
-              void documentsApi.restore(node.id).then(announceDocumentChange).then(refresh);
-            },
-          },
+          action: { label: 'Undo', onClick: () => void restore(node, { quiet: true }) },
         });
       } catch (error) {
+        shown.rollback();
         errorToast(error, 'Couldn’t move to the trash');
       }
     },
-    [refresh],
+    [refresh, tree, restore],
   );
 
   const remove = useCallback(
@@ -305,41 +372,42 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
         action: 'Delete folder',
         destructive: true,
         run: async () => {
-          await foldersApi.delete(node.id);
+          const shown = tree.apply({
+            type: 'deleteFolder',
+            id: node.id,
+            deletedAt: new Date().toISOString(),
+          });
+          try {
+            await foldersApi.delete(node.id);
+          } catch (error) {
+            shown.rollback();
+            throw error;
+          }
+          shown.confirm();
           refresh();
           toast.success(`Deleted ${titleOf(node)}`);
           if (pathname === `/d/${node.id}`) router.push('/home');
         },
       });
     },
-    [documents, trashDocument, refresh, pathname, router],
-  );
-
-  const restore = useCallback(
-    async (node: DocumentNode) => {
-      try {
-        announceDocumentChange(await documentsApi.restore(node.id));
-        refresh();
-        toast.success(`Restored ${titleOf(node)}`);
-      } catch (error) {
-        errorToast(error, 'Couldn’t restore');
-      }
-    },
-    [refresh],
+    [documents, trashDocument, refresh, pathname, router, tree],
   );
 
   const deleteForever = useCallback(
     async (node: DocumentNode) => {
+      const shown = tree.apply({ type: 'deleteForever', id: node.id });
       try {
         await documentsApi.deleteForever(node.id);
+        shown.confirm();
         if (pathname === `/d/${node.id}`) router.push('/home');
         refresh();
         toast.success(`Deleted ${titleOf(node)} forever`);
       } catch (error) {
+        shown.rollback();
         errorToast(error, 'Couldn’t delete');
       }
     },
-    [pathname, router, refresh],
+    [pathname, router, refresh, tree],
   );
 
   const value = useMemo<TreeActions>(
@@ -353,7 +421,7 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
       openMoveDialog: setMoving,
       move,
       remove,
-      restore,
+      restore: (node) => restore(node),
       deleteForever,
       openTrash: () => setTrashOpen(true),
       canCreate,
@@ -373,43 +441,27 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
           if (node) void move(node, folderId);
         }}
       />
-      <Dialog
-        open={confirm !== null}
-        onOpenChange={(open) => {
-          if (!open && !confirmPending) setConfirm(null);
-        }}
-      >
-        <DialogContent data-testid="confirm-dialog" showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>{confirm?.title}</DialogTitle>
-            <DialogDescription>{confirm?.description}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirm(null)} disabled={confirmPending}>
-              Cancel
-            </Button>
-            <Button
+      <AlertDialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
+        <AlertDialogContent data-testid="confirm-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirm?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirm?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
               variant={confirm?.destructive ? 'destructive' : 'default'}
-              disabled={confirmPending}
-              onClick={async () => {
+              onClick={() => {
                 if (!confirm) return;
-                setConfirmPending(true);
-                try {
-                  await confirm.run();
-                  setConfirm(null);
-                } catch (error) {
-                  errorToast(error, 'That didn’t work');
-                  setConfirm(null);
-                } finally {
-                  setConfirmPending(false);
-                }
+                setConfirm(null);
+                confirm.run().catch((error: unknown) => errorToast(error, 'That didn’t work'));
               }}
             >
               {confirm?.action}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <TrashDialog open={trashOpen} onOpenChange={setTrashOpen} />
     </TreeActionsContext.Provider>
   );
@@ -451,7 +503,7 @@ function MoveDialog({
           <CommandGroup heading={node ? `Move “${titleOf(node)}” to` : 'Move to'}>
             {node?.parentId !== null && (
               <CommandItem value={`root ${workspace.name}`} onSelect={() => onPick(null)}>
-                {root === 'private' ? <LockIcon /> : <UsersIcon />}
+                {root === 'private' ? <IconLock /> : <IconUsers />}
                 {root === 'private' ? 'Private (top level)' : 'Shared (top level)'}
               </CommandItem>
             )}
@@ -462,15 +514,10 @@ function MoveDialog({
                 disabled={folder.id === node?.parentId}
                 onSelect={() => onPick(folder.id)}
               >
-                <FolderIcon />
+                <IconFolder />
                 <span className="min-w-0 flex-1 truncate">{path}</span>
                 {folder.visibility === 'private' && (
-                  <LockIcon className="text-muted-foreground" aria-label="Private" />
-                )}
-                {childrenOf(documents, folder.id).length > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    {childrenOf(documents, folder.id).length}
-                  </span>
+                  <IconLock className="text-gray-900" aria-label="Private" />
                 )}
               </CommandItem>
             ))}

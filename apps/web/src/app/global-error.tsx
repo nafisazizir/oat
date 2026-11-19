@@ -1,7 +1,15 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
-import { TriangleAlertIcon } from 'lucide-react';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
+import { IconAlertTriangle } from '@tabler/icons-react';
 import { useEffect, useSyncExternalStore } from 'react';
 
 import { Wordmark } from '@/components/wordmark';
@@ -48,31 +56,33 @@ export default function GlobalError({
         <title>Something went wrong · Oat</title>
       </head>
       <body>
-        <main className="flex min-h-svh flex-col items-center justify-center gap-6 px-6 text-center">
-          <Wordmark className="text-3xl" />
-          <div
+        <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background-100 px-6 text-center text-gray-1000">
+          <Wordmark size="lg" />
+          <Empty
             role="alert"
-            className="flex w-full max-w-md flex-col items-center gap-4 rounded-xl border bg-card px-6 py-10 shadow-xs"
+            className="max-w-md flex-none rounded-xl border border-gray-alpha-400 p-10"
           >
-            <div className="flex size-11 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-              <TriangleAlertIcon className="size-5" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <h1 className="text-lg font-medium">Oat couldn’t load</h1>
-              <p className="text-sm text-muted-foreground">
+            <EmptyHeader>
+              <EmptyMedia variant="icon" className="bg-red-100 text-red-900">
+                <IconAlertTriangle />
+              </EmptyMedia>
+              <EmptyTitle>
+                <h1>Oat couldn’t load</h1>
+              </EmptyTitle>
+              <EmptyDescription>
                 Something went wrong on our side. Try again, or reload the app.
-              </p>
+              </EmptyDescription>
               {error.digest && (
-                <p className="font-mono text-xs text-muted-foreground">Reference {error.digest}</p>
+                <p className="text-label-12-mono text-gray-900">Reference {error.digest}</p>
               )}
-            </div>
-            <div className="flex gap-2">
+            </EmptyHeader>
+            <EmptyContent className="flex-row justify-center">
               <Button onClick={() => reset()}>Try again</Button>
               <Button variant="ghost" role="link" nativeButton={false} render={<a href="/home" />}>
                 Go home
               </Button>
-            </div>
-          </div>
+            </EmptyContent>
+          </Empty>
         </main>
       </body>
     </html>
