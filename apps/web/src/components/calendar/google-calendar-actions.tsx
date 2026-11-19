@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
-import { Loader2Icon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
@@ -34,7 +34,7 @@ export function ConnectGoogleCalendarButton({
   }
   return (
     <Button onClick={connect} disabled={pending} {...props}>
-      {pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+      {pending && <Spinner data-icon="inline-start" />}
       {label}
     </Button>
   );
@@ -56,7 +56,7 @@ export function DisconnectGoogleCalendarButton() {
   }
   return (
     <Button variant="outline" onClick={disconnect} disabled={pending}>
-      {pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+      {pending && <Spinner data-icon="inline-start" />}
       Disconnect
     </Button>
   );

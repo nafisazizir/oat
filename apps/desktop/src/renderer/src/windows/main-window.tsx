@@ -18,19 +18,20 @@ import {
 import { Input } from '@oat/ui/components/input';
 import { Label } from '@oat/ui/components/label';
 import { Skeleton } from '@oat/ui/components/skeleton';
+import { Spinner } from '@oat/ui/components/spinner';
 import {
-  CheckCircle2Icon,
-  CloudCheckIcon,
-  CloudOffIcon,
-  CloudUploadIcon,
-  ExternalLinkIcon,
-  Loader2Icon,
-  LogOutIcon,
-  PanelTopIcon,
-  RefreshCwIcon,
-  SettingsIcon,
-  TriangleAlertIcon,
-} from 'lucide-react';
+  IconAlertTriangle,
+  IconAppWindow,
+  IconCircleCheck,
+  IconCloudCheck,
+  IconCloudOff,
+  IconCloudUpload,
+  IconExternalLink,
+  IconLoader,
+  IconLogout,
+  IconRefresh,
+  IconSettings,
+} from '@tabler/icons-react';
 import { type ReactNode, useEffect, useState } from 'react';
 
 import { bridge, BridgeCallError, call } from '../bridge.ts';
@@ -80,9 +81,9 @@ export default function MainWindow() {
   const signedIn = state?.auth.status === 'signed-in' ? state.auth.user : null;
 
   return (
-    <div className="flex h-full flex-col bg-background text-foreground">
-      <header className="app-drag flex h-12 shrink-0 items-center justify-center border-b bg-sidebar">
-        <Wordmark className="text-lg" />
+    <div className="flex h-full flex-col bg-background-100 text-gray-1000">
+      <header className="app-drag flex h-12 shrink-0 items-center justify-center border-b border-gray-alpha-400 bg-background-200">
+        <Wordmark className="text-heading-16" />
       </header>
       {signedIn ? (
         <SignedInShell
@@ -103,7 +104,7 @@ export default function MainWindow() {
           </div>
         </main>
       )}
-      <footer className="flex h-8 shrink-0 items-center justify-center text-xs text-muted-foreground">
+      <footer className="flex h-8 shrink-0 items-center justify-center text-label-12 text-gray-900">
         {info && (
           <span data-testid="app-info">
             Oat {info.version}
@@ -119,7 +120,7 @@ export default function MainWindow() {
 
 function RestoringCard() {
   return (
-    <Card className="shadow-md" aria-busy>
+    <Card aria-busy>
       <CardHeader className="items-center gap-3">
         <Skeleton className="h-7 w-40" />
         <Skeleton className="h-4 w-56" />
@@ -171,9 +172,9 @@ function SignedOutCard({ error }: { error: string | null }) {
   const action = useAction();
   const message = action.error ?? error;
   return (
-    <Card className="shadow-md">
+    <Card>
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">
+        <CardTitle className="text-heading-24">
           <h1>Welcome to Oat</h1>
         </CardTitle>
         <CardDescription>
@@ -188,13 +189,13 @@ function SignedOutCard({ error }: { error: string | null }) {
           onClick={() => void action.run(() => call('auth:sign-in'))}
         >
           {action.pending ? (
-            <Loader2Icon data-icon="inline-start" className="animate-spin" />
+            <Spinner data-icon="inline-start" />
           ) : (
-            <ExternalLinkIcon data-icon="inline-start" />
+            <IconExternalLink data-icon="inline-start" />
           )}
           Sign in with your browser
         </Button>
-        <p role="status" className="text-center text-xs text-destructive empty:hidden">
+        <p role="status" className="text-center text-copy-13 text-red-900 empty:hidden">
           {message}
         </p>
       </CardContent>
@@ -214,12 +215,12 @@ function SigningInCard({ allowPaste }: { allowPaste: boolean }) {
   }
 
   return (
-    <Card className="shadow-md" data-testid="signing-in">
+    <Card data-testid="signing-in">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-2 flex size-11 items-center justify-center rounded-full bg-accent text-accent-foreground">
-          <Loader2Icon className="size-5 animate-spin" />
+        <div className="mx-auto mb-2 flex size-11 items-center justify-center rounded-full bg-brand-100 text-brand-900">
+          <Spinner className="size-5" />
         </div>
-        <CardTitle className="text-xl">
+        <CardTitle className="text-heading-20">
           <h1>Finish signing in in your browser</h1>
         </CardTitle>
         <CardDescription>
@@ -233,7 +234,7 @@ function SigningInCard({ allowPaste }: { allowPaste: boolean }) {
           disabled={action.pending}
           onClick={() => void action.run(() => call('auth:sign-in'))}
         >
-          <RefreshCwIcon data-icon="inline-start" />
+          <IconRefresh data-icon="inline-start" />
           Open the browser again
         </Button>
         <Button
@@ -254,7 +255,7 @@ function SigningInCard({ allowPaste }: { allowPaste: boolean }) {
               if (link.trim()) void submitLink();
             }}
           >
-            <Label htmlFor="sign-in-link" className="text-xs text-muted-foreground">
+            <Label htmlFor="sign-in-link" className="text-label-12 text-gray-900">
               Dev build: browser didn’t switch back? Paste the link it gave you.
             </Label>
             <div className="flex gap-2">
@@ -270,7 +271,7 @@ function SigningInCard({ allowPaste }: { allowPaste: boolean }) {
                 Continue
               </Button>
             </div>
-            <p role="status" className="text-xs text-destructive empty:hidden">
+            <p role="status" className="text-copy-13 text-red-900 empty:hidden">
               {rejected
                 ? 'That link isn’t for this sign-in. Open the browser again.'
                 : action.error}
@@ -371,7 +372,7 @@ function SignedInShell({
 
   return (
     <main className="flex min-h-0 flex-1" data-testid="shell">
-      <aside className="flex w-64 shrink-0 flex-col gap-3 border-r bg-sidebar p-3">
+      <aside className="flex w-64 shrink-0 flex-col gap-3 border-e border-gray-alpha-400 bg-background-200 p-3">
         <WorkspaceSwitcher view={workspaces} />
         {/* 3.5: local search + conflicted copies, refreshed after every sync. */}
         <LocalSearch refreshKey={sync.lastSyncedAt} />
@@ -388,7 +389,7 @@ function SignedInShell({
                 }}
               />
               {starting.error && (
-                <p role="status" className="px-1 text-xs text-destructive">
+                <p role="status" className="px-2.5 text-copy-13 text-red-900">
                   {starting.error}
                 </p>
               )}
@@ -464,16 +465,18 @@ function SignedInCard({
       <div className="flex items-center gap-2.5 px-1 pt-1">
         <div
           aria-hidden
-          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-heading text-sm font-semibold text-primary-foreground"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-700 text-label-14 text-brand-on"
         >
           {label.charAt(0).toUpperCase()}
         </div>
         {/* The account, not a page heading (9.3b): the name when there is one, else the address. */}
         <div className="flex min-w-0 flex-col">
-          {user.name && <p className="truncate text-sm font-medium">{user.name}</p>}
+          {user.name && <p className="truncate text-label-14 text-gray-1000">{user.name}</p>}
           <p
             className={
-              user.name ? 'truncate text-xs text-muted-foreground' : 'truncate text-sm font-medium'
+              user.name
+                ? 'truncate text-label-12 text-gray-900'
+                : 'truncate text-label-14 text-gray-1000'
             }
             title={user.email}
             data-selectable
@@ -492,19 +495,19 @@ function SignedInCard({
           onClick={async () => setMe((await check.run(() => call('api:me'))) ?? null)}
         >
           {check.pending ? (
-            <Loader2Icon data-icon="inline-start" className="animate-spin" />
+            <Spinner data-icon="inline-start" />
           ) : (
-            <RefreshCwIcon data-icon="inline-start" />
+            <IconRefresh data-icon="inline-start" />
           )}
           Check connection
         </Button>
         {me && !check.error && (
           <p
             role="status"
-            className="flex items-center gap-1.5 px-2.5 text-xs text-muted-foreground"
+            className="flex items-center gap-1.5 px-2.5 text-label-12 text-gray-900"
             data-testid="api-me"
           >
-            <CheckCircle2Icon className="size-3.5 shrink-0 text-success" />
+            <IconCircleCheck className="size-3.5 shrink-0 text-green-900" />
             <span className="truncate">Connected as {me.user.email}</span>
           </p>
         )}
@@ -514,39 +517,39 @@ function SignedInCard({
           disabled={other.pending}
           onClick={() => void other.run(() => call('window:open-widget'))}
         >
-          <PanelTopIcon data-icon="inline-start" />
+          <IconAppWindow data-icon="inline-start" />
           Show meeting widget
         </Button>
         {onOpenSettings && (
           <Button variant="ghost" className="w-full justify-start" onClick={onOpenSettings}>
-            <SettingsIcon data-icon="inline-start" />
+            <IconSettings data-icon="inline-start" />
             Settings
           </Button>
         )}
-        <p role="status" className="px-2.5 text-xs text-destructive empty:hidden">
+        <p role="status" className="px-2.5 text-copy-13 text-red-900 empty:hidden">
           {check.error ?? other.error}
         </p>
       </div>
       <SyncLine status={sync} />
       <Button
         variant="ghost"
-        className="w-full justify-start text-muted-foreground"
+        className="w-full justify-start text-gray-900"
         disabled={other.pending}
         onClick={() => void other.run(() => call('auth:sign-out'))}
       >
-        <LogOutIcon data-icon="inline-start" />
+        <IconLogout data-icon="inline-start" />
         Sign out
       </Button>
     </div>
   );
 }
 
-const SYNC_ICONS: Record<SyncTone, { icon: typeof CloudCheckIcon; className: string }> = {
-  ok: { icon: CloudCheckIcon, className: 'text-success' },
-  busy: { icon: Loader2Icon, className: 'animate-spin' },
-  waiting: { icon: CloudUploadIcon, className: '' },
-  offline: { icon: CloudOffIcon, className: 'text-warning' },
-  problem: { icon: TriangleAlertIcon, className: 'text-destructive' },
+const SYNC_ICONS: Record<SyncTone, { icon: typeof IconCloudCheck; className: string }> = {
+  ok: { icon: IconCloudCheck, className: 'text-green-900' },
+  busy: { icon: IconLoader, className: 'animate-spin' },
+  waiting: { icon: IconCloudUpload, className: '' },
+  offline: { icon: IconCloudOff, className: 'text-amber-900' },
+  problem: { icon: IconAlertTriangle, className: 'text-red-900' },
 };
 
 /** Sync status (2.6): caught up, syncing, waiting, or offline with how much is kept on this Mac. */
@@ -557,7 +560,7 @@ function SyncLine({ status }: { status: SyncStatusSnapshot | undefined }) {
   return (
     <p
       role="status"
-      className="mt-auto flex items-center gap-1.5 px-2.5 text-xs text-muted-foreground"
+      className="mt-auto flex items-center gap-1.5 px-2.5 text-label-12 text-gray-900"
       data-testid="sync-status"
       data-state={status.state}
       data-pending={status.pending}

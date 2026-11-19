@@ -3,13 +3,13 @@
  * "Open setup" to run the walkthrough again (permissions + a test recording).
  */
 import { Button } from '@oat/ui/components/button';
-import { Card, CardContent } from '@oat/ui/components/card';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import { cn } from '@oat/ui/lib/utils';
-import { ChevronRightIcon } from 'lucide-react';
+import { IconChevronRight } from '@tabler/icons-react';
 
 import { usePermissions } from '../onboarding/onboarding-state.ts';
 import { type PermissionView, stepView } from '../onboarding/onboarding-steps.ts';
+import { SettingsHeader } from './settings-view.tsx';
 
 const LABEL: Record<PermissionView, string> = {
   done: 'Allowed',
@@ -19,59 +19,56 @@ const LABEL: Record<PermissionView, string> = {
   off: 'Not used here',
 };
 
+const ROWS = [
+  ['Microphone', 'microphone'],
+  ['System audio', 'system-audio'],
+  ['Calendar', 'calendar'],
+] as const;
+
 export function SetupSettings({ onOpenSetup }: { onOpenSetup: () => void }) {
   const permissions = usePermissions();
-  const rows = permissions
-    ? ([
-        ['Microphone', stepView('microphone', permissions)!],
-        ['System audio', stepView('system-audio', permissions)!],
-        ['Calendar', stepView('calendar', permissions)!],
-      ] as const)
-    : null;
   return (
-    <div className="flex flex-col gap-5" data-testid="setup-settings">
-      <div className="flex flex-col gap-1">
-        <h2 className="font-heading text-lg font-semibold">Setup</h2>
-        <p className="text-sm text-muted-foreground">
-          What Oat may use on this Mac. Run setup again to change a permission or try a test
-          recording.
-        </p>
-      </div>
-      {rows ? (
-        <Card size="sm">
-          <CardContent className="flex flex-col gap-3">
-            <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm">
-              {rows.map(([label, view]) => (
-                <div key={label} className="contents">
-                  <dt>{label}</dt>
+    <div className="flex flex-col gap-4" data-testid="setup-settings">
+      <SettingsHeader
+        title="Setup"
+        description="What Oat may use on this Mac. Run setup again to change a permission or try a test recording."
+      />
+      <div className="flex flex-col rounded-lg border border-gray-alpha-400">
+        <dl
+          className="flex flex-col divide-y divide-gray-alpha-400"
+          aria-busy={permissions ? undefined : true}
+        >
+          {ROWS.map(([label, step]) => {
+            const view = permissions ? stepView(step, permissions)! : null;
+            return (
+              <div key={label} className="flex h-11 items-center justify-between gap-4 px-4">
+                <dt className="text-label-14 text-gray-1000">{label}</dt>
+                {view ? (
                   <dd
                     className={cn(
-                      'text-right text-muted-foreground',
-                      view === 'done' && 'text-success',
-                      view === 'blocked' && 'text-destructive',
+                      'text-label-14 text-gray-900',
+                      view === 'done' && 'text-green-900',
+                      view === 'blocked' && 'text-red-900',
                     )}
-                    data-testid={`setup-${label.toLowerCase().replace(' ', '-')}`}
+                    data-testid={`setup-${step}`}
                     data-state={view}
                   >
                     {LABEL[view]}
                   </dd>
-                </div>
-              ))}
-            </dl>
-            <Button
-              variant="outline"
-              className="self-start"
-              onClick={onOpenSetup}
-              data-testid="open-setup"
-            >
-              Open setup
-              <ChevronRightIcon data-icon="inline-end" />
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Skeleton className="h-32 w-full" role="status" aria-busy aria-label="Loading" />
-      )}
+                ) : (
+                  <Skeleton className="h-4 w-20" />
+                )}
+              </div>
+            );
+          })}
+        </dl>
+        <div className="border-t border-gray-alpha-400 p-3">
+          <Button variant="outline" size="sm" onClick={onOpenSetup} data-testid="open-setup">
+            Open setup
+            <IconChevronRight data-icon="inline-end" />
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

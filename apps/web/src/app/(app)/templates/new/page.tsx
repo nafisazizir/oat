@@ -1,7 +1,14 @@
-import { LockIcon } from 'lucide-react';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
+import { IconLock } from '@tabler/icons-react';
 import type { Metadata } from 'next';
 
-import { BackLink, EmptyState, PageContainer } from '@/components/page';
+import { BackLink, PageContainer } from '@/components/page';
 import { TemplateEditor } from '@/components/templates/template-editor';
 import { loadNewTemplate } from '@/server/templates/pages';
 
@@ -21,7 +28,7 @@ export default async function NewTemplatePage() {
     <PageContainer className="gap-6">
       {/* The name field is the visible title; the page still needs a heading. */}
       <h1 className="sr-only">New template</h1>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 text-label-13 text-gray-900">
         <BackLink href="/templates">Templates</BackLink>
         <span aria-hidden>·</span>
         <span>{workspace.kind === 'personal' ? 'New template' : `New in ${workspace.name}`}</span>
@@ -29,11 +36,19 @@ export default async function NewTemplatePage() {
       {canCreate ? (
         <TemplateEditor mode="create" workspaceId={workspace.id} initial={BLANK} />
       ) : (
-        <EmptyState
-          icon={LockIcon}
-          title="You can’t create templates here"
-          description={`Viewers of ${workspace.name} can use templates but not create them.`}
-        />
+        <Empty className="border border-dashed border-gray-alpha-400">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <IconLock />
+            </EmptyMedia>
+            <EmptyTitle role="heading" aria-level={2}>
+              You can’t create templates here
+            </EmptyTitle>
+            <EmptyDescription>
+              Viewers of {workspace.name} can use templates but not create them.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
     </PageContainer>
   );

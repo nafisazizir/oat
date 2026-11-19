@@ -159,6 +159,12 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - Human approved the test-only backfill fix: start-boundary assertions now use observed audio time at the outage-control acknowledgement, preserving all tolerances and no-loss checks. Normal and 100ms-delayed focused integration cases each pass; desktop lint/typecheck pass. Committing the pending investigation evidence with the fix and continuing PR 3 CI.
 - PR 3 source commit `acd50e7` is green: Linux `135856733308`, Swift `135856733932` and Devin Review all passed (`3 passed, 0 failed, 0 pending`). Foundation CI remediation complete; task file closed with no additional source changes.
 
+## 2026-11-19 — ziiz overhaul: desktop renderer
+
+- Renderer moved onto ziiz ramp, type roles, Tabler icons and registry components; optimistic workspace switch and settings saves now roll back on failure; skeletons match the loaded layout; ⌘/Ctrl+N and Esc shortcuts added. [task](tasks/ui-desktop.md)
+- Fast CI green except actionlint (Docker Hub 429). Desktop e2e is macOS-only and GitHub CI doesn't run it; run it on a Mac before merging.
+
+
 ### Ziiz overhaul — document & meeting surfaces (PR 5)
 
 - Migrated `components/{page,document/**,meeting/**,pipeline/**}`, `d/[docId]` page + skeleton, `packages/editor/src/react/**` (+ `styles.css` var map to `--ds-*`) and `packages/meeting-ui/**` to ziiz ramp/type roles, Tabler icons and registry components (`Empty`, `Alert`, `AlertDialog`, `Item`, `Field`, `RadioGroup`, `ButtonGroup`, `Spinner`, `Kbd`, `material-menu`). meeting-ui public API unchanged.

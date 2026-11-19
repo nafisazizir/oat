@@ -33,8 +33,40 @@ export function useWorkspaces(): WorkspacesView {
     snapshot,
     ...activeAndFallback(snapshot),
     async setActive(workspaceId) {
-      setSnapshot(await call('workspaces:set-active', { workspaceId }));
+      // Switch at once; main answers with what it saved, or the switch is undone and the caller shows why.
+      const before = snapshot;
+      setSnapshot((s) => withActive(s, workspaceId));
+      try {
+        setSnapshot(await call('workspaces:set-active', { workspaceId }));
+      } catch (e) {
+        setSnapshot(undoSwitch(before, workspaceId));
+        throw e;
+      }
     },
+  };
+}
+
+/**
+ * Undo a failed switch to `workspaceId`: back to `before`, unless the user has switched again since
+ * (then the later switch stands).
+ */
+export function undoSwitch(before: WorkspacesSnapshot | null, workspaceId: string) {
+  return (current: WorkspacesSnapshot | null) =>
+    current?.activeId === workspaceId ? before : current;
+}
+
+/** `snapshot` with `workspaceId` active (the optimistic half of a switch). */
+export function withActive(
+  snapshot: WorkspacesSnapshot | null,
+  workspaceId: string,
+): WorkspacesSnapshot | null {
+  if (!snapshot) return snapshot;
+  const target = snapshot.workspaces.find((w) => w.id === workspaceId);
+  const personal = snapshot.workspaces.find((w) => w.kind === 'personal');
+  return {
+    ...snapshot,
+    activeId: workspaceId,
+    targetId: target?.canCreate ? workspaceId : (personal?.id ?? snapshot.targetId),
   };
 }
 

@@ -1,5 +1,5 @@
 import { Badge } from '@oat/ui/components/badge';
-import { EyeIcon } from 'lucide-react';
+import { IconEye } from '@tabler/icons-react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
@@ -27,7 +27,7 @@ export default async function TemplatePage({ params }: Props) {
       <PageContainer className="gap-6">
         {/* The name field is the visible title; the page still needs a heading. */}
         <h1 className="sr-only">Edit template</h1>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 text-label-13 text-gray-900">
           <BackLink href="/templates">Templates</BackLink>
           <span aria-hidden>·</span>
           <span>
@@ -68,7 +68,7 @@ export default async function TemplatePage({ params }: Props) {
               <Badge variant="outline">Built-in</Badge>
             ) : (
               <Badge variant="secondary" className="gap-1">
-                <EyeIcon />
+                <IconEye data-icon="inline-start" />
                 View only
               </Badge>
             )}
@@ -86,23 +86,23 @@ export default async function TemplatePage({ params }: Props) {
 
       <section className="flex flex-col gap-3">
         <SectionHeading>Sections</SectionHeading>
-        <ol className="flex flex-col divide-y rounded-xl border bg-card shadow-xs">
+        <ol className="flex flex-col divide-y divide-gray-alpha-400 rounded-xl border border-gray-alpha-400">
           {template.sections.map((section, i) => (
             <li key={`${i}-${section.heading}`} className="flex gap-4 p-4">
-              <span className="w-5 shrink-0 pt-0.5 text-right text-xs text-muted-foreground tabular-nums">
+              <span className="w-5 shrink-0 pt-0.5 text-end text-label-12 text-gray-900 tabular-nums">
                 {i + 1}
               </span>
               <div className="flex min-w-0 flex-col gap-1">
-                <span className="font-medium">{section.heading}</span>
+                <span className="text-label-14 text-gray-1000">{section.heading}</span>
                 {section.instructions && (
-                  <p className="text-sm text-muted-foreground">{section.instructions}</p>
+                  <p className="text-copy-14 text-gray-900">{section.instructions}</p>
                 )}
               </div>
             </li>
           ))}
         </ol>
         {template.isBuiltin && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-copy-13 text-gray-900">
             Built-in templates can’t be edited.{' '}
             {canDuplicate
               ? 'Duplicate this one to make your own version.'

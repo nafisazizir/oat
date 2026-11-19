@@ -2,7 +2,7 @@
 
 import { cn } from '@oat/ui';
 import { Button } from '@oat/ui/components/button';
-import { AudioLinesIcon, XIcon } from 'lucide-react';
+import { IconX } from '@tabler/icons-react';
 import { useEffect, useRef } from 'react';
 
 import { clock, type TranscriptLine } from '@/lib/transcript';
@@ -37,23 +37,22 @@ export function TranscriptReader({
     <section
       aria-labelledby="transcript-reader-heading"
       data-testid="transcript-reader"
-      className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm"
+      className="flex flex-col gap-2 rounded-xl border border-gray-alpha-400 p-3"
     >
-      <header className="flex items-center gap-2">
-        <AudioLinesIcon className="size-4 text-muted-foreground" />
-        <h2 id="transcript-reader-heading" className="flex-1 text-sm font-medium">
+      <header className="flex items-center gap-2 ps-2">
+        <h2 id="transcript-reader-heading" className="flex-1 text-heading-14">
           Transcript
         </h2>
         <Button variant="ghost" size="icon-sm" aria-label="Close transcript" onClick={onClose}>
-          <XIcon />
+          <IconX />
         </Button>
       </header>
       {lines.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="px-2 text-copy-14 text-gray-900">
           No transcript was recorded for this meeting.
         </p>
       ) : (
-        <ol ref={listRef} className="relative flex max-h-96 flex-col gap-1 overflow-y-auto pr-1">
+        <ol ref={listRef} className="relative flex max-h-96 flex-col gap-1 overflow-y-auto">
           {lines.map((line) => {
             const focused = line.id === focusId;
             return (
@@ -63,17 +62,17 @@ export function TranscriptReader({
                 data-focused={focused || undefined}
                 aria-current={focused ? 'true' : undefined}
                 className={cn(
-                  'grid grid-cols-[3.25rem_1fr] gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors duration-base',
-                  focused && 'bg-selection ring-1 ring-ring/40',
+                  'grid grid-cols-[3.25rem_1fr] gap-2 rounded-lg px-2 py-1.5 text-copy-14 transition-colors duration-150',
+                  focused && 'bg-selection ring-1 ring-brand-500',
                 )}
               >
-                <span className="pt-px font-mono text-xs text-muted-foreground tabular-nums">
+                <span className="pt-px text-label-12-mono text-gray-900 tabular-nums">
                   {clock(line.startMs)}
                 </span>
                 <p>
                   <span
                     className={cn(
-                      'mr-1.5 rounded px-1 py-px text-xs font-medium',
+                      'me-1.5 rounded-sm px-1 py-px text-label-12',
                       line.source === 'mic'
                         ? 'bg-me text-me-foreground'
                         : 'bg-them text-them-foreground',

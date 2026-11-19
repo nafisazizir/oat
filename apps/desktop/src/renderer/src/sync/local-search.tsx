@@ -1,6 +1,6 @@
 import type { SearchHitSnapshot } from '@oat/core/bridge';
-import { Input } from '@oat/ui/components/input';
-import { FileTextIcon, NotebookPenIcon, SearchIcon } from 'lucide-react';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@oat/ui/components/input-group';
+import { IconFileText, IconNotes, IconSearch } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
 import { call } from '../bridge.ts';
@@ -41,20 +41,21 @@ export function LocalSearch({
 
   return (
     <div className="flex min-h-0 flex-col gap-2" data-testid="local-search">
-      <div className="relative">
-        <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
+      <InputGroup size="sm">
+        <InputGroupAddon>
+          <IconSearch aria-hidden />
+        </InputGroupAddon>
+        <InputGroupInput
           type="search"
           value={query}
           placeholder="Search notes and transcripts"
           aria-label="Search notes and transcripts on this Mac"
-          className="h-8 pl-8 text-sm"
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Escape') setQuery('');
           }}
         />
-      </div>
+      </InputGroup>
       {hits !== null && (
         <ul
           className="flex max-h-72 flex-col gap-0.5 overflow-auto"
@@ -62,7 +63,7 @@ export function LocalSearch({
           aria-label="Search results"
         >
           {hits.length === 0 ? (
-            <li className="px-2 py-1.5 text-xs text-muted-foreground">
+            <li className="px-2.5 py-1.5 text-copy-13 text-gray-900">
               Nothing on this Mac matches.
             </li>
           ) : (
@@ -85,22 +86,22 @@ function SearchResult({
   hit: SearchHitSnapshot;
   onOpen?: (hit: SearchHitSnapshot) => void;
 }) {
-  const Icon = hit.kind === 'meeting' ? NotebookPenIcon : FileTextIcon;
+  const Icon = hit.kind === 'meeting' ? IconNotes : IconFileText;
   const content = (
     <>
-      <span className="flex items-center gap-1.5 text-sm">
-        <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="truncate font-medium">{hit.title || 'Untitled'}</span>
+      <span className="flex items-center gap-2">
+        <Icon aria-hidden className="size-4 shrink-0 text-gray-900" />
+        <span className="truncate text-label-14 text-gray-1000">{hit.title || 'Untitled'}</span>
         {hit.in === 'transcript' && hit.startMs !== null && (
-          <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+          <span className="ms-auto shrink-0 text-label-12 text-gray-900">
             Transcript · {clock(hit.startMs)}
           </span>
         )}
       </span>
-      <span className="line-clamp-2 text-xs text-muted-foreground" data-testid="search-snippet">
+      <span className="line-clamp-2 ps-6 text-copy-13 text-gray-900" data-testid="search-snippet">
         {snippetParts(hit.snippet).map((part, i) =>
           part.hit ? (
-            <mark key={i} className="rounded-sm bg-accent px-0.5 text-accent-foreground">
+            <mark key={i} className="rounded-sm bg-brand-200 px-0.5 text-gray-1000">
               {part.text}
             </mark>
           ) : (
@@ -110,11 +111,11 @@ function SearchResult({
       </span>
     </>
   );
-  const className = 'flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left';
+  const className = 'flex w-full flex-col gap-0.5 rounded-md px-2.5 py-1.5 text-start';
   return onOpen ? (
     <button
       type="button"
-      className={`${className} hover:bg-accent focus-visible:bg-accent focus-visible:outline-none`}
+      className={`${className} transition-colors outline-none hover:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50 active:bg-gray-alpha-200`}
       onClick={() => onOpen(hit)}
     >
       {content}

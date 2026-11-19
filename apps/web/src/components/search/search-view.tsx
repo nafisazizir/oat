@@ -1,23 +1,31 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@oat/ui/components/input-group';
 import { Skeleton } from '@oat/ui/components/skeleton';
+import { Spinner } from '@oat/ui/components/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@oat/ui/components/tabs';
 import {
-  AudioLinesIcon,
-  FileTextIcon,
-  LoaderCircleIcon,
-  NotebookPenIcon,
-  SearchIcon,
-  SearchXIcon,
-} from 'lucide-react';
+  IconFileText,
+  IconNotes,
+  IconSearch,
+  IconSearchOff,
+  IconWaveSine,
+  type Icon,
+} from '@tabler/icons-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-import { EmptyState } from '@/components/page';
 import { formatDay } from '@/lib/format';
 import {
   formatTimestamp,
@@ -36,29 +44,29 @@ type Tab = 'notes' | 'transcripts';
 const PAGE = 20;
 
 const rowClass =
-  'flex gap-3 px-4 py-3 transition-colors duration-fast hover:bg-accent focus-visible:bg-accent focus-visible:outline-none';
+  'flex gap-3 px-4 py-3 outline-none transition-colors duration-100 hover:bg-gray-alpha-100 focus-visible:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50 focus-visible:ring-inset';
+const listClass =
+  'flex flex-col divide-y divide-gray-alpha-400 overflow-hidden rounded-xl border border-gray-alpha-400';
 
 function NoteRow({ hit }: { hit: NoteHit }) {
-  const Icon = hit.kind === 'meeting' ? NotebookPenIcon : FileTextIcon;
+  const RowIcon = hit.kind === 'meeting' ? IconNotes : IconFileText;
   return (
     <li>
       <Link href={`/d/${hit.id}`} className={rowClass} data-testid="search-page-note">
-        <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <RowIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-gray-900" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-baseline gap-3">
             <Highlight
-              className="min-w-0 flex-1 truncate font-medium"
+              className="min-w-0 flex-1 truncate text-label-14 text-gray-1000"
               html={hit.title ? hit.titleHtml : 'Untitled'}
             />
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {hit.visibility === 'private' ? 'Private' : 'Shared'} · {formatDay(hit.updatedAt)}
+            <span className="shrink-0 text-copy-13 text-gray-900 tabular-nums">
+              {hit.visibility === 'private' ? 'Private · ' : ''}
+              {formatDay(hit.updatedAt)}
             </span>
           </div>
           {hit.snippetHtml && (
-            <Highlight
-              className="line-clamp-2 text-sm text-muted-foreground"
-              html={hit.snippetHtml}
-            />
+            <Highlight className="line-clamp-2 text-copy-14 text-gray-900" html={hit.snippetHtml} />
           )}
         </div>
       </Link>
@@ -71,21 +79,21 @@ function TranscriptRow({ hit }: { hit: TranscriptHit }) {
   return (
     <li>
       <Link href={transcriptHref(hit)} className={rowClass} data-testid="search-page-transcript">
-        <AudioLinesIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <IconWaveSine aria-hidden className="mt-0.5 size-4 shrink-0 text-gray-900" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-baseline gap-3">
-            <span className="min-w-0 flex-1 truncate font-medium">
+            <span className="min-w-0 flex-1 truncate text-label-14 text-gray-1000">
               {hit.documentTitle || 'Untitled'}
             </span>
-            <span className="shrink-0 text-xs text-muted-foreground">
+            <span className="shrink-0 text-copy-13 text-gray-900 tabular-nums">
               {formatDay(hit.updatedAt)}
             </span>
           </div>
-          <p className="flex gap-2 text-sm">
-            <span className="shrink-0 font-mono text-xs leading-5 text-muted-foreground tabular-nums">
+          <p className="flex gap-2 text-copy-14 text-gray-1000">
+            <span className="shrink-0 text-copy-14-mono text-gray-900 tabular-nums">
               {formatTimestamp(hit.startMs)}
             </span>
-            <span className="shrink-0 text-muted-foreground">{speaker}</span>
+            <span className="shrink-0 text-gray-900">{speaker}</span>
             <Highlight className="line-clamp-2 min-w-0" html={hit.snippetHtml} />
           </p>
         </div>
@@ -94,15 +102,56 @@ function TranscriptRow({ hit }: { hit: TranscriptHit }) {
   );
 }
 
+/** Same box as a result row with a one-line snippet, so results land without a jump. */
 function ResultsSkeleton() {
   return (
-    <div className="flex flex-col gap-2" role="status" aria-busy="true" aria-label="Searching">
+    <div className={listClass} role="status" aria-busy="true" aria-label="Searching">
       {[0, 1, 2, 3].map((row) => (
-        <Skeleton key={row} className="h-16 w-full rounded-lg" />
+        <div key={row} className="flex gap-3 px-4 py-3">
+          <Skeleton className="mt-0.5 size-4 shrink-0 rounded-sm" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <div className="flex h-5 items-center justify-between gap-3">
+              <Skeleton className="h-3.5 w-2/5" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+            <div className="flex h-5 items-center">
+              <Skeleton className="h-3.5 w-4/5" />
+            </div>
+          </div>
+        </div>
       ))}
     </div>
   );
 }
+
+function SearchEmpty({
+  icon: EmptyIcon,
+  title,
+  children,
+  action,
+}: {
+  icon: Icon;
+  title: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <Empty className="border border-gray-alpha-400" data-testid="search-empty">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <EmptyIcon />
+        </EmptyMedia>
+        <EmptyTitle role="heading" aria-level={2}>
+          {title}
+        </EmptyTitle>
+        <EmptyDescription>{children}</EmptyDescription>
+      </EmptyHeader>
+      {action && <EmptyContent>{action}</EmptyContent>}
+    </Empty>
+  );
+}
+
+const code = 'rounded-sm bg-gray-100 px-1 text-copy-13-mono text-gray-1000';
 
 type Extra = {
   for?: SearchResponse;
@@ -181,7 +230,7 @@ export function SearchView({ workspaceId }: { workspaceId: string }) {
         onSubmit={(event) => event.preventDefault()}
         className="flex flex-col gap-2"
       >
-        <InputGroup className="h-11 rounded-xl bg-card shadow-xs">
+        <InputGroup size="lg" className="rounded-xl">
           <InputGroupInput
             autoFocus
             type="search"
@@ -193,38 +242,31 @@ export function SearchView({ workspaceId }: { workspaceId: string }) {
               setQuery(event.target.value);
               syncUrl(event.target.value, tab);
             }}
-            className="text-base"
           />
           <InputGroupAddon>
-            {pending ? (
-              <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" />
-            ) : (
-              <SearchIcon />
-            )}
+            {pending ? <Spinner aria-label="Searching" /> : <IconSearch aria-hidden />}
           </InputGroupAddon>
         </InputGroup>
-        <p className="text-xs text-muted-foreground">
-          Use quotes for an exact phrase, <span className="font-mono">-word</span> to exclude, and{' '}
-          <span className="font-mono">or</span> for either.
-        </p>
       </form>
 
       {!q ? (
-        <EmptyState
-          icon={SearchIcon}
-          title="Search your workspace"
-          description="Find notes by title or content, and the moment something was said in a meeting."
-        />
+        <SearchEmpty icon={IconSearch} title="Search your workspace">
+          Find notes by title or content, and the moment something was said in a meeting. Use quotes
+          for an exact phrase, <code className={code}>-word</code> to exclude and{' '}
+          <code className={code}>or</code> for either.
+        </SearchEmpty>
       ) : search.status === 'error' ? (
-        <EmptyState
-          icon={SearchXIcon}
+        <SearchEmpty
+          icon={IconSearchOff}
           title="Search isn’t available right now"
-          description="Check your connection and try again."
+          action={
+            <Button variant="outline" onClick={() => setAttempt((n) => n + 1)}>
+              Try again
+            </Button>
+          }
         >
-          <Button variant="outline" onClick={() => setAttempt((n) => n + 1)}>
-            Try again
-          </Button>
-        </EmptyState>
+          Check your connection and try again.
+        </SearchEmpty>
       ) : (
         <Tabs
           value={tab}
@@ -237,12 +279,18 @@ export function SearchView({ workspaceId }: { workspaceId: string }) {
           <TabsList>
             <TabsTrigger value="notes">
               Notes
-              {data && <span className="text-xs text-muted-foreground">{countLabel(notes)}</span>}
+              {data && (
+                <span className="text-label-13 text-gray-900 tabular-nums">
+                  {countLabel(notes)}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="transcripts">
               Transcripts
               {data && (
-                <span className="text-xs text-muted-foreground">{countLabel(transcripts)}</span>
+                <span className="text-label-13 text-gray-900 tabular-nums">
+                  {countLabel(transcripts)}
+                </span>
               )}
             </TabsTrigger>
           </TabsList>
@@ -256,21 +304,22 @@ export function SearchView({ workspaceId }: { workspaceId: string }) {
                   pending ? (
                     <ResultsSkeleton />
                   ) : (
-                    <EmptyState
-                      icon={SearchXIcon}
+                    <SearchEmpty
+                      icon={IconSearchOff}
                       title={
                         which === 'notes'
                           ? `No notes match “${q}”`
                           : `No transcript lines match “${q}”`
                       }
-                      description="Try fewer or different words, or check the other tab."
-                    />
+                    >
+                      Try fewer or different words, or check the other tab.
+                    </SearchEmpty>
                   )
                 ) : (
                   <>
                     <ul
                       aria-busy={pending}
-                      className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs transition-opacity duration-fast aria-busy:opacity-60"
+                      className={`${listClass} transition-opacity duration-150 aria-busy:opacity-60`}
                     >
                       {which === 'notes'
                         ? notes.items.map((hit) => <NoteRow key={hit.id} hit={hit} />)
@@ -283,7 +332,8 @@ export function SearchView({ workspaceId }: { workspaceId: string }) {
                         disabled={loadingMore || pending}
                         onClick={() => void loadMore(which)}
                       >
-                        {loadingMore ? 'Loading…' : 'Load more'}
+                        {loadingMore && <Spinner data-icon="inline-start" />}
+                        Load more
                       </Button>
                     )}
                   </>

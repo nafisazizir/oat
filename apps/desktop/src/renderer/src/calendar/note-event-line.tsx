@@ -4,7 +4,7 @@
  */
 import type { NoteCalendarEvent } from '@oat/core/bridge';
 import { Button } from '@oat/ui/components/button';
-import { CalendarIcon, VideoIcon } from 'lucide-react';
+import { IconCalendarEvent, IconVideo } from '@tabler/icons-react';
 
 import { bridge } from '../bridge.ts';
 import { CONFERENCE_LABELS, formatRange } from './calendar-state.ts';
@@ -16,21 +16,21 @@ export function NoteEventLine({ event }: { event: NoteCalendarEvent | null }) {
   const label = event.conferenceProvider ? CONFERENCE_LABELS[event.conferenceProvider] : null;
   return (
     <p
-      className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground"
+      className="flex flex-wrap items-center gap-1.5 text-label-14 text-gray-900"
       data-testid="note-calendar-event"
     >
-      <CalendarIcon aria-hidden className="size-3.5" />
+      <IconCalendarEvent aria-hidden className="size-4" />
       <span>
         Scheduled {DAY.format(new Date(event.start))} · {formatRange(event.start, event.end)}
       </span>
       {event.conferenceUrl && (
         <Button
           variant="outline"
-          size="sm"
-          className="ml-1 h-6 px-2 text-xs"
+          size="xs"
+          className="ms-1"
           onClick={() => bridge().send('shell:open-external', { url: event.conferenceUrl! })}
         >
-          <VideoIcon data-icon="inline-start" />
+          <IconVideo data-icon="inline-start" />
           Join{label ? ` ${label}` : ''}
         </Button>
       )}

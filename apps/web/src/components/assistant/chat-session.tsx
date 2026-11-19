@@ -1,10 +1,27 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { cn } from '@oat/ui';
+import { Alert, AlertDescription } from '@oat/ui/components/alert';
 import { Button } from '@oat/ui/components/button';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
+import { InputGroup, InputGroupAddon, InputGroupTextarea } from '@oat/ui/components/input-group';
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from '@oat/ui/components/message-scroller';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconAlertCircle, IconArrowUp, IconPlayerStopFilled } from '@tabler/icons-react';
 import { DefaultChatTransport } from 'ai';
-import { AlertCircleIcon, ArrowUpIcon, Loader2Icon, SquareIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { chatApi, describeChatError } from '@/lib/chat-client';
@@ -177,21 +194,21 @@ export function ChatSession({
             />
           )}
           {status === 'submitted' && last?.role === 'user' && (
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Loader2Icon className="size-3 animate-spin" />
+            <p className="flex items-center gap-1.5 text-label-13 text-gray-900">
+              <Spinner aria-hidden role={undefined} className="size-3.5" />
               Thinking…
             </p>
           )}
           {failure && (
-            <div
+            <Alert
+              variant="destructive"
               role="alert"
               data-testid="chat-error"
               data-kind={failure.kind}
-              className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm"
             >
-              <AlertCircleIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
-              <span className="flex-1">{failure.message}</span>
-            </div>
+              <IconAlertCircle />
+              <AlertDescription>{failure.message}</AlertDescription>
+            </Alert>
           )}
         </MessageList>
         <Composer
@@ -217,13 +234,6 @@ function MessageList({
   lastId: string | undefined;
   children: React.ReactNode;
 }) {
-  const scroller = useRef<HTMLDivElement>(null);
-  const pinned = useRef(true);
-  // Follow the stream while the reader is at the bottom; leave them alone once they scroll up.
-  useEffect(() => {
-    const el = scroller.current;
-    if (el && pinned.current) el.scrollTop = el.scrollHeight;
-  });
   // Each answer's question (for a stale proposal's "Re-run").
   const questions = new Map<string, string>();
   let question: string | undefined;
@@ -234,34 +244,38 @@ function MessageList({
       questions.set(message.id, question);
     }
   }
+  // Follows the stream while the reader is at the end; leaves them alone once they scroll up.
   return (
-    <div
-      ref={scroller}
-      onScroll={(event) => {
-        const el = event.currentTarget;
-        pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
-      }}
-      className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4"
-      data-testid="chat-messages"
-      role="region"
-      aria-label="Conversation"
-    >
-      {messages.map((message) => {
-        if (message.role === 'user') {
-          return <UserMessage key={message.id} message={message} />;
-        }
-        if (message.role !== 'assistant') return null;
-        return (
-          <AssistantMessage
-            key={message.id}
-            message={message}
-            question={questions.get(message.id)}
-            streaming={busy && message.id === lastId}
-          />
-        );
-      })}
-      {children}
-    </div>
+    <MessageScrollerProvider autoScroll>
+      <MessageScroller className="flex-1">
+        <MessageScrollerViewport aria-label="Conversation" data-testid="chat-messages">
+          <MessageScrollerContent className="gap-6 px-4 py-4">
+            {messages.map((message) => {
+              if (message.role !== 'user' && message.role !== 'assistant') return null;
+              return (
+                <MessageScrollerItem
+                  key={message.id}
+                  messageId={message.id}
+                  scrollAnchor={message.role === 'user'}
+                >
+                  {message.role === 'user' ? (
+                    <UserMessage message={message} />
+                  ) : (
+                    <AssistantMessage
+                      message={message}
+                      question={questions.get(message.id)}
+                      streaming={busy && message.id === lastId}
+                    />
+                  )}
+                </MessageScrollerItem>
+              );
+            })}
+            {children}
+          </MessageScrollerContent>
+        </MessageScrollerViewport>
+        <MessageScrollerButton />
+      </MessageScroller>
+    </MessageScrollerProvider>
   );
 }
 
@@ -277,25 +291,24 @@ function EmptyChat({
   onPick: (text: string) => void;
 }) {
   return (
-    <div className="my-auto flex flex-col gap-4 py-6" data-testid="chat-empty">
-      <div className="flex flex-col gap-1">
-        <h3 className="font-heading text-xl">{title}</h3>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-      <ul className="flex flex-col gap-1.5">
+    <Empty className="my-auto items-stretch p-0 text-start" data-testid="chat-empty">
+      <EmptyHeader className="max-w-none items-start">
+        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent className="max-w-none items-stretch gap-1">
         {suggestions.map((s) => (
-          <li key={s}>
-            <button
-              type="button"
-              onClick={() => onPick(s)}
-              className="w-full rounded-lg border bg-card px-3 py-2 text-left text-sm transition-colors duration-fast hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              {s}
-            </button>
-          </li>
+          <Button
+            key={s}
+            variant="outline"
+            className="h-auto min-h-9 justify-start py-2 text-start whitespace-normal"
+            onClick={() => onPick(s)}
+          >
+            {s}
+          </Button>
         ))}
-      </ul>
-    </div>
+      </EmptyContent>
+    </Empty>
   );
 }
 
@@ -320,14 +333,14 @@ function Composer({
   };
   return (
     <form
-      className="border-t p-3"
+      className="p-3 pt-0"
       onSubmit={(event) => {
         event.preventDefault();
         send();
       }}
     >
-      <div className="flex items-end gap-2 rounded-xl border border-input bg-background px-3 py-2 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30">
-        <textarea
+      <InputGroup className="h-auto rounded-xl">
+        <InputGroupTextarea
           aria-label="Ask the assistant"
           data-testid="chat-input"
           value={value}
@@ -342,31 +355,27 @@ function Composer({
               send();
             }
           }}
-          className="max-h-40 min-h-6 flex-1 resize-none bg-transparent py-0.5 text-sm [field-sizing:content] outline-none placeholder:text-muted-foreground"
+          className="max-h-40 min-h-10 [field-sizing:content]"
         />
-        {busy ? (
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="secondary"
-            aria-label="Stop"
-            data-testid="chat-stop"
-            onClick={onStop}
-          >
-            <SquareIcon className="fill-current" />
-          </Button>
-        ) : (
-          <Button
-            type="submit"
-            size="icon-sm"
-            aria-label="Send"
-            disabled={!value.trim()}
-            className={cn(!value.trim() && 'opacity-40')}
-          >
-            <ArrowUpIcon />
-          </Button>
-        )}
-      </div>
+        <InputGroupAddon align="inline-end" className="self-end pb-1.5">
+          {busy ? (
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="secondary"
+              aria-label="Stop"
+              data-testid="chat-stop"
+              onClick={onStop}
+            >
+              <IconPlayerStopFilled />
+            </Button>
+          ) : (
+            <Button type="submit" size="icon-sm" aria-label="Send" disabled={!value.trim()}>
+              <IconArrowUp />
+            </Button>
+          )}
+        </InputGroupAddon>
+      </InputGroup>
     </form>
   );
 }
