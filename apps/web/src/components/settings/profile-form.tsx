@@ -1,11 +1,20 @@
 'use client';
 
 import { cn } from '@oat/ui';
+import { Alert, AlertDescription } from '@oat/ui/components/alert';
 import { Button } from '@oat/ui/components/button';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@oat/ui/components/field';
 import { Input } from '@oat/ui/components/input';
-import { Label } from '@oat/ui/components/label';
+import { Spinner } from '@oat/ui/components/spinner';
 import { Textarea } from '@oat/ui/components/textarea';
-import { Loader2Icon } from 'lucide-react';
+import { IconAlertCircle } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
@@ -14,11 +23,12 @@ import type { ApiErrorBody } from '@/lib/api-types';
 import { formatDay } from '@/lib/format';
 import { parseVocabulary, PROFILE_LIMITS, type ProfileDto, type ProfileInput } from '@/lib/profile';
 
-function Field({
+function Row({
   id,
   label,
   hint,
   count,
+  invalid,
   children,
 }: {
   id: string;
@@ -26,28 +36,26 @@ function Field({
   hint?: string;
   /** `[used, max]`: shown once the field is past half its limit. */
   count?: [number, number];
+  invalid?: boolean;
   children: React.ReactNode;
 }) {
   const [used, max] = count ?? [0, 0];
   return (
-    <div className="grid gap-2 py-4 first:pt-0 last:pb-0 sm:grid-cols-[11rem_1fr] sm:gap-6">
-      <div className="flex flex-col gap-0.5 sm:pt-1.5">
-        <Label htmlFor={id} className="font-medium">
-          {label}
-        </Label>
-        {hint && (
-          <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-            {hint}
-          </p>
-        )}
-      </div>
+    <Field
+      data-invalid={invalid || undefined}
+      className="gap-2 sm:grid sm:grid-cols-[11rem_1fr] sm:items-start sm:gap-6"
+    >
+      <FieldContent className="sm:pt-1.5">
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        {hint && <FieldDescription id={`${id}-hint`}>{hint}</FieldDescription>}
+      </FieldContent>
       <div className="flex min-w-0 flex-col gap-1">
         {children}
         {count && used > max / 2 && (
           <p
             className={cn(
-              'text-right text-xs tabular-nums',
-              used > max ? 'text-destructive' : 'text-muted-foreground',
+              'text-end text-label-12 tabular-nums',
+              used > max ? 'text-red-900' : 'text-gray-900',
             )}
             aria-live="polite"
           >
@@ -55,7 +63,7 @@ function Field({
           </p>
         )}
       </div>
-    </div>
+    </Field>
   );
 }
 
@@ -90,10 +98,12 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
   const [form, setForm] = useState(() => toForm(profile));
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
   const terms = parseVocabulary(form.vocabulary);
   const tooLong = terms.some((t) => t.length > PROFILE_LIMITS.vocabularyTermLength);
   const dirty = JSON.stringify(form) !== JSON.stringify(toForm(saved));
   const nameMissing = !form.name.trim();
+
   const set =
     (key: keyof typeof form) =>
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -101,10 +111,11 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
 
   return (
     <form
-      className="flex flex-col"
+      className="flex flex-col gap-6"
       data-testid="profile-form"
       onSubmit={(event) => {
         event.preventDefault();
+        if (!dirty || nameMissing || pending) return;
         startTransition(async () => {
           try {
             const next = await saveProfile({ ...form, vocabulary: terms });
@@ -122,8 +133,8 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
         });
       }}
     >
-      <div className="flex flex-col divide-y">
-        <Field id="profile-name" label="Name" hint="How notes refer to you.">
+      <FieldGroup className="gap-5">
+        <Row id="profile-name" label="Name" hint="How notes refer to you.">
           <Input
             id="profile-name"
             value={form.name}
@@ -136,8 +147,8 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
             disabled={pending}
             className="sm:max-w-80"
           />
-        </Field>
-        <Field id="profile-role" label="Role" hint="For example Account executive or Designer.">
+        </Row>
+        <Row id="profile-role" label="Role" hint="For example Account executive or Designer.">
           <Input
             id="profile-role"
             value={form.role}
@@ -148,8 +159,8 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
             disabled={pending}
             className="sm:max-w-80"
           />
-        </Field>
-        <Field id="profile-team" label="Team or company">
+        </Row>
+        <Row id="profile-team" label="Team or company">
           <Input
             id="profile-team"
             value={form.team}
@@ -159,11 +170,11 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
             disabled={pending}
             className="sm:max-w-80"
           />
-        </Field>
-        <Field
+        </Row>
+        <Row
           id="profile-about"
           label="What I care about"
-          hint="What your notes should pay attention to: goals, customers, projects."
+          hint="Goals, customers and projects your notes should pay attention to."
           count={[form.about.length, PROFILE_LIMITS.about]}
         >
           <Textarea
@@ -176,39 +187,45 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
             disabled={pending}
             className="min-h-24"
           />
-        </Field>
-        <Field
+        </Row>
+        <Row
           id="profile-vocabulary"
           label="Names and terms"
-          hint="One per line. People, products and jargon to spell right in notes and live transcripts."
+          hint="One per line. Spelled right in notes and live transcripts."
           count={[terms.length, PROFILE_LIMITS.vocabularyTerms]}
+          invalid={tooLong}
         >
           <Textarea
             id="profile-vocabulary"
             value={form.vocabulary}
             onChange={set('vocabulary')}
             rows={4}
-            aria-describedby="profile-vocabulary-hint"
+            aria-describedby={
+              tooLong
+                ? 'profile-vocabulary-hint profile-vocabulary-error'
+                : 'profile-vocabulary-hint'
+            }
             aria-invalid={tooLong || undefined}
             disabled={pending}
             placeholder={'Brightsmile\nDentaCore\nMei Lin'}
-            className="min-h-24 font-mono md:text-sm"
+            className="min-h-24 text-copy-14-mono"
           />
           {tooLong && (
-            <p className="text-xs text-destructive">
+            <FieldError id="profile-vocabulary-error">
               Keep each term under {PROFILE_LIMITS.vocabularyTermLength} characters.
-            </p>
+            </FieldError>
           )}
-        </Field>
-      </div>
+        </Row>
+      </FieldGroup>
       {error && (
-        <p role="alert" className="pt-4 text-sm text-destructive" data-testid="profile-error">
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <IconAlertCircle />
+          <AlertDescription data-testid="profile-error">{error}</AlertDescription>
+        </Alert>
       )}
-      <div className="flex flex-wrap items-center justify-end gap-3 pt-6">
+      <div className="flex flex-wrap items-center justify-end gap-3">
         {saved.updatedAt && (
-          <span className="mr-auto text-xs text-muted-foreground" data-testid="profile-saved-at">
+          <span className="me-auto text-copy-13 text-gray-900" data-testid="profile-saved-at">
             Last saved {formatDay(saved.updatedAt)}
           </span>
         )}
@@ -217,7 +234,7 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
           disabled={!dirty || nameMissing || pending}
           data-testid="profile-save"
         >
-          {pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+          {pending && <Spinner data-icon="inline-start" />}
           Save
         </Button>
       </div>

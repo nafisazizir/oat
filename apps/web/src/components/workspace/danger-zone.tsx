@@ -1,17 +1,28 @@
 'use client';
 
-import { Button } from '@oat/ui/components/button';
+import { Alert, AlertDescription } from '@oat/ui/components/alert';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@oat/ui/components/dialog';
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@oat/ui/components/alert-dialog';
+import { Button } from '@oat/ui/components/button';
+import { Field, FieldLabel } from '@oat/ui/components/field';
 import { Input } from '@oat/ui/components/input';
-import { Label } from '@oat/ui/components/label';
-import { Loader2Icon } from 'lucide-react';
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from '@oat/ui/components/item';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconAlertCircle } from '@tabler/icons-react';
 import { useState, useTransition } from 'react';
 
 import { deleteWorkspace } from '@/server/actions/members';
@@ -28,13 +39,13 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-col gap-0.5">
-        <div className="font-medium">{title}</div>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </div>
-      {children}
-    </div>
+    <Item className="flex-col items-stretch rounded-none not-last:border-b not-last:border-gray-alpha-400 sm:flex-row sm:items-center">
+      <ItemContent>
+        <ItemTitle>{title}</ItemTitle>
+        <ItemDescription>{description}</ItemDescription>
+      </ItemContent>
+      <ItemActions>{children}</ItemActions>
+    </Item>
   );
 }
 
@@ -55,7 +66,7 @@ function DeleteWorkspaceDialog({
   const matches = confirm.trim() === workspace.name.trim();
 
   return (
-    <Dialog
+    <AlertDialog
       open={open}
       onOpenChange={(next) => {
         if (!next) {
@@ -65,11 +76,12 @@ function DeleteWorkspaceDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent data-testid="delete-workspace-dialog">
+      <AlertDialogContent data-testid="delete-workspace-dialog">
         <form
           className="contents"
           onSubmit={(event) => {
             event.preventDefault();
+            if (!matches) return;
             startTransition(async () => {
               const result = await deleteWorkspace({
                 workspaceId: workspace.id,
@@ -79,43 +91,43 @@ function DeleteWorkspaceDialog({
             });
           }}
         >
-          <DialogHeader>
-            <DialogTitle>Delete {workspace.name}?</DialogTitle>
-            <DialogDescription>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {workspace.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
               It disappears for every member right away, with all of its notes. It can be restored
               for {restoreDays} days.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="delete-confirm">
-              Type <span className="font-semibold">{workspace.name}</span> to confirm
-            </Label>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Field>
+            <FieldLabel htmlFor="delete-confirm" className="block">
+              Type <span className="text-label-14-mono">{workspace.name}</span> to confirm
+            </FieldLabel>
             <Input
               id="delete-confirm"
               value={confirm}
               onChange={(event) => setConfirm(event.target.value)}
               autoComplete="off"
+              autoFocus
+              spellCheck={false}
               disabled={pending}
-              aria-invalid={error ? true : undefined}
             />
-            {error && (
-              <p role="alert" className="text-xs text-destructive">
-                {error}
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
+          </Field>
+          {error && (
+            <Alert variant="destructive">
+              <IconAlertCircle />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
             <Button type="submit" variant="destructive" disabled={!matches || pending}>
-              {pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+              {pending && <Spinner data-icon="inline-start" />}
               Delete workspace
             </Button>
-          </DialogFooter>
+          </AlertDialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -135,41 +147,43 @@ export function WorkspaceDangerZone({
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   return (
-    <div className="flex flex-col divide-y">
-      <Row
-        title="Leave workspace"
-        description={
-          canLeave
-            ? 'You’ll lose access to its shared notes.'
-            : 'You’re the only owner. Make someone else an owner before you leave.'
-        }
+    <>
+      <ItemGroup
+        role="group"
+        className="gap-0 overflow-hidden rounded-lg border border-gray-alpha-400"
       >
-        <Button
-          variant="outline"
-          disabled={!canLeave}
-          onClick={() => setLeaveOpen(true)}
-          className="shrink-0"
-        >
-          Leave workspace
-        </Button>
-      </Row>
-      {canDelete && (
         <Row
-          title="Delete workspace"
-          description={`Removes it for everyone. Restorable for ${restoreDays} days.`}
+          title="Leave workspace"
+          description={
+            canLeave
+              ? 'You’ll lose access to its shared notes.'
+              : 'You’re the only owner. Make someone else an owner before you leave.'
+          }
         >
-          <Button variant="destructive" onClick={() => setDeleteOpen(true)} className="shrink-0">
-            Delete workspace
+          <Button variant="outline" disabled={!canLeave} onClick={() => setLeaveOpen(true)}>
+            Leave workspace
           </Button>
         </Row>
-      )}
+        {canDelete && (
+          <Row
+            title="Delete workspace"
+            description={`Removes it for everyone. Restorable for ${restoreDays} days.`}
+          >
+            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+              Delete workspace
+            </Button>
+          </Row>
+        )}
+      </ItemGroup>
       <LeaveWorkspaceDialog workspace={workspace} open={leaveOpen} onOpenChange={setLeaveOpen} />
-      <DeleteWorkspaceDialog
-        workspace={workspace}
-        restoreDays={restoreDays}
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-      />
-    </div>
+      {canDelete && (
+        <DeleteWorkspaceDialog
+          workspace={workspace}
+          restoreDays={restoreDays}
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+        />
+      )}
+    </>
   );
 }

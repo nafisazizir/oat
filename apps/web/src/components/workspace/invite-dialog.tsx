@@ -10,8 +10,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@oat/ui/components/dialog';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@oat/ui/components/field';
 import { Input } from '@oat/ui/components/input';
-import { Label } from '@oat/ui/components/label';
 import {
   Select,
   SelectContent,
@@ -19,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@oat/ui/components/select';
-import { Loader2Icon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
@@ -78,9 +84,9 @@ export function InviteDialog({
               They’ll get an email with a link. It works for 7 days, for that address only.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="invite-email">Email</Label>
+          <FieldGroup className="gap-5">
+            <Field data-invalid={error ? true : undefined}>
+              <FieldLabel htmlFor="invite-email">Email</FieldLabel>
               <Input
                 id="invite-email"
                 name="email"
@@ -90,12 +96,18 @@ export function InviteDialog({
                 autoFocus
                 autoComplete="off"
                 disabled={pending}
+                onChange={() => error && setError(null)}
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? 'invite-error' : undefined}
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="invite-role">Role</Label>
+              {error && (
+                <FieldError id="invite-error" role="alert">
+                  {error}
+                </FieldError>
+              )}
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="invite-role">Role</FieldLabel>
               <Select
                 items={roles.map((value) => ({ value, label: ROLE_INFO[value].label }))}
                 value={role}
@@ -112,20 +124,15 @@ export function InviteDialog({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">{ROLE_INFO[role].description}</p>
-            </div>
-            {error && (
-              <p id="invite-error" role="alert" className="text-xs text-destructive">
-                {error}
-              </p>
-            )}
-          </div>
+              <FieldDescription>{ROLE_INFO[role].description}</FieldDescription>
+            </Field>
+          </FieldGroup>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+              {pending && <Spinner data-icon="inline-start" />}
               Send invite
             </Button>
           </DialogFooter>

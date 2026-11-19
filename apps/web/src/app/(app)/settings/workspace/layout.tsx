@@ -1,5 +1,12 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@oat/ui/components/card';
-import { LockIcon } from 'lucide-react';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
+import { IconLock } from '@tabler/icons-react';
 
 import { BackLink, PageContainer, PageHeader } from '@/components/page';
 import { CreateTeamButton } from '@/components/workspace/create-team-button';
@@ -28,7 +35,7 @@ export default async function WorkspaceSettingsLayout({ children }: { children: 
             description={
               personal
                 ? 'Personal workspace'
-                : `Team workspace · ${members.length === 1 ? '1 member' : `${members.length} members`} · you’re ${ROLE_INFO[role].label.toLowerCase()}`
+                : `${members.length === 1 ? '1 member' : `${members.length} members`} · you’re ${ROLE_INFO[role].label.toLowerCase()}`
             }
           />
         </div>
@@ -36,24 +43,23 @@ export default async function WorkspaceSettingsLayout({ children }: { children: 
       </div>
 
       {personal ? (
-        <Card data-testid="personal-workspace-note">
-          <CardHeader>
-            <CardTitle>
-              <h2 className="flex items-center gap-2">
-                <LockIcon className="size-4 text-muted-foreground" />
-                Just for you
-              </h2>
-            </CardTitle>
-            <CardDescription>
-              Your personal workspace has exactly one member: you. It can’t be shared, left or
-              deleted, and nobody can be invited to it. To work with others, create a team workspace
-              and invite them there. You can switch between workspaces at the top of the sidebar.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <Empty className="border border-gray-alpha-400" data-testid="personal-workspace-note">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <IconLock />
+            </EmptyMedia>
+            <EmptyTitle role="heading" aria-level={2}>
+              Just for you
+            </EmptyTitle>
+            <EmptyDescription>
+              Your personal workspace can’t be shared, left or deleted. To work with others, create
+              a team workspace and invite them there.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
             <CreateTeamButton />
-          </CardContent>
-        </Card>
+          </EmptyContent>
+        </Empty>
       ) : (
         children
       )}
