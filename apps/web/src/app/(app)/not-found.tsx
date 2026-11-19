@@ -13,8 +13,8 @@ export default function AppNotFound() {
         titleAs="h1"
         description="It may have been moved or deleted, or you might not have access to it."
       >
-        <Button asChild>
-          <Link href="/home">Go home</Link>
+        <Button role="link" nativeButton={false} render={<Link href="/home" />}>
+          Go home
         </Button>
       </EmptyState>
     </PageContainer>

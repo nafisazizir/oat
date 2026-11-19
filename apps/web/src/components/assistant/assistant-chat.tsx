@@ -6,6 +6,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -219,24 +220,28 @@ export function AssistantChat({
           <h2 className="flex-1 truncate text-sm font-medium">Ask about this note</h2>
           <ThreadMenu threads={threads} activeId={activeThreadId} onPick={openThread} />
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="New chat" onClick={newChat}>
-                <PlusIcon />
-              </Button>
+            <TooltipTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="New chat" onClick={newChat} />
+              }
+            >
+              <PlusIcon />
             </TooltipTrigger>
             <TooltipContent>New chat</TooltipContent>
           </Tooltip>
           {onClose && (
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Close assistant"
-                  onClick={onClose}
-                >
-                  <XIcon />
-                </Button>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Close assistant"
+                    onClick={onClose}
+                  />
+                }
+              >
+                <XIcon />
               </TooltipTrigger>
               <TooltipContent>Close · ⌘J</TooltipContent>
             </Tooltip>
@@ -330,35 +335,39 @@ function ThreadMenu({
   return (
     <DropdownMenu>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="Previous chats">
-              <HistoryIcon />
-            </Button>
-          </DropdownMenuTrigger>
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              render={<Button variant="ghost" size="icon-sm" aria-label="Previous chats" />}
+            />
+          }
+        >
+          <HistoryIcon />
         </TooltipTrigger>
         <TooltipContent>Previous chats</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end" className="w-72">
-        <DropdownMenuLabel>Previous chats</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {threads === null ? (
-          <DropdownMenuItem disabled>Loading…</DropdownMenuItem>
-        ) : threads.length === 0 ? (
-          <DropdownMenuItem disabled>No conversations yet</DropdownMenuItem>
-        ) : (
-          threads.map((thread) => (
-            <DropdownMenuItem
-              key={thread.id}
-              onSelect={() => onPick(thread.id)}
-              className={cn(thread.id === activeId && 'bg-accent')}
-            >
-              <MessageSquareIcon />
-              <span className="flex-1 truncate">{thread.title || 'Untitled conversation'}</span>
-              <span className="text-xs text-muted-foreground">{formatDay(thread.updatedAt)}</span>
-            </DropdownMenuItem>
-          ))
-        )}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Previous chats</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {threads === null ? (
+            <DropdownMenuItem disabled>Loading…</DropdownMenuItem>
+          ) : threads.length === 0 ? (
+            <DropdownMenuItem disabled>No conversations yet</DropdownMenuItem>
+          ) : (
+            threads.map((thread) => (
+              <DropdownMenuItem
+                key={thread.id}
+                onClick={() => onPick(thread.id)}
+                className={cn(thread.id === activeId && 'bg-accent')}
+              >
+                <MessageSquareIcon />
+                <span className="flex-1 truncate">{thread.title || 'Untitled conversation'}</span>
+                <span className="text-xs text-muted-foreground">{formatDay(thread.updatedAt)}</span>
+              </DropdownMenuItem>
+            ))
+          )}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

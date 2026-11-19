@@ -159,17 +159,17 @@ export function TreeSection({ area, label }: { area: Area; label: string }) {
       </SidebarGroupLabel>
       {actions.canCreate && (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarGroupAction title={`Add to ${label}`} aria-label={`Add to ${label}`}>
-              <PlusIcon />
-            </SidebarGroupAction>
+          <DropdownMenuTrigger
+            render={<SidebarGroupAction title={`Add to ${label}`} aria-label={`Add to ${label}`} />}
+          >
+            <PlusIcon />
           </DropdownMenuTrigger>
           <DropdownMenuContent side="right" align="start">
-            <DropdownMenuItem onSelect={() => void actions.newPage({ area })}>
+            <DropdownMenuItem onClick={() => void actions.newPage({ area })}>
               <FilePlusIcon />
               New page
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void actions.newFolder({ area })}>
+            <DropdownMenuItem onClick={() => void actions.newFolder({ area })}>
               <FolderPlusIcon />
               New folder
             </DropdownMenuItem>
@@ -246,19 +246,17 @@ function TreeRow({
         <RenameInput node={node} style={indent} />
       ) : (
         <SidebarMenuButton
-          asChild
+          render={<Link href={`/d/${node.id}` as Route} />}
           isActive={active}
           tooltip={title}
           style={indent}
           className={cn(isFolder && hasChildren ? 'pr-14' : 'pr-8')}
         >
-          <Link href={`/d/${node.id}` as Route}>
-            <NodeIcon node={node} open={open} />
-            <span className={cn(!node.title.trim() && 'text-muted-foreground')}>{title}</span>
-            {lockedInShared && (
-              <LockIcon className="ml-auto text-muted-foreground" aria-label="Only you" />
-            )}
-          </Link>
+          <NodeIcon node={node} open={open} />
+          <span className={cn(!node.title.trim() && 'text-muted-foreground')}>{title}</span>
+          {lockedInShared && (
+            <LockIcon className="ml-auto text-muted-foreground" aria-label="Only you" />
+          )}
         </SidebarMenuButton>
       )}
       {isFolder && hasChildren && !renaming && (
@@ -287,24 +285,25 @@ function RowMenu({ node, title }: { node: DocumentNode; title: string }) {
   if (!edit && !canDelete) return null;
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <SidebarMenuAction showOnHover aria-label={`More actions for ${title}`}>
-          <MoreHorizontalIcon />
-        </SidebarMenuAction>
+      <DropdownMenuTrigger
+        render={<SidebarMenuAction showOnHover aria-label={`More actions for ${title}`} />}
+      >
+        <MoreHorizontalIcon />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         side="right"
         align="start"
         className="min-w-44"
-        onCloseAutoFocus={(event) => {
-          if (keepFocus.current) event.preventDefault();
+        finalFocus={() => {
+          const restoreFocus = !keepFocus.current;
           keepFocus.current = false;
+          return restoreFocus;
         }}
       >
         {edit && (
           <>
             <DropdownMenuItem
-              onSelect={() => {
+              onClick={() => {
                 keepFocus.current = true;
                 actions.startRename(node.id);
               }}
@@ -312,7 +311,7 @@ function RowMenu({ node, title }: { node: DocumentNode; title: string }) {
               <PencilIcon />
               Rename
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => actions.openMoveDialog(node)}>
+            <DropdownMenuItem onClick={() => actions.openMoveDialog(node)}>
               <FolderInputIcon />
               Move to…
             </DropdownMenuItem>
@@ -321,11 +320,11 @@ function RowMenu({ node, title }: { node: DocumentNode; title: string }) {
         {isFolder && edit && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => void actions.newPage({ folderId: node.id })}>
+            <DropdownMenuItem onClick={() => void actions.newPage({ folderId: node.id })}>
               <FilePlusIcon />
               New page inside
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void actions.newFolder({ parentId: node.id })}>
+            <DropdownMenuItem onClick={() => void actions.newFolder({ parentId: node.id })}>
               <FolderPlusIcon />
               New folder inside
             </DropdownMenuItem>
@@ -334,7 +333,7 @@ function RowMenu({ node, title }: { node: DocumentNode; title: string }) {
         {canDelete && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => actions.remove(node)}>
+            <DropdownMenuItem variant="destructive" onClick={() => actions.remove(node)}>
               <Trash2Icon />
               {isFolder ? 'Delete folder' : 'Move to trash'}
             </DropdownMenuItem>

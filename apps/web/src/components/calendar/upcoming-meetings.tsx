@@ -69,8 +69,15 @@ function Notice({
 }
 
 const settingsLink = (label: string) => (
-  <Button variant="outline" size="sm" asChild className="shrink-0 self-start sm:self-auto">
-    <Link href="/settings/integrations">{label}</Link>
+  <Button
+    variant="outline"
+    size="sm"
+    role="link"
+    nativeButton={false}
+    render={<Link href="/settings/integrations" />}
+    className="shrink-0 self-start sm:self-auto"
+  >
+    {label}
   </Button>
 );
 

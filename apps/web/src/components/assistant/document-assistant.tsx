@@ -305,8 +305,8 @@ export function DocumentAssistant({
               showCloseButton={false}
               aria-describedby={undefined}
               data-testid="assistant-panel"
-              // Focus goes back to the toggle (our effect), not to whatever Radix remembered.
-              onCloseAutoFocus={(event) => event.preventDefault()}
+              // Focus goes back to the toggle via our effect.
+              finalFocus={false}
               onKeyDownCapture={closeOnEscape}
               className="gap-0 bg-background p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-md"
             >

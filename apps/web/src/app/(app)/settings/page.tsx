@@ -61,11 +61,14 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent>
           <Row label="Profile" hint="Only you see it.">
-            <Button variant="outline" asChild>
-              <Link href="/settings/profile" data-testid="settings-profile-link">
-                Edit About me
-                <ChevronRightIcon data-icon="inline-end" />
-              </Link>
+            <Button
+              variant="outline"
+              role="link"
+              nativeButton={false}
+              render={<Link href="/settings/profile" data-testid="settings-profile-link" />}
+            >
+              Edit About me
+              <ChevronRightIcon data-icon="inline-end" />
             </Button>
           </Row>
         </CardContent>
@@ -97,11 +100,14 @@ export default async function SettingsPage() {
                 : 'Team workspace: name, icon, members and invites.'
             }
           >
-            <Button asChild variant="outline">
-              <Link href="/settings/workspace">
-                {currentWorkspace.kind === 'personal' ? 'About this workspace' : 'Manage workspace'}
-                <ChevronRightIcon data-icon="inline-end" />
-              </Link>
+            <Button
+              role="link"
+              nativeButton={false}
+              render={<Link href="/settings/workspace" />}
+              variant="outline"
+            >
+              {currentWorkspace.kind === 'personal' ? 'About this workspace' : 'Manage workspace'}
+              <ChevronRightIcon data-icon="inline-end" />
             </Button>
           </Row>
         </CardContent>
@@ -114,11 +120,14 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent>
           <Row label="Calendar" hint="Connect or disconnect Google Calendar.">
-            <Button variant="outline" asChild>
-              <Link href="/settings/integrations">
-                Manage integrations
-                <ChevronRightIcon data-icon="inline-end" />
-              </Link>
+            <Button
+              variant="outline"
+              role="link"
+              nativeButton={false}
+              render={<Link href="/settings/integrations" />}
+            >
+              Manage integrations
+              <ChevronRightIcon data-icon="inline-end" />
             </Button>
           </Row>
         </CardContent>

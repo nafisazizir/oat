@@ -5,6 +5,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -64,7 +65,7 @@ export function EnhanceButton({
     <DropdownMenuItem
       key={t.id}
       data-testid="enhance-template"
-      onSelect={() => start({ templateId: t.id })}
+      onClick={() => start({ templateId: t.id })}
     >
       {t.name}
     </DropdownMenuItem>
@@ -89,37 +90,41 @@ export function EnhanceButton({
         {busy ? 'Enhancing…' : regenerate ? 'Regenerate' : 'Enhance'}
       </Button>
       <DropdownMenu onOpenChange={loadTemplates}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            size="icon-sm"
-            disabled={busy}
-            aria-label={regenerate ? 'Regenerate with a template' : 'Enhance with a template'}
-            data-testid="enhance-template-menu"
-            className="rounded-l-none border-l border-l-primary-foreground/20"
-          >
-            <ChevronDownIcon />
-          </Button>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              size="icon-sm"
+              disabled={busy}
+              aria-label={regenerate ? 'Regenerate with a template' : 'Enhance with a template'}
+              data-testid="enhance-template-menu"
+              className="rounded-l-none border-l border-l-primary-foreground/20"
+            />
+          }
+        >
+          <ChevronDownIcon />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-52">
-          <DropdownMenuLabel>
-            {regenerate ? 'Regenerate with template' : 'Enhance with template'}
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {loadError ? (
-            <DropdownMenuItem disabled>Couldn’t load templates</DropdownMenuItem>
-          ) : !templates ? (
-            <DropdownMenuItem disabled>
-              <Loader2Icon className="animate-spin" />
-              Loading…
-            </DropdownMenuItem>
-          ) : (
-            <>
-              {templates.builtins.map(item)}
-              {templates.custom.length > 0 && <DropdownMenuSeparator />}
-              {templates.custom.map(item)}
-            </>
-          )}
-          {children}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>
+              {regenerate ? 'Regenerate with template' : 'Enhance with template'}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {loadError ? (
+              <DropdownMenuItem disabled>Couldn’t load templates</DropdownMenuItem>
+            ) : !templates ? (
+              <DropdownMenuItem disabled>
+                <Loader2Icon className="animate-spin" />
+                Loading…
+              </DropdownMenuItem>
+            ) : (
+              <>
+                {templates.builtins.map(item)}
+                {templates.custom.length > 0 && <DropdownMenuSeparator />}
+                {templates.custom.map(item)}
+              </>
+            )}
+            {children}
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

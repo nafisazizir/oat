@@ -439,15 +439,17 @@ function useNarrow(ref: React.RefObject<HTMLElement | null>, px: number): boolea
 function MoreActions({ children }: { children: React.ReactNode }) {
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="More actions"
-          data-testid="document-more"
-        >
-          <EllipsisIcon />
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="More actions"
+            data-testid="document-more"
+          />
+        }
+      >
+        <EllipsisIcon />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-auto items-stretch">
         {children}

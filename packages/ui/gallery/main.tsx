@@ -20,7 +20,7 @@ createRoot(document.getElementById('root')!).render(
       disableTransitionOnChange
       forcedTheme={forced === 'light' || forced === 'dark' ? forced : undefined}
     >
-      <TooltipProvider delayDuration={300}>
+      <TooltipProvider delay={300}>
         <App staticOverlays={params.has('static')} />
       </TooltipProvider>
     </ThemeProvider>

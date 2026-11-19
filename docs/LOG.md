@@ -140,3 +140,21 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - New root `AGENTS.md` is the entry point for every agent tool (same content as the old `CLAUDE.md`, updated paths); `CLAUDE.md` is now a thin pointer holding only Claude Code specifics (`/loop`, `isolation: worktree`, REA `--client claude_code`). `apps/web/AGENTS.md` (Next.js-managed) unchanged.
 - References updated: README, PLAN §rules, research/granola ARCHITECTURE + FINDINGS; `.agent/` added to .prettierignore and .dockerignore.
 - 2026-11-18 · ci · GitHub Actions: first run on main failed (swift: setup-node pnpm cache without pnpm; checks: unit property-test timeout + backfill int tolerance on a 4-vCPU runner). Sped up: no Playwright `--with-deps` apt step (~9 min), turbo cache, caches saved on failure. PR run 2 flaked other timing tests (audio archive, post-meeting Workflow status race): vitest steps now cap turbo concurrency at cores/2, post-meeting test waits for the Workflow run to settle. Run 3: more 5 s unit timeouts, web e2e element waits, a Swift debounce test (macOS job ran tests for the first time): CI env scales vitest (x3) and Playwright (x2) timeouts; debounce delay widened.
+
+## 2026-11-19 — human-requested ziiz foundation
+
+- Replaced the shared UI component sources with the ziiz registry (all except chart and carousel), added Base UI, Tabler and registry dependencies, and installed ziiz 0.1.1 through the catalog.
+- Imported the supplied oat palette after ziiz and before the shadcn slot bridge. Exposed the complete brand scale and retained compatibility aliases for existing app/editor consumers.
+- Self-hosted Inter and JetBrains Mono; retained Newsreader solely for the editor's blockquotes.
+- Migrated render composition, menu groups and activation, Select label metadata, array-valued toggle groups and popup focus restoration without app redesign.
+- Verification and screenshot evidence: docs/tasks/ui-foundation.md.
+- Final fast CI green; web, desktop and gallery production builds pass. Light/dark gallery screenshots verified. Full integration tests pass; web E2E is blocked before app startup by the VM's missing pgvector extension. Editor E2E passes after installing the missing local Chromium binary; macOS-only checks are skipped on Linux.
+
+### PR 3 CI remediation
+
+- Fixed text contrast, Tabs activation, sidebar target size, Select indicator text, tooltip semantics, and Base UI-compatible E2E assertions. The human approved the light gray-900 AA deviation, preserving chroma and hue.
+- Reproduced the DB pagination readiness race against main with held transactions and replaced its row-count wait with a specific-folder visibility wait. Main's green Linux log also contains the identical enhance heading failure marked flaky; warm the SSE route before generation instead of weakening the streaming assertions.
+- UI tests, DB integration, both-theme axe and the targeted web browser suite pass locally with the repository environment loaded. Final enhance-only browser check passes (`4 passed (44.5s)`); PR CI remains in progress. Evidence and limitations are in `docs/tasks/ui-foundation.md`.
+- Latest PR run after `4663a6b`: web 63 passed, editor 16 passed, DB integration 51 passed; Swift and review passed. Linux fails only the unchanged desktop backfill boundary assertion (`16600 <= 16000`). Identical failure reproduced on untouched main with 100ms mock-outage control latency; normal main focused test passes. Escalated for approval of a test-only observed-outage timing anchor; no desktop edits or empty CI retries made. Detailed evidence and isolated light/dark visual checks are in the task file.
+- Human approved the test-only backfill fix: start-boundary assertions now use observed audio time at the outage-control acknowledgement, preserving all tolerances and no-loss checks. Normal and 100ms-delayed focused integration cases each pass; desktop lint/typecheck pass. Committing the pending investigation evidence with the fix and continuing PR 3 CI.
+- PR 3 source commit `acd50e7` is green: Linux `135856733308`, Swift `135856733932` and Devin Review all passed (`3 passed, 0 failed, 0 pending`). Foundation CI remediation complete; task file closed with no additional source changes.

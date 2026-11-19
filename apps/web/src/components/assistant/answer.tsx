@@ -189,21 +189,23 @@ function CitationChip({
       : source.title;
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          data-testid="citation-chip"
-          data-state="ready"
-          data-kind={source.kind}
-          aria-label={`Source ${number}: ${label}`}
-          onClick={() => openCitation(source)}
-          className={cn(
-            base,
-            'cursor-pointer bg-primary/10 text-primary hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
-          )}
-        >
-          {number}
-        </button>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            data-testid="citation-chip"
+            data-state="ready"
+            data-kind={source.kind}
+            aria-label={`Source ${number}: ${label}`}
+            onClick={() => openCitation(source)}
+            className={cn(
+              base,
+              'cursor-pointer bg-primary/10 text-primary hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
+            )}
+          />
+        }
+      >
+        {number}
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-72 flex-col items-start gap-1 text-left">
         <span className="font-medium">{label}</span>

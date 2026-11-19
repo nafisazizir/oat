@@ -114,16 +114,22 @@ export function UpcomingMeetingRow({ meeting }: { meeting: UpcomingMeetingView }
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1">
         {meeting.conferenceUrl && (
-          <Button variant="outline" size="sm" asChild>
-            <a
-              href={meeting.conferenceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Join ${meeting.title || 'meeting'}${meeting.conferenceLabel ? ` on ${meeting.conferenceLabel}` : ''}`}
-            >
-              <VideoIcon data-icon="inline-start" />
-              Join
-            </a>
+          <Button
+            variant="outline"
+            size="sm"
+            role="link"
+            nativeButton={false}
+            render={
+              <a
+                href={meeting.conferenceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Join ${meeting.title || 'meeting'}${meeting.conferenceLabel ? ` on ${meeting.conferenceLabel}` : ''}`}
+              />
+            }
+          >
+            <VideoIcon data-icon="inline-start" />
+            Join
           </Button>
         )}
         {notes.canCreate && (

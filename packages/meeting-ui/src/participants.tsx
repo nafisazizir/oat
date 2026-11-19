@@ -153,16 +153,18 @@ function AddParticipant({ onAdd }: { onAdd: NonNullable<ParticipantChipsProps['o
         if (!next) reset();
       }}
     >
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 rounded-full px-2.5 text-xs text-muted-foreground"
-          data-testid="add-participant"
-        >
-          <PlusIcon data-icon="inline-start" />
-          Add attendee
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 rounded-full px-2.5 text-xs text-muted-foreground"
+            data-testid="add-participant"
+          />
+        }
+      >
+        <PlusIcon data-icon="inline-start" />
+        Add attendee
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72">
         <form noValidate className="flex flex-col gap-2.5" onSubmit={(event) => void submit(event)}>

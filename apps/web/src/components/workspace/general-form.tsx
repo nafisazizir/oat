@@ -67,19 +67,21 @@ export function WorkspaceGeneralForm({
       <div className="flex flex-col divide-y">
         <Field label="Icon" hint="Shown in the workspace switcher.">
           <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                className="gap-2 pl-1.5"
-                disabled={!canEdit || pending}
-                aria-label="Choose workspace icon"
-                data-testid="workspace-icon-button"
-              >
-                <WorkspaceAvatar workspace={{ name: name || workspace.name, kind: 'team', icon }} />
-                {icon ? 'Change icon' : 'Add icon'}
-              </Button>
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="gap-2 pl-1.5"
+                  disabled={!canEdit || pending}
+                  aria-label="Choose workspace icon"
+                  data-testid="workspace-icon-button"
+                />
+              }
+            >
+              <WorkspaceAvatar workspace={{ name: name || workspace.name, kind: 'team', icon }} />
+              {icon ? 'Change icon' : 'Add icon'}
             </PopoverTrigger>
             <PopoverContent align="start" className="w-auto">
               <div className="grid grid-cols-8 gap-1" role="listbox" aria-label="Icons">

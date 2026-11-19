@@ -131,11 +131,14 @@ describe('STT down for 3 minutes (fast FileSource ↔ Deepgram mock)', () => {
     const { meetingId } = await service.start({ spec: { input: 'file', fixture: 'long' } });
     // Drive the outage by audio time.
     let phase: 'before' | 'down' | 'up' = 'before';
+    let outageActivatedAtMs: number | undefined;
     const control = setInterval(() => {
       const at = service.liveAudio()?.durationMs ?? 0;
       if (phase === 'before' && at >= DOWN_AT_MS) {
         phase = 'down';
-        void outage(true);
+        void outage(true).then(() => {
+          outageActivatedAtMs = service.liveAudio()?.durationMs;
+        });
       } else if (phase === 'down' && at >= DOWN_AT_MS + OUTAGE_MS) {
         phase = 'up';
         void outage(false);
@@ -152,13 +155,14 @@ describe('STT down for 3 minutes (fast FileSource ↔ Deepgram mock)', () => {
       await outage(false);
     }
     expect(phase).toBe('up');
+    expect(outageActivatedAtMs).toBeDefined();
 
     // Reported on reconnect: what fell out of the 120 s replay buffer (≈ 15 s → 75 s), per source.
     const offline = gaps.filter((g) => g.reason === 'stt_offline');
     expect(offline.map((g) => g.source).sort()).toEqual(['mic', 'system']);
     for (const g of offline) {
-      expect(g.startMs).toBeGreaterThan(DOWN_AT_MS - 10_000);
-      expect(g.startMs).toBeLessThanOrEqual(DOWN_AT_MS + 1000);
+      expect(g.startMs).toBeGreaterThan(outageActivatedAtMs! - 10_000);
+      expect(g.startMs).toBeLessThanOrEqual(outageActivatedAtMs! + 1000);
       expect(g.endMs - g.startMs).toBeGreaterThan(OUTAGE_MS - 120_000 - 5000);
       // Reconnect lag in wall time × SPEED: ~375 ms on a loaded 4-vCPU runner was 7.5 s of audio.
       expect(g.endMs).toBeLessThan(DOWN_AT_MS + OUTAGE_MS - 120_000 + 15_000);

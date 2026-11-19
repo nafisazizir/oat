@@ -62,9 +62,7 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b bg-background/85 px-3 backdrop-blur-md">
       <Tooltip>
-        <TooltipTrigger asChild>
-          <SidebarTrigger data-testid="sidebar-trigger" />
-        </TooltipTrigger>
+        <TooltipTrigger render={<SidebarTrigger data-testid="sidebar-trigger" />}></TooltipTrigger>
         <TooltipContent>Toggle sidebar · ⌘B</TooltipContent>
       </Tooltip>
       <Separator
@@ -74,15 +72,17 @@ export function TopBar() {
       <Breadcrumbs crumbs={breadcrumbsFor(shell, pathname)} />
       <div className="ml-auto flex items-center gap-1">
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Search"
-              onClick={() => setOpen(true)}
-            >
-              <SearchIcon />
-            </Button>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Search"
+                onClick={() => setOpen(true)}
+              />
+            }
+          >
+            <SearchIcon />
           </TooltipTrigger>
           <TooltipContent>Search · ⌘K</TooltipContent>
         </Tooltip>

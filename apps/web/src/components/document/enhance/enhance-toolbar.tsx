@@ -129,14 +129,14 @@ export function EnhanceToolbar({
             <DropdownMenuSeparator />
             <DropdownMenuItem
               data-testid="enhance-history"
-              onSelect={() => openHistory({ kind: 'version', id: latest.id })}
+              onClick={() => openHistory({ kind: 'version', id: latest.id })}
             >
               <HistoryIcon />
               Note history
             </DropdownMenuItem>
             <DropdownMenuItem
               data-testid="enhance-original"
-              onSelect={() => openHistory({ kind: 'original' })}
+              onClick={() => openHistory({ kind: 'original' })}
             >
               <NotebookPenIcon />
               Show my original notes
@@ -144,7 +144,7 @@ export function EnhanceToolbar({
             <DropdownMenuItem
               data-testid="enhance-undo"
               disabled={versions.restoring || versions.checking}
-              onSelect={() => versions.undo()}
+              onClick={() => versions.undo()}
             >
               <Undo2Icon />
               Undo enhancement

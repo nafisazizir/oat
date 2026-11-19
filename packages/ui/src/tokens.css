@@ -1,191 +1,236 @@
-/*
- * Oat design tokens — the single source of truth for every colour, type, radius, spacing, shadow and
- * motion value in @oat/ui. Components never use raw values; they use Tailwind utilities that
- * `styles.css` maps onto these variables (`bg-primary` → `var(--primary)`).
- *
- * Restyle the product by editing this file only. `:root` is the light theme, `.dark` overrides the
- * colour + elevation tokens. Every colour token must exist in both blocks (enforced by tokens.test.ts).
- *
- * Palette: "oat paper + ink". Warm cream neutrals (hue ~80, very low chroma) for surfaces, a warm
- * brown-black for text, and one confident accent — a deep blue-black "ink" (hue ~262) — for primary
- * actions, focus and the user's own voice. Dark mode is "espresso": warm charcoal, never pure black.
- */
-
 :root {
-  color-scheme: light;
-
-  /* ── Surfaces & text ─────────────────────────────────────────────── */
-  --background: oklch(0.982 0.007 84); /* oat paper */
-  --foreground: oklch(0.245 0.014 62); /* warm ink-black */
-  --card: oklch(0.993 0.004 84); /* a fresh sheet on the desk */
-  --card-foreground: var(--foreground);
-  --popover: oklch(0.995 0.003 84);
-  --popover-foreground: var(--foreground);
-
-  /* ── Brand accent: ink ───────────────────────────────────────────── */
-  --primary: oklch(0.43 0.125 262);
-  --primary-foreground: oklch(0.985 0.006 84);
-
-  /* ── Supporting neutrals ─────────────────────────────────────────── */
-  --secondary: oklch(0.945 0.012 80);
-  --secondary-foreground: oklch(0.29 0.016 62);
-  --muted: oklch(0.952 0.01 80);
-  --muted-foreground: oklch(0.505 0.02 66);
-  --accent: oklch(0.935 0.014 79); /* hover / highlighted row */
-  --accent-foreground: oklch(0.245 0.014 62);
-
-  /* ── Status ──────────────────────────────────────────────────────── */
-  --destructive: oklch(0.48 0.17 29); /* brick — AA as text on its own 10–20% tint */
-  --destructive-foreground: oklch(0.985 0.006 84);
-  --success: oklch(0.49 0.11 150); /* ≥ 4.5:1 as text, also on its own 12% tint (9.3b) */
-  --success-foreground: oklch(0.985 0.006 84);
-  --warning: oklch(0.74 0.14 72); /* honey */
-  --warning-foreground: oklch(0.27 0.04 62);
-
-  /* ── Lines, inputs, focus ────────────────────────────────────────── */
-  --border: oklch(0.9 0.013 78);
-  --input: oklch(0.64 0.022 72); /* ≥ 3:1 field boundary (WCAG 1.4.11) */
-  --ring: oklch(0.55 0.13 262);
-  --selection: oklch(0.88 0.055 262 / 55%);
-  --overlay: oklch(0.22 0.02 62 / 22%); /* modal scrim */
-
-  /* ── Charts (warm, distinguishable, ink first) ───────────────────── */
-  --chart-1: oklch(0.47 0.12 262);
-  --chart-2: oklch(0.66 0.13 52);
-  --chart-3: oklch(0.6 0.08 160);
-  --chart-4: oklch(0.76 0.12 85);
-  --chart-5: oklch(0.55 0.09 330);
-
-  /* ── Sidebar: a shade deeper than the page, like a desk blotter ─── */
-  --sidebar: oklch(0.962 0.011 82);
-  --sidebar-foreground: oklch(0.32 0.016 62);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(0.925 0.016 79);
-  --sidebar-accent-foreground: oklch(0.245 0.014 62);
-  --sidebar-border: oklch(0.905 0.014 78);
-  --sidebar-ring: var(--ring);
-
-  /* ── App-specific: transcript voices ─────────────────────────────── */
-  --me: oklch(0.94 0.028 262); /* my microphone — ink-tinted bubble */
-  --me-foreground: oklch(0.3 0.06 262);
-  --them: oklch(0.944 0.014 76); /* system audio — oat bubble */
-  --them-foreground: oklch(0.3 0.018 62);
-
-  /* ── App-specific: enhanced notes ────────────────────────────────── */
-  --my-text: var(--foreground); /* what I typed: full-strength ink */
-  --ai-text: oklch(0.5 0.035 255); /* what the AI added: softer slate ink */
-
-  /* ── Elevation (warm, low, diffuse — paper on a desk) ────────────── */
-  --elevation-xs: 0 1px 0 0 oklch(0.4 0.03 62 / 5%);
-  --elevation-sm: 0 1px 2px 0 oklch(0.4 0.03 62 / 7%), 0 1px 1px -1px oklch(0.4 0.03 62 / 5%);
-  --elevation-md: 0 4px 12px -2px oklch(0.4 0.03 62 / 9%), 0 2px 4px -2px oklch(0.4 0.03 62 / 6%);
-  --elevation-lg:
-    0 16px 40px -8px oklch(0.4 0.03 62 / 14%), 0 4px 10px -4px oklch(0.4 0.03 62 / 8%);
-
-  /* ── Typography ──────────────────────────────────────────────────── */
-  --font-family-sans:
-    'Instrument Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-family-serif: 'Newsreader Variable', ui-serif, Georgia, 'Times New Roman', serif;
-  --font-family-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
-  --font-family-heading: var(--font-family-serif);
-
-  /* Scale: ~1.2 ratio around a 15px body; 13px is the dense UI size. Size / line-height pairs. */
-  --type-xs: 0.75rem; /* 12 — captions, timestamps */
-  --type-xs-leading: 1rem;
-  --type-sm: 0.8125rem; /* 13 — UI default: menus, sidebar, buttons, transcript */
-  --type-sm-leading: 1.25rem;
-  --type-base: 0.9375rem; /* 15 — notes body */
-  --type-base-leading: 1.5rem;
-  --type-lg: 1.0625rem; /* 17 */
-  --type-lg-leading: 1.625rem;
-  --type-xl: 1.25rem; /* 20 — section headings */
-  --type-xl-leading: 1.75rem;
-  --type-2xl: 1.5rem; /* 24 */
-  --type-2xl-leading: 2rem;
-  --type-3xl: 1.875rem; /* 30 — note title */
-  --type-3xl-leading: 2.25rem;
-  --type-4xl: 2.375rem; /* 38 — display */
-  --type-4xl-leading: 2.75rem;
-  --tracking-heading: -0.012em;
-
-  /* ── Radius ──────────────────────────────────────────────────────── */
-  --radius: 0.5rem; /* rounded-lg; sm/md/xl… derive from it in styles.css */
-
-  /* ── Spacing & layout ────────────────────────────────────────────── */
-  --space: 0.25rem; /* Tailwind's spacing unit: p-4 = 4 × --space */
-  --content-width: 44rem; /* readable measure for notes */
-  --sidebar-width-default: 16rem;
-  --sidebar-width-mobile: 18rem;
-  --sidebar-width-collapsed: 3rem;
-
-  /* ── Motion ──────────────────────────────────────────────────────── */
-  --duration-fast: 100ms;
-  --duration-base: 160ms;
-  --duration-slow: 260ms;
-  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
-  --easing-enter: cubic-bezier(0, 0, 0.15, 1);
-  --easing-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ds-background-100: oklch(0.982 0.002 84);
+  --ds-background-200: oklch(0.969 0.0035 84);
+  --ds-gray-100: oklch(0.955 0.005 84);
+  --ds-gray-200: oklch(0.94 0.0068 84);
+  --ds-gray-300: oklch(0.93 0.008 84);
+  --ds-gray-400: oklch(0.938 0.007 84);
+  --ds-gray-500: oklch(0.862 0.0162 84);
+  --ds-gray-600: oklch(0.776 0.0175 84);
+  --ds-gray-700: oklch(0.703 0.0159 84);
+  --ds-gray-800: oklch(0.648 0.0146 84);
+  /* Darker than the supplied ziiz oat palette for AA text on gray-100. */
+  --ds-gray-900: oklch(0.536 0.0129 84);
+  --ds-gray-1000: oklch(0.266 0.006 84);
+  --ds-gray-alpha-100: oklch(0.331 0.069 77.6 / 0.044);
+  --ds-gray-alpha-200: oklch(0.331 0.0692 77.6 / 0.069);
+  --ds-gray-alpha-300: oklch(0.332 0.0693 77.6 / 0.087);
+  --ds-gray-alpha-400: oklch(0.332 0.0692 77.6 / 0.073);
+  --ds-gray-alpha-500: oklch(0.336 0.0701 77.4 / 0.2);
+  --ds-gray-alpha-600: oklch(0.266 0.0551 80.1 / 0.314);
+  --ds-gray-alpha-700: oklch(0.216 0.0445 83.3 / 0.4);
+  --ds-gray-alpha-800: oklch(0.191 0.039 85.7 / 0.464);
+  --ds-gray-alpha-900: oklch(0.165 0.0337 89.1 / 0.549);
+  --ds-gray-alpha-1000: oklch(0.101 0.0208 94.1 / 0.862);
+  --ds-blue-100: oklch(96.43% 0.0178 248);
+  --ds-blue-200: oklch(95.77% 0.0212 248);
+  --ds-blue-300: oklch(95.11% 0.0245 248);
+  --ds-blue-400: oklch(91.73% 0.0252 248);
+  --ds-blue-500: oklch(87.11% 0.0399 248);
+  --ds-blue-600: oklch(68.09% 0.1063 248);
+  --ds-blue-700: oklch(56% 0.0905 248);
+  --ds-blue-800: oklch(50% 0.0808 248);
+  --ds-blue-900: oklch(50.19% 0.0811 248);
+  --ds-blue-1000: oklch(26.56% 0.0432 248);
+  --ds-red-100: oklch(96.43% 0.0176 26);
+  --ds-red-200: oklch(95.77% 0.0209 26);
+  --ds-red-300: oklch(95.11% 0.0243 26);
+  --ds-red-400: oklch(91.73% 0.0347 26);
+  --ds-red-500: oklch(87.11% 0.0564 26);
+  --ds-red-600: oklch(68.69% 0.1658 26);
+  --ds-red-700: oklch(57% 0.19 26);
+  --ds-red-800: oklch(51% 0.1697 25.16);
+  --ds-red-900: oklch(50.19% 0.1667 24.46);
+  --ds-red-1000: oklch(26.56% 0.0885 23.84);
+  --ds-amber-100: oklch(96.43% 0.036 84);
+  --ds-amber-200: oklch(95.77% 0.037 84);
+  --ds-amber-300: oklch(95.11% 0.0503 84);
+  --ds-amber-400: oklch(91.73% 0.0689 84);
+  --ds-amber-500: oklch(87.11% 0.1095 84);
+  --ds-amber-600: oklch(82.49% 0.1355 84);
+  --ds-amber-700: oklch(80% 0.1314 84);
+  --ds-amber-800: oklch(75.5% 0.1293 72.13);
+  --ds-amber-900: oklch(57.19% 0.1051 62.24);
+  --ds-amber-1000: oklch(26.56% 0.0541 53.34);
+  --ds-green-100: oklch(96.43% 0.036 140);
+  --ds-green-200: oklch(95.77% 0.037 140);
+  --ds-green-300: oklch(95.11% 0.064 140);
+  --ds-green-400: oklch(91.73% 0.0608 140);
+  --ds-green-500: oklch(87.11% 0.098 140);
+  --ds-green-600: oklch(70.49% 0.1407 140);
+  --ds-green-700: oklch(60% 0.1198 140);
+  --ds-green-800: oklch(54% 0.1039 138.16);
+  --ds-green-900: oklch(53% 0.099 136.62);
+  --ds-green-1000: oklch(26.56% 0.0487 135.23);
+  --ds-teal-100: oklch(96.43% 0.036 188);
+  --ds-teal-200: oklch(95.77% 0.037 188);
+  --ds-teal-300: oklch(95.11% 0.064 188);
+  --ds-teal-400: oklch(91.73% 0.0568 188);
+  --ds-teal-500: oklch(87.11% 0.0879 188);
+  --ds-teal-600: oklch(71.69% 0.0723 188);
+  --ds-teal-700: oklch(62% 0.0626 188);
+  --ds-teal-800: oklch(55% 0.0555 187.99);
+  --ds-teal-900: oklch(54% 0.0545 187.98);
+  --ds-teal-1000: oklch(26.56% 0.0269 187.97);
+  --ds-purple-100: oklch(96.43% 0.0226 310);
+  --ds-purple-200: oklch(95.77% 0.0269 310);
+  --ds-purple-300: oklch(95.11% 0.0312 310);
+  --ds-purple-400: oklch(91.73% 0.0294 310);
+  --ds-purple-500: oklch(87.11% 0.0467 310);
+  --ds-purple-600: oklch(67.49% 0.1284 310);
+  --ds-purple-700: oklch(55% 0.1531 310);
+  --ds-purple-800: oklch(48.5% 0.135 310);
+  --ds-purple-900: oklch(50.19% 0.1397 310);
+  --ds-purple-1000: oklch(26.56% 0.0742 310);
+  --ds-pink-100: oklch(96.43% 0.0185 4);
+  --ds-pink-200: oklch(95.77% 0.022 4);
+  --ds-pink-300: oklch(95.11% 0.0256 4);
+  --ds-pink-400: oklch(91.73% 0.029 4);
+  --ds-pink-500: oklch(87.11% 0.0472 4);
+  --ds-pink-600: oklch(72.29% 0.1191 4);
+  --ds-pink-700: oklch(63% 0.1648 4);
+  --ds-pink-800: oklch(58.5% 0.1531 3.91);
+  --ds-pink-900: oklch(57.19% 0.1497 3.83);
+  --ds-pink-1000: oklch(26.56% 0.0698 3.77);
+  --ds-brand-100: oklch(96.43% 0.0227 62);
+  --ds-brand-200: oklch(95.77% 0.027 62);
+  --ds-brand-300: oklch(95.11% 0.0314 62);
+  --ds-brand-400: oklch(91.73% 0.0337 62);
+  --ds-brand-500: oklch(87.11% 0.0543 62);
+  --ds-brand-600: oklch(63.29% 0.0903 62);
+  --ds-brand-700: oklch(48% 0.0686 62);
+  --ds-brand-800: oklch(42% 0.065 54.49);
+  --ds-brand-900: oklch(50.19% 0.0845 48.22);
+  --ds-brand-1000: oklch(26.56% 0.0495 42.59);
+  --ds-brand-alpha-100: oklch(0.749 0.1797 57.7 / 0.078);
+  --ds-brand-alpha-200: oklch(0.74 0.1825 55.4 / 0.098);
+  --ds-brand-alpha-300: oklch(0.735 0.1844 53.9 / 0.119);
+  --ds-brand-alpha-400: oklch(0.64 0.1757 47.5 / 0.169);
+  --ds-brand-alpha-500: oklch(0.627 0.1698 48.4 / 0.286);
+  --ds-brand-alpha-600: oklch(0.476 0.1223 52 / 0.683);
+  --ds-brand-alpha-700: oklch(0.34 0.0842 54.9 / 0.792);
+  --ds-brand-alpha-800: oklch(0.299 0.0792 49.8 / 0.834);
+  --ds-brand-alpha-900: oklch(0.366 0.1089 42.8 / 0.778);
+  --ds-brand-alpha-1000: oklch(0.205 0.0573 46.3 / 0.932);
+  --ds-gray-950: oklch(0.379 0.0086 84);
+  --ds-brand-950: oklch(35.34% 0.0625 44.68);
+  --ds-brand-on: oklch(1 0 0);
 }
 
 .dark {
-  color-scheme: dark;
-
-  --background: oklch(0.195 0.008 68); /* espresso */
-  --foreground: oklch(0.925 0.013 84); /* cream */
-  --card: oklch(0.222 0.009 68);
-  --card-foreground: var(--foreground);
-  --popover: oklch(0.238 0.01 68);
-  --popover-foreground: var(--foreground);
-
-  --primary: oklch(0.74 0.105 262);
-  --primary-foreground: oklch(0.2 0.03 262);
-
-  --secondary: oklch(0.27 0.01 68);
-  --secondary-foreground: oklch(0.9 0.013 84);
-  --muted: oklch(0.255 0.01 68);
-  --muted-foreground: oklch(0.69 0.018 78);
-  --accent: oklch(0.285 0.012 68);
-  --accent-foreground: oklch(0.94 0.012 84);
-
-  --destructive: oklch(0.77 0.13 25); /* AA as text on its 20–25% tint */
-  --destructive-foreground: oklch(0.2 0.03 27);
-  --success: oklch(0.72 0.12 152);
-  --success-foreground: oklch(0.2 0.03 152);
-  --warning: oklch(0.8 0.13 78);
-  --warning-foreground: oklch(0.22 0.03 62);
-
-  --border: oklch(0.925 0.02 84 / 10%);
-  --input: oklch(0.56 0.014 76); /* ≥ 3:1 field boundary */
-  --ring: oklch(0.68 0.11 262);
-  --selection: oklch(0.5 0.09 262 / 45%);
-  --overlay: oklch(0.08 0.01 62 / 55%);
-
-  --chart-1: oklch(0.72 0.11 262);
-  --chart-2: oklch(0.72 0.13 52);
-  --chart-3: oklch(0.7 0.09 160);
-  --chart-4: oklch(0.8 0.11 85);
-  --chart-5: oklch(0.68 0.1 330);
-
-  --sidebar: oklch(0.172 0.007 68);
-  --sidebar-foreground: oklch(0.85 0.014 84);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(0.255 0.011 68);
-  --sidebar-accent-foreground: oklch(0.94 0.012 84);
-  --sidebar-border: oklch(0.925 0.02 84 / 8%);
-  --sidebar-ring: var(--ring);
-
-  --me: oklch(0.3 0.045 262);
-  --me-foreground: oklch(0.9 0.035 262);
-  --them: oklch(0.265 0.011 68);
-  --them-foreground: oklch(0.88 0.014 84);
-
-  --my-text: var(--foreground);
-  --ai-text: oklch(0.73 0.035 255);
-
-  --elevation-xs: 0 1px 0 0 oklch(0 0 0 / 20%);
-  --elevation-sm: 0 1px 2px 0 oklch(0 0 0 / 30%), 0 0 0 1px oklch(0.925 0.02 84 / 4%);
-  --elevation-md: 0 6px 16px -4px oklch(0 0 0 / 40%), 0 0 0 1px oklch(0.925 0.02 84 / 5%);
-  --elevation-lg: 0 20px 48px -12px oklch(0 0 0 / 55%), 0 0 0 1px oklch(0.925 0.02 84 / 6%);
+  --ds-background-100: oklch(0.198 0.0072 76);
+  --ds-background-200: oklch(0.226 0.0082 76);
+  --ds-gray-100: oklch(0.254 0.0091 76);
+  --ds-gray-200: oklch(0.268 0.0096 76);
+  --ds-gray-300: oklch(0.297 0.0107 76);
+  --ds-gray-400: oklch(0.313 0.0112 76);
+  --ds-gray-500: oklch(0.386 0.0138 76);
+  --ds-gray-600: oklch(0.594 0.0212 76);
+  --ds-gray-700: oklch(0.619 0.0221 76);
+  --ds-gray-800: oklch(0.564 0.0202 76);
+  --ds-gray-900: oklch(0.671 0.024 76);
+  --ds-gray-1000: oklch(0.945 0.0078 76);
+  --ds-gray-alpha-100: oklch(0.959 0.0338 76 / 0.059);
+  --ds-gray-alpha-200: oklch(0.959 0.0338 76 / 0.074);
+  --ds-gray-alpha-300: oklch(0.959 0.0339 76 / 0.107);
+  --ds-gray-alpha-400: oklch(0.959 0.0339 76 / 0.125);
+  --ds-gray-alpha-500: oklch(0.959 0.034 76 / 0.211);
+  --ds-gray-alpha-600: oklch(0.959 0.0342 76 / 0.478);
+  --ds-gray-alpha-700: oklch(0.959 0.0342 76 / 0.511);
+  --ds-gray-alpha-800: oklch(0.959 0.0341 76 / 0.437);
+  --ds-gray-alpha-900: oklch(0.959 0.0342 76 / 0.582);
+  --ds-gray-alpha-1000: oklch(0.99 0.0079 76 / 0.934);
+  --ds-blue-100: oklch(25.98% 0.038 248);
+  --ds-blue-200: oklch(28.63% 0.0442 248);
+  --ds-blue-300: oklch(32.91% 0.0533 248);
+  --ds-blue-400: oklch(35.43% 0.0574 248);
+  --ds-blue-500: oklch(40.44% 0.0654 248);
+  --ds-blue-600: oklch(49.01% 0.0792 248);
+  --ds-blue-700: oklch(56% 0.0905 248);
+  --ds-blue-800: oklch(50% 0.0808 248);
+  --ds-blue-900: oklch(67.06% 0.1083 248);
+  --ds-blue-1000: oklch(94.45% 0.005 248);
+  --ds-red-100: oklch(25.98% 0.059 26);
+  --ds-red-200: oklch(28.63% 0.073 26);
+  --ds-red-300: oklch(32.91% 0.091 26);
+  --ds-red-400: oklch(35.43% 0.1041 26);
+  --ds-red-500: oklch(40.44% 0.1214 26);
+  --ds-red-600: oklch(49.61% 0.1655 26);
+  --ds-red-700: oklch(57% 0.19 26);
+  --ds-red-800: oklch(51% 0.1697 25.16);
+  --ds-red-900: oklch(67.06% 0.1778 25.16);
+  --ds-red-1000: oklch(94.45% 0.0068 26);
+  --ds-amber-100: oklch(25.98% 0.0387 84);
+  --ds-amber-200: oklch(28.63% 0.0449 84);
+  --ds-amber-300: oklch(32.91% 0.0543 84);
+  --ds-amber-400: oklch(35.43% 0.0584 84);
+  --ds-amber-500: oklch(40.44% 0.0665 84);
+  --ds-amber-600: oklch(63.41% 0.1042 84);
+  --ds-amber-700: oklch(80% 0.1314 84);
+  --ds-amber-800: oklch(75.5% 0.1293 72.13);
+  --ds-amber-900: oklch(76.5% 0.131 72.13);
+  --ds-amber-1000: oklch(94.45% 0.0137 84);
+  --ds-green-100: oklch(25.98% 0.0446 140);
+  --ds-green-200: oklch(28.63% 0.0546 140);
+  --ds-green-300: oklch(32.91% 0.0659 140);
+  --ds-green-400: oklch(35.43% 0.0709 140);
+  --ds-green-500: oklch(40.44% 0.0809 140);
+  --ds-green-600: oklch(51.41% 0.1027 140);
+  --ds-green-700: oklch(60% 0.1198 140);
+  --ds-green-800: oklch(54% 0.1039 138.16);
+  --ds-green-900: oklch(67.06% 0.1289 138.16);
+  --ds-green-1000: oklch(94.45% 0.02 140);
+  --ds-teal-100: oklch(25.98% 0.0237 188);
+  --ds-teal-200: oklch(28.63% 0.0276 188);
+  --ds-teal-300: oklch(32.91% 0.0333 188);
+  --ds-teal-400: oklch(35.43% 0.0358 188);
+  --ds-teal-500: oklch(40.44% 0.0409 188);
+  --ds-teal-600: oklch(52.61% 0.0531 188);
+  --ds-teal-700: oklch(62% 0.0626 188);
+  --ds-teal-800: oklch(55% 0.0555 187.99);
+  --ds-teal-900: oklch(67.06% 0.0677 187.99);
+  --ds-teal-1000: oklch(94.45% 0.0142 188);
+  --ds-purple-100: oklch(25.98% 0.0396 310);
+  --ds-purple-200: oklch(28.63% 0.049 310);
+  --ds-purple-300: oklch(32.91% 0.0611 310);
+  --ds-purple-400: oklch(35.43% 0.0699 310);
+  --ds-purple-500: oklch(40.44% 0.0814 310);
+  --ds-purple-600: oklch(48.41% 0.1348 310);
+  --ds-purple-700: oklch(55% 0.1531 310);
+  --ds-purple-800: oklch(48.5% 0.135 310);
+  --ds-purple-900: oklch(67.06% 0.1303 310);
+  --ds-purple-1000: oklch(94.45% 0.0058 310);
+  --ds-pink-100: oklch(25.98% 0.0468 4);
+  --ds-pink-200: oklch(28.63% 0.0578 4);
+  --ds-pink-300: oklch(32.91% 0.0722 4);
+  --ds-pink-400: oklch(35.43% 0.0825 4);
+  --ds-pink-500: oklch(40.44% 0.0962 4);
+  --ds-pink-600: oklch(53.21% 0.1393 4);
+  --ds-pink-700: oklch(63% 0.1648 4);
+  --ds-pink-800: oklch(58.5% 0.1531 3.91);
+  --ds-pink-900: oklch(67.06% 0.1509 3.91);
+  --ds-pink-1000: oklch(94.45% 0.0057 4);
+  --ds-brand-100: oklch(25.98% 0.0336 62);
+  --ds-brand-200: oklch(28.63% 0.039 62);
+  --ds-brand-300: oklch(32.91% 0.0471 62);
+  --ds-brand-400: oklch(35.43% 0.0507 62);
+  --ds-brand-500: oklch(40.44% 0.0578 62);
+  --ds-brand-600: oklch(44.21% 0.0632 62);
+  --ds-brand-700: oklch(48% 0.0686 62);
+  --ds-brand-800: oklch(42% 0.065 54.49);
+  --ds-brand-900: oklch(67.06% 0.1036 54.49);
+  --ds-brand-1000: oklch(94.45% 0.0067 62);
+  --ds-brand-alpha-100: oklch(0.731 0.1839 51.2 / 0.105);
+  --ds-brand-alpha-200: oklch(0.751 0.1722 54.5 / 0.142);
+  --ds-brand-alpha-300: oklch(0.77 0.16 57.2 / 0.204);
+  --ds-brand-alpha-400: oklch(0.781 0.153 58.2 / 0.239);
+  --ds-brand-alpha-500: oklch(0.796 0.143 59.5 / 0.311);
+  --ds-brand-alpha-600: oklch(0.803 0.1378 60.1 / 0.366);
+  --ds-brand-alpha-700: oklch(0.809 0.1338 60.5 / 0.424);
+  --ds-brand-alpha-800: oklch(0.775 0.1486 52.1 / 0.35);
+  --ds-brand-alpha-900: oklch(0.803 0.1292 54.1 / 0.757);
+  --ds-brand-alpha-1000: oklch(0.989 0.0067 61.3 / 0.935);
+  --ds-gray-950: oklch(0.805 0.0288 76);
+  --ds-brand-950: oklch(80.44% 0.0563 58.16);
+  --ds-brand-on: oklch(1 0 0);
 }

@@ -147,11 +147,9 @@ export function ShareDialog({ documentId }: { documentId: string }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="outline" data-testid="share-button">
-          <Share2Icon data-icon="inline-start" />
-          Share
-        </Button>
+      <DialogTrigger render={<Button size="sm" variant="outline" data-testid="share-button" />}>
+        <Share2Icon data-icon="inline-start" />
+        Share
       </DialogTrigger>
       <DialogContent data-testid="share-dialog" className="sm:max-w-md">
         <DialogHeader>

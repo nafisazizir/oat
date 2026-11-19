@@ -32,8 +32,8 @@ export default function ShareLayout({ children }: { children: React.ReactNode })
           </Badge>
           <div className="ml-auto flex items-center gap-1">
             <ThemeMenu />
-            <Button size="sm" asChild>
-              <Link href="/sign-in">Try Oat</Link>
+            <Button size="sm" role="link" nativeButton={false} render={<Link href="/sign-in" />}>
+              Try Oat
             </Button>
           </div>
         </div>

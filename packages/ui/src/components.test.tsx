@@ -18,10 +18,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from './components/dialog.tsx';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from './components/dropdown-menu.tsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './components/select.tsx';
 import { Sidebar, SidebarContent, SidebarProvider, SidebarTrigger } from './components/sidebar.tsx';
 import { Switch } from './components/switch.tsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/tabs.tsx';
 import { ToggleGroup, ToggleGroupItem } from './components/toggle-group.tsx';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/tooltip.tsx';
 import { cn } from './lib/utils.ts';
 
 describe('cn', () => {
@@ -36,6 +52,23 @@ describe('cn', () => {
   });
 });
 
+describe('Tooltip', () => {
+  it.each([false, true])('exposes the focused tooltip unless disabled=%s', async (disabled) => {
+    const user = userEvent.setup();
+    render(
+      <TooltipProvider>
+        <Tooltip disabled={disabled}>
+          <TooltipTrigger render={<Button aria-label="New chat" />}>New</TooltipTrigger>
+          <TooltipContent>New chat</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>,
+    );
+    await user.tab();
+    if (disabled) expect(screen.queryByRole('tooltip')).toBeNull();
+    else expect(await screen.findByRole('tooltip', { name: 'New chat' })).toBeTruthy();
+  });
+});
+
 describe('Button', () => {
   it('renders token-driven variants', () => {
     render(
@@ -47,18 +80,18 @@ describe('Button', () => {
       </>,
     );
     const save = screen.getByRole('button', { name: 'Save' });
-    expect(save.dataset.variant).toBe('default');
-    expect(save.className).toContain('bg-primary');
-    expect(save.className).toContain('text-primary-foreground');
+
+    expect(save.className).toContain('bg-gray-1000');
+    expect(save.className).toContain('text-background-100');
     const cancel = screen.getByRole('button', { name: 'Cancel' });
-    expect(cancel.dataset.variant).toBe('outline');
-    expect(cancel.dataset.size).toBe('sm');
+    expect(cancel.className).toContain('border-gray-alpha-400');
+    expect(cancel.className).toContain('h-8');
   });
 
-  it('renders as its child with asChild', () => {
+  it('renders a link with render', () => {
     render(
-      <Button asChild>
-        <a href="/notes">Notes</a>
+      <Button role="link" nativeButton={false} render={<a href="/notes" />}>
+        Notes
       </Button>,
     );
     const link = screen.getByRole('link', { name: 'Notes' });
@@ -71,9 +104,7 @@ describe('Dialog', () => {
     const user = userEvent.setup();
     render(
       <Dialog>
-        <DialogTrigger asChild>
-          <Button>Share</Button>
-        </DialogTrigger>
+        <DialogTrigger render={<Button />}>Share</DialogTrigger>
         <DialogContent>
           <DialogTitle>Share note</DialogTitle>
           <DialogDescription>Anyone with the link can view.</DialogDescription>
@@ -83,9 +114,75 @@ describe('Dialog', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Share' }));
     const dialog = screen.getByRole('dialog', { name: 'Share note' });
-    expect(dialog.className).toContain('bg-popover');
+    expect(dialog.className).toContain('material-modal');
     await user.click(within(dialog).getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('Base UI consumer composition', () => {
+  it('opens a labelled menu group and activates an item with onClick', async () => {
+    const user = userEvent.setup();
+    let picked = false;
+    render(
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<Button />}>Actions</DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Meeting</DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={() => {
+                picked = true;
+              }}
+            >
+              Duplicate
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Actions' }));
+    expect(await screen.findByRole('group', { name: 'Meeting' })).toBeTruthy();
+    await user.click(screen.getByRole('menuitem', { name: 'Duplicate' }));
+    expect(picked).toBe(true);
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+  });
+
+  it('shows item labels before the select popup mounts and updates the selection', async () => {
+    const user = userEvent.setup();
+    render(
+      <Select
+        items={{ general: 'General meeting', customer: 'Customer call' }}
+        defaultValue="general"
+      >
+        <SelectTrigger aria-label="Template">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="general">General meeting</SelectItem>
+          <SelectItem value="customer">Customer call</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+    const trigger = screen.getByRole('combobox', { name: 'Template' });
+    expect(trigger.textContent).toBe('General meeting');
+    expect(trigger.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+    await user.click(trigger);
+    await user.click(await screen.findByRole('option', { name: 'Customer call' }));
+    expect(trigger.textContent).toBe('Customer call');
+  });
+
+  it('shows an empty select placeholder without inventing a selection', () => {
+    render(
+      <Select items={[]}>
+        <SelectTrigger aria-label="Template">
+          <SelectValue placeholder="Choose template" />
+        </SelectTrigger>
+      </Select>,
+    );
+    expect(screen.getByRole('combobox', { name: 'Template' }).textContent).toContain(
+      'Choose template',
+    );
   });
 });
 
@@ -101,6 +198,33 @@ describe('Switch', () => {
 });
 
 describe('Tabs', () => {
+  it.each([true, false])(
+    'activateOnFocus=%s controls keyboard panel activation',
+    async (activateOnFocus) => {
+      const user = userEvent.setup();
+      render(
+        <Tabs defaultValue="notes">
+          <TabsList {...(activateOnFocus ? {} : { activateOnFocus: false })}>
+            <TabsTrigger value="notes">Notes</TabsTrigger>
+            <TabsTrigger value="transcript">Transcript</TabsTrigger>
+          </TabsList>
+          <TabsContent value="notes">My notes</TabsContent>
+          <TabsContent value="transcript">Full transcript</TabsContent>
+        </Tabs>,
+      );
+      await user.tab();
+      await user.keyboard('{ArrowRight}');
+      expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Transcript' }));
+      expect(screen.getByRole('tabpanel').textContent).toBe(
+        activateOnFocus ? 'Full transcript' : 'My notes',
+      );
+      if (!activateOnFocus) {
+        await user.keyboard('{Enter}');
+        expect(screen.getByRole('tabpanel').textContent).toBe('Full transcript');
+      }
+    },
+  );
+
   it('shows the panel of the selected tab', async () => {
     const user = userEvent.setup();
     render(
@@ -125,22 +249,21 @@ describe('ToggleGroup (segmented)', () => {
     let value = 'light';
     render(
       <ToggleGroup
-        type="single"
-        variant="segmented"
+        variant="outline"
         aria-label="Theme"
-        defaultValue="light"
-        onValueChange={(next) => (value = next)}
+        defaultValue={['light']}
+        onValueChange={([next]) => (value = next ?? value)}
       >
         <ToggleGroupItem value="light">Light</ToggleGroupItem>
         <ToggleGroupItem value="dark">Dark</ToggleGroupItem>
       </ToggleGroup>,
     );
-    expect(screen.getByRole('radiogroup', { name: 'Theme' }).dataset.variant).toBe('segmented');
-    expect(screen.getByRole('radio', { name: 'Light' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('group', { name: 'Theme' }).dataset.variant).toBe('outline');
+    expect(screen.getByRole('button', { name: 'Light' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.queryByRole('tab')).toBeNull();
-    await user.click(screen.getByRole('radio', { name: 'Dark' }));
+    await user.click(screen.getByRole('button', { name: 'Dark' }));
     expect(value).toBe('dark');
-    expect(screen.getByRole('radio', { name: 'Dark' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Dark' }).getAttribute('aria-pressed')).toBe('true');
   });
 });
 

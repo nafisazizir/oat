@@ -188,27 +188,29 @@ function OwnerPicker({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        {owner ? (
-          <button
-            type="button"
-            className="oat-task-chip"
-            data-kind="owner"
-            aria-label={`Assigned to ${owner.name}. Change`}
-            title={owner.email ?? owner.name}
-          >
-            <span className="oat-task-avatar" aria-hidden>
-              {initials(owner.name)}
-            </span>
-            <span className="truncate">{owner.name}</span>
-          </button>
-        ) : (
-          <button type="button" className="oat-task-add" aria-label="Assign task">
-            <UserPlusIcon className="size-3.5" aria-hidden />
-            <span>Assign</span>
-          </button>
-        )}
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          owner ? (
+            <button
+              type="button"
+              className="oat-task-chip"
+              data-kind="owner"
+              aria-label={`Assigned to ${owner.name}. Change`}
+              title={owner.email ?? owner.name}
+            >
+              <span className="oat-task-avatar" aria-hidden>
+                {initials(owner.name)}
+              </span>
+              <span className="truncate">{owner.name}</span>
+            </button>
+          ) : (
+            <button type="button" className="oat-task-add" aria-label="Assign task">
+              <UserPlusIcon className="size-3.5" aria-hidden />
+              <span>Assign</span>
+            </button>
+          )
+        }
+      />
       <PopoverContent align="end" className="w-64 p-0" data-testid="task-owner-picker">
         <Command shouldFilter={false}>
           <CommandInput
@@ -297,26 +299,28 @@ function DuePicker({
   ];
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        {due ? (
-          <button
-            type="button"
-            className="oat-task-chip"
-            data-kind="due"
-            data-state={state}
-            aria-label={`Due ${formatDue(due, today)}. Change`}
-            title={`Due ${due}`}
-          >
-            <CalendarIcon className="size-3" aria-hidden />
-            {formatDue(due, today)}
-          </button>
-        ) : (
-          <button type="button" className="oat-task-add" aria-label="Set due date">
-            <CalendarIcon className="size-3.5" aria-hidden />
-            <span>Due</span>
-          </button>
-        )}
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          due ? (
+            <button
+              type="button"
+              className="oat-task-chip"
+              data-kind="due"
+              data-state={state}
+              aria-label={`Due ${formatDue(due, today)}. Change`}
+              title={`Due ${due}`}
+            >
+              <CalendarIcon className="size-3" aria-hidden />
+              {formatDue(due, today)}
+            </button>
+          ) : (
+            <button type="button" className="oat-task-add" aria-label="Set due date">
+              <CalendarIcon className="size-3.5" aria-hidden />
+              <span>Due</span>
+            </button>
+          )
+        }
+      />
       <PopoverContent align="end" className="w-60" data-testid="task-due-picker">
         <div className="flex flex-wrap gap-1.5">
           {quick.map(({ label, day }) => (

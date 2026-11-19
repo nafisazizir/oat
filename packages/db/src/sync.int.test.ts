@@ -265,6 +265,7 @@ describe('readAllChanges', () => {
   it('reads every workspace, narrowed to some tables, with the same cursor', async () => {
     const a = await makeWorkspace();
     const b = await makeWorkspace();
+    await eventually([a.ws, b.ws], null, 2);
     const start = await waitFor(
       async () => {
         // Drain to the current end of the log first.
@@ -280,9 +281,10 @@ describe('readAllChanges', () => {
       { id: docA, workspaceId: a.ws, ownerId: a.userId, kind: 'page' },
       { id: docB, workspaceId: b.ws, ownerId: b.userId, kind: 'page' },
     ]);
-    await db
+    const [createdFolder] = await db
       .insert(s.folder)
-      .values({ workspaceId: a.ws, ownerId: a.userId, name: 'f', visibility: 'private' });
+      .values({ workspaceId: a.ws, ownerId: a.userId, name: 'f', visibility: 'private' })
+      .returning({ id: s.folder.id });
 
     const page = await waitFor(
       async () => {
@@ -300,7 +302,10 @@ describe('readAllChanges', () => {
     // Without the table filter the folder shows up too (once its later transaction is visible), and limit
     // pages.
     await waitFor(
-      async () => ((await readAllChanges(db, start.cursor)).changes.length >= 3 ? true : undefined),
+      async () =>
+        (await readAllChanges(db, start.cursor)).changes.some(
+          (change) => change.tableName === 'folder' && change.rowId === createdFolder!.id,
+        ),
       { timeout: 10_000, interval: 50 },
     );
     const first = await readAllChanges(db, start.cursor, { limit: 2 });

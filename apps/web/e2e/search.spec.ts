@@ -142,8 +142,8 @@ test('⌘K finds notes and transcript lines; Enter opens the hit; /search has ta
   // Reload keeps query + tab; no match → empty state.
   await page.reload();
   await expect(main.getByRole('tab', { name: /Transcripts/ })).toHaveAttribute(
-    'data-state',
-    'active',
+    'aria-selected',
+    'true',
   );
   await main.getByRole('searchbox').fill(`${word}nothing`);
   await expect(main.getByText(/No transcript lines match/)).toBeVisible();

@@ -11,8 +11,8 @@ export default function NotFound() {
         <h1 className="text-2xl font-medium">Page not found</h1>
         <p className="text-muted-foreground">The link may be broken, or the page may have moved.</p>
       </div>
-      <Button asChild>
-        <Link href="/home">Go home</Link>
+      <Button role="link" nativeButton={false} render={<Link href="/home" />}>
+        Go home
       </Button>
     </main>
   );

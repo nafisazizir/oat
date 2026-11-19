@@ -49,6 +49,7 @@ function RoleControl({ workspaceId, member }: { workspaceId: string; member: Mem
   const options: Role[] = [member.role, ...member.assignableRoles];
   return (
     <Select
+      items={options.map((value) => ({ value, label: ROLE_INFO[value].label }))}
       value={member.role}
       disabled={pending}
       onValueChange={(value) =>

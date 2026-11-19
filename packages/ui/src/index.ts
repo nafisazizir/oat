@@ -1,5 +1,5 @@
 /**
- * shadcn/ui components and design tokens.
+ * ziiz components and the oat palette.
  *
  * - Styles: import `@oat/ui/styles.css` once at the app root (Tailwind v4 + tokens + fonts).
  * - Components: `@oat/ui/components/<name>` (e.g. `@oat/ui/components/button`).

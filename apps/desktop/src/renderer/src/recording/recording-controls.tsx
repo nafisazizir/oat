@@ -278,7 +278,19 @@ export function RecordingBar({
         <div className="ml-auto flex items-center gap-2">
           <SttStatusPill snapshot={snapshot} />
           {options && options.fixtures.length > 0 && (status === 'idle' || status === 'error') && (
-            <Select value={input} onValueChange={onInputChange}>
+            <Select
+              items={[
+                { value: 'sidecar', label: 'Mic + system audio' },
+                ...options.fixtures.map((f) => ({
+                  value: `${FILE_PREFIX}${f}`,
+                  label: `Fixture: ${f}`,
+                })),
+              ]}
+              value={input}
+              onValueChange={(value) => {
+                if (value !== null) onInputChange(value);
+              }}
+            >
               <SelectTrigger size="sm" aria-label="Audio input (dev)" data-testid="audio-input">
                 <SelectValue />
               </SelectTrigger>

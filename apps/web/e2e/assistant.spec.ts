@@ -241,11 +241,12 @@ test('below lg the panel is a modal sheet: focus stays inside, Escape closes', a
   await expect(page.getByTestId('chat-input')).toBeFocused();
   await evidence(page, 'panel-sheet');
   for (let i = 0; i < 12; i++) {
-    await page.keyboard.press('Tab');
-    expect(
-      await dialog.evaluate((el) => el.contains(document.activeElement)),
-      'focus stays in the sheet',
-    ).toBe(true);
+    await page.keyboard.press(i < 6 ? 'Tab' : 'Shift+Tab');
+    await expect
+      .poll(() => dialog.evaluate((el) => el.contains(document.activeElement)), {
+        message: 'focus stays in the sheet after the focus guard redirects it',
+      })
+      .toBe(true);
   }
   // One Escape closes the sheet, even while a tooltip of the button in focus is showing (9.3: the tooltip
   // used to swallow the first press, which made this test flaky under load).

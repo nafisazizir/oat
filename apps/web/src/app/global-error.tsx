@@ -68,9 +68,8 @@ export default function GlobalError({
             </div>
             <div className="flex gap-2">
               <Button onClick={() => reset()}>Try again</Button>
-              <Button variant="ghost" asChild>
-                {/* A plain anchor: a full reload, not a client transition from a broken tree. */}
-                <a href="/home">Go home</a>
+              <Button variant="ghost" role="link" nativeButton={false} render={<a href="/home" />}>
+                Go home
               </Button>
             </div>
           </div>

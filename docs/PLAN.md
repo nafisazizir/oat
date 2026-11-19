@@ -100,6 +100,8 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 - [x] 8.4 Action items extraction + checklist block + "my tasks" view · deps: 4.4
 
 ## M9 — Ship v1
+
+- [x] Human-requested UI foundation: ziiz shared components and oat ramp, no app redesign · [task](tasks/ui-foundation.md)
 Exit: SPEC §9 met.
 - [ ] 9.1 🧑 Code signing, notarization, auto-update (electron-updater) · deps: M2
 - [x] 9.2 Onboarding: permissions walkthrough, first meeting guide · deps: M7
