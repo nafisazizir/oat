@@ -14,7 +14,7 @@ const TABS: { href: Route; label: string }[] = [
 export function WorkspaceSettingsNav() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Workspace settings" className="flex gap-1 border-b">
+    <nav aria-label="Workspace settings" className="flex gap-4 border-b border-gray-alpha-400">
       {TABS.map((tab) => {
         const active = pathname === tab.href;
         return (
@@ -23,10 +23,10 @@ export function WorkspaceSettingsNav() {
             href={tab.href}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              '-mb-px border-b-2 px-3 pb-2 text-sm font-medium transition-colors duration-fast focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
+              '-mb-px flex h-9 items-center border-b-2 text-button-14 transition-colors duration-fast outline-none focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-gray-600/50',
               active
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground',
+                ? 'border-gray-1000 text-gray-1000'
+                : 'border-transparent text-gray-900 hover:text-gray-1000',
             )}
           >
             {tab.label}

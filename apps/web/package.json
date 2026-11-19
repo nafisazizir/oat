@@ -30,6 +30,7 @@
     "@oat/services": "workspace:*",
     "@oat/stt": "workspace:*",
     "@oat/ui": "workspace:*",
+    "@tabler/icons-react": "catalog:",
     "ai": "catalog:",
     "cmdk": "catalog:",
     "drizzle-orm": "catalog:",
