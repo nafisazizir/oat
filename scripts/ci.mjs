@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // `pnpm run ci`: every gate the factory relies on, identical on a laptop and in GitHub Actions (D-12,
-// docs/FACTORY.md §3, docs/DEV.md "CI"). Plain Node, no shell-isms, no dependencies.
+// .agent/FACTORY.md §3, docs/DEV.md "CI"). Plain Node, no shell-isms, no dependencies.
 //
 //   pnpm run ci                       full run
 //   pnpm run ci --fast                format, actionlint, typecheck, lint, test (no stack, no e2e, no Swift)
