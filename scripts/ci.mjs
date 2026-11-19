@@ -147,6 +147,10 @@ function freePort() {
   });
 }
 
+/** Turbo task concurrency for vitest steps: each task runs its own worker pool, so turbo's default of
+ *  10 parallel tasks oversubscribes small machines (4-vCPU CI runner) and timing-sensitive tests flake. */
+const vitestConcurrency = `--concurrency=${Math.min(10, Math.max(2, Math.floor(availableParallelism() / 2)))}`;
+
 /**
  * Playwright budget multiplier for the e2e configs: `E2E_TIMEOUT_SCALE` if set, else 2 when the machine is
  * overloaded (1-minute load average above the core count, e.g. several worktrees' CI at once), else 1.
@@ -241,7 +245,11 @@ const steps = [
   },
   { name: 'typecheck', about: 'turbo run typecheck', run: () => pnpm('run', 'typecheck') },
   { name: 'lint', about: 'turbo run lint + eslint scripts/', run: () => pnpm('run', 'lint') },
-  { name: 'test', about: 'unit tests (turbo run test)', run: () => pnpm('run', 'test') },
+  {
+    name: 'test',
+    about: 'unit tests (turbo run test)',
+    run: () => pnpm('run', 'test', vitestConcurrency),
+  },
   {
     name: 'stack',
     slow: true,
@@ -301,7 +309,7 @@ const steps = [
     slow: true,
     needs: 'stack',
     about: 'integration tests against the stack',
-    run: () => pnpm('run', 'test:int'),
+    run: () => pnpm('run', 'test:int', vitestConcurrency),
   },
   {
     name: 'e2e',
