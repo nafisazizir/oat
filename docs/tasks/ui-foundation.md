@@ -1,6 +1,6 @@
 # UI foundation — ziiz and oat palette
 
-status: done
+status: in_progress (PR 3 CI remediation)
 branch: devin/1795115262-ziiz-foundation
 
 ## Goal
@@ -57,5 +57,16 @@ Diff reviewed against the requested foundation scope. All 61 registry files are 
 - Full CI attempted: stack, migration and integration tests passed. Initial stale typecheck/test failures were fixed and superseded by the fast gate. Playwright Chromium was missing and installed locally; the editor browser suite then reported `16 passed (9.2s)`, `2 skipped`. Desktop browser tests report `27 skipped` on Linux.
 - Web browser tests remain environment-blocked before the app starts: `PostgresError: could not open extension control file "/usr/share/postgresql/14/extension/vector.control": No such file or directory`. No database/schema or shared-service changes made to work around this. Full CI is not green.
 - Screenshots visually reviewed: `/tmp/oat-shots/foundation-light.png`, `/tmp/oat-shots/foundation-dark.png`, `/tmp/oat-shots/foundation-palette-light.png`, `/tmp/oat-shots/foundation-palette-dark.png`.
+
+## PR 3 CI remediation
+
+- Text roles use readable ramp steps in both themes; Tabs activates on focus by default with an explicit opt-out. Review commits: `09fcd1d`, `0ec9b45`.
+- With human approval, light gray-900 now lowers only L to 0.536 (same C/h), meeting AA on background-100, background-200 and gray-100. Gray-alpha-900 has no text consumers outside the palette. Contrast regression tests cover both themes.
+- Sidebar actions have 24px boxes with compensating margins to retain icon placement. Select icons use explicit children rather than inheriting Base UI's default triangle text. Search checks aria-selected rather than Radix data-state.
+- Tooltip Popup needed an explicit tooltip role. Sheet focus was not escaping: Base UI briefly focuses its sibling guard, then redirects on the next animation frame. The browser test now polls for redirected focus and checks both Tab directions, then tooltip visibility, Escape and return focus. No hand-written focus trap was added.
+- DB pagination reproduced against main `61f1a2f` with controlled transaction horizons: the old readiness predicate returned true while the remaining page contained only `document, document`; releasing the held transaction made `folder` appear. Pending workspace rows made the count-based wait succeed prematurely. The test now settles its workspace boundary and waits for the specific inserted folder.
+- Main's passing Linux job `135807577129` itself reports the identical enhance heading assertion as **1 flaky**. Main local enhance check passed once and three concurrent repeats passed; branch targeted suite also passed. The SSE service skips previews for finished runs; the E2E now warms that cold route before starting generation, retaining the heading and reload assertions. Cold compilation as the actual CI trigger remains unverified.
+- Repository environment issue resolved for local checks: load the checkout's `.env` (compose Postgres on 54329), not the inherited system Postgres URL that lacks pgvector. No database/schema/configuration changes were needed.
+- Local checks before the final enhance-only test edit: UI 90 passed; DB integration 51 passed, 1 skipped; targeted web E2E 15 passed, 1 skipped (assistant, both-theme axe, search, workspaces, enhance); fast CI format/actionlint/typecheck/lint/test all pass (`ci: ok`, 56.0s). The final enhance edit also passes web lint and its browser suite (`4 passed (44.5s)`). PR checks are pending.
 - Computed palette: light background `oklch(0.982 0.002 84)`, dark background `oklch(0.198 0.0072 76)`, brand probe `oklch(0.48 0.0686 62)`, body font `Inter Variable`. Gallery menu opens with pointer input; no page errors. The existing theme initializer emits React's client-side script-tag warning.
 - Persistent command logs: `/home/ubuntu/oat-foundation-ci-fast.log`, `/home/ubuntu/oat-foundation-ci-full.log`, `/home/ubuntu/oat-foundation-e2e.log`, `/home/ubuntu/oat-foundation-{web,desktop,gallery}-build.log`, `/home/ubuntu/oat-foundation-shots.log`.

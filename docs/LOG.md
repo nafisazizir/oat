@@ -149,3 +149,9 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - Migrated render composition, menu groups and activation, Select label metadata, array-valued toggle groups and popup focus restoration without app redesign.
 - Verification and screenshot evidence: docs/tasks/ui-foundation.md.
 - Final fast CI green; web, desktop and gallery production builds pass. Light/dark gallery screenshots verified. Full integration tests pass; web E2E is blocked before app startup by the VM's missing pgvector extension. Editor E2E passes after installing the missing local Chromium binary; macOS-only checks are skipped on Linux.
+
+### PR 3 CI remediation
+
+- Fixed text contrast, Tabs activation, sidebar target size, Select indicator text, tooltip semantics, and Base UI-compatible E2E assertions. The human approved the light gray-900 AA deviation, preserving chroma and hue.
+- Reproduced the DB pagination readiness race against main with held transactions and replaced its row-count wait with a specific-folder visibility wait. Main's green Linux log also contains the identical enhance heading failure marked flaky; warm the SSE route before generation instead of weakening the streaming assertions.
+- UI tests, DB integration, both-theme axe and the targeted web browser suite pass locally with the repository environment loaded. Final enhance-only browser check passes (`4 passed (44.5s)`); PR CI remains in progress. Evidence and limitations are in `docs/tasks/ui-foundation.md`.
