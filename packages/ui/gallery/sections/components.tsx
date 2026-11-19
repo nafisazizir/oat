@@ -1,18 +1,18 @@
 import {
-  ArrowRightIcon,
-  BellIcon,
-  CalendarIcon,
-  CopyIcon,
-  EllipsisIcon,
-  FileTextIcon,
-  LinkIcon,
-  MicIcon,
-  PlusIcon,
-  SettingsIcon,
-  SparklesIcon,
-  Trash2Icon,
-  UsersIcon,
-} from 'lucide-react';
+  IconArrowRight,
+  IconBell,
+  IconCalendar,
+  IconCopy,
+  IconDots,
+  IconFileText,
+  IconLink,
+  IconMicrophone,
+  IconPlus,
+  IconSettings,
+  IconSparkles,
+  IconTrash,
+  IconUsers,
+} from '@tabler/icons-react';
 import { useEffect, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
@@ -100,13 +100,11 @@ function Specimen({
 }) {
   return (
     <section
-      className={`flex flex-col gap-4 rounded-xl border bg-card p-5 ${className}`}
+      className={`flex flex-col gap-4 rounded-xl border border-gray-alpha-400 bg-background-100 p-5 ${className}`}
       data-specimen={name}
     >
-      <h3 className="font-mono text-xs font-normal tracking-normal text-muted-foreground">
-        {name}
-      </h3>
-      <div className="flex flex-1 flex-col gap-4">{children}</div>
+      <h3 className="text-label-12-mono text-gray-900">{name}</h3>
+      <div className="flex flex-1 flex-col gap-4 text-copy-14">{children}</div>
     </section>
   );
 }
@@ -142,19 +140,19 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
       <Specimen name="button" className="xl:col-span-2">
         <div className="flex flex-wrap items-center gap-2">
           <Button>
-            <SparklesIcon data-icon="inline-start" />
+            <IconSparkles data-icon="inline-start" />
             Enhance notes
           </Button>
           <Button variant="secondary">Secondary</Button>
           <Button variant="outline">Outline</Button>
           <Button variant="ghost">Ghost</Button>
           <Button variant="destructive">
-            <Trash2Icon data-icon="inline-start" />
+            <IconTrash data-icon="inline-start" />
             Delete
           </Button>
           <Button variant="link">
             Link
-            <ArrowRightIcon data-icon="inline-end" />
+            <IconArrowRight data-icon="inline-end" />
           </Button>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -163,10 +161,10 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
           <Button>Default</Button>
           <Button size="lg">Large</Button>
           <Button size="icon" variant="outline" aria-label="Record">
-            <MicIcon />
+            <IconMicrophone />
           </Button>
           <Button size="icon-sm" variant="ghost" aria-label="More">
-            <EllipsisIcon />
+            <IconDots />
           </Button>
           <Button disabled>Disabled</Button>
         </div>
@@ -244,7 +242,7 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
             </SelectContent>
           </Select>
         </div>
-        <div className="flex h-5 items-center gap-3 text-muted-foreground">
+        <div className="flex h-5 items-center gap-3 text-gray-900">
           <span>Private</span>
           <Separator orientation="vertical" />
           <span>Edited 2m ago</span>
@@ -274,13 +272,13 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
             <TabsTrigger value="transcript">Transcript</TabsTrigger>
             <TabsTrigger value="chat">Ask</TabsTrigger>
           </TabsList>
-          <TabsContent value="notes" className="text-muted-foreground">
+          <TabsContent value="notes" className="text-gray-900">
             Enhanced notes for this meeting.
           </TabsContent>
-          <TabsContent value="transcript" className="text-muted-foreground">
+          <TabsContent value="transcript" className="text-gray-900">
             Full transcript.
           </TabsContent>
-          <TabsContent value="chat" className="text-muted-foreground">
+          <TabsContent value="chat" className="text-gray-900">
             Ask anything about this meeting.
           </TabsContent>
         </Tabs>
@@ -300,16 +298,16 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
             <CardDescription>Tomorrow · 14:00 · Product</CardDescription>
             <CardAction>
               <Button size="icon-sm" variant="ghost" aria-label="More">
-                <EllipsisIcon />
+                <IconDots />
               </Button>
             </CardAction>
           </CardHeader>
-          <CardContent className="text-muted-foreground">
+          <CardContent className="text-gray-900">
             Oat will start recording when the call begins.
           </CardContent>
           <CardFooter className="gap-2">
             <Button size="sm">
-              <MicIcon data-icon="inline-start" />
+              <IconMicrophone data-icon="inline-start" />
               Join & record
             </Button>
             <Button size="sm" variant="ghost">
@@ -327,14 +325,14 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
             <Skeleton className="h-3 w-2/5" />
           </div>
         </div>
-        <ScrollArea className="h-36 rounded-lg border">
+        <ScrollArea className="h-36 rounded-lg border border-gray-alpha-400">
           <ul className="flex flex-col p-1">
             {meetings.map((m) => (
               <li
                 key={m}
-                className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent"
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-gray-100"
               >
-                <FileTextIcon className="size-4 text-muted-foreground" />
+                <IconFileText className="size-4 text-gray-900" />
                 {m}
               </li>
             ))}
@@ -343,29 +341,29 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
       </Specimen>
 
       <Specimen name="command">
-        <Command className="rounded-lg border">
+        <Command className="rounded-lg border border-gray-alpha-400">
           <CommandInput placeholder="Search notes or run a command…" />
           <CommandList>
             <CommandEmpty>No results.</CommandEmpty>
             <CommandGroup heading="Notes">
               <CommandItem>
-                <FileTextIcon />
+                <IconFileText />
                 Weekly design sync
               </CommandItem>
               <CommandItem>
-                <FileTextIcon />
+                <IconFileText />
                 Customer call — Northwind
               </CommandItem>
             </CommandGroup>
             <CommandSeparator />
             <CommandGroup heading="Actions">
               <CommandItem>
-                <PlusIcon />
+                <IconPlus />
                 New note
                 <CommandShortcut>⌘N</CommandShortcut>
               </CommandItem>
               <CommandItem>
-                <SettingsIcon />
+                <IconSettings />
                 Settings
                 <CommandShortcut>⌘,</CommandShortcut>
               </CommandItem>
@@ -375,9 +373,12 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
       </Specimen>
 
       <Specimen name="resizable">
-        <ResizablePanelGroup orientation="horizontal" className="min-h-40 rounded-lg border">
+        <ResizablePanelGroup
+          orientation="horizontal"
+          className="min-h-40 rounded-lg border border-gray-alpha-400"
+        >
           <ResizablePanel defaultSize="40%">
-            <div className="flex h-full items-center justify-center bg-sidebar text-sidebar-foreground">
+            <div className="flex h-full items-center justify-center bg-background-200 text-gray-1000">
               Sidebar
             </div>
           </ResizablePanel>
@@ -389,7 +390,7 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
               </ResizablePanel>
               <ResizableHandle />
               <ResizablePanel defaultSize="40%">
-                <div className="flex h-full items-center justify-center bg-muted text-muted-foreground">
+                <div className="flex h-full items-center justify-center bg-gray-100 text-gray-900">
                   Transcript
                 </div>
               </ResizablePanel>
@@ -402,7 +403,7 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
         <div className="flex flex-wrap gap-2">
           <Dialog>
             <DialogTrigger render={<Button variant="outline" />}>
-              <LinkIcon data-icon="inline-start" />
+              <IconLink data-icon="inline-start" />
               Share…
             </DialogTrigger>
             <DialogContent>
@@ -415,7 +416,7 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
               <div className="flex gap-2">
                 <Input readOnly defaultValue="https://oat.app/s/7f3k-weekly-sync" />
                 <Button variant="secondary" size="icon" aria-label="Copy link">
-                  <CopyIcon />
+                  <IconCopy />
                 </Button>
               </div>
               <DialogFooter>
@@ -426,7 +427,7 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
           </Dialog>
           <Sheet>
             <SheetTrigger render={<Button variant="outline" />}>
-              <UsersIcon data-icon="inline-start" />
+              <IconUsers data-icon="inline-start" />
               Attendees
             </SheetTrigger>
             <SheetContent>
@@ -445,8 +446,8 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
                       <AvatarFallback>{i}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                      <span className="font-medium">{n}</span>
-                      <span className="text-xs text-muted-foreground">{r}</span>
+                      <span className="text-label-14">{n}</span>
+                      <span className="text-label-12 text-gray-900">{r}</span>
                     </div>
                   </li>
                 ))}
@@ -464,12 +465,12 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
               })
             }
           >
-            <BellIcon data-icon="inline-start" />
+            <IconBell data-icon="inline-start" />
             Toast
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Open these to see the overlay scrim, serif titles and elevation.
+        <p className="text-label-12 text-gray-900">
+          Open these to see the overlay scrim, type roles and floating materials.
         </p>
         <Toaster position="bottom-right" />
       </Specimen>
@@ -484,7 +485,7 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
               <TooltipTrigger
                 render={<Button variant="outline" size="icon" aria-label="Start recording" />}
               >
-                <MicIcon />
+                <IconMicrophone />
               </TooltipTrigger>
               <TooltipContent side="right">Start recording ⌘R</TooltipContent>
             </Tooltip>
@@ -493,26 +494,26 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
             <DropdownMenu {...pinned} modal={false}>
               <DropdownMenuTrigger render={<Button variant="outline" />}>
                 Note actions
-                <EllipsisIcon data-icon="inline-end" />
+                <IconDots data-icon="inline-end" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-52">
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>Weekly design sync</DropdownMenuLabel>
                   <DropdownMenuGroup>
                     <DropdownMenuItem>
-                      <LinkIcon />
+                      <IconLink />
                       Copy link
                       <DropdownMenuShortcut>⌘L</DropdownMenuShortcut>
                     </DropdownMenuItem>
                     <DropdownMenuItem>
-                      <UsersIcon />
+                      <IconUsers />
                       Move to team space
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
                     <DropdownMenuItem variant="destructive">
-                      <Trash2Icon />
+                      <IconTrash />
                       Delete
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
@@ -542,13 +543,13 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
           <div className="flex flex-col items-end">
             <Popover {...pinned} modal={false}>
               <PopoverTrigger render={<Button variant="outline" />}>
-                <CalendarIcon data-icon="inline-start" />
+                <IconCalendar data-icon="inline-start" />
                 Thu 14 Nov
               </PopoverTrigger>
               <PopoverContent align="end" className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
-                  <span className="font-medium">Weekly design sync</span>
-                  <span className="text-muted-foreground">10:00–10:30 · Google Meet</span>
+                  <span className="text-label-14">Weekly design sync</span>
+                  <span className="text-gray-900">10:00–10:30 · Google Meet</span>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">

@@ -1,4 +1,4 @@
-import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
+import { IconDeviceDesktop, IconMoon, IconSun } from '@tabler/icons-react';
 import { useTheme } from 'next-themes';
 import type { ReactNode } from 'react';
 
@@ -14,13 +14,13 @@ function ThemeSwitch() {
     <Tabs value={forcedTheme ?? theme ?? 'system'} onValueChange={setTheme}>
       <TabsList>
         <TabsTrigger value="light" aria-label="Light">
-          <SunIcon />
+          <IconSun />
         </TabsTrigger>
         <TabsTrigger value="dark" aria-label="Dark">
-          <MoonIcon />
+          <IconMoon />
         </TabsTrigger>
         <TabsTrigger value="system" aria-label="System">
-          <MonitorIcon />
+          <IconDeviceDesktop />
         </TabsTrigger>
       </TabsList>
     </Tabs>
@@ -41,8 +41,8 @@ function Section({
   return (
     <section id={id} className="flex scroll-mt-20 flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h2 className="text-2xl font-medium">{title}</h2>
-        <p className="max-w-content text-base text-muted-foreground">{lede}</p>
+        <h2 className="text-heading-24">{title}</h2>
+        <p className="max-w-content text-copy-16 text-gray-900">{lede}</p>
       </div>
       {children}
     </section>
@@ -59,25 +59,25 @@ const nav = [
 
 export function App({ staticOverlays }: { staticOverlays: boolean }) {
   return (
-    <div className="min-h-svh bg-background">
-      <header className="sticky top-0 z-10 border-b bg-background/85 backdrop-blur-md">
+    <div className="min-h-svh bg-background-100 text-copy-14 text-gray-1000">
+      <header className="sticky top-0 z-10 border-b border-gray-alpha-400 bg-background-100">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-8">
-          <span className="font-heading text-xl font-semibold tracking-tight">
-            oat<span className="text-primary">.</span>
-            <span className="ml-1.5 font-sans text-sm font-normal text-muted-foreground">ui</span>
+          <span className="text-heading-20">
+            oat<span className="text-gray-1000">.</span>
+            <span className="ms-1.5 text-copy-14 text-gray-900">ui</span>
           </span>
-          <nav className="hidden items-center gap-4 text-muted-foreground md:flex">
+          <nav className="hidden items-center gap-4 text-label-14 text-gray-900 md:flex">
             {nav.map(([id, label]) => (
               <a
                 key={id}
                 href={`#${id}`}
-                className="transition-colors duration-fast hover:text-foreground"
+                className="transition-colors duration-fast hover:text-gray-1000"
               >
                 {label}
               </a>
             ))}
           </nav>
-          <div className="ml-auto">
+          <div className="ms-auto">
             <ThemeSwitch />
           </div>
         </div>
@@ -85,11 +85,11 @@ export function App({ staticOverlays }: { staticOverlays: boolean }) {
 
       <main className="mx-auto flex max-w-6xl flex-col gap-16 px-8 pt-12 pb-40">
         <div className="flex flex-col gap-3">
-          <h1 className="text-4xl font-medium">A calm, warm place to think.</h1>
-          <p className="max-w-content text-lg text-muted-foreground">
+          <h1 className="text-heading-40">A calm, warm place to think.</h1>
+          <p className="max-w-content text-copy-18 text-gray-900">
             Oat paper, warm ink and one confident accent. Every value below is a token in{' '}
-            <code className="font-mono text-sm text-foreground">tokens.css</code> — change the
-            token, and every component follows, in both themes.
+            <code className="text-copy-13-mono text-gray-1000">tokens.css</code> — change the token,
+            and every component follows, in both themes.
           </p>
         </div>
 
@@ -112,7 +112,7 @@ export function App({ staticOverlays }: { staticOverlays: boolean }) {
         <Section
           id="type"
           title="Type"
-          lede="Newsreader for titles and headings gives the page its paper feel; Instrument Sans keeps the dense UI crisp at 13px."
+          lede="Inter for headings, labels and copy; JetBrains Mono for code. Each role owns its size, weight, leading and tracking."
         >
           <TypeScale />
         </Section>
@@ -120,7 +120,7 @@ export function App({ staticOverlays }: { staticOverlays: boolean }) {
         <Section
           id="shape"
           title="Shape & motion"
-          lede="Soft corners from a single radius, low diffuse shadows, a 4px spacing grid and short, gentle easing."
+          lede="Flat in-page surfaces, one material per floating surface, a shared radius and short, gentle easing."
         >
           <ShapeTokens />
         </Section>
@@ -128,7 +128,7 @@ export function App({ staticOverlays }: { staticOverlays: boolean }) {
         <Section
           id="components"
           title="Components"
-          lede="shadcn/ui (Radix) components, restyled through tokens only."
+          lede="Ziiz components built on Base UI, with ramp colors, type roles and Tabler icons."
         >
           <ComponentGallery staticOverlays={staticOverlays} />
         </Section>

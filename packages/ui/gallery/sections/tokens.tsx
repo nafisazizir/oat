@@ -1,147 +1,111 @@
 import { useEffect, useState } from 'react';
 
-type Swatch = { token: string; on?: string; note?: string };
+import { Button } from '@oat/ui/components/button';
 
-const colourGroups: { title: string; swatches: Swatch[] }[] = [
-  {
-    title: 'Surfaces',
-    swatches: [
-      { token: '--background', on: '--foreground', note: 'oat paper' },
-      { token: '--card', on: '--card-foreground' },
-      { token: '--popover', on: '--popover-foreground' },
-      { token: '--muted', on: '--muted-foreground' },
-      { token: '--secondary', on: '--secondary-foreground' },
-      { token: '--accent', on: '--accent-foreground', note: 'hover' },
-    ],
-  },
-  {
-    title: 'Ink & status',
-    swatches: [
-      { token: '--primary', on: '--primary-foreground', note: 'the one accent' },
-      { token: '--destructive', on: '--destructive-foreground' },
-      { token: '--success', on: '--success-foreground' },
-      { token: '--warning', on: '--warning-foreground' },
-      { token: '--ring' },
-      { token: '--selection' },
-    ],
-  },
-  {
-    title: 'Lines & sidebar',
-    swatches: [
-      { token: '--border' },
-      { token: '--input' },
-      { token: '--overlay', note: 'modal scrim' },
-      { token: '--sidebar', on: '--sidebar-foreground' },
-      { token: '--sidebar-accent', on: '--sidebar-accent-foreground' },
-      { token: '--sidebar-border' },
-    ],
-  },
-  {
-    title: 'Oat-specific',
-    swatches: [
-      { token: '--me', on: '--me-foreground', note: 'my mic' },
-      { token: '--them', on: '--them-foreground', note: 'system audio' },
-      { token: '--my-text', note: 'typed by me' },
-      { token: '--ai-text', note: 'added by AI' },
-      { token: '--chart-1' },
-      { token: '--chart-2' },
-    ],
-  },
-];
-
-function SwatchTile({ token, on, note }: Swatch) {
-  return (
-    <div className="flex flex-col gap-2">
-      <div
-        className="flex h-16 items-end rounded-lg border p-2 shadow-xs"
-        style={{ background: `var(${token})`, color: on ? `var(${on})` : undefined }}
-      >
-        {on ? <span className="font-heading text-xl leading-none">Aa</span> : null}
-      </div>
-      <div className="flex flex-col">
-        <span className="font-mono text-xs">{token}</span>
-        {note ? <span className="text-xs text-muted-foreground">{note}</span> : null}
-      </div>
-    </div>
-  );
-}
+const ramps = [
+  'background',
+  'gray',
+  'gray-alpha',
+  'brand',
+  'blue',
+  'red',
+  'amber',
+  'green',
+  'teal',
+  'purple',
+  'pink',
+] as const;
+const steps = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000] as const;
 
 export function ColourTokens() {
   return (
     <div className="flex flex-col gap-8">
-      <div className="rounded-md bg-brand-700 p-4 text-brand-on">
-        Oat brand · brand-700 on brand-on
+      <div className="rounded-md bg-brand-700 p-4 text-label-14 text-brand-on">
+        Oat brand · brand-700 with brand-on text
       </div>
-      {colourGroups.map((group) => (
-        <div key={group.title} className="flex flex-col gap-3">
-          <h3 className="font-sans text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {group.title}
-          </h3>
-          <div className="grid grid-cols-3 gap-4 md:grid-cols-6">
-            {group.swatches.map((s) => (
-              <SwatchTile key={s.token} {...s} />
+      <p className="text-copy-14 text-gray-900">
+        Steps 100–300 are component backgrounds, 400–600 are borders, 700–800 are fills, and
+        900–1000 are text and icons. Gray alpha lets the surface show through.
+      </p>
+      {ramps.map((ramp) => (
+        <section key={ramp} aria-label={`${ramp} ramp`} className="flex flex-col gap-3">
+          <h3 className="text-heading-16">{ramp}</h3>
+          <div className="grid grid-cols-5 gap-3 sm:grid-cols-10">
+            {(ramp === 'background' ? steps.slice(0, 2) : steps).map((step) => (
+              <div key={step} className="flex min-w-0 flex-col gap-2">
+                <div
+                  aria-label={`--ds-${ramp}-${step}`}
+                  className="h-16 rounded-md border border-gray-alpha-400"
+                  style={{ backgroundColor: `var(--ds-${ramp}-${step})` }}
+                />
+                <span className="text-label-12-mono text-gray-900">{step}</span>
+              </div>
             ))}
           </div>
-        </div>
+        </section>
       ))}
     </div>
   );
 }
 
-const typeScale = [
-  {
-    cls: 'font-heading text-4xl',
-    size: '4xl',
-    label: 'Display',
-    sample: 'Notes that write themselves',
-  },
-  { cls: 'font-heading text-3xl', size: '3xl', label: 'Note title', sample: 'Weekly design sync' },
-  {
-    cls: 'font-heading text-2xl',
-    size: '2xl',
-    label: 'Heading',
-    sample: 'Decisions and next steps',
-  },
-  { cls: 'font-heading text-xl', size: 'xl', label: 'Section', sample: 'Onboarding drop-off' },
-  {
-    cls: 'text-lg',
-    size: 'lg',
-    label: 'Lead',
-    sample: 'A calm place for everything you heard and said.',
-  },
-  {
-    cls: 'text-base',
-    size: 'base',
-    label: 'Body',
-    sample: 'Rough notes in, clean notes out — your words stay yours, the AI fills the gaps.',
-  },
-  { cls: 'text-sm', size: 'sm', label: 'UI', sample: 'Menus, buttons, sidebar, transcript lines.' },
-  { cls: 'text-xs', size: 'xs', label: 'Caption', sample: 'Thu 14 Nov · 10:02 · Priya' },
-  {
-    cls: 'font-mono text-sm',
-    size: 'sm',
-    label: 'Mono',
-    sample: 'const note = await enhance(draft);',
-  },
-];
+const typeRoles = [
+  'text-heading-72',
+  'text-heading-64',
+  'text-heading-56',
+  'text-heading-48',
+  'text-heading-40',
+  'text-heading-32',
+  'text-heading-24',
+  'text-heading-20',
+  'text-heading-16',
+  'text-heading-14',
+  'text-button-16',
+  'text-button-14',
+  'text-button-12',
+  'text-label-20',
+  'text-label-18',
+  'text-label-16',
+  'text-label-16-mono',
+  'text-label-14',
+  'text-label-14-mono',
+  'text-label-13',
+  'text-label-13-mono',
+  'text-label-12',
+  'text-label-12-mono',
+  'text-copy-24',
+  'text-copy-20',
+  'text-copy-18',
+  'text-copy-16',
+  'text-copy-14',
+  'text-copy-14-mono',
+  'text-copy-13',
+  'text-copy-13-mono',
+] as const;
 
 export function TypeScale() {
   return (
-    <div className="flex flex-col divide-y rounded-xl border bg-card">
-      {typeScale.map((t) => (
-        <div key={t.label} className="flex items-baseline gap-6 px-5 py-4">
-          <div className="flex w-28 shrink-0 flex-col">
-            <span className="text-xs font-medium">{t.label}</span>
-            <span className="font-mono text-xs text-muted-foreground">text-{t.size}</span>
+    <div className="flex flex-col divide-y divide-gray-alpha-400 rounded-xl border border-gray-alpha-400 bg-background-100">
+      {typeRoles.map((role) => (
+        <div
+          key={role}
+          className="grid min-w-0 items-baseline gap-3 px-5 py-4 sm:grid-cols-[12rem_1fr]"
+        >
+          <span className="text-label-12-mono text-gray-900">{role}</span>
+          <div className="min-w-0 overflow-x-auto">
+            {role.startsWith('text-button-') ? (
+              <Button variant="outline" className={role}>
+                New note
+              </Button>
+            ) : (
+              <p className={role}>Meeting notes</p>
+            )}
           </div>
-          <span className={`${t.cls} truncate`}>{t.sample}</span>
         </div>
       ))}
     </div>
   );
 }
 
-/** Reads a token's live value so the gallery always shows what the CSS says. */
 function useTokenValue(token: string) {
   const [value, setValue] = useState('');
   useEffect(() => {
@@ -164,18 +128,22 @@ function EasingCurve({ token }: { token: string }) {
   const path = `M0 ${s} C ${x1 * s} ${s - y1 * s}, ${x2 * s} ${s - y2 * s}, ${s} 0`;
   return (
     <div className="flex items-center gap-3">
-      <svg viewBox={`-4 -4 ${s + 8} ${s + 8}`} className="size-16 rounded-md border bg-background">
+      <svg
+        aria-hidden="true"
+        viewBox={`-4 -4 ${s + 8} ${s + 8}`}
+        className="size-16 shrink-0 rounded-md border border-gray-alpha-400 bg-background-100"
+      >
         <path
           d={path}
           fill="none"
           stroke="currentColor"
           strokeWidth={2.5}
-          className="text-primary"
+          className="text-gray-1000"
         />
       </svg>
-      <div className="flex flex-col">
-        <span className="font-mono text-xs">{token}</span>
-        <span className="font-mono text-xs text-muted-foreground">{value}</span>
+      <div className="flex min-w-0 flex-col">
+        <span className="text-label-12-mono">{token}</span>
+        <span className="text-label-12-mono text-gray-900">{value}</span>
       </div>
     </div>
   );
@@ -185,8 +153,8 @@ function TokenValue({ token }: { token: string }) {
   const value = useTokenValue(token);
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="font-mono text-xs">{token}</span>
-      <span className="font-mono text-xs text-muted-foreground">{value}</span>
+      <span className="text-label-12-mono">{token}</span>
+      <span className="text-label-12-mono text-gray-900">{value}</span>
     </div>
   );
 }
@@ -194,11 +162,9 @@ function TokenValue({ token }: { token: string }) {
 export function ShapeTokens() {
   return (
     <div className="grid gap-6 md:grid-cols-2">
-      <div className="flex flex-col gap-4 rounded-xl border bg-card p-5">
-        <h3 className="font-sans text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Radius · one knob, <code className="font-mono normal-case">--radius</code>
-        </h3>
-        <div className="flex items-end gap-4">
+      <section className="flex flex-col gap-4 rounded-xl border border-gray-alpha-400 bg-background-100 p-5">
+        <h3 className="text-heading-16">Radius</h3>
+        <div className="flex flex-wrap items-end gap-4">
           {(
             [
               'rounded-sm',
@@ -208,62 +174,53 @@ export function ShapeTokens() {
               'rounded-2xl',
               'rounded-full',
             ] as const
-          ).map((r) => (
-            <div key={r} className="flex flex-col items-center gap-2">
-              <div className={`size-12 border-2 border-primary/60 bg-secondary ${r}`} />
-              <span className="font-mono text-xs text-muted-foreground">{r.slice(8)}</span>
+          ).map((radius) => (
+            <div key={radius} className="flex flex-col items-center gap-2">
+              <div className={`size-12 border border-gray-alpha-400 bg-gray-100 ${radius}`} />
+              <span className="text-label-12-mono text-gray-900">{radius.slice(8)}</span>
             </div>
           ))}
         </div>
-      </div>
-      <div className="flex flex-col gap-4 rounded-xl border bg-card p-5">
-        <h3 className="font-sans text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Elevation
-        </h3>
-        <div className="flex gap-4">
-          {(['shadow-xs', 'shadow-sm', 'shadow-md', 'shadow-lg'] as const).map((s) => (
-            <div
-              key={s}
-              className={`flex h-14 flex-1 items-center justify-center rounded-lg bg-popover ${s}`}
-            >
-              <span className="font-mono text-xs text-muted-foreground">{s.slice(7)}</span>
+        <TokenValue token="--radius" />
+      </section>
+      <section className="flex flex-col gap-4 rounded-xl border border-gray-alpha-400 bg-background-100 p-5">
+        <h3 className="text-heading-16">Floating materials</h3>
+        <div className="grid grid-cols-2 gap-6 p-2">
+          {(
+            ['material-tooltip', 'material-menu', 'material-modal', 'material-fullscreen'] as const
+          ).map((material) => (
+            <div key={material} className={`flex h-16 items-center justify-center ${material}`}>
+              <span className="text-label-12-mono">{material.slice(9)}</span>
             </div>
           ))}
         </div>
-      </div>
-      <div className="flex flex-col gap-4 rounded-xl border bg-card p-5">
-        <h3 className="font-sans text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Spacing · <code className="font-mono normal-case">--space</code> × n
-        </h3>
+      </section>
+      <section className="flex flex-col gap-4 rounded-xl border border-gray-alpha-400 bg-background-100 p-5">
+        <h3 className="text-heading-16">Spacing</h3>
         <div className="flex flex-col gap-1.5">
           {([1, 2, 3, 4, 6, 8, 12, 16] as const).map((n) => (
             <div key={n} className="flex items-center gap-3">
-              <span className="w-6 font-mono text-xs text-muted-foreground">{n}</span>
+              <span className="w-6 text-label-12-mono text-gray-900">{n}</span>
               <div
-                className="h-2 rounded-full bg-primary/70"
-                style={{ width: `calc(var(--space) * ${n})` }}
+                className="h-2 rounded-full bg-gray-700"
+                style={{ width: `calc(var(--spacing) * ${n})` }}
               />
             </div>
           ))}
         </div>
         <TokenValue token="--content-width" />
-        <TokenValue token="--sidebar-width-default" />
-      </div>
-      <div className="flex flex-col gap-4 rounded-xl border bg-card p-5">
-        <h3 className="font-sans text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Motion
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
+      </section>
+      <section className="flex flex-col gap-4 rounded-xl border border-gray-alpha-400 bg-background-100 p-5">
+        <h3 className="text-heading-16">Motion</h3>
+        <div className="grid gap-4">
           <EasingCurve token="--easing-standard" />
           <EasingCurve token="--easing-enter" />
           <EasingCurve token="--easing-exit" />
-          <div className="flex flex-col justify-center gap-1.5">
-            <TokenValue token="--duration-fast" />
-            <TokenValue token="--duration-base" />
-            <TokenValue token="--duration-slow" />
-          </div>
+          <TokenValue token="--duration-fast" />
+          <TokenValue token="--duration-base" />
+          <TokenValue token="--duration-slow" />
         </div>
-      </div>
+      </section>
     </div>
   );
 }
