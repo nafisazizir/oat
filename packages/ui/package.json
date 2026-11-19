@@ -65,7 +65,6 @@
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:",
-    "lucide-react": "catalog:"
+    "vitest": "catalog:"
   }
 }

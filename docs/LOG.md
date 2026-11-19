@@ -164,9 +164,21 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - Renderer moved onto ziiz ramp, type roles, Tabler icons and registry components; optimistic workspace switch and settings saves now roll back on failure; skeletons match the loaded layout; ⌘/Ctrl+N and Esc shortcuts added. [task](tasks/ui-desktop.md)
 - Fast CI green except actionlint (Docker Hub 429). Desktop e2e is macOS-only and GitHub CI doesn't run it; run it on a Mac before merging.
 
+## 2026-11-19 — ziiz final pass, part 1
+
+- Home now uses ziiz Item/Empty, ramp colors, type roles and Tabler icons; removes redundant sharing metadata and matches loading rows to the calendar/recent-document layout. Gallery demonstrates eleven ramps, all 31 roles and floating materials. Sonner uses ramp variables and the modal material. [task](tasks/ui-final-pass.md)
+- Removed only the UI Lucide dev dependency: the web dependency is still needed by excluded PR #5 files. Editor, meeting-ui, document routes and components, the catalog and bridge import are unchanged.
+- Fast CI (including actionlint) and gallery build pass; six new tests pass. Light/dark ramp and toast screenshots checked. Home is not visually verified; full integration/E2E and independent review were not run in this part.
+
 
 ### Ziiz overhaul — document & meeting surfaces (PR 5)
 
 - Migrated `components/{page,document/**,meeting/**,pipeline/**}`, `d/[docId]` page + skeleton, `packages/editor/src/react/**` (+ `styles.css` var map to `--ds-*`) and `packages/meeting-ui/**` to ziiz ramp/type roles, Tabler icons and registry components (`Empty`, `Alert`, `AlertDialog`, `Item`, `Field`, `RadioGroup`, `ButtonGroup`, `Spinner`, `Kbd`, `material-menu`). meeting-ui public API unchanged.
 - Optimistic share access/transcript changes (writes serialized, rollback + toast; e2e `sharing.spec.ts`), optimistic attendee removal (unit test).
 - `ci --fast`: format/typecheck/lint/test pass; actionlint skipped locally by Docker Hub 429. Screenshots via `design-sweep` with `env -u DATABASE_URL` (the VM shell exports an unrelated `DATABASE_URL`).
+
+## 2026-11-19 — ziiz final pass, part 2
+
+- Merged PR #5/main (`c697c97`) into the final-pass branch; retained both LOG histories. Removed the shadcn bridge import, unused destructive slots, final playground aliases/raw typography and last Lucide dependency/catalog/lock entries. Added repo-wide source regression guards and targeted light/dark route screenshot coverage. [task](tasks/ui-final-pass.md)
+- Fast CI fully green (`ci: ok`); web, desktop and gallery production builds passed. All three built CSS outputs have zero bridge-variable references and no missing ramp variables.
+- Local compose smoke/a11y/surface Playwright checks: **17 passed (2.2m)**. Visually checked Home, a populated document and Settings in both themes; screenshots and detailed evidence in the task file. Nothing remains unmigrated in the requested scope.

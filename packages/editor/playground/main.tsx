@@ -37,11 +37,11 @@ function App() {
   };
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
-      <header className="flex items-center justify-between border-b px-6 py-3">
-        <span className="text-sm font-medium text-muted-foreground">@oat/editor playground</span>
+    <div className="min-h-svh bg-background-100 text-copy-14 text-gray-1000">
+      <header className="flex items-center justify-between border-b border-gray-alpha-400 px-6 py-3">
+        <span className="text-label-14 text-gray-900">@oat/editor playground</span>
         <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-label-14">
             <Switch checked={editable} onCheckedChange={setEditable} aria-label="Editable" />
             Editable
           </label>
@@ -52,16 +52,16 @@ function App() {
       </header>
 
       <main className="mx-auto max-w-content px-6 py-10">
-        <h1 className="text-3xl font-semibold">Weekly onboarding sync</h1>
-        <div className="mt-3 mb-8 flex items-center gap-2 text-xs text-muted-foreground">
+        <h1 className="text-heading-32">Weekly onboarding sync</h1>
+        <div className="mt-3 mb-8 flex items-center gap-2 text-label-12 text-gray-900">
           <span>Thu 14 Nov · 10:00</span>
           <span aria-hidden>·</span>
           <Badge variant="outline" className="gap-1.5">
-            <span className="size-2 rounded-full bg-my-text" aria-hidden />
+            <span className="size-2 rounded-full bg-gray-1000" aria-hidden />
             My notes
           </Badge>
           <Badge variant="outline" className="gap-1.5">
-            <span className="size-2 rounded-full bg-ai-text" aria-hidden />
+            <span className="size-2 rounded-full bg-blue-900" aria-hidden />
             AI-added
           </Badge>
         </div>
@@ -77,11 +77,11 @@ function App() {
           }}
         />
 
-        <details className="mt-12 rounded-lg border bg-card text-sm">
-          <summary className="cursor-pointer px-4 py-2 text-muted-foreground">
+        <details className="mt-12 rounded-lg border border-gray-alpha-400 bg-background-100 text-copy-14">
+          <summary className="cursor-pointer px-4 py-2 text-label-14 text-gray-900">
             Document JSON
           </summary>
-          <pre className="max-h-96 overflow-auto border-t px-4 py-3 font-mono text-xs">
+          <pre className="max-h-96 overflow-auto border-t border-gray-alpha-400 px-4 py-3 text-copy-13-mono">
             {JSON.stringify(doc, null, 2)}
           </pre>
         </details>
