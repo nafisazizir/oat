@@ -1,7 +1,7 @@
 # Granola — initial findings
 
 Source: local install `/Applications/Granola.app`, inspected 2026-11-14 by listing the bundle and reading
-`package.json` from `app.asar`. Reference only — see clean-room rules in `docs/FACTORY.md` §8.
+`package.json` from `app.asar`. Reference only — see clean-room rules in `.agent/FACTORY.md` §8.
 
 ## Confirmed
 - **Electron app**, package `@granola/desktop` v7.786.3, main entry `dist-electron/main/index.js`

@@ -2,7 +2,7 @@
 
 How Granola desktop (`@granola/desktop` 7.786.3, macOS, inspected 2026-11-14) works end to end, condensed from
 the five detailed notes. This file only summarises. It adds no new evidence. For details, read the linked
-note and its evidence IDs. Everything here is in our own words. Clean-room rules apply (`docs/FACTORY.md` §8).
+note and its evidence IDs. Everything here is in our own words. Clean-room rules apply (`.agent/FACTORY.md` §8).
 
 **Confidence** (carried over from the source notes): **[C]** confirmed in shipped code or metadata ·
 **[I]** inferred from structure · **[U]** unknown. Bundle defaults of feature flags are known. Server-side
