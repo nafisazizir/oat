@@ -56,6 +56,7 @@ function TabsList({
   const active = useGlide('[data-slot=tabs-trigger][data-active]');
   return (
     <TabsPrimitive.List
+      activateOnFocus
       data-slot="tabs-list"
       data-variant={variant}
       data-shape={shape}

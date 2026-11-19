@@ -179,6 +179,33 @@ describe('Switch', () => {
 });
 
 describe('Tabs', () => {
+  it.each([true, false])(
+    'activateOnFocus=%s controls keyboard panel activation',
+    async (activateOnFocus) => {
+      const user = userEvent.setup();
+      render(
+        <Tabs defaultValue="notes">
+          <TabsList {...(activateOnFocus ? {} : { activateOnFocus: false })}>
+            <TabsTrigger value="notes">Notes</TabsTrigger>
+            <TabsTrigger value="transcript">Transcript</TabsTrigger>
+          </TabsList>
+          <TabsContent value="notes">My notes</TabsContent>
+          <TabsContent value="transcript">Full transcript</TabsContent>
+        </Tabs>,
+      );
+      await user.tab();
+      await user.keyboard('{ArrowRight}');
+      expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Transcript' }));
+      expect(screen.getByRole('tabpanel').textContent).toBe(
+        activateOnFocus ? 'Full transcript' : 'My notes',
+      );
+      if (!activateOnFocus) {
+        await user.keyboard('{Enter}');
+        expect(screen.getByRole('tabpanel').textContent).toBe('Full transcript');
+      }
+    },
+  );
+
   it('shows the panel of the selected tab', async () => {
     const user = userEvent.setup();
     render(
