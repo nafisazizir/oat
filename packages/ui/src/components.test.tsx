@@ -150,7 +150,7 @@ describe('Base UI consumer composition', () => {
     expect(trigger.textContent).toBe('General meeting');
     expect(trigger.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
     await user.click(trigger);
-    await user.click(screen.getByRole('option', { name: 'Customer call' }));
+    await user.click(await screen.findByRole('option', { name: 'Customer call' }));
     expect(trigger.textContent).toBe('Customer call');
   });
 
