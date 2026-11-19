@@ -162,4 +162,4 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 ## 2026-11-19 — ziiz overhaul: desktop renderer
 
 - Renderer moved onto ziiz ramp, type roles, Tabler icons and registry components; optimistic workspace switch and settings saves now roll back on failure; skeletons match the loaded layout; ⌘/Ctrl+N and Esc shortcuts added. [task](tasks/ui-desktop.md)
-- Fast CI green except actionlint (Docker Hub 429). Desktop e2e is macOS-only, so it was left to CI.
+- Fast CI green except actionlint (Docker Hub 429). Desktop e2e is macOS-only and GitHub CI doesn't run it; run it on a Mac before merging.

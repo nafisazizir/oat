@@ -14,8 +14,8 @@ Move `apps/desktop/src/renderer/**` onto ziiz ramp vocabulary, type roles, Table
 - [x] Optimistic workspace switch and recording-settings saves roll back on failure; unit test for `withActive`.
 - [x] Loading skeletons for the note, conflict compare and setup permissions match the loaded layout.
 - [x] Before/after light and dark screenshots in the PR.
-- [ ] Desktop e2e green on the macOS CI job.
+- [ ] Desktop e2e green on a Mac (`pnpm --filter @oat/desktop e2e`). GitHub CI does not run it.
 
 ## Verification
 
-`pnpm run ci --fast`: format, typecheck, lint and test pass. actionlint skipped because Docker Hub returned HTTP 429. Desktop e2e skips on Linux and needs the compose stack, so it runs on macOS CI only. Screenshots come from the built renderer with a stubbed `window.oat` bridge.
+`pnpm run ci --fast`: format, typecheck, lint and test pass. actionlint skipped because Docker Hub returned HTTP 429. Desktop e2e is macOS-only and needs the compose stack. GitHub CI's macOS job runs only the Swift sidecar, so it has not run yet. Screenshots come from the built renderer with a stubbed `window.oat` bridge.
