@@ -12,16 +12,16 @@ import {
 } from '@oat/ui/components/dropdown-menu';
 import { ToggleGroup, ToggleGroupItem } from '@oat/ui/components/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
-import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
+import { IconDeviceDesktop, IconMoon, IconSun } from '@tabler/icons-react';
 
 import { parsePreference } from '@/lib/theme';
 
 import { useTheme } from './theme-provider';
 
 const options = [
-  { value: 'light', label: 'Light', Icon: SunIcon },
-  { value: 'dark', label: 'Dark', Icon: MoonIcon },
-  { value: 'system', label: 'System', Icon: MonitorIcon },
+  { value: 'light', label: 'Light', Icon: IconSun },
+  { value: 'dark', label: 'Dark', Icon: IconMoon },
+  { value: 'system', label: 'System', Icon: IconDeviceDesktop },
 ] as const;
 
 /** Top-bar theme menu. The icon follows what's on screen (sun in light, moon in dark). */
@@ -44,8 +44,8 @@ export function ThemeMenu() {
             />
           }
         >
-          <SunIcon className="dark:hidden" />
-          <MoonIcon className="hidden dark:block" />
+          <IconSun className="dark:hidden" />
+          <IconMoon className="hidden dark:block" />
         </TooltipTrigger>
         <TooltipContent>Theme</TooltipContent>
       </Tooltip>

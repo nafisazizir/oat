@@ -12,24 +12,24 @@ import {
 } from '@oat/ui/components/command';
 import { useSidebar } from '@oat/ui/components/sidebar';
 import { defaultFilter } from 'cmdk';
+import { Spinner } from '@oat/ui/components/spinner';
 import {
-  AudioLinesIcon,
-  FileTextIcon,
-  FolderIcon,
-  HomeIcon,
-  LayoutTemplateIcon,
-  ListTodoIcon,
-  LoaderCircleIcon,
-  MonitorIcon,
-  MoonIcon,
-  NotebookPenIcon,
-  PanelLeftIcon,
-  SearchIcon,
-  SettingsIcon,
-  SparklesIcon,
-  SquarePenIcon,
-  SunIcon,
-} from 'lucide-react';
+  IconChecklist,
+  IconDeviceDesktop,
+  IconEdit,
+  IconFileText,
+  IconFolder,
+  IconHome,
+  IconLayoutGrid,
+  IconLayoutSidebar,
+  IconMoon,
+  IconNotes,
+  IconSearch,
+  IconSettings,
+  IconSparkles,
+  IconSun,
+  IconWaveSine,
+} from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
@@ -174,11 +174,11 @@ export function CommandMenu() {
     {
       heading: 'Go to',
       items: [
-        { ...sections.home, icon: <HomeIcon /> },
-        { ...sections.tasks, icon: <ListTodoIcon /> },
-        { ...sections.assistant, icon: <SparklesIcon /> },
-        { ...sections.templates, icon: <LayoutTemplateIcon /> },
-        { ...sections.settings, icon: <SettingsIcon /> },
+        { ...sections.home, icon: <IconHome /> },
+        { ...sections.tasks, icon: <IconChecklist /> },
+        { ...sections.assistant, icon: <IconSparkles /> },
+        { ...sections.templates, icon: <IconLayoutGrid /> },
+        { ...sections.settings, icon: <IconSettings /> },
       ].map(({ label, href, icon }) => ({
         value: label,
         text: label,
@@ -193,18 +193,18 @@ export function CommandMenu() {
         .map((doc) => ({
           value: `page:${doc.id}`,
           text: titleOf(doc),
-          icon: doc.kind === 'folder' ? <FolderIcon /> : <FileTextIcon />,
+          icon: doc.kind === 'folder' ? <IconFolder /> : <IconFileText />,
           onSelect: run(() => router.push(`/d/${doc.id}`)),
         })),
     },
     {
       heading: 'Actions',
       items: [
-        { value: 'New note', text: 'New note', icon: <SquarePenIcon />, onSelect: run(newNote) },
+        { value: 'New note', text: 'New note', icon: <IconEdit />, onSelect: run(newNote) },
         {
           value: 'Toggle sidebar',
           text: 'Toggle sidebar',
-          icon: <PanelLeftIcon />,
+          icon: <IconLayoutSidebar />,
           onSelect: run(toggleSidebar),
           shortcut: '⌘B',
         },
@@ -214,9 +214,9 @@ export function CommandMenu() {
       heading: 'Theme',
       items: (
         [
-          ['light', 'Light', SunIcon],
-          ['dark', 'Dark', MoonIcon],
-          ['system', 'System', MonitorIcon],
+          ['light', 'Light', IconSun],
+          ['dark', 'Dark', IconMoon],
+          ['system', 'System', IconDeviceDesktop],
         ] as const
       ).map(([value, label, Icon]) => ({
         value: `${label} theme`,
@@ -286,18 +286,18 @@ export function CommandMenu() {
                       data-testid="search-result-note"
                     >
                       {hit.kind === 'meeting' ? (
-                        <NotebookPenIcon className="mt-0.5" />
+                        <IconNotes className="mt-0.5" />
                       ) : (
-                        <FileTextIcon className="mt-0.5" />
+                        <IconFileText className="mt-0.5" />
                       )}
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <Highlight
-                          className="truncate font-medium"
+                          className="truncate text-label-14 text-gray-1000"
                           html={hit.title ? hit.titleHtml : 'Untitled'}
                         />
                         {hit.snippetHtml && (
                           <Highlight
-                            className="line-clamp-1 text-xs text-muted-foreground"
+                            className="line-clamp-1 text-copy-13 text-gray-900"
                             html={hit.snippetHtml}
                           />
                         )}
@@ -316,14 +316,14 @@ export function CommandMenu() {
                       className="items-start"
                       data-testid="search-result-transcript"
                     >
-                      <AudioLinesIcon className="mt-0.5" />
+                      <IconWaveSine className="mt-0.5" />
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <Highlight className="line-clamp-2" html={hit.snippetHtml} />
-                        <span className="truncate text-xs text-muted-foreground">
+                        <Highlight className="line-clamp-2 text-copy-14" html={hit.snippetHtml} />
+                        <span className="truncate text-label-12 text-gray-900">
                           {hit.documentTitle || 'Untitled'}
                         </span>
                       </div>
-                      <span className="mt-0.5 shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+                      <span className="mt-0.5 shrink-0 text-label-12-mono text-gray-900 tabular-nums">
                         {formatTimestamp(hit.startMs)}
                       </span>
                     </CommandItem>
@@ -334,19 +334,19 @@ export function CommandMenu() {
                 {searching && (
                   <div
                     role="status"
-                    className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground"
+                    className="flex items-center gap-2 px-2 py-1.5 text-label-14 text-gray-900"
                   >
-                    <LoaderCircleIcon className="size-4 animate-spin motion-reduce:animate-none" />
+                    <Spinner />
                     Searching…
                   </div>
                 )}
                 {noMatches && (
-                  <p className="px-2 py-1.5 text-sm text-muted-foreground">
+                  <p className="px-2 py-1.5 text-copy-14 text-gray-900">
                     No notes or transcripts match “{q}”.
                   </p>
                 )}
                 {search.status === 'error' && (
-                  <p role="alert" className="px-2 py-1.5 text-sm text-destructive">
+                  <p role="alert" className="px-2 py-1.5 text-copy-14 text-red-900">
                     Search isn’t available right now.
                   </p>
                 )}
@@ -354,7 +354,7 @@ export function CommandMenu() {
                   value="result:all"
                   onSelect={run(() => router.push(searchPageHref(q)))}
                 >
-                  <SearchIcon />
+                  <IconSearch />
                   <span className="truncate">Search all results for “{q}”</span>
                 </CommandItem>
               </CommandGroup>

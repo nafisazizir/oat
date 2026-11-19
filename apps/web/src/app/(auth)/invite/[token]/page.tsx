@@ -36,9 +36,9 @@ function Notice({
   action?: 'home' | 'none';
 }) {
   return (
-    <Card className="shadow-md" data-testid="invite-notice">
+    <Card data-testid="invite-notice">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">
+        <CardTitle className="text-heading-24">
           <h1>{title}</h1>
         </CardTitle>
         <CardDescription>{description}</CardDescription>
@@ -64,7 +64,7 @@ function Notice({
 function InviteCard({ invite, children }: { invite: InviteDetails; children: React.ReactNode }) {
   const role = ROLE_INFO[invite.role].label.toLowerCase();
   return (
-    <Card className="shadow-md" data-testid="invite-card">
+    <Card data-testid="invite-card">
       <CardHeader className="items-center text-center">
         <WorkspaceAvatar
           workspace={{
@@ -75,7 +75,7 @@ function InviteCard({ invite, children }: { invite: InviteDetails; children: Rea
           size="lg"
           className="mx-auto mb-2 size-12"
         />
-        <CardTitle className="text-2xl">
+        <CardTitle className="text-heading-24">
           <h1>Join {invite.workspace.name}</h1>
         </CardTitle>
         <CardDescription>
@@ -142,9 +142,9 @@ export default async function InvitePage({ params }: Props) {
   if (!session) {
     return (
       <InviteCard invite={invite}>
-        <p className="text-center text-sm text-muted-foreground">
-          Sign in as <span className="font-medium text-foreground">{invite.email}</span> to accept.
-          New to Oat? Signing in creates your account.
+        <p className="text-center text-copy-14 text-gray-900">
+          Sign in as <span className="text-gray-1000">{invite.email}</span> to accept. New to Oat?
+          Signing in creates your account.
         </p>
         <Button
           role="link"
@@ -162,10 +162,9 @@ export default async function InvitePage({ params }: Props) {
   if (session.user.email.toLowerCase() !== invite.email.toLowerCase()) {
     return (
       <InviteCard invite={invite}>
-        <p className="text-center text-sm text-muted-foreground" data-testid="invite-wrong-account">
-          This invitation is for <span className="font-medium text-foreground">{invite.email}</span>
-          , but you’re signed in as{' '}
-          <span className="font-medium text-foreground">{session.user.email}</span>.
+        <p className="text-center text-copy-14 text-gray-900" data-testid="invite-wrong-account">
+          This invitation is for <span className="text-gray-1000">{invite.email}</span>, but you’re
+          signed in as <span className="text-gray-1000">{session.user.email}</span>.
         </p>
         <SwitchAccountButton next={signInPath(here) as Route} />
       </InviteCard>
@@ -176,7 +175,7 @@ export default async function InvitePage({ params }: Props) {
   if (roleIn(ctx, invite.workspace.id) !== undefined) {
     return (
       <InviteCard invite={invite}>
-        <p className="text-center text-sm text-muted-foreground">
+        <p className="text-center text-copy-14 text-gray-900">
           You’re already a member of {invite.workspace.name}.
         </p>
         <OpenWorkspaceButton workspaceId={invite.workspace.id} />
@@ -186,9 +185,8 @@ export default async function InvitePage({ params }: Props) {
 
   return (
     <InviteCard invite={invite}>
-      <p className="text-center text-sm text-muted-foreground">
-        You’re signed in as{' '}
-        <span className="font-medium text-foreground">{session.user.email}</span>.
+      <p className="text-center text-copy-14 text-gray-900">
+        You’re signed in as <span className="text-gray-1000">{session.user.email}</span>.
       </p>
       <InviteResponse token={token} />
     </InviteCard>

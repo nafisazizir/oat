@@ -1,6 +1,6 @@
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
-import { EyeIcon } from 'lucide-react';
+import { IconEye } from '@tabler/icons-react';
 import Link from 'next/link';
 
 import { ThemeMenu } from '@/components/theme-toggle';
@@ -17,20 +17,20 @@ const column = 'mx-auto flex w-full max-w-content items-center px-6 sm:px-8';
 export default function ShareLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="group/share flex min-h-svh flex-col">
-      <header className="sticky top-0 z-10 border-b bg-background/85 backdrop-blur-md">
+      <header className="sticky top-0 z-10 border-b border-gray-alpha-400 bg-background-100">
         <div className={`${column} h-14 gap-3`}>
           <Link
             href="/"
             aria-label="Oat home"
-            className="rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="rounded-sm focus-visible:ring-3 focus-visible:ring-gray-600/50 focus-visible:outline-none"
           >
             <Wordmark />
           </Link>
           <Badge variant="outline" className="gap-1 group-has-[[data-share-missing]]/share:hidden">
-            <EyeIcon />
+            <IconEye />
             Read-only
           </Badge>
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ms-auto flex items-center gap-1">
             <ThemeMenu />
             <Button size="sm" role="link" nativeButton={false} render={<Link href="/sign-in" />}>
               Try Oat
@@ -39,8 +39,8 @@ export default function ShareLayout({ children }: { children: React.ReactNode })
         </div>
       </header>
       <main className="flex-1">{children}</main>
-      <footer className="border-t group-has-[[data-share-missing]]/share:hidden">
-        <div className={`${column} h-14 text-xs text-muted-foreground`}>
+      <footer className="border-t border-gray-alpha-400 group-has-[[data-share-missing]]/share:hidden">
+        <div className={`${column} h-14 text-copy-13 text-gray-900`}>
           Shared from Oat. Only people with the link can see this page.
         </div>
       </footer>

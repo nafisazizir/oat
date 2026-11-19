@@ -2,7 +2,7 @@ import { MAGIC_LINK_CONSUME_PATH } from '@oat/auth/magic-link';
 import { peekMagicLinkEmail } from '@oat/auth/magic-link-lookup';
 import { Button } from '@oat/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@oat/ui/components/card';
-import { LogInIcon } from 'lucide-react';
+import { IconLogin } from '@tabler/icons-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
@@ -35,9 +35,9 @@ export default async function ConfirmSignInPage({
 
   if (!email) {
     return (
-      <Card className="shadow-md">
+      <Card>
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">
+          <CardTitle className="text-heading-24">
             <h1>{token ? 'This link has expired' : 'This link is incomplete'}</h1>
           </CardTitle>
           <CardDescription>
@@ -63,17 +63,14 @@ export default async function ConfirmSignInPage({
   }
 
   return (
-    <Card className="shadow-md">
+    <Card>
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">
+        <CardTitle className="text-heading-24">
           <h1>Finish signing in</h1>
         </CardTitle>
         <CardDescription>
           You’re signing in to Oat as
-          <span
-            className="my-1 block font-medium break-all text-foreground"
-            data-testid="confirm-email"
-          >
+          <span className="my-1 block break-all text-gray-1000" data-testid="confirm-email">
             {email}
           </span>
           Not you? Just close this page.
@@ -84,7 +81,7 @@ export default async function ConfirmSignInPage({
           <input type="hidden" name="token" value={token} />
           <input type="hidden" name="next" value={next} />
           <Button type="submit" size="lg" className="w-full">
-            <LogInIcon data-icon="inline-start" />
+            <IconLogin data-icon="inline-start" />
             Continue to Oat
           </Button>
         </form>
