@@ -11,16 +11,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@oat/ui/components/dropdown-menu';
+import { Alert, AlertAction, AlertDescription } from '@oat/ui/components/alert';
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@oat/ui/components/item';
+import { Kbd, KbdGroup } from '@oat/ui/components/kbd';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import {
-  FileTextIcon,
-  HistoryIcon,
-  MessageSquareIcon,
-  PlusIcon,
-  SparklesIcon,
-  XIcon,
-} from 'lucide-react';
+  IconAlertCircle,
+  IconFileText,
+  IconHistory,
+  IconMessage,
+  IconPlus,
+  IconX,
+} from '@tabler/icons-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -155,36 +158,42 @@ export function AssistantChat({
   const session =
     active.state === 'loading' ? (
       <div
-        className="flex flex-1 flex-col gap-3 p-4"
+        className="flex flex-1 flex-col gap-6 p-4"
         role="status"
         aria-busy="true"
-        aria-label="Loading"
+        aria-label="Loading conversation"
       >
-        <Skeleton className="ml-auto h-8 w-2/3" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-5/6" />
+        <Skeleton className="ms-auto h-9 w-2/3 rounded-xl" />
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-5/6" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
       </div>
     ) : active.state === 'error' ? (
-      <div className="flex flex-1 flex-col items-start gap-3 p-4 text-sm" role="alert">
-        <p>{active.message}</p>
-        <Button size="sm" variant="outline" onClick={newChat}>
-          Start a new conversation
-        </Button>
+      <div className="p-4">
+        <Alert role="alert">
+          <IconAlertCircle />
+          <AlertDescription>{active.message}</AlertDescription>
+          <AlertAction>
+            <Button size="sm" variant="outline" onClick={newChat}>
+              New chat
+            </Button>
+          </AlertAction>
+        </Alert>
       </div>
     ) : (
       <>
         {layout === 'page' && active.scope.kind === 'document' && (
           <p
             data-testid="note-thread-banner"
-            className="mx-4 mt-3 flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground"
+            className="mx-4 mt-3 flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-copy-13 text-gray-900"
           >
-            <FileTextIcon className="size-3.5 shrink-0" />
-            <span className="flex-1">
-              This conversation is about one note; follow-ups stay within it.
-            </span>
+            <IconFileText aria-hidden className="size-4 shrink-0" />
+            <span className="flex-1">About one note; follow-ups stay within it.</span>
             <Link
               href={`/d/${active.scope.documentId}` as Route}
-              className="font-medium text-foreground underline-offset-2 hover:underline"
+              className="text-label-13 text-gray-1000 underline-offset-2 hover:underline"
             >
               Open note
             </Link>
@@ -215,9 +224,8 @@ export function AssistantChat({
   if (layout === 'panel') {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center gap-1 border-b pr-2 pl-4">
-          <SparklesIcon className="size-4 text-primary" />
-          <h2 className="flex-1 truncate text-sm font-medium">Ask about this note</h2>
+        <header className="flex h-12 shrink-0 items-center gap-1 border-b border-gray-alpha-400 ps-4 pe-2">
+          <h2 className="flex-1 truncate text-heading-14">Assistant</h2>
           <ThreadMenu threads={threads} activeId={activeThreadId} onPick={openThread} />
           <Tooltip>
             <TooltipTrigger
@@ -225,7 +233,7 @@ export function AssistantChat({
                 <Button variant="ghost" size="icon-sm" aria-label="New chat" onClick={newChat} />
               }
             >
-              <PlusIcon />
+              <IconPlus />
             </TooltipTrigger>
             <TooltipContent>New chat</TooltipContent>
           </Tooltip>
@@ -241,9 +249,15 @@ export function AssistantChat({
                   />
                 }
               >
-                <XIcon />
+                <IconX />
               </TooltipTrigger>
-              <TooltipContent>Close · ⌘J</TooltipContent>
+              <TooltipContent>
+                Close
+                <KbdGroup>
+                  <Kbd>⌘</Kbd>
+                  <Kbd>J</Kbd>
+                </KbdGroup>
+              </TooltipContent>
             </Tooltip>
           )}
         </header>
@@ -256,19 +270,19 @@ export function AssistantChat({
     <div className="flex min-h-0 flex-1">
       <nav
         aria-label="Conversations"
-        className="hidden w-64 shrink-0 flex-col gap-2 border-r p-3 md:flex"
+        className="hidden w-64 shrink-0 flex-col gap-2 border-e border-gray-alpha-400 p-3 md:flex"
       >
         <Button variant="outline" size="sm" className="justify-start" onClick={newChat}>
-          <PlusIcon />
+          <IconPlus data-icon="inline-start" />
           New chat
         </Button>
         <ThreadList threads={threads} activeId={activeThreadId} onPick={openThread} />
       </nav>
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center gap-2 border-b px-4 py-2 md:hidden">
+        <div className="flex items-center gap-2 border-b border-gray-alpha-400 px-4 py-2 md:hidden">
           <ThreadMenu threads={threads} activeId={activeThreadId} onPick={openThread} />
           <Button variant="ghost" size="sm" onClick={newChat}>
-            <PlusIcon />
+            <IconPlus data-icon="inline-start" />
             New chat
           </Button>
         </div>
@@ -289,34 +303,40 @@ function ThreadList({
 }) {
   if (threads === null) {
     return (
-      <div className="flex flex-col gap-2 px-1 py-2" aria-busy="true">
-        <Skeleton className="h-4 w-4/5" />
-        <Skeleton className="h-4 w-3/5" />
+      <div className="flex flex-col gap-0.5" role="status" aria-label="Loading conversations">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex flex-col gap-1 px-2.5 py-2">
+            <Skeleton className="my-0.5 h-4 w-4/5" />
+            <Skeleton className="my-0.5 h-3 w-1/3" />
+          </div>
+        ))}
       </div>
     );
   }
   if (threads.length === 0) {
-    return <p className="px-2 py-1 text-xs text-muted-foreground">No conversations yet.</p>;
+    return <p className="px-2.5 py-2 text-copy-13 text-gray-900">No conversations yet.</p>;
   }
   return (
     <ul className="flex min-h-0 flex-col gap-0.5 overflow-y-auto" data-testid="thread-list">
       {threads.map((thread) => (
         <li key={thread.id}>
-          <button
-            type="button"
+          <Item
+            size="xs"
+            render={<button type="button" />}
             onClick={() => onPick(thread.id)}
             aria-current={thread.id === activeId ? 'true' : undefined}
-            className={cn(
-              'flex w-full flex-col rounded-md px-2 py-1.5 text-left text-sm transition-colors duration-fast hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
-              thread.id === activeId && 'bg-accent font-medium',
-            )}
+            className="text-start hover:bg-gray-alpha-100 active:bg-gray-alpha-200 aria-[current=true]:bg-gray-alpha-200"
           >
-            <span className="truncate">{thread.title || 'Untitled conversation'}</span>
-            <span className="text-xs font-normal text-muted-foreground">
-              {thread.scope === 'document' ? 'About a note · ' : ''}
-              {formatDay(thread.updatedAt)}
-            </span>
-          </button>
+            <ItemContent className="min-w-0 gap-0">
+              <ItemTitle className="w-full truncate text-label-14">
+                {thread.title || 'Untitled conversation'}
+              </ItemTitle>
+              <ItemDescription className="text-copy-13 tabular-nums">
+                {thread.scope === 'document' ? 'About a note · ' : ''}
+                {formatDay(thread.updatedAt)}
+              </ItemDescription>
+            </ItemContent>
+          </Item>
         </li>
       ))}
     </ul>
@@ -342,7 +362,7 @@ function ThreadMenu({
             />
           }
         >
-          <HistoryIcon />
+          <IconHistory />
         </TooltipTrigger>
         <TooltipContent>Previous chats</TooltipContent>
       </Tooltip>
@@ -359,11 +379,13 @@ function ThreadMenu({
               <DropdownMenuItem
                 key={thread.id}
                 onClick={() => onPick(thread.id)}
-                className={cn(thread.id === activeId && 'bg-accent')}
+                className={cn(thread.id === activeId && 'bg-gray-alpha-200')}
               >
-                <MessageSquareIcon />
+                <IconMessage />
                 <span className="flex-1 truncate">{thread.title || 'Untitled conversation'}</span>
-                <span className="text-xs text-muted-foreground">{formatDay(thread.updatedAt)}</span>
+                <span className="text-copy-13 text-gray-900 tabular-nums">
+                  {formatDay(thread.updatedAt)}
+                </span>
               </DropdownMenuItem>
             ))
           )}

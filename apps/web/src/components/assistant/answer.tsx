@@ -25,7 +25,7 @@ export function Answer({
 }) {
   const nodes = useMemo(() => parseAnswer(text), [text]);
   return (
-    <div className="chat-prose text-sm leading-relaxed" data-testid="chat-answer">
+    <div className="chat-prose text-copy-14 text-gray-1000" data-testid="chat-answer">
       {render(nodes, { order, messageId })}
     </div>
   );
@@ -55,7 +55,7 @@ function render(nodes: MdNode[], ctx: RenderContext): ReactNode {
           <a
             key={i}
             href={node.href}
-            className="text-primary underline underline-offset-2"
+            className="text-brand-900 underline underline-offset-2 hover:text-brand-1000"
             {...(external ? { target: '_blank', rel: 'noopener noreferrer nofollow' } : {})}
           >
             {children}
@@ -65,7 +65,7 @@ function render(nodes: MdNode[], ctx: RenderContext): ReactNode {
       case 'br':
         return <br key={i} />;
       case 'hr':
-        return <hr key={i} className="my-3 border-border" />;
+        return <hr key={i} className="my-3 border-gray-alpha-400" />;
       case 'p':
         return (
           <p key={i} className="my-2 whitespace-pre-line first:mt-0 last:mb-0">
@@ -74,37 +74,37 @@ function render(nodes: MdNode[], ctx: RenderContext): ReactNode {
         );
       case 'h3':
         return (
-          <h3 key={i} className="mt-3 mb-1 font-sans text-base font-semibold first:mt-0">
+          <h3 key={i} className="mt-4 mb-1 text-heading-16 first:mt-0">
             {children}
           </h3>
         );
       case 'h4':
         return (
-          <h4 key={i} className="mt-3 mb-1 font-sans text-sm font-semibold first:mt-0">
+          <h4 key={i} className="mt-3 mb-1 text-heading-14 first:mt-0">
             {children}
           </h4>
         );
       case 'ul':
         return (
-          <ul key={i} className="my-2 list-disc space-y-1 pl-5">
+          <ul key={i} className="my-2 list-disc space-y-1 ps-5">
             {children}
           </ul>
         );
       case 'ol':
         return (
-          <ol key={i} className="my-2 list-decimal space-y-1 pl-5">
+          <ol key={i} className="my-2 list-decimal space-y-1 ps-5">
             {children}
           </ol>
         );
       case 'blockquote':
         return (
-          <blockquote key={i} className="my-2 border-l-2 pl-3 text-muted-foreground">
+          <blockquote key={i} className="my-2 border-s-2 border-gray-alpha-400 ps-3 text-gray-900">
             {children}
           </blockquote>
         );
       case 'code':
         return (
-          <code key={i} className="rounded bg-muted px-1 py-px font-mono text-xs">
+          <code key={i} className="rounded-sm bg-gray-100 px-1 py-px text-copy-13-mono">
             {children}
           </code>
         );
@@ -112,7 +112,7 @@ function render(nodes: MdNode[], ctx: RenderContext): ReactNode {
         return (
           <pre
             key={i}
-            className="my-2 overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs [&_code]:bg-transparent [&_code]:p-0"
+            className="my-2 overflow-x-auto rounded-lg border border-gray-alpha-400 bg-background-200 p-3 text-copy-13-mono [&_code]:bg-transparent [&_code]:p-0"
           >
             {children}
           </pre>
@@ -120,18 +120,18 @@ function render(nodes: MdNode[], ctx: RenderContext): ReactNode {
       case 'table':
         return (
           <div key={i} className="my-2 overflow-x-auto">
-            <table className="w-full border-collapse text-xs">{children}</table>
+            <table className="w-full border-collapse text-copy-13">{children}</table>
           </div>
         );
       case 'th':
         return (
-          <th key={i} className="border px-2 py-1 text-left font-medium">
+          <th key={i} className="border border-gray-alpha-400 px-2 py-1 text-start text-label-13">
             {children}
           </th>
         );
       case 'td':
         return (
-          <td key={i} className="border px-2 py-1">
+          <td key={i} className="border border-gray-alpha-400 px-2 py-1">
             {children}
           </td>
         );
@@ -162,7 +162,7 @@ function CitationChip({
   const source = session.sources.citations[citationKey];
   const kind = citationKey.startsWith('seg:') ? 'seg' : 'block';
   const base =
-    'mx-0.5 inline-flex h-4.5 min-w-4.5 translate-y-[-1px] items-center justify-center rounded-md px-1 align-middle font-sans text-[0.6875rem] font-medium tabular-nums transition-colors duration-fast';
+    'mx-0.5 inline-flex h-4.5 min-w-4.5 translate-y-[-1px] items-center justify-center rounded-md px-1 align-middle text-label-12 tabular-nums transition-colors duration-100';
 
   if (!source) {
     const saved = session.isSaved(messageId);
@@ -174,8 +174,8 @@ function CitationChip({
         title={saved ? 'This source is no longer available' : 'Loading source…'}
         className={cn(
           base,
-          'bg-muted text-muted-foreground',
-          saved && 'line-through decoration-muted-foreground/60',
+          'bg-gray-100 text-gray-900',
+          saved && 'line-through decoration-gray-700',
         )}
       >
         {number}
@@ -200,16 +200,18 @@ function CitationChip({
             onClick={() => openCitation(source)}
             className={cn(
               base,
-              'cursor-pointer bg-primary/10 text-primary hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
+              'cursor-pointer bg-brand-100 text-brand-900 outline-none hover:bg-brand-200 focus-visible:ring-3 focus-visible:ring-gray-600/50',
             )}
           />
         }
       >
         {number}
       </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-72 flex-col items-start gap-1 text-left">
-        <span className="font-medium">{label}</span>
-        {source.text && <span className="line-clamp-3 opacity-80">“{source.text}”</span>}
+      <TooltipContent side="top" className="max-w-72 flex-col items-start gap-1 text-start">
+        <span className="text-label-13">{label}</span>
+        {source.text && (
+          <span className="line-clamp-3 text-copy-13 opacity-80">“{source.text}”</span>
+        )}
       </TooltipContent>
     </Tooltip>
   );

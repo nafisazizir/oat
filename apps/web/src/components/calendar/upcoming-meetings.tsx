@@ -1,7 +1,7 @@
 import { Button } from '@oat/ui/components/button';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import type { CalendarEvent, ConferenceProvider } from '@oat/core';
-import { CalendarDaysIcon, CircleAlertIcon } from 'lucide-react';
+import { IconAlertCircle, IconCalendarEvent, type Icon as TablerIcon } from '@tabler/icons-react';
 import Link from 'next/link';
 
 import { SectionHeading } from '@/components/page';
@@ -31,6 +31,9 @@ function toView(event: CalendarEvent, now: Date): UpcomingMeetingView {
   };
 }
 
+const listClass =
+  'flex flex-col divide-y divide-gray-alpha-400 overflow-hidden rounded-xl border border-gray-alpha-400';
+
 function Section({ children }: { children: React.ReactNode }) {
   return (
     <section aria-labelledby="upcoming" className="flex flex-col gap-3">
@@ -49,18 +52,18 @@ function Notice({
   action,
   testId,
 }: {
-  icon: typeof CalendarDaysIcon;
+  icon: TablerIcon;
   children: React.ReactNode;
   action?: React.ReactNode;
   testId: string;
 }) {
   return (
     <div
-      className="flex flex-col gap-3 rounded-xl border border-dashed px-4 py-4 sm:flex-row sm:items-center"
+      className="flex flex-col gap-3 rounded-xl border border-dashed border-gray-alpha-400 px-4 py-3 sm:min-h-14 sm:flex-row sm:items-center"
       data-testid={testId}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-3 text-sm text-muted-foreground">
-        <Icon className="size-4 shrink-0" />
+      <div className="flex min-w-0 flex-1 items-center gap-3 text-copy-14 text-gray-900">
+        <Icon aria-hidden className="size-4 shrink-0" />
         <span>{children}</span>
       </div>
       {action}
@@ -92,7 +95,7 @@ export async function UpcomingMeetings() {
     return (
       <Section>
         <Notice
-          icon={CalendarDaysIcon}
+          icon={IconCalendarEvent}
           testId="upcoming-connect"
           action={settingsLink('Connect Google Calendar')}
         >
@@ -105,7 +108,7 @@ export async function UpcomingMeetings() {
     return (
       <Section>
         <Notice
-          icon={CircleAlertIcon}
+          icon={IconAlertCircle}
           testId="upcoming-reconnect"
           action={settingsLink('Reconnect')}
         >
@@ -117,7 +120,7 @@ export async function UpcomingMeetings() {
   if (state === 'error') {
     return (
       <Section>
-        <Notice icon={CircleAlertIcon} testId="upcoming-error">
+        <Notice icon={IconAlertCircle} testId="upcoming-error">
           Your calendar couldn’t be loaded right now. It will try again next time you open Home.
         </Notice>
       </Section>
@@ -126,14 +129,11 @@ export async function UpcomingMeetings() {
   return (
     <Section>
       {events.length === 0 ? (
-        <Notice icon={CalendarDaysIcon} testId="upcoming-empty">
+        <Notice icon={IconCalendarEvent} testId="upcoming-empty">
           No meetings in the next two weeks.
         </Notice>
       ) : (
-        <ul
-          className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs"
-          data-testid="upcoming-meetings"
-        >
+        <ul className={listClass} data-testid="upcoming-meetings">
           {events.map((event) => (
             <li key={event.id}>
               <UpcomingMeetingRow meeting={toView(event, now)} />
@@ -148,14 +148,26 @@ export async function UpcomingMeetings() {
 export function UpcomingMeetingsSkeleton() {
   return (
     <Section>
-      <div className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
+      <div className={listClass} role="status" aria-label="Loading meetings">
+        {/* Mirrors UpcomingMeetingRow box for box. */}
         {[0, 1, 2].map((i) => (
-          <div key={i} className="flex items-center gap-4 px-4 py-3">
-            <Skeleton className="h-8 w-32" />
-            <div className="flex flex-1 flex-col gap-1.5">
-              <Skeleton className="h-4 w-1/2" />
-              <Skeleton className="h-3 w-1/3" />
+          <div
+            key={i}
+            className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:flex-nowrap"
+          >
+            <div className="flex h-8 w-32 shrink-0 flex-col justify-center gap-1.5">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-3 w-24" />
             </div>
+            <div className="flex min-w-0 flex-1 basis-40 flex-col gap-0.5">
+              <div className="flex h-5 items-center">
+                <Skeleton className="h-3.5 w-1/2" />
+              </div>
+              <div className="flex h-[18px] items-center">
+                <Skeleton className="h-3 w-1/3" />
+              </div>
+            </div>
+            <Skeleton className="ms-auto h-8 w-28 shrink-0 rounded-md" />
           </div>
         ))}
       </div>

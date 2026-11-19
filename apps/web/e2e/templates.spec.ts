@@ -146,7 +146,7 @@ test('start from scratch, then delete', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Template actions' }).click();
   await page.getByRole('menuitem', { name: 'Delete template' }).click();
-  await expect(page.getByRole('dialog', { name: 'Delete “Design crit”?' })).toBeVisible();
+  await expect(page.getByRole('alertdialog', { name: 'Delete “Design crit”?' })).toBeVisible();
   await shoot(page, 'delete-dialog');
   await page.getByRole('button', { name: 'Delete template' }).click();
   await page.waitForURL(/\/templates$/);

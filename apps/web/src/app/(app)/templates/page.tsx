@@ -1,10 +1,18 @@
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
-import { LayoutTemplateIcon, PlusIcon } from 'lucide-react';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
+import { IconLayout, IconPlus } from '@tabler/icons-react';
 import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 
-import { EmptyState, PageContainer, PageHeader, SectionHeading } from '@/components/page';
+import { PageContainer, PageHeader, SectionHeading } from '@/components/page';
 import { TemplateIcon } from '@/components/templates/template-icon';
 import type { TemplateDto } from '@/lib/templates';
 import { loadTemplateList } from '@/server/templates/pages';
@@ -16,19 +24,19 @@ function TemplateCard({ template }: { template: TemplateDto }) {
     <li>
       <Link
         href={`/templates/${template.id}` as Route}
-        className="flex h-full gap-3 rounded-xl border bg-card p-4 shadow-xs transition-colors duration-fast outline-none hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="flex h-full gap-3 rounded-xl border border-gray-alpha-400 p-4 transition-colors duration-100 outline-none hover:border-gray-alpha-500 hover:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50"
         data-testid="template-card"
       >
         <TemplateIcon id={template.id} />
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="truncate font-medium">{template.name}</span>
+            <span className="truncate text-heading-14 text-gray-1000">{template.name}</span>
             {template.isBuiltin && <Badge variant="outline">Built-in</Badge>}
           </div>
           {template.instructions && (
-            <p className="line-clamp-2 text-sm text-muted-foreground">{template.instructions}</p>
+            <p className="line-clamp-2 text-copy-14 text-gray-900">{template.instructions}</p>
           )}
-          <p className="truncate text-xs text-muted-foreground">
+          <p className="truncate text-copy-13 text-gray-900">
             {template.sections.map((s) => s.heading).join(' · ')}
           </p>
         </div>
@@ -49,7 +57,7 @@ export default async function TemplatesPage() {
       >
         {canCreate && (
           <Button role="link" nativeButton={false} render={<Link href="/templates/new" />}>
-            <PlusIcon />
+            <IconPlus data-icon="inline-start" />
             New template
           </Button>
         )}
@@ -77,27 +85,34 @@ export default async function TemplatesPage() {
             ))}
           </ul>
         ) : (
-          <EmptyState
-            icon={LayoutTemplateIcon}
-            title="No custom templates yet"
-            description={
-              canCreate
-                ? 'Open a built-in and duplicate it, or start from scratch.'
-                : 'Members of this workspace can create templates; you can use the built-ins.'
-            }
-          >
+          <Empty className="border border-dashed border-gray-alpha-400">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <IconLayout />
+              </EmptyMedia>
+              <EmptyTitle role="heading" aria-level={3}>
+                No custom templates yet
+              </EmptyTitle>
+              <EmptyDescription>
+                {canCreate
+                  ? 'Open a built-in and duplicate it, or start from scratch.'
+                  : 'Members of this workspace can create templates; you can use the built-ins.'}
+              </EmptyDescription>
+            </EmptyHeader>
             {canCreate && (
-              <Button
-                variant="outline"
-                role="link"
-                nativeButton={false}
-                render={<Link href="/templates/new" />}
-              >
-                <PlusIcon />
-                New template
-              </Button>
+              <EmptyContent>
+                <Button
+                  variant="outline"
+                  role="link"
+                  nativeButton={false}
+                  render={<Link href="/templates/new" />}
+                >
+                  <IconPlus data-icon="inline-start" />
+                  New template
+                </Button>
+              </EmptyContent>
             )}
-          </EmptyState>
+          </Empty>
         )}
       </section>
     </PageContainer>

@@ -11,7 +11,8 @@ import {
   CommandList,
 } from '@oat/ui/components/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@oat/ui/components/popover';
-import { DatabaseIcon, FileTextIcon, Loader2Icon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconDatabase, IconFileText } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { toast } from 'sonner';
@@ -43,7 +44,7 @@ export function ConnectNotionButton({
     >
       <input type="hidden" name="workspaceId" value={workspaceId} />
       <Button type="submit" variant={variant} disabled={pending}>
-        {pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+        {pending && <Spinner data-icon="inline-start" />}
         {label}
       </Button>
     </form>
@@ -72,7 +73,7 @@ export function DisconnectNotionButton({ workspaceId }: { workspaceId: string })
         })
       }
     >
-      {pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+      {pending && <Spinner data-icon="inline-start" />}
       Disconnect
     </Button>
   );
@@ -81,13 +82,13 @@ export function DisconnectNotionButton({ workspaceId }: { workspaceId: string })
 function TargetIcon({ option }: { option: Pick<NotionTargetOption, 'type' | 'icon'> }) {
   if (option.icon) {
     return (
-      <span aria-hidden className="w-4 text-center text-base leading-none">
+      <span aria-hidden className="w-4 text-center text-label-14">
         {option.icon}
       </span>
     );
   }
-  const Icon = option.type === 'database' ? DatabaseIcon : FileTextIcon;
-  return <Icon className="size-4 text-muted-foreground" />;
+  const Icon = option.type === 'database' ? IconDatabase : IconFileText;
+  return <Icon aria-hidden className="size-4 text-gray-900" />;
 }
 
 /**
@@ -150,21 +151,23 @@ export function NotionTargetPicker({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-lg border border-gray-alpha-400 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-xs text-muted-foreground">Send notes to</span>
+        <span className="text-label-12 text-gray-900">Send notes to</span>
         {target ? (
           <span className="flex min-w-0 items-center gap-2" data-testid="notion-target">
             <TargetIcon option={{ type: target.type, icon: null }} />
-            <span className="truncate font-medium">{target.title || 'Untitled'}</span>
+            <span className="truncate text-label-14 text-gray-1000">
+              {target.title || 'Untitled'}
+            </span>
             <Badge variant="outline">{target.type === 'database' ? 'Database' : 'Page'}</Badge>
           </span>
         ) : (
-          <span className="text-sm" data-testid="notion-target">
+          <span className="text-copy-14 text-gray-1000" data-testid="notion-target">
             No page or database chosen yet.
           </span>
         )}
-        <span className="text-xs text-muted-foreground">
+        <span className="text-copy-13 text-gray-900">
           {target?.type === 'database'
             ? 'Each note becomes a row: title, date, attendees and a link back fill matching columns.'
             : 'Each note becomes a sub-page.'}
@@ -192,11 +195,11 @@ export function NotionTargetPicker({
             />
             <CommandList>
               {results === null ? (
-                <div className="flex items-center gap-2 px-3 py-4 text-sm text-muted-foreground">
-                  <Loader2Icon className="size-4 animate-spin" /> Searching…
+                <div className="flex items-center gap-2 px-3 py-4 text-copy-14 text-gray-900">
+                  <Spinner aria-hidden role={undefined} /> Searching…
                 </div>
               ) : error ? (
-                <p role="alert" className="px-3 py-4 text-sm text-destructive">
+                <p role="alert" className="px-3 py-4 text-copy-14 text-red-900">
                   {error}
                 </p>
               ) : (
@@ -215,7 +218,7 @@ export function NotionTargetPicker({
                       >
                         <TargetIcon option={option} />
                         <span className="flex-1 truncate">{option.title}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-label-12 text-gray-900">
                           {option.type === 'database' ? 'Database' : 'Page'}
                         </span>
                       </CommandItem>

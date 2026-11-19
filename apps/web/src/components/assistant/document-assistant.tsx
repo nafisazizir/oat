@@ -3,7 +3,8 @@
 import { Button } from '@oat/ui/components/button';
 import { Sheet, SheetContent, SheetTitle } from '@oat/ui/components/sheet';
 import { cn } from '@oat/ui/lib/utils';
-import { SparklesIcon } from 'lucide-react';
+import { Kbd, KbdGroup } from '@oat/ui/components/kbd';
+import { IconSparkles } from '@tabler/icons-react';
 import type { Route } from 'next';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -240,15 +241,16 @@ export function DocumentAssistant({
         aria-keyshortcuts="Meta+J"
         onClick={() => toggle(true)}
         className={cn(
-          'rounded-full border px-4 shadow-md',
-          !anchored && 'fixed right-6 bottom-6 z-20',
+          'material-menu rounded-full ps-4 pe-2 hover:bg-gray-100',
+          !anchored && 'fixed end-6 bottom-6 z-20',
         )}
       >
-        <SparklesIcon data-icon="inline-start" className="text-primary" />
+        <IconSparkles data-icon="inline-start" className="text-brand-800" />
         Ask about this note
-        <kbd className="ml-1 rounded border bg-background px-1 font-sans text-xs text-muted-foreground">
-          ⌘J
-        </kbd>
+        <KbdGroup aria-hidden className="ms-1">
+          <Kbd>⌘</Kbd>
+          <Kbd>J</Kbd>
+        </KbdGroup>
       </Button>
     ) : null;
   const toggleSlot: ToggleSlot = { node: anchored ? toggleButton : null, claim };
@@ -291,7 +293,7 @@ export function DocumentAssistant({
               data-testid="assistant-panel"
               // Capture: runs before the focused element's handlers, whatever a tooltip did with the key.
               onKeyDownCapture={closeOnEscape}
-              className="sticky top-12 flex h-[calc(100svh-3rem)] w-96 shrink-0 flex-col border-l bg-background xl:w-[26rem]"
+              className="sticky top-12 flex h-[calc(100svh-3rem)] w-96 shrink-0 flex-col border-s border-gray-alpha-400 bg-background-100 xl:w-[26rem]"
             >
               {chat}
             </aside>
@@ -308,7 +310,7 @@ export function DocumentAssistant({
               // Focus goes back to the toggle via our effect.
               finalFocus={false}
               onKeyDownCapture={closeOnEscape}
-              className="gap-0 bg-background p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-md"
+              className="gap-0 bg-background-100 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-md"
             >
               <SheetTitle className="sr-only">Assistant</SheetTitle>
               {chat}
