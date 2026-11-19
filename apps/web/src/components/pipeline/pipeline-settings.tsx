@@ -1,12 +1,7 @@
 'use client';
 
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldLabel,
-  FieldTitle,
-} from '@oat/ui/components/field';
+import { Label } from '@oat/ui/components/label';
+import { Skeleton } from '@oat/ui/components/skeleton';
 import { Switch } from '@oat/ui/components/switch';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
@@ -55,22 +50,38 @@ export function PipelineSwitch({
   }
 
   return (
-    <FieldLabel htmlFor={id} className="rounded-lg border border-gray-alpha-400">
-      <Field orientation="horizontal" className="items-start px-3 py-2.5">
-        <FieldContent className="gap-0">
-          <FieldTitle>{label}</FieldTitle>
-          <FieldDescription className="text-copy-13">
-            {checked ? description.on : description.off}
-          </FieldDescription>
-        </FieldContent>
-        <Switch
-          id={id}
-          data-testid={`pipeline-${setting}`}
-          checked={checked}
-          disabled={pending}
-          onCheckedChange={(next) => void change(next)}
-        />
-      </Field>
-    </FieldLabel>
+    <div className={ROW}>
+      <div className="flex flex-col gap-0.5">
+        <Label htmlFor={id}>{label}</Label>
+        <span className="text-copy-13 text-gray-900">
+          {checked ? description.on : description.off}
+        </span>
+      </div>
+      <Switch
+        id={id}
+        data-testid={`pipeline-${setting}`}
+        checked={checked}
+        disabled={pending}
+        onCheckedChange={(next) => void change(next)}
+      />
+    </div>
+  );
+}
+
+const ROW =
+  'flex items-start justify-between gap-4 rounded-lg border border-gray-alpha-400 px-3 py-2.5';
+
+/** The same row while its setting loads: identical geometry, so nothing moves when it arrives. */
+export function PipelineSwitchSkeleton({ label }: { label: string }) {
+  return (
+    <div className={ROW} aria-hidden>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-label-14">{label}</span>
+        <span className="text-copy-13">
+          <Skeleton className="h-lh w-56" />
+        </span>
+      </div>
+      <Skeleton className="h-[18.4px] w-8 shrink-0 rounded-full" />
+    </div>
   );
 }

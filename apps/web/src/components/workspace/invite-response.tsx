@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
-import { Loader2Icon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
@@ -27,9 +27,7 @@ export function InviteResponse({ token }: { token: string }) {
   return (
     <div className="flex flex-col gap-3">
       <Button size="lg" className="w-full" disabled={pending} onClick={() => respond('accept')}>
-        {pending && choice === 'accept' && (
-          <Loader2Icon data-icon="inline-start" className="animate-spin" />
-        )}
+        {pending && choice === 'accept' && <Spinner data-icon="inline-start" />}
         Accept invitation
       </Button>
       <Button
@@ -39,13 +37,11 @@ export function InviteResponse({ token }: { token: string }) {
         disabled={pending}
         onClick={() => respond('decline')}
       >
-        {pending && choice === 'decline' && (
-          <Loader2Icon data-icon="inline-start" className="animate-spin" />
-        )}
+        {pending && choice === 'decline' && <Spinner data-icon="inline-start" />}
         Decline
       </Button>
       {error && (
-        <p role="alert" className="text-center text-sm text-destructive">
+        <p role="alert" className="text-center text-copy-14 text-red-900">
           {error}
         </p>
       )}
@@ -71,7 +67,7 @@ export function SwitchAccountButton({ next }: { next: Route }) {
         })
       }
     >
-      {pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+      {pending && <Spinner data-icon="inline-start" />}
       Sign in with a different account
     </Button>
   );
@@ -93,7 +89,7 @@ export function OpenWorkspaceButton({ workspaceId }: { workspaceId: string }) {
         })
       }
     >
-      {pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+      {pending && <Spinner data-icon="inline-start" />}
       Open workspace
     </Button>
   );

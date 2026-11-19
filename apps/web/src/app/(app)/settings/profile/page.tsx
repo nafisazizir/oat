@@ -1,4 +1,3 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@oat/ui/components/card';
 import { getUserProfile } from '@oat/db';
 import type { Metadata } from 'next';
 
@@ -22,23 +21,10 @@ export default async function ProfileSettingsPage() {
     <PageContainer className="gap-8">
       <PageHeader
         title="About me"
-        description="Context the AI uses when it enhances your notes and answers your questions."
+        description="Only you see this. The AI reads it as background, never as instructions, when it enhances your notes and answers questions."
         eyebrow={<BackLink href="/settings">Settings</BackLink>}
       />
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <h2>Your profile</h2>
-          </CardTitle>
-          <CardDescription>
-            Only you and the AI working for you see this. Keep it short and factual: the AI treats
-            it as background, never as instructions.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ProfileForm profile={profile} />
-        </CardContent>
-      </Card>
+      <ProfileForm profile={profile} />
     </PageContainer>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
-import { PlusIcon } from 'lucide-react';
+import { IconPlus } from '@tabler/icons-react';
 import { useState } from 'react';
 
 import { CreateWorkspaceDialog } from '@/components/app-shell/create-workspace-dialog';
@@ -12,7 +12,7 @@ export function CreateTeamButton() {
   return (
     <>
       <Button onClick={() => setOpen(true)}>
-        <PlusIcon data-icon="inline-start" />
+        <IconPlus data-icon="inline-start" />
         Create a team workspace
       </Button>
       <CreateWorkspaceDialog open={open} onOpenChange={setOpen} />
