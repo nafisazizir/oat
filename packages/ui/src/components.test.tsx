@@ -147,10 +147,11 @@ describe('Base UI consumer composition', () => {
       </Select>,
     );
     const trigger = screen.getByRole('combobox', { name: 'Template' });
-    expect(trigger.textContent).toContain('General meeting');
+    expect(trigger.textContent).toBe('General meeting');
+    expect(trigger.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
     await user.click(trigger);
     await user.click(screen.getByRole('option', { name: 'Customer call' }));
-    expect(trigger.textContent).toContain('Customer call');
+    expect(trigger.textContent).toBe('Customer call');
   });
 
   it('shows an empty select placeholder without inventing a selection', () => {

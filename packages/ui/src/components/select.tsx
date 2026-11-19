@@ -79,9 +79,9 @@ function SelectTrigger({
       {...props}
     >
       {children}
-      <SelectPrimitive.Icon
-        render={<IconSelector className="pointer-events-none size-4 text-gray-900" />}
-      />
+      <SelectPrimitive.Icon>
+        <IconSelector aria-hidden="true" className="pointer-events-none size-4 text-gray-900" />
+      </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
 }
