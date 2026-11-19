@@ -37,6 +37,7 @@ import { Sidebar, SidebarContent, SidebarProvider, SidebarTrigger } from './comp
 import { Switch } from './components/switch.tsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/tabs.tsx';
 import { ToggleGroup, ToggleGroupItem } from './components/toggle-group.tsx';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/tooltip.tsx';
 import { cn } from './lib/utils.ts';
 
 describe('cn', () => {
@@ -48,6 +49,23 @@ describe('cn', () => {
 
   it('keeps a token colour next to a scale size (no false conflict)', () => {
     expect(cn('text-sm', 'text-muted-foreground')).toBe('text-sm text-muted-foreground');
+  });
+});
+
+describe('Tooltip', () => {
+  it.each([false, true])('exposes the focused tooltip unless disabled=%s', async (disabled) => {
+    const user = userEvent.setup();
+    render(
+      <TooltipProvider>
+        <Tooltip disabled={disabled}>
+          <TooltipTrigger render={<Button aria-label="New chat" />}>New</TooltipTrigger>
+          <TooltipContent>New chat</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>,
+    );
+    await user.tab();
+    if (disabled) expect(screen.queryByRole('tooltip')).toBeNull();
+    else expect(await screen.findByRole('tooltip', { name: 'New chat' })).toBeTruthy();
   });
 });
 
