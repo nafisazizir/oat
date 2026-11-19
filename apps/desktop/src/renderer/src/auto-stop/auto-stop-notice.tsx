@@ -8,7 +8,8 @@
  */
 import type { AutoStopNoticeSnapshot } from '@oat/core/bridge';
 import { Button } from '@oat/ui/components/button';
-import { CircleStopIcon, Loader2Icon, MicIcon, TimerIcon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconMicrophone, IconPlayerStopFilled, IconHourglass } from '@tabler/icons-react';
 import { useState } from 'react';
 
 import { BridgeCallError, call } from '../bridge.ts';
@@ -50,19 +51,17 @@ function Question({ notice }: { notice: AutoStopNoticeSnapshot }) {
       aria-describedby="autostop-question-detail"
       data-testid="autostop-question"
       data-reason={notice.reason}
-      className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b bg-accent/60 px-6 py-2.5"
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-gray-alpha-400 bg-brand-100 py-2.5 ps-6 pe-4"
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
-        <MicIcon aria-hidden className="size-4" />
-      </span>
+      <IconMicrophone aria-hidden className="size-4 shrink-0 text-brand-900" />
       <div className="flex min-w-0 flex-1 basis-56 flex-col">
-        <p id="autostop-question-title" className="truncate text-sm font-medium">
+        <p id="autostop-question-title" className="truncate text-label-14 text-gray-1000">
           Meeting over?
         </p>
-        <p id="autostop-question-detail" className="truncate text-xs text-muted-foreground">
+        <p id="autostop-question-detail" className="truncate text-label-13 text-gray-900">
           {detail}
           {error && (
-            <span role="alert" className="ml-1 text-destructive">
+            <span role="alert" className="ms-1 text-red-900">
               {error}
             </span>
           )}
@@ -79,9 +78,9 @@ function Question({ notice }: { notice: AutoStopNoticeSnapshot }) {
         </Button>
         <Button size="sm" disabled={pending !== null} onClick={() => void respond('stop')}>
           {pending === 'stop' ? (
-            <Loader2Icon data-icon="inline-start" className="animate-spin" />
+            <Spinner data-icon="inline-start" />
           ) : (
-            <CircleStopIcon data-icon="inline-start" />
+            <IconPlayerStopFilled data-icon="inline-start" />
           )}
           Stop recording
         </Button>
@@ -107,18 +106,16 @@ function Toast({ notice, stopAt }: { notice: AutoStopNoticeSnapshot; stopAt: num
         aria-live="assertive"
         data-testid="autostop-toast"
         data-reason={notice.reason}
-        className="pointer-events-auto relative flex w-full max-w-md items-center gap-3 overflow-hidden rounded-xl border bg-popover px-4 py-3 text-popover-foreground shadow-lg"
+        className="pointer-events-auto relative flex w-full max-w-md items-center gap-3 overflow-hidden material-modal py-3 ps-4 pe-3 text-gray-1000"
       >
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
-          <TimerIcon aria-hidden className="size-4" />
-        </span>
+        <IconHourglass aria-hidden className="size-4 shrink-0 text-brand-900" />
         <div className="flex min-w-0 flex-1 flex-col">
-          <p className="text-sm font-medium">
+          <p className="text-label-14 text-gray-1000">
             Stopping the recording in <span className="tabular-nums">{seconds}</span> s
           </p>
-          <p className="truncate text-xs text-muted-foreground">
+          <p className="truncate text-label-13 text-gray-900">
             {error ? (
-              <span role="alert" className="text-destructive">
+              <span role="alert" className="text-red-900">
                 {error}
               </span>
             ) : notice.reason === 'silence' ? (
@@ -139,7 +136,7 @@ function Toast({ notice, stopAt }: { notice: AutoStopNoticeSnapshot; stopAt: num
         {/* Drains over the undo window (static under reduced motion: the seconds count down anyway). */}
         <span
           aria-hidden
-          className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-primary motion-safe:animate-[autostop-drain_linear_forwards]"
+          className="absolute inset-x-0 bottom-0 h-0.5 origin-left bg-brand-700 motion-safe:animate-[autostop-drain_linear_forwards]"
           style={{ animationDuration: `${total}ms` }}
         />
       </div>

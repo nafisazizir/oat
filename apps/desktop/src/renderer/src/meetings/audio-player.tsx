@@ -13,17 +13,17 @@ import { formatClock, useStoredState } from '@oat/meeting-ui';
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import { cn } from '@oat/ui/lib/utils';
+import { Spinner } from '@oat/ui/components/spinner';
 import {
-  AlertCircleIcon,
-  HardDriveIcon,
-  Loader2Icon,
-  MicIcon,
-  MonitorSmartphoneIcon,
-  PauseIcon,
-  PlayIcon,
-  RotateCcwIcon,
-  Trash2Icon,
-} from 'lucide-react';
+  IconAlertCircle,
+  IconDeviceDesktop,
+  IconDeviceLaptop,
+  IconMicrophone,
+  IconPlayerPauseFilled,
+  IconPlayerPlayFilled,
+  IconRotate,
+  IconTrash,
+} from '@tabler/icons-react';
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -306,9 +306,9 @@ export function PlaybackBar({ player }: { player: MeetingPlayback }) {
   if (loadError && !info) {
     return (
       <PlayerFrame state="error">
-        <Notice icon={<AlertCircleIcon />} title="Couldn’t load the audio" detail={loadError}>
+        <Notice icon={<IconAlertCircle />} title="Couldn’t load the audio" detail={loadError}>
           <Button variant="ghost" size="xs" onClick={player.retry}>
-            <RotateCcwIcon data-icon="inline-start" />
+            <IconRotate data-icon="inline-start" />
             Retry
           </Button>
         </Notice>
@@ -318,8 +318,8 @@ export function PlaybackBar({ player }: { player: MeetingPlayback }) {
   if (!info) {
     return (
       <PlayerFrame state="loading">
-        <div className="flex h-8 items-center gap-2 text-xs text-muted-foreground">
-          <Loader2Icon aria-hidden className="size-3.5 animate-spin" />
+        <div className="flex h-8 items-center gap-2 text-label-13 text-gray-900">
+          <Spinner aria-hidden className="size-3.5" />
           Loading audio…
         </div>
       </PlayerFrame>
@@ -329,13 +329,13 @@ export function PlaybackBar({ player }: { player: MeetingPlayback }) {
   if (notice) {
     const icon =
       info.status === 'deleted' ? (
-        <Trash2Icon />
+        <IconTrash />
       ) : info.status === 'other-device' ? (
-        <MonitorSmartphoneIcon />
+        <IconDeviceLaptop />
       ) : info.status === 'recording' ? (
-        <MicIcon />
+        <IconMicrophone />
       ) : (
-        <HardDriveIcon />
+        <IconDeviceDesktop />
       );
     return (
       <PlayerFrame state={info.status}>
@@ -346,9 +346,9 @@ export function PlaybackBar({ player }: { player: MeetingPlayback }) {
   if (player.playError) {
     return (
       <PlayerFrame state="error">
-        <Notice icon={<AlertCircleIcon />} title="Couldn’t play the audio" detail="Try again.">
+        <Notice icon={<IconAlertCircle />} title="Couldn’t play the audio" detail="Try again.">
           <Button variant="ghost" size="xs" onClick={player.retry}>
-            <RotateCcwIcon data-icon="inline-start" />
+            <IconRotate data-icon="inline-start" />
             Retry
           </Button>
         </Notice>
@@ -361,7 +361,7 @@ export function PlaybackBar({ player }: { player: MeetingPlayback }) {
 function PlayerFrame({ state, children }: { state: string; children: ReactNode }) {
   return (
     <div
-      className="shrink-0 border-b px-3 py-2"
+      className="shrink-0 border-b border-gray-alpha-400 px-3 py-2"
       data-testid="playback"
       data-state={state}
       role="region"
@@ -385,14 +385,14 @@ function Notice({
 }) {
   return (
     <div className="flex items-start gap-2.5" data-testid="playback-notice">
-      <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-3.5">
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-900 [&_svg]:size-3.5">
         {icon}
       </span>
       <div className="flex min-w-0 flex-1 flex-col">
-        <p className="text-xs font-medium" data-testid="playback-notice-title">
+        <p className="text-label-13 text-gray-1000" data-testid="playback-notice-title">
           {title}
         </p>
-        <p className="text-xs text-muted-foreground">{detail}</p>
+        <p className="text-copy-13 text-gray-900">{detail}</p>
       </div>
       {children}
     </div>
@@ -419,35 +419,34 @@ function Player({ player, info }: { player: MeetingPlayback; info: PlaybackInfo 
             data-testid="playback-toggle"
           >
             {player.buffering && player.playing ? (
-              <Loader2Icon className="animate-spin" />
+              <Spinner aria-hidden />
             ) : player.playing ? (
-              <PauseIcon />
+              <IconPlayerPauseFilled />
             ) : (
-              <PlayIcon />
+              <IconPlayerPlayFilled />
             )}
           </Button>
           <span
-            className="font-mono text-xs text-muted-foreground tabular-nums"
+            className="text-label-12-mono text-gray-900 tabular-nums"
             data-testid="playback-time"
           >
-            <span className="text-foreground">{formatClock(ms)}</span> /{' '}
+            <span className="text-gray-1000">{formatClock(ms)}</span> /{' '}
             {formatClock(info.durationMs)}
           </span>
           {partial && (
             <Badge
               variant="outline"
-              className="h-5 px-1.5 text-[11px]"
               title="Part of this recording was recovered after the app quit unexpectedly."
             >
               Partial
             </Badge>
           )}
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ms-auto flex items-center gap-1">
             <SourceToggle value={player.source} onChange={player.setSource} />
             <Button
               variant="ghost"
               size="xs"
-              className="w-11 font-mono tabular-nums"
+              className="w-11 text-label-12-mono tabular-nums"
               onClick={player.cycleSpeed}
               aria-label={`Playback speed ${player.speed}×`}
               title="Playback speed"
@@ -483,7 +482,7 @@ function SourceToggle({
     <div
       role="radiogroup"
       aria-label="Listen to"
-      className="flex h-6 items-center rounded-md bg-muted p-0.5"
+      className="flex h-6 items-center rounded-md bg-gray-100 p-0.5"
       data-testid="playback-source"
     >
       {order.map((s) => (
@@ -500,8 +499,8 @@ function SourceToggle({
             else if (event.key === 'ArrowLeft') move(event, -1);
           }}
           className={cn(
-            'h-5 rounded-[5px] px-1.5 text-[11px] font-medium text-muted-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-            value === s && 'bg-background text-foreground shadow-xs',
+            'h-5 rounded-[5px] px-1.5 text-label-12 text-gray-900 transition-colors outline-none hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50',
+            value === s && 'bg-background-100 text-gray-1000 ring-1 ring-gray-alpha-400',
           )}
         >
           {SOURCE_LABELS[s]}
@@ -586,7 +585,7 @@ function Scrubber({
       aria-valuenow={Math.round(ms / 1000)}
       aria-valuetext={`${formatClock(ms)} of ${formatClock(duration)}`}
       data-testid="playback-scrubber"
-      className="group relative flex h-4 cursor-pointer touch-none items-center rounded outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      className="group relative flex h-4 cursor-pointer touch-none items-center rounded outline-none focus-visible:ring-3 focus-visible:ring-gray-600/50"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={flushDrag}
@@ -605,9 +604,9 @@ function Scrubber({
                 : undefined
             }
             className={cn(
-              'absolute h-1 overflow-hidden rounded-full bg-border',
+              'absolute h-1 overflow-hidden rounded-full bg-gray-alpha-400',
               s.partial &&
-                'bg-[repeating-linear-gradient(90deg,var(--border)_0_4px,transparent_4px_6px)]',
+                'bg-[repeating-linear-gradient(90deg,var(--color-gray-alpha-400)_0_4px,transparent_4px_6px)]',
             )}
             // Back-to-back sessions: a 3 px notch shows where one recording ends and the next begins.
             style={{
@@ -616,7 +615,7 @@ function Scrubber({
             }}
           >
             <div
-              className="h-full bg-primary/70"
+              className="h-full bg-brand-700"
               style={{
                 width: `${Math.min(100, Math.max(0, ((pct - s.left) / Math.max(s.width, 1e-6)) * 100))}%`,
               }}
@@ -627,14 +626,14 @@ function Scrubber({
             key={`g${s.startMs}`}
             data-testid="playback-gap"
             title={`No audio ${formatClock(s.startMs)}–${formatClock(s.endMs)}`}
-            className="absolute h-px border-t border-dashed border-muted-foreground/50"
+            className="absolute h-px border-t border-dashed border-gray-alpha-600"
             style={{ left: `${s.left}%`, width: `${s.width}%` }}
           />
         ),
       )}
       <div
         aria-hidden
-        className="absolute size-3 -translate-x-1/2 rounded-full border-2 border-background bg-primary shadow-sm transition-transform group-hover:scale-110"
+        className="absolute size-3 -translate-x-1/2 rounded-full border-2 border-background-100 bg-brand-700 transition-transform group-hover:scale-110"
         style={{ left: `${pct}%` }}
       />
     </div>

@@ -28,7 +28,7 @@
     "@oat/stt": "workspace:*",
     "@oat/ui": "workspace:*",
     "@tanstack/react-virtual": "catalog:",
-    "lucide-react": "catalog:",
+    "@tabler/icons-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "zod": "catalog:"

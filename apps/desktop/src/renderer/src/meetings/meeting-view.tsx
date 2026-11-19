@@ -21,17 +21,25 @@ import {
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import {
-  AlertCircleIcon,
-  AudioLinesIcon,
-  CheckIcon,
-  EyeIcon,
-  LayersIcon,
-  Loader2Icon,
-  LockIcon,
-  NotebookPenIcon,
-  PanelRightOpenIcon,
-  UsersIcon,
-} from 'lucide-react';
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
+import { Skeleton } from '@oat/ui/components/skeleton';
+import { Spinner } from '@oat/ui/components/spinner';
+import {
+  IconAlertCircle,
+  IconCheck,
+  IconEye,
+  IconLayoutSidebarRightExpand,
+  IconLock,
+  IconNotes,
+  IconStack2,
+  IconUsers,
+  IconWaveSine,
+} from '@tabler/icons-react';
 import { type ReactNode, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import { useMeetingGrace } from '../auto-stop/auto-stop-state.ts';
@@ -133,7 +141,7 @@ export function MeetingView({
         {documentId === null ? 'Meeting notes' : note?.title || 'Untitled meeting'}
       </h1>
       <audio ref={audioRef} preload="metadata" hidden data-testid="playback-audio" />
-      <div className="flex flex-col gap-3 border-b px-6 py-3">
+      <div className="flex flex-col gap-3 border-b border-gray-alpha-400 px-6 py-3">
         <RecordingBar
           snapshot={snapshot}
           options={options}
@@ -157,13 +165,14 @@ export function MeetingView({
           {documentId === null ? (
             (home ?? <StartScreen />)
           ) : !loaded ? (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-              <Loader2Icon aria-hidden className="size-5 animate-spin" />
-            </div>
+            <NoteSkeleton />
           ) : !note ? (
-            <p className="p-8 text-sm text-muted-foreground">
-              This note isn’t on this Mac anymore.
-            </p>
+            <Empty className="h-full border-none">
+              <EmptyHeader>
+                <EmptyTitle>This note isn’t on this Mac anymore</EmptyTitle>
+                <EmptyDescription>It was deleted or moved on another device.</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <NoteBody
               key={note.documentId}
@@ -183,15 +192,13 @@ export function MeetingView({
           <SidePanel
             title={
               <>
-                <AudioLinesIcon aria-hidden className="size-4 text-muted-foreground" />
+                <IconWaveSine aria-hidden className="size-4 text-gray-900" />
                 Transcript
               </>
             }
             meta={
               segments.length > 0 && (
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {segments.length}
-                </span>
+                <span className="text-label-12 text-gray-900 tabular-nums">{segments.length}</span>
               )
             }
             closeLabel="Hide transcript"
@@ -238,21 +245,45 @@ export function MeetingView({
   );
 }
 
-function StartScreen() {
+/** Same geometry as `NoteBody` (meta row, title, first lines), so nothing moves when the note arrives. */
+function NoteSkeleton() {
   return (
     <div
-      className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center"
-      data-testid="meeting-start"
+      className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-8 py-6"
+      aria-busy
+      aria-label="Loading note"
+      data-testid="note-loading"
     >
-      <div className="flex size-12 items-center justify-center rounded-full bg-accent text-accent-foreground">
-        <NotebookPenIcon aria-hidden className="size-5" />
+      <div className="flex flex-col gap-2.5">
+        <div className="flex min-h-7 items-center gap-2">
+          <Skeleton className="h-5 w-16 rounded-full" />
+          <Skeleton className="h-5 w-24 rounded-full" />
+        </div>
+        <Skeleton className="h-10 w-1/2" />
       </div>
-      <h2 className="font-heading text-xl font-medium">Start a meeting note</h2>
-      <p className="max-w-sm text-sm text-muted-foreground">
-        Start recording when your call begins. Jot what matters here while Oat transcribes both
-        sides; your notes and the transcript sync to the web.
-      </p>
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
     </div>
+  );
+}
+
+function StartScreen() {
+  return (
+    <Empty className="h-full border-none px-8" data-testid="meeting-start">
+      <EmptyHeader>
+        <EmptyMedia variant="icon" className="bg-brand-100 text-brand-900">
+          <IconNotes aria-hidden />
+        </EmptyMedia>
+        <h2 className="text-heading-20 text-gray-1000">Start a meeting note</h2>
+        <EmptyDescription>
+          Start recording when your call begins. Jot what matters here while Oat transcribes both
+          sides; your notes and the transcript sync to the web.
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   );
 }
 
@@ -328,23 +359,23 @@ function NoteBody({
   return (
     <article className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-8 py-6" data-testid="note">
       <header className="flex flex-col gap-2.5">
-        <div className="flex min-h-7 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex min-h-7 flex-wrap items-center gap-2 text-label-12 text-gray-900">
           {note.workspaceName && (
             // 3.9: which workspace the note lives in (it never moves, D-18).
             <Badge variant="outline" className="gap-1" data-testid="note-workspace">
-              <LayersIcon />
+              <IconStack2 />
               {note.workspaceName}
             </Badge>
           )}
           <Badge variant="secondary" className="gap-1">
-            {note.visibility === 'private' ? <LockIcon /> : <UsersIcon />}
+            {note.visibility === 'private' ? <IconLock /> : <IconUsers />}
             {note.visibility === 'private'
               ? 'Private'
               : `Shared with ${note.workspaceName ?? 'the workspace'}`}
           </Badge>
           {!editable && (
             <Badge variant="outline" className="gap-1">
-              <EyeIcon />
+              <IconEye />
               {note.trashed ? 'In trash' : 'View only'}
             </Badge>
           )}
@@ -354,15 +385,15 @@ function NoteBody({
             <Button
               variant="ghost"
               size="sm"
-              className="ml-auto h-7"
+              className="ms-auto"
               onClick={onOpenPanel}
               aria-expanded={false}
               data-testid="transcript-toggle"
             >
-              <PanelRightOpenIcon data-icon="inline-start" />
+              <IconLayoutSidebarRightExpand data-icon="inline-start" />
               Transcript
               {transcriptCount > 0 && (
-                <span className="text-muted-foreground tabular-nums">{transcriptCount}</span>
+                <span className="text-gray-900 tabular-nums">{transcriptCount}</span>
               )}
             </Button>
           )}
@@ -375,7 +406,7 @@ function NoteBody({
           placeholder="Untitled meeting"
           rows={1}
           maxLength={200}
-          className="w-full resize-none bg-transparent font-heading text-3xl font-medium [field-sizing:content] outline-none placeholder:text-muted-foreground/60"
+          className="w-full resize-none bg-transparent text-heading-32 text-gray-1000 [field-sizing:content] outline-none placeholder:text-gray-700"
           onChange={(event) => {
             const next = event.target.value.replace(/\n/g, ' ');
             setTitle(next);
@@ -386,14 +417,14 @@ function NoteBody({
           <div
             role="status"
             data-testid="conflict-banner"
-            className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm"
+            className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-100 py-2 ps-3 pe-2 text-copy-14 text-gray-1000"
           >
-            <AlertCircleIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
+            <IconAlertCircle aria-hidden className="mt-0.5 size-4 shrink-0 text-amber-900" />
             <p className="flex-1">
               This note changed on another device while you were typing. It now shows that version;
               yours is kept as “{conflict.title}” under Conflicted copies, to compare and resolve.
             </p>
-            <Button variant="ghost" size="sm" className="h-6" onClick={() => setConflict(null)}>
+            <Button variant="ghost" size="xs" onClick={() => setConflict(null)}>
               Dismiss
             </Button>
           </div>
@@ -448,27 +479,27 @@ function SaveStatus({ state, error }: { state: AutosaveState; error: string | nu
     case 'saving':
       return (
         <span className={base} data-testid="save-status" data-state="saving" aria-live="polite">
-          <Loader2Icon className="size-3 animate-spin" />
+          <Spinner aria-hidden className="size-3" />
           Saving…
         </span>
       );
     case 'saved':
       return (
         <span className={base} data-testid="save-status" data-state="saved" aria-live="polite">
-          <CheckIcon className="size-3" />
+          <IconCheck aria-hidden className="size-3" />
           Saved on this Mac
         </span>
       );
     case 'error':
       return (
         <span
-          className={`${base} text-destructive`}
+          className={`${base} text-red-900`}
           data-testid="save-status"
           data-state="error"
           role="alert"
           title={error ?? undefined}
         >
-          <AlertCircleIcon className="size-3" />
+          <IconAlertCircle aria-hidden className="size-3" />
           Couldn’t save — keeps trying
         </span>
       );

@@ -18,15 +18,15 @@ import {
   SelectValue,
 } from '@oat/ui/components/select';
 import { cn } from '@oat/ui/lib/utils';
+import { Spinner } from '@oat/ui/components/spinner';
 import {
-  AlertTriangleIcon,
-  Loader2Icon,
-  MicIcon,
-  PauseIcon,
-  PlayIcon,
-  SquareIcon,
-  WifiOffIcon,
-} from 'lucide-react';
+  IconAlertTriangle,
+  IconMicrophone,
+  IconPlayerPause,
+  IconPlayerPlay,
+  IconPlayerStopFilled,
+  IconWifiOff,
+} from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
 import { formatClock } from '../../../shared/transcript.ts';
@@ -75,7 +75,7 @@ export function Elapsed({
   }, [ticking]);
   return (
     <span
-      className={cn('font-mono text-sm tabular-nums', className)}
+      className={cn('text-label-14-mono text-gray-1000 tabular-nums', className)}
       data-testid="recording-elapsed"
       aria-label="Recorded time"
     >
@@ -99,7 +99,7 @@ export function LevelMeter({
   const fill = levelFill(db);
   return (
     <div className="flex items-center gap-1.5" data-testid={`level-${source}`}>
-      {!compact && <span className="text-xs text-muted-foreground">{label}</span>}
+      {!compact && <span className="text-label-12 text-gray-900">{label}</span>}
       <div
         role="meter"
         aria-label={`${label} level`}
@@ -129,26 +129,23 @@ export function SttStatusPill({ snapshot }: { snapshot: RecordingSnapshot | null
   const health = snapshot ? transcriptionHealth(snapshot.stt) : 'off';
   if (health === 'off') return null;
   const tone = {
-    live: 'bg-success/12 text-success',
-    connecting: 'bg-muted text-muted-foreground',
-    reconnecting: 'bg-warning/20 text-warning-foreground',
-    offline: 'bg-destructive/10 text-destructive',
+    live: 'bg-green-100 text-green-900',
+    connecting: 'bg-gray-100 text-gray-900',
+    reconnecting: 'bg-amber-100 text-amber-900',
+    offline: 'bg-red-100 text-red-900',
   }[health];
   return (
     <span
       role="status"
       data-testid="stt-status"
       data-health={health}
-      className={cn(
-        'inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium',
-        tone,
-      )}
+      className={cn('inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-label-12', tone)}
     >
-      {health === 'live' && <span aria-hidden className="size-1.5 rounded-full bg-success" />}
+      {health === 'live' && <span aria-hidden className="size-1.5 rounded-full bg-green-700" />}
       {(health === 'connecting' || health === 'reconnecting') && (
-        <Loader2Icon aria-hidden className="size-3 animate-spin" />
+        <Spinner aria-hidden className="size-3" />
       )}
-      {health === 'offline' && <WifiOffIcon aria-hidden className="size-3" />}
+      {health === 'offline' && <IconWifiOff aria-hidden className="size-3" />}
       {HEALTH_LABEL[health]}
     </span>
   );
@@ -216,7 +213,7 @@ export function RecordingBar({
             disabled={action.pending}
             onClick={() => void action.run(() => call('recording:pause'))}
           >
-            <PauseIcon data-icon="inline-start" />
+            <IconPlayerPause data-icon="inline-start" />
             Pause
           </Button>
         )}
@@ -225,29 +222,29 @@ export function RecordingBar({
             disabled={action.pending}
             onClick={() => void action.run(() => call('recording:resume'))}
           >
-            <PlayIcon data-icon="inline-start" />
+            <IconPlayerPlay data-icon="inline-start" />
             Resume
           </Button>
         )}
         {(status === 'idle' || status === 'error') && (
           <Button disabled={action.pending || !snapshot} onClick={() => void start()}>
             {action.pending ? (
-              <Loader2Icon data-icon="inline-start" className="animate-spin" />
+              <Spinner data-icon="inline-start" />
             ) : (
-              <MicIcon data-icon="inline-start" />
+              <IconMicrophone data-icon="inline-start" />
             )}
             {meetingId && recorded ? 'Continue recording' : 'Start recording'}
           </Button>
         )}
         {status === 'starting' && (
           <Button disabled>
-            <Loader2Icon data-icon="inline-start" className="animate-spin" />
+            <Spinner data-icon="inline-start" />
             Starting…
           </Button>
         )}
         {status === 'stopping' && (
           <Button disabled variant="secondary">
-            <Loader2Icon data-icon="inline-start" className="animate-spin" />
+            <Spinner data-icon="inline-start" />
             Saving…
           </Button>
         )}
@@ -258,12 +255,12 @@ export function RecordingBar({
             onClick={() => void action.run(() => call('recording:stop'))}
             aria-label={status === 'error' ? 'Dismiss' : 'Stop recording'}
           >
-            <SquareIcon data-icon="inline-start" className="fill-current" />
+            <IconPlayerStopFilled data-icon="inline-start" />
             {status === 'error' ? 'Dismiss' : 'Stop'}
           </Button>
         )}
 
-        <div className="flex items-center gap-3 border-l pl-3">
+        <div className="flex items-center gap-3 border-s border-gray-alpha-400 ps-3">
           <span className="flex items-center gap-2">
             <RecordingDot status={status} />
             <Elapsed snapshot={snapshot} />
@@ -275,7 +272,7 @@ export function RecordingBar({
             </>
           )}
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ms-auto flex items-center gap-2">
           <SttStatusPill snapshot={snapshot} />
           {options && options.fixtures.length > 0 && (status === 'idle' || status === 'error') && (
             <Select
@@ -307,12 +304,12 @@ export function RecordingBar({
         </div>
       </div>
       {action.error && (
-        <p role="status" className="text-xs text-destructive">
+        <p role="status" className="text-copy-13 text-red-900">
           {action.error}
         </p>
       )}
       {hint && !action.error && (status === 'idle' || status === 'error') && (
-        <p className="text-xs text-muted-foreground" data-testid="recording-hint">
+        <p className="text-copy-13 text-gray-900" data-testid="recording-hint">
           {hint}
         </p>
       )}
@@ -326,11 +323,10 @@ export function RecordingDot({ status }: { status: RecordingSnapshot['status'] }
       aria-hidden
       className={cn(
         'size-2 rounded-full',
-        status === 'recording' && 'animate-pulse bg-destructive',
-        status === 'paused' && 'bg-warning',
-        status === 'error' && 'bg-destructive',
-        (status === 'idle' || status === 'starting' || status === 'stopping') &&
-          'bg-muted-foreground/40',
+        status === 'recording' && 'animate-pulse bg-red-700',
+        status === 'paused' && 'bg-amber-700',
+        status === 'error' && 'bg-red-700',
+        (status === 'idle' || status === 'starting' || status === 'stopping') && 'bg-gray-500',
       )}
     />
   );
@@ -363,19 +359,17 @@ export function IssueBanner({ snapshot }: { snapshot: RecordingSnapshot | null }
       role="alert"
       data-testid="recording-issues"
       className={cn(
-        'flex gap-3 rounded-lg border px-3 py-2.5 text-sm',
-        severe
-          ? 'border-destructive/30 bg-destructive/8 text-foreground'
-          : 'border-warning/40 bg-warning/10 text-foreground',
+        'flex gap-3 rounded-lg border px-3 py-2.5 text-gray-1000',
+        severe ? 'border-red-300 bg-red-100' : 'border-amber-300 bg-amber-100',
       )}
     >
-      <AlertTriangleIcon
+      <IconAlertTriangle
         aria-hidden
-        className={cn('mt-0.5 size-4 shrink-0', severe ? 'text-destructive' : 'text-warning')}
+        className={cn('mt-0.5 size-4 shrink-0', severe ? 'text-red-900' : 'text-amber-900')}
       />
       <div className="flex min-w-0 flex-col gap-1">
-        <p className="font-medium">{heading}</p>
-        <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+        <p className="text-label-14">{heading}</p>
+        <ul className="flex flex-col gap-0.5 text-copy-13 text-gray-900">
           {[...issues]
             .reverse()
             .slice(0, 3)
@@ -392,9 +386,9 @@ function IssueLine({ issue, startedAt }: { issue: RecordingIssue; startedAt: num
   const at = startedAt !== null ? formatClock(issue.at - startedAt) : null;
   return (
     <li data-scope={issue.scope} data-code={issue.code} data-selectable>
-      {at && <span className="mr-1.5 font-mono tabular-nums">{at}</span>}
+      {at && <span className="me-1.5 text-label-13-mono tabular-nums">{at}</span>}
       {issue.message}
-      {issue.count > 1 && <span className="ml-1 tabular-nums">(×{issue.count})</span>}
+      {issue.count > 1 && <span className="ms-1 tabular-nums">(×{issue.count})</span>}
     </li>
   );
 }

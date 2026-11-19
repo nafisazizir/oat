@@ -3,21 +3,21 @@
  * stop and let Oat write it up — until dismissed ("Got it"; per account, `onboarding:dismiss-guide`).
  */
 import { Button } from '@oat/ui/components/button';
-import { MicIcon, NotebookPenIcon, SparklesIcon, XIcon, type LucideIcon } from 'lucide-react';
+import { type Icon, IconMicrophone, IconNotes, IconSparkles, IconX } from '@tabler/icons-react';
 
-const STEPS: { icon: LucideIcon; title: string; body: string }[] = [
+const STEPS: { icon: Icon; title: string; body: string }[] = [
   {
-    icon: MicIcon,
+    icon: IconMicrophone,
     title: 'Start recording when the call begins',
     body: 'Press Start recording, pick the meeting under Upcoming, or say yes when Oat notices a call and asks “Start notes?”.',
   },
   {
-    icon: NotebookPenIcon,
+    icon: IconNotes,
     title: 'Jot down what matters',
     body: 'Type rough notes as you go. The transcript fills in beside them: you as Me, everyone else as Them.',
   },
   {
-    icon: SparklesIcon,
+    icon: IconSparkles,
     title: 'Stop — Oat writes it up',
     body: 'When the meeting ends, Oat turns your notes and the transcript into clean notes. They sync to the web, ready to share.',
   },
@@ -25,39 +25,39 @@ const STEPS: { icon: LucideIcon; title: string; body: string }[] = [
 
 export function FirstMeetingGuide({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <div className="flex h-full items-start justify-center overflow-y-auto px-8 py-10">
+    <div className="flex h-full items-start justify-center overflow-y-auto px-8 py-12">
       <section
         aria-labelledby="first-meeting-title"
-        className="relative flex w-full max-w-lg flex-col gap-5 rounded-xl bg-card p-6 text-card-foreground ring-1 ring-foreground/10"
+        className="relative flex w-full max-w-lg flex-col gap-6 rounded-xl border border-gray-alpha-400 bg-background-100 p-6"
         data-testid="first-meeting-guide"
       >
         <Button
           variant="ghost"
           size="icon-sm"
-          className="absolute top-3 right-3"
+          className="absolute end-3 top-3"
           aria-label="Dismiss the guide"
           onClick={onDismiss}
         >
-          <XIcon />
+          <IconX />
         </Button>
-        <div className="flex flex-col gap-1 pr-8">
-          <p className="text-xs font-medium text-muted-foreground">You’re all set</p>
-          <h2 id="first-meeting-title" className="font-heading text-xl font-semibold">
+        <div className="flex flex-col gap-1 pe-8">
+          <p className="text-label-13 text-brand-900">You’re all set</p>
+          <h2 id="first-meeting-title" className="text-heading-20 text-gray-1000">
             Your first meeting
           </h2>
         </div>
-        <ol className="flex flex-col gap-4">
-          {STEPS.map(({ icon: Icon, title, body }, i) => (
+        <ol className="flex flex-col gap-5">
+          {STEPS.map(({ icon: StepIcon, title, body }, i) => (
             <li key={title} className="flex gap-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
-                <Icon aria-hidden className="size-4" />
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-900">
+                <StepIcon aria-hidden className="size-4" />
               </div>
-              <div className="flex flex-col gap-0.5">
-                <h3 className="text-sm font-medium">
+              <div className="flex flex-col gap-1 pt-1.5">
+                <h3 className="text-label-14 text-gray-1000">
                   <span className="sr-only">Step {i + 1}: </span>
                   {title}
                 </h3>
-                <p className="text-sm text-muted-foreground">{body}</p>
+                <p className="text-copy-14 text-gray-900">{body}</p>
               </div>
             </li>
           ))}

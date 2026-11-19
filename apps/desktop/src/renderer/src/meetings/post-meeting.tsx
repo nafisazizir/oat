@@ -11,13 +11,8 @@
 import type { PipelineStatus } from '@oat/core/bridge';
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
-import {
-  CircleAlertIcon,
-  CircleCheckIcon,
-  Loader2Icon,
-  RotateCcwIcon,
-  TimerIcon,
-} from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconAlertCircle, IconCircleCheck, IconHourglass, IconRotate } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
 import {
@@ -49,13 +44,12 @@ export function GraceLine({
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5" data-testid="meeting-grace">
       <Badge variant="outline" className="gap-1">
-        <TimerIcon />
+        <IconHourglass />
         Post-meeting steps in <span className="tabular-nums">{seconds}</span> s
       </Badge>
       <Button
         variant="ghost"
-        size="sm"
-        className="h-6 px-2 text-muted-foreground"
+        size="xs"
         disabled={pending}
         onClick={() => {
           setPending(true);
@@ -70,7 +64,7 @@ export function GraceLine({
         Start now
       </Button>
       {error && (
-        <span role="alert" className="text-destructive">
+        <span role="alert" className="text-red-900">
           {error}
         </span>
       )}
@@ -139,21 +133,20 @@ export function PipelineLine({
     >
       <Badge variant={failed ? 'destructive' : 'outline'} className="gap-1" aria-live="polite">
         {failed ? (
-          <CircleAlertIcon />
+          <IconAlertCircle />
         ) : done ? (
-          <CircleCheckIcon className="text-success" />
+          <IconCircleCheck className="text-green-900" />
         ) : (
-          <Loader2Icon className="animate-spin" />
+          <Spinner aria-hidden />
         )}
         Post-meeting: {pipelineLabel(run)}
       </Badge>
       {skipped && <span>{skipped}</span>}
-      {failed && run.error && <span className="text-destructive">{run.error}</span>}
+      {failed && run.error && <span className="text-red-900">{run.error}</span>}
       {failed && run.retryable && status?.canRun && (
         <Button
           variant="ghost"
-          size="sm"
-          className="h-6 px-2"
+          size="xs"
           disabled={retrying}
           onClick={() => {
             setRetrying(true);
@@ -166,12 +159,12 @@ export function PipelineLine({
               .finally(() => setRetrying(false));
           }}
         >
-          <RotateCcwIcon data-icon="inline-start" />
+          <IconRotate data-icon="inline-start" />
           Retry
         </Button>
       )}
       {error && (
-        <span role="alert" className="text-destructive">
+        <span role="alert" className="text-red-900">
           {error}
         </span>
       )}

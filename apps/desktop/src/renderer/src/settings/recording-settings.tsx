@@ -1,24 +1,53 @@
 /**
  * Settings → Recording (7.5): when Oat stops recording by itself. Per Mac (`autostop:get-settings` /
- * `autostop:set-settings`, `<userData>/auto-stop.json`).
+ * `autostop:set-settings`, `<userData>/auto-stop.json`). A switch flips at once; a failed save puts it back.
  */
 import type { AutoStopSettingsSnapshot } from '@oat/core/bridge';
-import { Card, CardContent } from '@oat/ui/components/card';
-import { Label } from '@oat/ui/components/label';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from '@oat/ui/components/field';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import { Switch } from '@oat/ui/components/switch';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { BridgeCallError, call } from '../bridge.ts';
+import { SettingsHeader } from './settings-view.tsx';
+
+const SWITCHES = [
+  {
+    key: 'enabled',
+    label: 'Stop recording automatically when the meeting ends',
+    description:
+      'When the call app lets go of the microphone at the end of its calendar event, Oat stops after 10 seconds — with a chance to keep recording. Otherwise it asks.',
+    testId: 'autostop-enabled',
+  },
+  {
+    key: 'inPerson',
+    label: 'Also stop in-person recordings',
+    description:
+      'Recordings without a call app stop after 10 minutes of silence. When off, Oat only asks.',
+    testId: 'autostop-in-person',
+  },
+] as const;
 
 export function RecordingSettings() {
   const [settings, setSettings] = useState<AutoStopSettingsSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** The last state main confirmed: where a failed save rolls back to. */
+  const confirmed = useRef<AutoStopSettingsSnapshot | null>(null);
 
   useEffect(() => {
     let live = true;
     void call('autostop:get-settings')
-      .then((s) => live && setSettings(s))
+      .then((s) => {
+        if (!live) return;
+        confirmed.current = s;
+        setSettings(s);
+      })
       .catch(() => live && setError('Couldn’t load the recording settings.'));
     return () => {
       live = false;
@@ -27,49 +56,49 @@ export function RecordingSettings() {
 
   const save = (patch: Partial<AutoStopSettingsSnapshot>) => {
     setError(null);
-    setSettings((s) => (s ? { ...s, ...patch } : s)); // optimistic; main answers with what it saved
+    setSettings((s) => (s ? { ...s, ...patch } : s));
     void call('autostop:set-settings', patch)
-      .then(setSettings)
-      .catch((e: unknown) =>
-        setError(e instanceof BridgeCallError ? e.message : 'Couldn’t save the setting.'),
-      );
+      .then((saved) => {
+        confirmed.current = saved;
+        setSettings(saved);
+      })
+      .catch((e: unknown) => {
+        setSettings(confirmed.current);
+        setError(e instanceof BridgeCallError ? e.message : 'Couldn’t save the setting.');
+      });
   };
 
   return (
-    <div className="flex flex-col gap-5" data-testid="recording-settings">
-      <div className="flex flex-col gap-1">
-        <h2 className="font-heading text-lg font-semibold">Recording</h2>
-        <p className="text-sm text-muted-foreground">
-          When your call ends, Oat can stop recording for you. Your notes are then enhanced
-          automatically.
-        </p>
-      </div>
-      <p role="alert" className="text-sm text-destructive empty:hidden">
+    <div className="flex flex-col gap-4" data-testid="recording-settings">
+      <SettingsHeader
+        title="Recording"
+        description="When your call ends, Oat can stop recording for you. Your notes are then enhanced automatically."
+      />
+      <p role="alert" className="text-copy-14 text-red-900 empty:hidden">
         {error}
       </p>
-      {settings ? (
-        <Card size="sm">
-          <CardContent className="flex flex-col gap-3">
+      {settings || !error ? (
+        <FieldGroup className="gap-0 rounded-lg border border-gray-alpha-400">
+          {SWITCHES.map((s, i) => (
             <SettingSwitch
-              label="Stop recording automatically when the meeting ends"
-              description="When the call app lets go of the microphone at the end of its calendar event, Oat stops after 10 seconds — with a chance to keep recording. Otherwise it asks."
-              checked={settings.enabled}
-              onChange={(enabled) => save({ enabled })}
-              testId="autostop-enabled"
+              key={s.key}
+              label={s.label}
+              description={s.description}
+              testId={s.testId}
+              divided={i > 0}
+              checked={
+                settings
+                  ? s.key === 'enabled'
+                    ? settings.enabled
+                    : settings.enabled && settings.inPerson
+                  : null
+              }
+              disabled={s.key === 'inPerson' && settings !== null && !settings.enabled}
+              onChange={(value) => save({ [s.key]: value })}
             />
-            <SettingSwitch
-              label="Also stop in-person recordings"
-              description="Recordings without a call app stop after 10 minutes of silence. When off, Oat only asks."
-              checked={settings.enabled && settings.inPerson}
-              disabled={!settings.enabled}
-              onChange={(inPerson) => save({ inPerson })}
-              testId="autostop-in-person"
-            />
-          </CardContent>
-        </Card>
-      ) : (
-        !error && <Skeleton className="h-36 w-full" aria-busy />
-      )}
+          ))}
+        </FieldGroup>
+      ) : null}
     </div>
   );
 }
@@ -78,32 +107,42 @@ function SettingSwitch({
   label,
   description,
   checked,
-  disabled = false,
+  disabled,
+  divided,
   onChange,
   testId,
 }: {
   label: string;
   description: string;
-  checked: boolean;
-  disabled?: boolean;
+  /** `null` while loading: the row keeps its size, a skeleton stands in for the switch. */
+  checked: boolean | null;
+  disabled: boolean;
+  divided: boolean;
   onChange: (checked: boolean) => void;
   testId: string;
 }) {
   const id = useId();
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="flex flex-col gap-0.5">
-        <Label htmlFor={id}>{label}</Label>
-        <span className="text-xs text-muted-foreground">{description}</span>
-      </div>
-      <Switch
-        id={id}
-        checked={checked}
-        disabled={disabled}
-        onCheckedChange={onChange}
-        data-testid={testId}
-        className="mt-0.5"
-      />
-    </div>
+    <Field
+      orientation="horizontal"
+      className={divided ? 'border-t border-gray-alpha-400 p-4' : 'p-4'}
+      data-disabled={disabled || undefined}
+    >
+      <FieldContent>
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        <FieldDescription>{description}</FieldDescription>
+      </FieldContent>
+      {checked === null ? (
+        <Skeleton className="h-[18.4px] w-8 shrink-0 rounded-full" aria-busy />
+      ) : (
+        <Switch
+          id={id}
+          checked={checked}
+          disabled={disabled}
+          onCheckedChange={onChange}
+          data-testid={testId}
+        />
+      )}
+    </Field>
   );
 }

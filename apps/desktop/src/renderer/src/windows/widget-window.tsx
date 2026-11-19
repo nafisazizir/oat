@@ -1,6 +1,6 @@
 import { Button } from '@oat/ui/components/button';
-import { cn } from '@oat/ui/lib/utils';
-import { Loader2Icon, SquareIcon, XIcon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconPlayerStopFilled, IconX } from '@tabler/icons-react';
 
 import { call } from '../bridge.ts';
 import { useMainState, useMainStateSeq } from '../main-state.ts';
@@ -40,13 +40,13 @@ export default function WidgetWindow() {
 
   return (
     <main
-      className="app-drag flex h-full flex-col justify-between rounded-xl border bg-card p-3 text-card-foreground"
+      className="app-drag flex h-full flex-col justify-between rounded-xl border border-gray-alpha-400 bg-background-100 p-3 text-gray-1000"
       data-testid="widget"
       data-seq={seq ?? ''}
     >
       <h1 className="sr-only">Meeting widget</h1>
       <div className="flex items-center justify-between">
-        <Wordmark className="text-base" />
+        <Wordmark className="text-heading-16" />
         <div className="app-no-drag flex items-center gap-1">
           <SttStatusPill snapshot={snapshot} />
           <Button
@@ -55,18 +55,18 @@ export default function WidgetWindow() {
             aria-label="Close widget"
             onClick={() => void call('window:close-widget')}
           >
-            <XIcon />
+            <IconX />
           </Button>
         </div>
       </div>
-      <div className="flex items-center gap-2 text-sm">
+      <div className="flex items-center gap-2 text-label-14">
         <RecordingDot status={status} />
         <span data-testid="widget-recording">{STATUS_LABEL[status]}</span>
         {(active || status === 'stopping') && (
-          <Elapsed snapshot={snapshot} className="text-muted-foreground" />
+          <Elapsed snapshot={snapshot} className="text-gray-900" />
         )}
         {active && (
-          <div className="ml-1 flex items-center gap-1">
+          <div className="ms-1 flex items-center gap-1">
             <LevelMeter compact label="Me" source="mic" db={snapshot?.levels.mic?.rmsDb} />
             <LevelMeter compact label="Them" source="system" db={snapshot?.levels.system?.rmsDb} />
           </div>
@@ -75,29 +75,29 @@ export default function WidgetWindow() {
           <Button
             size="xs"
             variant="destructive"
-            className="app-no-drag ml-auto"
+            className="app-no-drag ms-auto"
             disabled={stop.pending || status === 'stopping'}
             onClick={() => void stop.run(() => call('recording:stop'))}
             data-testid="widget-stop"
           >
             {status === 'stopping' ? (
-              <Loader2Icon data-icon="inline-start" className="animate-spin" />
+              <Spinner data-icon="inline-start" />
             ) : (
-              <SquareIcon data-icon="inline-start" className="fill-current" />
+              <IconPlayerStopFilled data-icon="inline-start" />
             )}
             Stop
           </Button>
         )}
       </div>
       {stop.error || (issues > 0 && (active || status === 'error')) ? (
-        <p role="alert" className="truncate text-xs text-destructive" data-testid="widget-issue">
+        <p role="alert" className="truncate text-label-12 text-red-900" data-testid="widget-issue">
           {stop.error ??
             (snapshot && ['offline', 'reconnecting'].includes(transcriptionHealth(snapshot.stt))
               ? 'Transcription offline — still recording'
               : snapshot?.issues.at(-1)?.message)}
         </p>
       ) : (
-        <p className={cn('truncate text-xs text-muted-foreground')} data-testid="widget-account">
+        <p className="truncate text-label-12 text-gray-900" data-testid="widget-account">
           {who}
         </p>
       )}
