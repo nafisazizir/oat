@@ -46,6 +46,18 @@ describe('oat palette', () => {
     expect(styles).toContain('@fontsource-variable/newsreader/opsz.css');
     expect(styles).not.toMatch(/https?:\/\/|instrument-sans/);
   });
+
+  it('maps status and AI text roles to readable ramp steps in both themes', () => {
+    for (const [role, ramp] of Object.entries({
+      destructive: 'red-900',
+      success: 'green-900',
+      warning: 'amber-1000',
+      'ai-text': 'blue-900',
+    })) {
+      expect(styles).toContain(`--${role}: var(--ds-${ramp})`);
+    }
+    expect(styles).toContain(':root,\n.dark {');
+  });
 });
 
 const forbidden = [
