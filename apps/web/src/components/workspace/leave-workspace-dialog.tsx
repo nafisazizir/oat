@@ -1,15 +1,18 @@
 'use client';
 
-import { Button } from '@oat/ui/components/button';
+import { Alert, AlertDescription } from '@oat/ui/components/alert';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@oat/ui/components/dialog';
-import { Loader2Icon } from 'lucide-react';
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@oat/ui/components/alert-dialog';
+import { Button } from '@oat/ui/components/button';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconAlertCircle } from '@tabler/icons-react';
 import { useState, useTransition } from 'react';
 
 import { leaveWorkspace } from '@/server/actions/members';
@@ -31,30 +34,29 @@ export function LeaveWorkspaceDialog({
   const [pending, startTransition] = useTransition();
 
   return (
-    <Dialog
+    <AlertDialog
       open={open}
       onOpenChange={(next) => {
         if (!next) setError(null);
         onOpenChange(next);
       }}
     >
-      <DialogContent data-testid="leave-workspace-dialog">
-        <DialogHeader>
-          <DialogTitle>Leave {workspace.name}?</DialogTitle>
-          <DialogDescription>
+      <AlertDialogContent data-testid="leave-workspace-dialog">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Leave {workspace.name}?</AlertDialogTitle>
+          <AlertDialogDescription>
             You’ll lose access to its shared notes. Notes you created stay in the workspace. To come
             back, someone has to invite you again.
-          </DialogDescription>
-        </DialogHeader>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
         {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
+          <Alert variant="destructive">
+            <IconAlertCircle />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <Button
             type="button"
             variant="destructive"
@@ -66,11 +68,11 @@ export function LeaveWorkspaceDialog({
               })
             }
           >
-            {pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+            {pending && <Spinner data-icon="inline-start" />}
             Leave workspace
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

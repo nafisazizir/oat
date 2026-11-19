@@ -1,10 +1,19 @@
 'use client';
 
+import { Alert, AlertDescription } from '@oat/ui/components/alert';
 import { Button } from '@oat/ui/components/button';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from '@oat/ui/components/field';
 import { Input } from '@oat/ui/components/input';
-import { Label } from '@oat/ui/components/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@oat/ui/components/popover';
-import { Loader2Icon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconAlertCircle } from '@tabler/icons-react';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
@@ -13,25 +22,8 @@ import { updateWorkspace } from '@/server/actions/members';
 
 import { WorkspaceAvatar } from './workspace-avatar';
 
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: React.ReactNode;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="grid gap-2 py-4 first:pt-0 last:pb-0 sm:grid-cols-[10rem_1fr] sm:items-center sm:gap-6">
-      <div className="flex flex-col gap-0.5">
-        <div className="font-medium">{label}</div>
-        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-      </div>
-      <div className="min-w-0">{children}</div>
-    </div>
-  );
-}
+/** Label column + control column on wide screens; stacked on narrow ones. */
+const ROW = 'gap-2 sm:grid sm:grid-cols-[10rem_1fr] sm:items-center sm:gap-6';
 
 /** Name + emoji icon (owners/admins), and the read-only address. */
 export function WorkspaceGeneralForm({
@@ -50,7 +42,7 @@ export function WorkspaceGeneralForm({
 
   return (
     <form
-      className="flex flex-col"
+      className="flex flex-col gap-6"
       onSubmit={(event) => {
         event.preventDefault();
         startTransition(async () => {
@@ -64,65 +56,75 @@ export function WorkspaceGeneralForm({
         });
       }}
     >
-      <div className="flex flex-col divide-y">
-        <Field label="Icon" hint="Shown in the workspace switcher.">
-          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-            <PopoverTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="lg"
-                  className="gap-2 pl-1.5"
-                  disabled={!canEdit || pending}
-                  aria-label="Choose workspace icon"
-                  data-testid="workspace-icon-button"
-                />
-              }
-            >
-              <WorkspaceAvatar workspace={{ name: name || workspace.name, kind: 'team', icon }} />
-              {icon ? 'Change icon' : 'Add icon'}
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-auto">
-              <div className="grid grid-cols-8 gap-1" role="listbox" aria-label="Icons">
-                {ICON_CHOICES.map((choice) => (
-                  <button
-                    key={choice}
+      <FieldGroup className="gap-5">
+        <Field className={ROW}>
+          <FieldContent>
+            <FieldTitle>Icon</FieldTitle>
+            <FieldDescription>Shown in the workspace switcher.</FieldDescription>
+          </FieldContent>
+          <div>
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+              <PopoverTrigger
+                render={
+                  <Button
                     type="button"
-                    role="option"
-                    aria-selected={choice === icon}
-                    className="flex size-8 items-center justify-center rounded-md text-lg hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none aria-selected:bg-accent"
+                    variant="outline"
+                    size="lg"
+                    className="gap-2 ps-1.5"
+                    disabled={!canEdit || pending}
+                    aria-label="Choose workspace icon"
+                    data-testid="workspace-icon-button"
+                  />
+                }
+              >
+                <WorkspaceAvatar workspace={{ name: name || workspace.name, kind: 'team', icon }} />
+                {icon ? 'Change icon' : 'Add icon'}
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto">
+                <div className="grid grid-cols-8 gap-1" role="listbox" aria-label="Icons">
+                  {ICON_CHOICES.map((choice) => (
+                    <button
+                      key={choice}
+                      type="button"
+                      role="option"
+                      aria-selected={choice === icon}
+                      className="flex size-8 items-center justify-center rounded-md text-heading-16 transition-colors duration-fast outline-none hover:bg-gray-alpha-200 focus-visible:ring-3 focus-visible:ring-gray-600/50 aria-selected:bg-gray-alpha-300"
+                      onClick={() => {
+                        setIcon(choice);
+                        setPickerOpen(false);
+                      }}
+                    >
+                      {choice}
+                    </button>
+                  ))}
+                </div>
+                {icon && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 w-full"
                     onClick={() => {
-                      setIcon(choice);
+                      setIcon(null);
                       setPickerOpen(false);
                     }}
                   >
-                    {choice}
-                  </button>
-                ))}
-              </div>
-              {icon && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2 w-full"
-                  onClick={() => {
-                    setIcon(null);
-                    setPickerOpen(false);
-                  }}
-                >
-                  Remove icon
-                </Button>
-              )}
-            </PopoverContent>
-          </Popover>
+                    Remove icon
+                  </Button>
+                )}
+              </PopoverContent>
+            </Popover>
+          </div>
         </Field>
-        <Field label={<Label htmlFor="workspace-settings-name">Name</Label>}>
+        <Field className={ROW} data-invalid={error ? true : undefined}>
+          <FieldLabel htmlFor="workspace-settings-name">Name</FieldLabel>
           <Input
             id="workspace-settings-name"
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              setName(event.target.value);
+              if (error) setError(null);
+            }}
             maxLength={60}
             required
             disabled={!canEdit || pending}
@@ -131,29 +133,34 @@ export function WorkspaceGeneralForm({
             className="sm:max-w-80"
           />
         </Field>
-        <Field label="Address" hint="Used in links. It can’t be changed.">
+        <Field className={ROW}>
+          <FieldContent>
+            <FieldTitle>Address</FieldTitle>
+            <FieldDescription>Used in links. It can’t be changed.</FieldDescription>
+          </FieldContent>
           <code
-            className="block truncate rounded-md bg-muted px-2.5 py-1.5 font-mono text-xs text-muted-foreground sm:max-w-80"
+            className="block w-fit max-w-full truncate rounded-md bg-gray-100 px-2 py-1 text-label-13-mono text-gray-900 sm:max-w-80"
             data-testid="workspace-slug"
           >
             {workspace.slug}
           </code>
         </Field>
-      </div>
+      </FieldGroup>
       {error && (
-        <p id="workspace-settings-error" role="alert" className="pt-4 text-sm text-destructive">
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <IconAlertCircle />
+          <AlertDescription id="workspace-settings-error">{error}</AlertDescription>
+        </Alert>
       )}
       {canEdit ? (
-        <div className="flex justify-end pt-6">
+        <div className="flex justify-end">
           <Button type="submit" disabled={!dirty || pending}>
-            {pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+            {pending && <Spinner data-icon="inline-start" />}
             Save changes
           </Button>
         </div>
       ) : (
-        <p className="pt-6 text-xs text-muted-foreground">
+        <p className="text-copy-13 text-gray-900">
           Only owners and admins can change these settings.
         </p>
       )}
