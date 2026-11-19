@@ -1,7 +1,11 @@
 'use client';
 
+import { cn } from '@oat/ui';
+import { Bubble, BubbleContent } from '@oat/ui/components/bubble';
+import { Message, MessageContent } from '@oat/ui/components/message';
 import { Skeleton } from '@oat/ui/components/skeleton';
-import { AlertCircleIcon, CheckIcon, Loader2Icon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
 
 import { citationOrder } from '@/lib/chat-markdown';
 import type { ChatProposal, ChatUIMessage } from '@/lib/chat-types';
@@ -53,11 +57,13 @@ function textOf(message: ChatUIMessage): string {
 
 export function UserMessage({ message }: { message: ChatUIMessage }) {
   return (
-    <div className="flex justify-end" data-testid="chat-message" data-role="user">
-      <p className="max-w-[85%] rounded-2xl rounded-br-md bg-secondary px-3 py-2 text-sm whitespace-pre-wrap text-secondary-foreground">
-        {textOf(message)}
-      </p>
-    </div>
+    <Message align="end" data-testid="chat-message" data-role="user">
+      <MessageContent>
+        <Bubble variant="secondary" align="end">
+          <BubbleContent className="whitespace-pre-wrap">{textOf(message)}</BubbleContent>
+        </Bubble>
+      </MessageContent>
+    </Message>
   );
 }
 
@@ -118,14 +124,13 @@ export function AssistantMessage({
   }
 
   return (
-    <div
-      className="flex flex-col gap-1"
+    <Message
       data-testid="chat-message"
       data-role="assistant"
       data-streaming={streaming || undefined}
     >
-      {items}
-    </div>
+      <MessageContent className="gap-2">{items}</MessageContent>
+    </Message>
   );
 }
 
@@ -144,14 +149,17 @@ function ToolActivity({ name, part }: { name: string; part: ToolPart }) {
       data-testid="tool-activity"
       data-tool={name}
       data-state={running ? 'running' : failed ? 'failed' : 'done'}
-      className="flex items-center gap-1.5 text-xs text-muted-foreground"
+      className={cn(
+        'flex items-center gap-1.5 text-label-13 text-gray-900',
+        failed && 'text-red-900',
+      )}
     >
       {running ? (
-        <Loader2Icon className="size-3 animate-spin" />
+        <Spinner aria-hidden role={undefined} className="size-3.5" />
       ) : failed ? (
-        <AlertCircleIcon className="size-3" />
+        <IconAlertCircle aria-hidden className="size-3.5" />
       ) : (
-        <CheckIcon className="size-3" />
+        <IconCheck aria-hidden className="size-3.5" />
       )}
       {label}
     </p>
@@ -161,12 +169,13 @@ function ToolActivity({ name, part }: { name: string; part: ToolPart }) {
 function ProposalPlaceholder() {
   return (
     <div
-      className="my-2 flex flex-col gap-2 rounded-xl border p-3"
+      className="flex flex-col gap-3 rounded-xl border border-gray-alpha-400 p-3"
+      role="status"
       aria-label="Preparing the change for review"
     >
-      <Skeleton className="h-4 w-1/2" />
-      <Skeleton className="h-6 w-full" />
-      <Skeleton className="h-6 w-full" />
+      <Skeleton className="h-9 w-1/2" />
+      <Skeleton className="h-8 w-full" />
+      <Skeleton className="h-8 w-full" />
     </div>
   );
 }

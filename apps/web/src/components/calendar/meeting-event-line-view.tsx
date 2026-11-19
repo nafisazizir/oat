@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
-import { CalendarIcon, VideoIcon } from 'lucide-react';
+import { IconCalendar, IconVideo } from '@tabler/icons-react';
 
 import { formatTimeRange } from '@/lib/format';
 import { useHydrated } from '@/lib/use-hydrated';
@@ -33,10 +33,10 @@ export function MeetingEventLineView({
   const from = new Date(start);
   return (
     <p
-      className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground"
+      className="flex flex-wrap items-center gap-1.5 text-copy-14 text-gray-900"
       data-testid="note-calendar-event"
     >
-      <CalendarIcon aria-hidden className="size-3.5" />
+      <IconCalendar aria-hidden className="size-4" />
       <span>Scheduled</span>
       {/* Same separators as the meeting's own time line above it (`MeetingTime`). */}
       {hydrated && (
@@ -49,13 +49,13 @@ export function MeetingEventLineView({
       {conferenceUrl && (
         <Button
           variant="outline"
-          size="sm"
-          className="ml-1 h-6 px-2 text-xs"
+          size="xs"
+          className="ms-1"
           role="link"
           nativeButton={false}
           render={<a href={conferenceUrl} target="_blank" rel="noopener noreferrer" />}
         >
-          <VideoIcon data-icon="inline-start" />
+          <IconVideo data-icon="inline-start" />
           Join{conferenceLabel ? ` ${conferenceLabel}` : ''}
         </Button>
       )}

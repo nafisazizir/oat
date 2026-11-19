@@ -1,7 +1,18 @@
 'use client';
 
 import { dueState, formatDue, localDay } from '@oat/editor/task-dates';
+import { Alert, AlertAction, AlertDescription } from '@oat/ui/components/alert';
+import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
+import { Checkbox } from '@oat/ui/components/checkbox';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
+import { Item, ItemActions, ItemContent } from '@oat/ui/components/item';
 import {
   Select,
   SelectContent,
@@ -13,20 +24,18 @@ import { Skeleton } from '@oat/ui/components/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@oat/ui/components/tabs';
 import { cn } from '@oat/ui/lib/utils';
 import {
-  AlertCircleIcon,
-  CalendarIcon,
-  CircleCheckBigIcon,
-  FileTextIcon,
-  ListTodoIcon,
-  NotebookPenIcon,
-} from 'lucide-react';
+  IconAlertCircle,
+  IconCalendar,
+  IconChecklist,
+  IconCircleCheck,
+  IconFileText,
+  IconNotes,
+} from '@tabler/icons-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-import { EmptyState } from '@/components/page';
-import { isApiError } from '@/lib/api-client';
 import { formatDay } from '@/lib/format';
 import {
   groupByDocument,
@@ -43,6 +52,7 @@ import {
 } from '@/lib/tasks';
 
 import { tasksClient, useTasks } from './tasks-client';
+import { setDoneRetryingOnce, toggleFailure } from './task-toggle';
 
 const STATUS_LABELS: Record<TaskStatus, string> = { open: 'Open', done: 'Done', all: 'All' };
 const DUE_LABELS: Record<TaskDueFilter, string> = {
@@ -135,33 +145,16 @@ export function TasksView({ workspaceId }: { workspaceId: string }) {
     patch((o) => o.done.set(item.id, done));
     setPending((p) => new Set(p).add(item.id));
     try {
-      let result;
-      try {
-        result = await tasksClient.setDone(item.id, { done, baseVersion: version });
-      } catch (error) {
-        // The note changed since the list loaded: retry once on the server's version.
-        const fresh = isApiError(error, 'stale_version')
-          ? error.body?.document?.version
-          : undefined;
-        if (fresh === undefined) throw error;
-        result = await tasksClient.setDone(item.id, { done, baseVersion: fresh });
-      }
+      const result = await setDoneRetryingOnce(tasksClient.setDone, item.id, done, version);
       patch((o) => {
         o.done.set(item.id, done);
         o.versions.set(item.document.id, result.documentVersion);
       });
     } catch (error) {
       patch((o) => o.done.delete(item.id));
-      const message =
-        isApiError(error, 'stale_version') || isApiError(error, 'not_found')
-          ? 'That note changed. The list is up to date now — try again.'
-          : error instanceof Error
-            ? error.message
-            : 'Couldn’t update the task.';
-      toast.error('Couldn’t update the task', { description: message });
-      if (isApiError(error, 'stale_version') || isApiError(error, 'not_found')) {
-        setAttempt((n) => n + 1);
-      }
+      const failure = toggleFailure(error);
+      toast.error('Couldn’t update the task', { description: failure.description });
+      if (failure.reload) setAttempt((n) => n + 1);
     } finally {
       setPending((p) => {
         const next = new Set(p);
@@ -247,38 +240,41 @@ export function TasksView({ workspaceId }: { workspaceId: string }) {
 
       <TabsContent value={view} className="flex flex-col gap-6">
         {state.status === 'error' && !state.data ? (
-          <div
-            role="alert"
-            className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm"
-          >
-            <AlertCircleIcon className="size-4 text-destructive" />
-            <span className="flex-1">{state.message}</span>
-            <Button size="sm" variant="outline" onClick={() => setAttempt((n) => n + 1)}>
-              Try again
-            </Button>
-          </div>
+          <Alert variant="destructive" role="alert">
+            <IconAlertCircle />
+            <AlertDescription>{state.message}</AlertDescription>
+            <AlertAction>
+              <Button size="sm" variant="outline" onClick={() => setAttempt((n) => n + 1)}>
+                Try again
+              </Button>
+            </AlertAction>
+          </Alert>
         ) : state.status === 'loading' && !state.data ? (
           <TasksSkeleton />
         ) : groups.length === 0 ? (
-          <EmptyState
-            icon={status === 'done' ? CircleCheckBigIcon : ListTodoIcon}
-            title={
-              status === 'done'
-                ? 'Nothing done yet'
-                : due !== 'any'
-                  ? `Nothing ${due === 'overdue' ? 'overdue' : 'due this week'}`
-                  : EMPTY[view].title
-            }
-            description={
-              due !== 'any' || status === 'done'
-                ? 'Try another filter to see more.'
-                : EMPTY[view].description
-            }
-          />
+          <Empty className="border border-gray-alpha-400" data-testid="tasks-empty">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                {status === 'done' ? <IconCircleCheck /> : <IconChecklist />}
+              </EmptyMedia>
+              <EmptyTitle role="heading" aria-level={2}>
+                {status === 'done'
+                  ? 'Nothing done yet'
+                  : due !== 'any'
+                    ? `Nothing ${due === 'overdue' ? 'overdue' : 'due this week'}`
+                    : EMPTY[view].title}
+              </EmptyTitle>
+              <EmptyDescription>
+                {due !== 'any' || status === 'done'
+                  ? 'Try another filter to see more.'
+                  : EMPTY[view].description}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <div
             className={cn(
-              'flex flex-col gap-8 transition-opacity duration-fast',
+              'flex flex-col gap-8 transition-opacity duration-150',
               state.status === 'loading' && 'opacity-60',
             )}
             aria-busy={state.status === 'loading'}
@@ -290,23 +286,23 @@ export function TasksView({ workspaceId }: { workspaceId: string }) {
                 className="flex flex-col gap-2"
                 data-testid="task-group"
               >
-                <header className="flex items-baseline gap-2 px-1">
+                <GroupHeader>
                   {group.document.kind === 'meeting' ? (
-                    <NotebookPenIcon className="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
+                    <IconNotes aria-hidden className="size-4 shrink-0 text-gray-900" />
                   ) : (
-                    <FileTextIcon className="size-4 shrink-0 translate-y-0.5 text-muted-foreground" />
+                    <IconFileText aria-hidden className="size-4 shrink-0 text-gray-900" />
                   )}
                   <Link
                     href={`/d/${group.document.id}`}
-                    className="min-w-0 truncate font-medium hover:underline hover:underline-offset-4"
+                    className="min-w-0 truncate text-heading-14 text-gray-1000 underline-offset-4 hover:underline"
                   >
                     {group.document.title || 'Untitled'}
                   </Link>
-                  <span className="shrink-0 text-xs text-muted-foreground">
+                  <span className="shrink-0 text-copy-13 text-gray-900 tabular-nums">
                     {formatDay(group.document.date)}
                   </span>
-                </header>
-                <ul className="divide-y rounded-xl border bg-card">
+                </GroupHeader>
+                <ul className={listClass}>
                   {group.items.map((item) => (
                     <TaskRow
                       key={item.id}
@@ -321,11 +317,7 @@ export function TasksView({ workspaceId }: { workspaceId: string }) {
               </section>
             ))}
             {state.data?.truncated && (
-              <p
-                className="text-sm text-muted-foreground"
-                role="status"
-                data-testid="tasks-truncated"
-              >
+              <p className="text-copy-13 text-gray-900" role="status" data-testid="tasks-truncated">
                 Showing the first {TASK_LIST_LIMIT} tasks, newest meetings first. Narrow the filters
                 to see the rest.
               </p>
@@ -335,6 +327,14 @@ export function TasksView({ workspaceId }: { workspaceId: string }) {
       </TabsContent>
     </Tabs>
   );
+}
+
+const listClass =
+  'flex flex-col divide-y divide-gray-alpha-400 overflow-hidden rounded-xl border border-gray-alpha-400';
+const rowClass = 'items-start rounded-none border-0';
+
+function GroupHeader({ children }: { children: React.ReactNode }) {
+  return <header className="flex h-5 items-center gap-2 ps-3">{children}</header>;
 }
 
 function TaskRow({
@@ -352,75 +352,111 @@ function TaskRow({
 }) {
   const state = item.due && !done ? dueState(item.due, today) : undefined;
   return (
-    <li
-      className="flex items-start gap-3 px-4 py-3"
+    <Item
+      size="sm"
+      render={<li />}
+      className={rowClass}
       data-testid="task-row"
       data-done={done || undefined}
     >
-      <input
-        type="checkbox"
+      <Checkbox
         checked={done}
         disabled={!item.document.canEdit || busy}
-        onChange={(event) => onToggle(event.target.checked)}
+        onCheckedChange={(checked) => onToggle(checked)}
         aria-label={done ? `Mark “${item.text}” as not done` : `Mark “${item.text}” as done`}
         title={item.document.canEdit ? undefined : 'You can view this note but not edit it'}
-        className="mt-1 size-4 shrink-0 cursor-pointer accent-primary disabled:cursor-not-allowed"
+        className="mt-0.5"
       />
-      <Link
-        href={taskHref(item)}
-        className={cn(
-          'min-w-0 flex-1 text-sm leading-6 hover:underline hover:underline-offset-4',
-          done && 'text-muted-foreground line-through decoration-muted-foreground/60',
-        )}
-      >
-        {item.text}
-      </Link>
-      <div className="flex shrink-0 items-center gap-1.5 text-xs leading-6">
-        {item.owner && (
-          <span
-            className="inline-flex h-6 max-w-40 items-center gap-1.5 rounded-full bg-muted pr-2 pl-1 text-muted-foreground"
-            title={item.owner.email ?? item.owner.name}
-            data-testid="task-owner"
-          >
-            <span
-              aria-hidden
-              className="flex size-4 items-center justify-center rounded-full bg-me text-[0.625rem] font-semibold text-me-foreground"
+      <ItemContent className="min-w-0">
+        <Link
+          href={taskHref(item)}
+          className={cn(
+            'text-copy-14 text-gray-1000 underline-offset-4 hover:underline',
+            done && 'text-gray-900 line-through decoration-gray-700',
+          )}
+        >
+          {item.text}
+        </Link>
+      </ItemContent>
+      {(item.owner || item.due) && (
+        <ItemActions className="h-5 gap-1.5">
+          {item.owner && (
+            <Badge
+              variant="secondary"
+              className="max-w-40 ps-0.5"
+              title={item.owner.email ?? item.owner.name}
+              data-testid="task-owner"
             >
-              {initials(item.owner.name)}
-            </span>
-            <span className="truncate">{item.owner.isMe ? 'You' : item.owner.name}</span>
-          </span>
-        )}
-        {item.due && (
-          <span
-            className={cn(
-              'inline-flex h-6 items-center gap-1 rounded-full px-2',
-              state === 'overdue'
-                ? 'bg-destructive/12 text-destructive'
-                : state === 'today'
-                  ? 'bg-warning/25 text-warning-foreground'
-                  : 'bg-muted text-muted-foreground',
-            )}
-            title={`Due ${item.due}`}
-            data-testid="task-due"
-            data-state={state}
-          >
-            <CalendarIcon className="size-3" aria-hidden />
-            {formatDue(item.due, today)}
-          </span>
-        )}
-      </div>
-    </li>
+              <span
+                aria-hidden
+                className="flex size-4 items-center justify-center rounded-full bg-me text-[0.625rem] leading-none text-me-foreground"
+              >
+                {initials(item.owner.name)}
+              </span>
+              <span className="truncate">{item.owner.isMe ? 'You' : item.owner.name}</span>
+            </Badge>
+          )}
+          {item.due && (
+            <Badge
+              variant={state === 'overdue' ? 'destructive' : 'secondary'}
+              className={cn(state === 'today' && 'bg-amber-200 text-amber-1000')}
+              title={`Due ${item.due}`}
+              data-testid="task-due"
+              data-state={state}
+            >
+              <IconCalendar data-icon="inline-start" aria-hidden />
+              {formatDue(item.due, today)}
+            </Badge>
+          )}
+        </ItemActions>
+      )}
+    </Item>
   );
 }
 
+/** One note group with three rows: the same boxes the list lands in. */
 function TasksSkeleton() {
   return (
-    <div className="flex flex-col gap-3" role="status" aria-busy="true" aria-label="Loading tasks">
-      <Skeleton className="h-5 w-48" />
-      {[0, 1, 2].map((row) => (
-        <Skeleton key={row} className="h-12 w-full rounded-lg" />
+    <div className="flex flex-col gap-8" role="status" aria-busy="true" aria-label="Loading tasks">
+      {[3, 2].map((rows, group) => (
+        <section key={group} className="flex flex-col gap-2">
+          <GroupHeader>
+            <Skeleton className="size-4 rounded-sm" />
+            <Skeleton className="h-3.5 w-48" />
+          </GroupHeader>
+          <ul className={listClass}>
+            {Array.from({ length: rows }, (_, row) => (
+              <Item key={row} size="sm" render={<li />} className={rowClass}>
+                <Skeleton className="mt-0.5 size-4 rounded-sm" />
+                <ItemContent>
+                  <div className="flex h-5 items-center">
+                    <Skeleton className={cn('h-3.5', row % 2 ? 'w-1/2' : 'w-3/4')} />
+                  </div>
+                </ItemContent>
+                <ItemActions className="h-5">
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </ItemActions>
+              </Item>
+            ))}
+          </ul>
+        </section>
       ))}
+    </div>
+  );
+}
+
+/** The page's Suspense fallback: the toolbar's footprint, then the list skeleton. */
+export function TasksViewSkeleton() {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Skeleton className="h-9 w-72 rounded-lg" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-8 w-24 rounded-md" />
+          <Skeleton className="h-8 w-36 rounded-md" />
+        </div>
+      </div>
+      <TasksSkeleton />
     </div>
   );
 }

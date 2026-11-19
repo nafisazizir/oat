@@ -1,9 +1,8 @@
-import { Skeleton } from '@oat/ui/components/skeleton';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 
 import { PageContainer, PageHeader } from '@/components/page';
-import { TasksView } from '@/components/tasks/tasks-view';
+import { TasksView, TasksViewSkeleton } from '@/components/tasks/tasks-view';
 import { getShellData } from '@/server/shell';
 
 export const metadata: Metadata = { title: 'My tasks' };
@@ -18,7 +17,7 @@ export default async function TasksPage() {
         description={`Action items from meeting notes in ${workspace.name}.`}
       />
       {/* `useSearchParams` needs a boundary; the view takes its filters from the URL on the client. */}
-      <Suspense fallback={<Skeleton className="h-8 w-80 rounded-lg" />}>
+      <Suspense fallback={<TasksViewSkeleton />}>
         <TasksView key={workspace.id} workspaceId={workspace.id} />
       </Suspense>
     </PageContainer>

@@ -19,20 +19,20 @@
 import type { PermissionKind, PermissionsSnapshot, TestRecordingSnapshot } from '@oat/core/bridge';
 import { Button } from '@oat/ui/components/button';
 import { cn } from '@oat/ui/lib/utils';
+import { Spinner } from '@oat/ui/components/spinner';
 import {
-  AlertTriangleIcon,
-  CalendarDaysIcon,
-  CheckIcon,
-  CircleDashedIcon,
-  ExternalLinkIcon,
-  InfoIcon,
-  Loader2Icon,
-  MicIcon,
-  RotateCcwIcon,
-  SquareIcon,
-  Volume2Icon,
-  type LucideIcon,
-} from 'lucide-react';
+  type Icon as TablerIcon,
+  IconAlertTriangle,
+  IconCalendarEvent,
+  IconCheck,
+  IconCircleDashed,
+  IconExternalLink,
+  IconInfoCircle,
+  IconMicrophone,
+  IconPlayerStopFilled,
+  IconRotate,
+  IconVolume,
+} from '@tabler/icons-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { BridgeCallError, call } from '../bridge.ts';
@@ -101,10 +101,8 @@ export function OnboardingView({
       <div className="flex w-full max-w-xl flex-col gap-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h1 className="font-heading text-2xl font-semibold tracking-tight">
-              {firstRun ? 'Set up Oat' : 'Setup'}
-            </h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-heading-24 text-gray-1000">{firstRun ? 'Set up Oat' : 'Setup'}</h1>
+            <p className="text-copy-14 text-gray-900">
               {firstRun
                 ? 'A minute now, so your first meeting just works.'
                 : 'Check permissions and try a test recording.'}
@@ -129,21 +127,18 @@ export function OnboardingView({
 
         <section
           aria-labelledby="onboarding-step-title"
-          className="flex flex-col overflow-hidden rounded-xl bg-card text-card-foreground ring-1 ring-foreground/10"
+          className="flex flex-col overflow-hidden rounded-xl border border-gray-alpha-400 bg-background-100 text-gray-1000"
           data-testid={`onboarding-step-${current}`}
         >
           <div className="flex flex-col gap-5 p-6">
             {!permissions ? (
               <div role="status" aria-busy className="flex h-40 items-center justify-center">
-                <Loader2Icon
-                  aria-label="Loading"
-                  className="size-5 animate-spin text-muted-foreground"
-                />
+                <Spinner aria-label="Loading" className="size-5text-gray-900" />
               </div>
             ) : current === 'microphone' ? (
               <PermissionStep
                 kind="microphone"
-                icon={MicIcon}
+                icon={IconMicrophone}
                 title="Your microphone"
                 headingRef={headingRef}
                 view={stepView('microphone', permissions)!}
@@ -156,7 +151,7 @@ export function OnboardingView({
             ) : current === 'system-audio' ? (
               <PermissionStep
                 kind="system_audio"
-                icon={Volume2Icon}
+                icon={IconVolume}
                 title="The other side of the call"
                 headingRef={headingRef}
                 view={stepView('system-audio', permissions)!}
@@ -174,13 +169,13 @@ export function OnboardingView({
               <TestStep test={test} input={input} headingRef={headingRef} />
             )}
           </div>
-          <div className="flex items-center gap-2 border-t bg-muted/40 px-6 py-3">
+          <div className="flex items-center gap-2 border-t border-gray-alpha-400 bg-gray-100 px-6 py-3">
             {back && (
               <Button variant="ghost" disabled={testBusy} onClick={() => go(back)}>
                 Back
               </Button>
             )}
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ms-auto flex items-center gap-2">
               {next ? (
                 <Button
                   variant={done ? 'default' : 'ghost'}
@@ -203,7 +198,7 @@ export function OnboardingView({
             </div>
           </div>
         </section>
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-label-12 text-gray-900">
           Signed in as{' '}
           <span data-selectable data-testid="onboarding-account">
             {email}
@@ -236,9 +231,9 @@ function Stepper({
               <span
                 aria-hidden
                 className={cn(
-                  'h-1 rounded-full bg-muted',
-                  (active || complete) && 'bg-primary',
-                  complete && !active && 'bg-primary/50',
+                  'h-1 rounded-full bg-gray-100',
+                  (active || complete) && 'bg-brand-700',
+                  complete && !active && 'bg-brand-400',
                 )}
               />
               <button
@@ -248,12 +243,12 @@ function Stepper({
                 onClick={() => onSelect(s)}
                 data-testid={`onboarding-nav-${s}`}
                 className={cn(
-                  'flex min-h-6 items-center gap-1.5 rounded-sm text-left text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none',
-                  active && 'font-medium text-foreground',
+                  'flex min-h-6 items-center gap-1.5 rounded-sm text-start text-label-12 text-gray-900 outline-none hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 disabled:pointer-events-none',
+                  active && 'text-gray-1000',
                 )}
               >
                 {complete ? (
-                  <CheckIcon aria-hidden className="size-3.5 shrink-0 text-success" />
+                  <IconCheck aria-hidden className="size-3.5 shrink-0 text-green-900" />
                 ) : (
                   <span aria-hidden className="w-3.5 shrink-0 text-center tabular-nums">
                     {i + 1}
@@ -275,7 +270,7 @@ function Voice({ source, children }: { source: 'mic' | 'system'; children: React
   return (
     <span
       className={cn(
-        'rounded-sm px-1 font-medium',
+        'rounded-sm px-1',
         source === 'mic' ? 'bg-me text-me-foreground' : 'bg-them text-them-foreground',
       )}
     >
@@ -290,25 +285,25 @@ function StepHeader({
   headingRef,
   status,
 }: {
-  icon: LucideIcon;
+  icon: TablerIcon;
   title: string;
   headingRef: React.Ref<HTMLHeadingElement>;
   status?: ReactNode;
 }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-900">
         <Icon aria-hidden className="size-5" />
       </div>
       <h2
         id="onboarding-step-title"
         ref={headingRef}
         tabIndex={-1}
-        className="font-heading text-xl font-semibold outline-none"
+        className="text-heading-20 text-gray-1000 outline-none"
       >
         {title}
       </h2>
-      {status && <div className="ml-auto">{status}</div>}
+      {status && <div className="ms-auto">{status}</div>}
     </div>
   );
 }
@@ -323,16 +318,16 @@ const STATUS: Record<PermissionView, { label: string; tone: 'ok' | 'muted' | 'of
 
 function StatusPill({ view, testId }: { view: PermissionView; testId?: string }) {
   const { label, tone } = STATUS[view];
-  const Icon = tone === 'ok' ? CheckIcon : tone === 'off' ? AlertTriangleIcon : CircleDashedIcon;
+  const Icon = tone === 'ok' ? IconCheck : tone === 'off' ? IconAlertTriangle : IconCircleDashed;
   return (
     <span
       data-testid={testId}
       data-state={view}
       className={cn(
-        'inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs font-medium whitespace-nowrap',
-        tone === 'ok' && 'bg-success/12 text-success',
-        tone === 'muted' && 'bg-muted text-muted-foreground',
-        tone === 'off' && 'bg-destructive/10 text-destructive',
+        'inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2.5 text-label-12 text-gray-1000 whitespace-nowrap',
+        tone === 'ok' && 'bg-green-100 text-green-900',
+        tone === 'muted' && 'bg-gray-100 text-gray-900',
+        tone === 'off' && 'bg-red-100 text-red-900',
       )}
     >
       <Icon aria-hidden className="size-3" />
@@ -371,7 +366,7 @@ function PermissionStep({
   children,
 }: {
   kind: PermissionKind;
-  icon: LucideIcon;
+  icon: TablerIcon;
   title: string;
   headingRef: React.Ref<HTMLHeadingElement>;
   view: PermissionView;
@@ -390,7 +385,7 @@ function PermissionStep({
         headingRef={headingRef}
         status={<StatusPill view={view} testId="permission-status" />}
       />
-      <p className="text-sm leading-relaxed text-muted-foreground">{children}</p>
+      <p className="text-copy-14 text-gray-900">{children}</p>
       {view === 'ask' && (
         <div className="flex flex-col gap-2">
           <Button
@@ -400,10 +395,10 @@ function PermissionStep({
             onClick={() => void action.run(() => call('permissions:request', { kind }))}
             data-testid="permission-allow"
           >
-            {action.pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+            {action.pending && <Spinner data-icon="inline-start" />}
             {allowLabel}
           </Button>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label-12 text-gray-900">
             {action.pending
               ? 'Answer the macOS prompt to continue.'
               : 'macOS asks you to confirm. You can change this later in System Settings.'}
@@ -414,7 +409,7 @@ function PermissionStep({
         <FixInSettings kind={kind} path={settingsPath} pending={action.pending} run={action.run} />
       )}
       {view === 'unsupported' && unsupported && <Callout tone="info">{unsupported}</Callout>}
-      <p role="status" className="text-xs text-destructive empty:hidden">
+      <p role="status" className="text-copy-13 text-red-900 empty:hidden">
         {action.error}
       </p>
     </>
@@ -435,18 +430,18 @@ function FixInSettings({
 }) {
   return (
     <Callout tone="warn" testId="permission-blocked">
-      <p className="font-medium text-foreground">Oat isn’t allowed to use this</p>
+      <p className="text-label-14 text-gray-1000">Oat isn’t allowed to use this</p>
       <p>
         Turn Oat on in System Settings → {path}. Then come back here — this step updates by itself.
       </p>
       <Button
         variant="outline"
-        className="mt-1 self-start text-foreground"
+        className="mt-1 self-start text-gray-1000"
         disabled={pending}
         onClick={() => void run(() => call('permissions:open-settings', { kind }))}
         data-testid="permission-open-settings"
       >
-        <ExternalLinkIcon data-icon="inline-start" />
+        <IconExternalLink data-icon="inline-start" />
         Open System Settings
       </Button>
     </Callout>
@@ -462,30 +457,30 @@ function Callout({
   children: ReactNode;
   testId?: string;
 }) {
-  const Icon = tone === 'ok' ? CheckIcon : tone === 'info' ? InfoIcon : AlertTriangleIcon;
+  const Icon = tone === 'ok' ? IconCheck : tone === 'info' ? IconInfoCircle : IconAlertTriangle;
   return (
     <div
       data-testid={testId}
       data-tone={tone}
       className={cn(
-        'flex gap-3 rounded-lg border px-3.5 py-3 text-sm',
-        tone === 'ok' && 'border-success/30 bg-success/8',
-        tone === 'info' && 'border-border bg-muted/50',
-        tone === 'warn' && 'border-warning/40 bg-warning/10',
-        tone === 'problem' && 'border-destructive/30 bg-destructive/8',
+        'flex gap-3 rounded-lg border px-3.5 py-3 text-copy-14 text-gray-1000',
+        tone === 'ok' && 'border-green-300 bg-green-100',
+        tone === 'info' && 'border-gray-alpha-400 bg-background-200',
+        tone === 'warn' && 'border-amber-300 bg-amber-100',
+        tone === 'problem' && 'border-red-300 bg-red-100',
       )}
     >
       <Icon
         aria-hidden
         className={cn(
           'mt-0.5 size-4 shrink-0',
-          tone === 'ok' && 'text-success',
-          tone === 'info' && 'text-muted-foreground',
-          tone === 'warn' && 'text-warning',
-          tone === 'problem' && 'text-destructive',
+          tone === 'ok' && 'text-green-900',
+          tone === 'info' && 'text-gray-900',
+          tone === 'warn' && 'text-amber-900',
+          tone === 'problem' && 'text-red-900',
         )}
       />
-      <div className="flex min-w-0 flex-1 flex-col gap-1 text-muted-foreground">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col gap-1 text-gray-900">{children}</div>
     </div>
   );
 }
@@ -503,21 +498,21 @@ function CalendarStep({
   const googleConnected = permissions.google === 'ok';
   return (
     <>
-      <StepHeader icon={CalendarDaysIcon} title="Your calendar" headingRef={headingRef} />
-      <p className="text-sm leading-relaxed text-muted-foreground">
+      <StepHeader icon={IconCalendarEvent} title="Your calendar" headingRef={headingRef} />
+      <p className="text-copy-14 text-gray-900">
         With your calendar, Oat lists upcoming meetings, names each note after its meeting and adds
         who was invited. It never changes your calendar. Use either one, or both.
       </p>
-      <ul className="flex flex-col divide-y rounded-lg border">
+      <ul className="flex flex-col divide-y rounded-lg border border-gray-alpha-400">
         <li className="flex flex-col gap-3 p-4" data-testid="calendar-mac">
           <div className="flex items-center gap-3">
             <div className="flex min-w-0 flex-col">
-              <span className="text-sm font-medium">Calendars on this Mac</span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label-14 text-gray-1000">Calendars on this Mac</span>
+              <span className="text-label-12 text-gray-900">
                 iCloud, Exchange and anything else in the Calendar app
               </span>
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ms-auto flex items-center gap-2">
               <StatusPill view={macView} testId="permission-status" />
               {macView === 'ask' && (
                 <Button
@@ -527,7 +522,7 @@ function CalendarStep({
                   }
                   data-testid="permission-allow"
                 >
-                  {mac.pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+                  {mac.pending && <Spinner data-icon="inline-start" />}
                   Allow calendars
                 </Button>
               )}
@@ -541,20 +536,20 @@ function CalendarStep({
               run={mac.run}
             />
           )}
-          <p role="status" className="text-xs text-destructive empty:hidden">
+          <p role="status" className="text-copy-13 text-red-900 empty:hidden">
             {mac.error}
           </p>
         </li>
         <li className="flex items-center gap-3 p-4" data-testid="calendar-google">
           <div className="flex min-w-0 flex-col">
-            <span className="text-sm font-medium">Google Calendar</span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-label-14 text-gray-1000">Google Calendar</span>
+            <span className="text-label-12 text-gray-900">
               {googleConnected
                 ? 'Connected to your Oat account'
                 : 'Connect it in your browser; it works on every device you use'}
             </span>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ms-auto flex items-center gap-2">
             {googleConnected ? (
               <StatusPill view="done" />
             ) : (
@@ -566,14 +561,14 @@ function CalendarStep({
                 }
                 data-testid="calendar-connect-google"
               >
-                <ExternalLinkIcon data-icon="inline-start" />
+                <IconExternalLink data-icon="inline-start" />
                 Connect Google Calendar
               </Button>
             )}
           </div>
         </li>
       </ul>
-      <p role="status" className="text-xs text-destructive empty:hidden">
+      <p role="status" className="text-copy-13 text-red-900 empty:hidden">
         {google.error}
       </p>
     </>
@@ -602,14 +597,14 @@ function TestStep({
 
   return (
     <>
-      <StepHeader icon={MicIcon} title="Try a test recording" headingRef={headingRef} />
-      <p className="text-sm leading-relaxed text-muted-foreground">
+      <StepHeader icon={IconMicrophone} title="Try a test recording" headingRef={headingRef} />
+      <p className="text-copy-14 text-gray-900">
         Say a few words — and play something with sound if you like. Oat listens for{' '}
         {Math.round((test?.durationMs ?? 10_000) / 1000)} seconds and shows what it hears. Nothing
         is saved.
       </p>
       <div
-        className="flex flex-col gap-4 rounded-lg border bg-background p-4"
+        className="flex flex-col gap-4 rounded-lg border border-gray-alpha-400 bg-background-100 p-4"
         data-testid="test-recording"
         data-status={status}
       >
@@ -620,7 +615,7 @@ function TestStep({
               onClick={() => void action.run(() => call('onboarding:test-stop'))}
               data-testid="test-stop"
             >
-              <SquareIcon data-icon="inline-start" className="fill-current" />
+              <IconPlayerStopFilled data-icon="inline-start" />
               Stop
             </Button>
           ) : (
@@ -631,20 +626,20 @@ function TestStep({
               data-testid="test-start"
             >
               {status === 'idle' ? (
-                <MicIcon data-icon="inline-start" />
+                <IconMicrophone data-icon="inline-start" />
               ) : (
-                <RotateCcwIcon data-icon="inline-start" />
+                <IconRotate data-icon="inline-start" />
               )}
               {status === 'idle' ? 'Start test recording' : 'Test again'}
             </Button>
           )}
           <span
-            className="ml-auto font-mono text-sm text-muted-foreground tabular-nums"
+            className="ms-auto text-copy-14-mono text-gray-900 tabular-nums"
             data-testid="test-elapsed"
           >
             {status === 'starting' ? (
               <span className="inline-flex items-center gap-1.5 font-sans">
-                <Loader2Icon aria-hidden className="size-3.5 animate-spin" />
+                <Spinner aria-hidden className="size-3.5" />
                 Starting…
               </span>
             ) : (
@@ -668,18 +663,18 @@ function TestStep({
         </div>
         <div
           aria-live="polite"
-          className="flex min-h-12 items-center rounded-md bg-muted/60 px-3 py-2 text-sm"
+          className="flex min-h-12 items-center rounded-md bg-gray-100 px-3 py-2 text-copy-14 text-gray-1000"
           data-testid="test-line"
         >
           {test?.line ? (
             <p data-selectable>
-              <span className="mr-1.5 text-xs font-medium text-muted-foreground">
+              <span className="me-1.5 text-label-12 text-gray-900">
                 {test.line.source === 'mic' ? 'Me' : 'Them'}
               </span>
               {test.line.text}
             </p>
           ) : (
-            <p className="text-muted-foreground">
+            <p className="text-gray-900">
               {busy
                 ? test?.transcription === 'unavailable'
                   ? 'Live transcription isn’t available right now.'
@@ -691,11 +686,11 @@ function TestStep({
       </div>
       {verdict && (
         <Callout tone={verdict.tone} testId="test-verdict">
-          <p className="font-medium text-foreground">{verdict.title}</p>
+          <p className="text-label-14 text-gray-1000">{verdict.title}</p>
           <p>{verdict.detail}</p>
         </Callout>
       )}
-      <p role="status" className="text-xs text-destructive empty:hidden">
+      <p role="status" className="text-copy-13 text-red-900 empty:hidden">
         {action.error}
       </p>
     </>
@@ -716,11 +711,11 @@ function WideMeter({
   const fill = levelFill(db);
   return (
     <div className="flex flex-col gap-1.5" data-testid={`test-level-${source}`} data-heard={heard}>
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-medium">{label}</span>
+      <div className="flex items-center justify-between text-label-12">
+        <span className="text-gray-1000">{label}</span>
         {heard && (
-          <span className="inline-flex items-center gap-1 text-success">
-            <CheckIcon aria-hidden className="size-3" />
+          <span className="inline-flex items-center gap-1 text-green-900">
+            <IconCheck aria-hidden className="size-3" />
             Heard
           </span>
         )}

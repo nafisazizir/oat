@@ -8,13 +8,22 @@ import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@oat/ui/components/card';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@oat/ui/components/dialog';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@oat/ui/components/alert-dialog';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
 import { Input } from '@oat/ui/components/input';
 import { Label } from '@oat/ui/components/label';
 import {
@@ -25,14 +34,14 @@ import {
   SelectValue,
 } from '@oat/ui/components/select';
 import { Skeleton } from '@oat/ui/components/skeleton';
+import { Spinner } from '@oat/ui/components/spinner';
 import {
-  FolderOpenIcon,
-  HardDriveIcon,
-  Loader2Icon,
-  MicIcon,
-  Trash2Icon,
-  UsersIcon,
-} from 'lucide-react';
+  IconDeviceDesktop,
+  IconFolderOpen,
+  IconMicrophone,
+  IconTrash,
+  IconUsers,
+} from '@tabler/icons-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { BridgeCallError, bridge, call } from '../bridge.ts';
@@ -84,13 +93,13 @@ export function StorageSettings() {
   return (
     <div className="flex flex-col gap-5" data-testid="storage-settings">
       <div className="flex flex-col gap-1">
-        <h2 className="font-heading text-lg font-semibold">Storage</h2>
-        <p className="text-sm text-muted-foreground">
+        <h2 className="text-heading-16 text-gray-1000">Storage</h2>
+        <p className="text-copy-14 text-gray-900">
           Meeting audio is saved only on this Mac and never uploaded. Deleting audio keeps the
           transcript and your notes.
         </p>
       </div>
-      <p role="alert" className="text-sm text-destructive empty:hidden">
+      <p role="alert" className="text-copy-14 text-red-900 empty:hidden">
         {error}
       </p>
       {summary ? (
@@ -121,17 +130,14 @@ function UsageCard({ summary }: { summary: StorageSummary }) {
   return (
     <Card size="sm">
       <CardContent className="flex items-center gap-4">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-          <HardDriveIcon className="size-5" />
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-900">
+          <IconDeviceDesktop className="size-5" />
         </div>
         <div className="flex min-w-0 flex-col">
-          <p
-            className="font-heading text-2xl font-semibold tabular-nums"
-            data-testid="storage-total"
-          >
+          <p className="text-heading-24 text-gray-1000 tabular-nums" data-testid="storage-total">
             {formatBytes(summary.totalBytes)}
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-copy-14 text-gray-900">
             Your audio of {count} {count === 1 ? 'meeting' : 'meetings'} on this Mac
             {summary.deletedMeetings > 0 && ` · ${summary.deletedMeetings} with audio deleted`}
           </p>
@@ -262,22 +268,22 @@ function RetentionCard({
                 aria-label={kind === 'age' ? 'Days' : 'Gigabytes'}
                 onChange={(event) => setAmount(event.target.value)}
               />
-              <Label htmlFor="retention-amount" className="text-sm text-muted-foreground">
+              <Label htmlFor="retention-amount" className="text-copy-14 text-gray-900">
                 {unit}
               </Label>
             </div>
           )}
           <Button
             type="submit"
-            className="ml-auto"
+            className="ms-auto"
             disabled={!dirty || !ready || saving}
             data-testid="retention-save"
           >
-            {saving && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+            {saving && <Spinner data-icon="inline-start" />}
             Save
           </Button>
         </form>
-        <p className="text-sm text-muted-foreground" role="status" data-testid="retention-preview">
+        <p className="text-copy-14 text-gray-900" role="status" data-testid="retention-preview">
           {policy
             ? describePreview(policy, preview)
             : kind === 'age'
@@ -285,7 +291,7 @@ function RetentionCard({
               : 'Enter a size between 0.1 and 10000 GB.'}
         </p>
         {summary.lastSweep && saved.kind !== 'forever' && (
-          <p className="text-xs text-muted-foreground" data-testid="last-sweep">
+          <p className="text-label-12 text-gray-900" data-testid="last-sweep">
             Last cleanup {formatWhen(summary.lastSweep.at)}:{' '}
             {summary.lastSweep.meetings === 0
               ? 'nothing to delete'
@@ -293,33 +299,31 @@ function RetentionCard({
             .
           </p>
         )}
-        <p role="alert" className="text-sm text-destructive empty:hidden">
+        <p role="alert" className="text-copy-14 text-red-900 empty:hidden">
           {error}
         </p>
       </CardContent>
       {confirming && (
-        <Dialog open onOpenChange={(open) => !open && setConfirming(null)}>
-          <DialogContent data-testid="retention-confirm">
-            <DialogHeader>
-              <DialogTitle>
+        <AlertDialog open onOpenChange={(open) => !open && setConfirming(null)}>
+          <AlertDialogContent data-testid="retention-confirm">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
                 Delete the audio of {confirming.meetings}{' '}
                 {confirming.meetings === 1 ? 'meeting' : 'meetings'}?
-              </DialogTitle>
-              <DialogDescription>
+              </AlertDialogTitle>
+              <AlertDialogDescription>
                 This policy removes {formatBytes(confirming.bytes)} of audio from this Mac now,
                 oldest first. Transcripts and notes stay. This can’t be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setConfirming(null)}>
-                Cancel
-              </Button>
-              <Button variant="destructive" onClick={() => void save()}>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={() => void save()}>
                 Delete audio and save
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </Card>
   );
@@ -362,7 +366,7 @@ function RecordingsList({
   return (
     <section className="flex flex-col gap-2" aria-labelledby="recordings-heading">
       <div className="flex items-center justify-between gap-2">
-        <h3 id="recordings-heading" className="text-sm font-medium">
+        <h3 id="recordings-heading" className="text-label-14 text-gray-1000">
           Recordings
         </h3>
         {meetings.length > 1 && (
@@ -384,22 +388,24 @@ function RecordingsList({
           </Select>
         )}
       </div>
-      <p role="alert" className="text-sm text-destructive empty:hidden">
+      <p role="alert" className="text-copy-14 text-red-900 empty:hidden">
         {error}
       </p>
       {sorted.length === 0 ? (
-        <div
-          className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-10 text-center"
-          data-testid="storage-empty"
-        >
-          <MicIcon className="size-5 text-muted-foreground" />
-          <p className="text-sm font-medium">No recordings on this Mac</p>
-          <p className="text-sm text-muted-foreground">
-            Audio you record here shows up in this list.
-          </p>
-        </div>
+        <Empty className="border border-gray-alpha-400 px-6 py-10" data-testid="storage-empty">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <IconMicrophone aria-hidden />
+            </EmptyMedia>
+            <EmptyTitle>No recordings on this Mac</EmptyTitle>
+            <EmptyDescription>Audio you record here shows up in this list.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        <ul className="flex flex-col divide-y rounded-xl border" data-testid="storage-list">
+        <ul
+          className="flex flex-col divide-y rounded-xl border border-gray-alpha-400"
+          data-testid="storage-list"
+        >
           {sorted.map((m) => (
             <li
               key={m.meetingId}
@@ -409,11 +415,11 @@ function RecordingsList({
             >
               <div className="flex min-w-0 flex-1 flex-col">
                 <span
-                  className={`truncate text-sm font-medium ${m.title ? '' : 'text-muted-foreground'}`}
+                  className={`truncate text-label-14 ${m.title ? 'text-gray-1000' : 'text-gray-900'}`}
                 >
                   {m.title || 'Untitled recording'}
                 </span>
-                <span className="truncate text-xs text-muted-foreground">
+                <span className="truncate text-label-12 text-gray-900">
                   {formatWhen(m.startedAt)}
                   {/* A part being recorded has no length yet. */}
                   {m.durationMs > 0 && ` · ${formatDuration(m.durationMs)}`}
@@ -426,7 +432,7 @@ function RecordingsList({
                 </Badge>
               )}
               <span
-                className="w-16 shrink-0 text-right text-sm tabular-nums"
+                className="w-16 shrink-0 text-end text-label-14 text-gray-1000 tabular-nums"
                 data-testid="storage-meeting-size"
               >
                 {formatBytes(m.bytes)}
@@ -439,18 +445,18 @@ function RecordingsList({
                   title="Show in Finder"
                   onClick={() => void show(m)}
                 >
-                  <FolderOpenIcon />
+                  <IconFolderOpen />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="text-muted-foreground hover:text-destructive"
+                  className="text-gray-900 hover:text-red-900"
                   aria-label="Delete audio"
                   title={m.deletable ? 'Delete audio' : 'Stop the recording to delete its audio'}
                   disabled={!m.deletable}
                   onClick={() => setConfirm(m)}
                 >
-                  <Trash2Icon />
+                  <IconTrash />
                 </Button>
               </div>
             </li>
@@ -458,24 +464,26 @@ function RecordingsList({
         </ul>
       )}
       {hidden > 0 && (
-        <p className="px-1 text-xs text-muted-foreground">
+        <p className="px-1 text-label-12 text-gray-900">
           {hidden} older {hidden === 1 ? 'meeting is' : 'meetings are'} not listed.
         </p>
       )}
       {others.meetings > 0 && (
         <div
-          className="flex items-center gap-3 rounded-xl border border-dashed px-3 py-2.5 text-muted-foreground"
+          className="flex items-center gap-3 rounded-xl border border-dashed border-gray-alpha-400 px-3 py-2.5 text-gray-900"
           data-testid="storage-other-accounts"
         >
-          <UsersIcon className="size-4 shrink-0" />
+          <IconUsers className="size-4 shrink-0" />
           <div className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-sm">Other accounts on this Mac</span>
-            <span className="truncate text-xs">
+            <span className="truncate text-label-14 text-gray-1000">
+              Other accounts on this Mac
+            </span>
+            <span className="truncate text-label-12 text-gray-900">
               {others.meetings} {others.meetings === 1 ? 'meeting' : 'meetings'} · managed when they
               sign in
             </span>
           </div>
-          <span className="w-16 shrink-0 text-right text-sm tabular-nums">
+          <span className="w-16 shrink-0 text-end text-label-14 text-gray-1000 tabular-nums">
             {formatBytes(others.bytes)}
           </span>
           {/* Keeps the size column aligned with the rows' two action buttons. */}
@@ -532,28 +540,26 @@ function DeleteDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
-      <DialogContent data-testid="delete-audio-dialog">
-        <DialogHeader>
-          <DialogTitle>Delete this meeting’s audio?</DialogTitle>
-          <DialogDescription>
+    <AlertDialog open onOpenChange={(open) => !open && !pending && onClose()}>
+      <AlertDialogContent data-testid="delete-audio-dialog">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete this meeting’s audio?</AlertDialogTitle>
+          <AlertDialogDescription>
             {formatBytes(meeting.bytes)} of audio from “{meeting.title || 'Untitled recording'}”
             will be removed from this Mac. The transcript and your notes stay. This can’t be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <p role="alert" className="text-sm text-destructive empty:hidden">
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <p role="alert" className="text-copy-14 text-red-900 empty:hidden">
           {error}
         </p>
-        <DialogFooter>
-          <Button variant="outline" disabled={pending} onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="destructive" disabled={pending} onClick={() => void remove()}>
-            {pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" disabled={pending} onClick={() => void remove()}>
+            {pending && <Spinner data-icon="inline-start" />}
             Delete audio
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

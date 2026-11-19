@@ -5,7 +5,8 @@
  */
 import type { MeetingPrompt } from '@oat/core/bridge';
 import { Button } from '@oat/ui/components/button';
-import { BellRingIcon, Loader2Icon, NotebookPenIcon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconBellRinging, IconNotes } from '@tabler/icons-react';
 import { useState } from 'react';
 
 import { BridgeCallError, call } from '../bridge.ts';
@@ -59,19 +60,17 @@ export function PromptBanner({
       aria-describedby="meeting-prompt-detail"
       data-testid="meeting-prompt"
       data-kind={prompt.kind}
-      className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b bg-accent/60 px-6 py-2.5"
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-gray-alpha-400 bg-brand-100 py-2.5 ps-6 pe-4"
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
-        <BellRingIcon aria-hidden className="size-4" />
-      </span>
+      <IconBellRinging aria-hidden className="size-4 shrink-0 text-brand-900" />
       <div className="flex min-w-0 flex-1 basis-56 flex-col">
-        <p id="meeting-prompt-title" className="truncate text-sm font-medium">
+        <p id="meeting-prompt-title" className="truncate text-label-14 text-gray-1000">
           {title}
         </p>
-        <p id="meeting-prompt-detail" className="truncate text-xs text-muted-foreground">
+        <p id="meeting-prompt-detail" className="truncate text-label-13 text-gray-900">
           {detail}
           {error?.promptId === prompt.id && (
-            <span role="alert" className="ml-1 text-destructive">
+            <span role="alert" className="ms-1 text-red-900">
               {error.message}
             </span>
           )}
@@ -79,13 +78,7 @@ export function PromptBanner({
       </div>
       <div className="flex shrink-0 items-center gap-1">
         {prompt.appId && prompt.appName && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
-            disabled={busy}
-            onClick={() => void respond('silence')}
-          >
+          <Button variant="ghost" size="sm" disabled={busy} onClick={() => void respond('silence')}>
             Don’t ask for {prompt.appName}
           </Button>
         )}
@@ -94,9 +87,9 @@ export function PromptBanner({
         </Button>
         <Button size="sm" disabled={busy} onClick={() => void respond('start')}>
           {pending === 'start' ? (
-            <Loader2Icon data-icon="inline-start" className="animate-spin" />
+            <Spinner data-icon="inline-start" />
           ) : (
-            <NotebookPenIcon data-icon="inline-start" />
+            <IconNotes data-icon="inline-start" />
           )}
           Start notes
         </Button>

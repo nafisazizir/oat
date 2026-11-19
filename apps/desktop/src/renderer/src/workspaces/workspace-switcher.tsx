@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@oat/ui/components/dropdown-menu';
 import { cn } from '@oat/ui/lib/utils';
-import { CheckIcon, ChevronsUpDownIcon, EyeIcon } from 'lucide-react';
+import { IconCheck, IconEye, IconSelector } from '@tabler/icons-react';
 import { useState } from 'react';
 
 import { BridgeCallError } from '../bridge.ts';
@@ -30,10 +30,8 @@ export function WorkspaceTile({
     <span
       aria-hidden
       className={cn(
-        'flex size-8 shrink-0 items-center justify-center rounded-md font-heading text-xs font-semibold',
-        workspace.kind === 'personal'
-          ? 'bg-primary text-primary-foreground'
-          : 'bg-secondary text-secondary-foreground',
+        'flex size-8 shrink-0 items-center justify-center rounded-md text-label-13',
+        workspace.kind === 'personal' ? 'bg-brand-700 text-brand-on' : 'bg-gray-200 text-gray-1000',
         className,
       )}
     >
@@ -60,24 +58,22 @@ export function WorkspaceSwitcher({ view }: { view: WorkspacesView }) {
     <div className="flex flex-col gap-1.5">
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="flex w-full items-center gap-2.5 rounded-md p-1.5 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-sidebar-accent"
+          className="flex w-full items-center gap-2.5 rounded-md p-1.5 text-start transition-colors outline-none hover:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50 data-popup-open:bg-gray-alpha-200"
           data-testid="workspace-switcher"
           data-workspace-id={active.id}
         >
           <WorkspaceTile workspace={active} />
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-none">
+          <span className="flex min-w-0 flex-1 flex-col">
             {/* What the button is, before the visible text (WCAG 2.5.3: label in name). */}
             <span className="sr-only">Workspace: </span>
-            <span className="truncate text-sm font-medium">{active.name}</span>
-            <span className="truncate text-xs text-muted-foreground">{roleLabel(active)}</span>
+            <span className="truncate text-label-14 text-gray-1000">{active.name}</span>
+            <span className="truncate text-label-12 text-gray-900">{roleLabel(active)}</span>
           </span>
-          <ChevronsUpDownIcon className="size-4 shrink-0 text-muted-foreground" />
+          <IconSelector aria-hidden className="size-4 shrink-0 text-gray-900" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-(--anchor-width) min-w-56">
           <DropdownMenuGroup>
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Workspaces
-            </DropdownMenuLabel>
+            <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
             {snapshot.workspaces.map((w) => (
               <DropdownMenuItem
                 key={w.id}
@@ -91,9 +87,9 @@ export function WorkspaceSwitcher({ view }: { view: WorkspacesView }) {
                 <WorkspaceTile workspace={w} className="size-6" />
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate">{w.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">{roleLabel(w)}</span>
+                  <span className="truncate text-label-12 text-gray-900">{roleLabel(w)}</span>
                 </span>
-                {w.id === active.id && <CheckIcon className="ml-auto" />}
+                {w.id === active.id && <IconCheck className="ms-auto" />}
               </DropdownMenuItem>
             ))}
           </DropdownMenuGroup>
@@ -102,17 +98,17 @@ export function WorkspaceSwitcher({ view }: { view: WorkspacesView }) {
       {fallback && (
         <p
           role="note"
-          className="flex gap-1.5 px-1.5 text-xs text-muted-foreground"
+          className="flex gap-1.5 px-1.5 text-copy-13 text-gray-900"
           data-testid="workspace-hint"
         >
-          <EyeIcon aria-hidden className="mt-px size-3.5 shrink-0" />
+          <IconEye aria-hidden className="mt-0.5 size-3.5 shrink-0" />
           <span>
             You can view {active.name} but not add notes to it. New notes go to {fallback.name}.
           </span>
         </p>
       )}
       {error && (
-        <p role="status" className="px-1.5 text-xs text-destructive">
+        <p role="status" className="px-1.5 text-copy-13 text-red-900">
           {error}
         </p>
       )}

@@ -2,7 +2,8 @@
 
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
-import { Loader2Icon, NotebookPenIcon, VideoIcon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconNotes, IconVideo } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -83,18 +84,16 @@ export function UpcomingMeetingRow({ meeting }: { meeting: UpcomingMeetingView }
     >
       <time
         dateTime={meeting.start}
-        className="flex w-32 shrink-0 flex-col text-xs whitespace-nowrap text-muted-foreground tabular-nums"
+        className="flex h-8 w-32 shrink-0 flex-col text-label-13 whitespace-nowrap text-gray-900 tabular-nums"
       >
         {isClient ? (
           <>
-            <span className="font-medium text-foreground">{dayFormat.format(start)}</span>
+            <span className="text-gray-1000">{dayFormat.format(start)}</span>
             <span>
               {timeFormat.format(start)} – {timeFormat.format(end)}
             </span>
           </>
-        ) : (
-          <span aria-hidden className="h-8" />
-        )}
+        ) : null}
       </time>
       <div className="flex min-w-0 flex-1 basis-40 flex-col gap-0.5">
         <div className="flex min-w-0 items-center gap-2">
@@ -105,14 +104,17 @@ export function UpcomingMeetingRow({ meeting }: { meeting: UpcomingMeetingView }
               style={{ backgroundColor: meeting.calendarColor }}
             />
           )}
-          <span className="truncate font-medium" data-testid="upcoming-meeting-title">
+          <span
+            className="truncate text-label-14 text-gray-1000"
+            data-testid="upcoming-meeting-title"
+          >
             {meeting.title || 'Untitled event'}
           </span>
           {meeting.inProgress && <Badge variant="secondary">Now</Badge>}
         </div>
-        <span className="truncate text-xs text-muted-foreground">{meta.join(' · ')}</span>
+        <span className="truncate text-copy-13 text-gray-900">{meta.join(' · ')}</span>
       </div>
-      <div className="ml-auto flex shrink-0 items-center gap-1">
+      <div className="ms-auto flex shrink-0 items-center gap-1">
         {meeting.conferenceUrl && (
           <Button
             variant="outline"
@@ -128,7 +130,7 @@ export function UpcomingMeetingRow({ meeting }: { meeting: UpcomingMeetingView }
               />
             }
           >
-            <VideoIcon data-icon="inline-start" />
+            <IconVideo data-icon="inline-start" />
             Join
           </Button>
         )}
@@ -141,9 +143,9 @@ export function UpcomingMeetingRow({ meeting }: { meeting: UpcomingMeetingView }
             onClick={() => void notes.start()}
           >
             {notes.pending ? (
-              <Loader2Icon data-icon="inline-start" className="animate-spin" />
+              <Spinner data-icon="inline-start" />
             ) : (
-              <NotebookPenIcon data-icon="inline-start" />
+              <IconNotes data-icon="inline-start" />
             )}
             Start notes
           </Button>

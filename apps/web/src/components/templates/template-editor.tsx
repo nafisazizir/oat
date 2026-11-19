@@ -21,17 +21,17 @@ import {
 } from '@oat/ui/components/dropdown-menu';
 import { Input } from '@oat/ui/components/input';
 import { Label } from '@oat/ui/components/label';
+import { Spinner } from '@oat/ui/components/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@oat/ui/components/tabs';
 import { Textarea } from '@oat/ui/components/textarea';
 import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  GripVerticalIcon,
-  Loader2Icon,
-  MoreHorizontalIcon,
-  PlusIcon,
-  Trash2Icon,
-} from 'lucide-react';
+  IconArrowDown,
+  IconArrowUp,
+  IconDots,
+  IconGripVertical,
+  IconPlus,
+  IconTrash,
+} from '@tabler/icons-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useMemo, useRef, useState, useTransition } from 'react';
@@ -246,7 +246,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
             placeholder="Template name"
             maxLength={TEMPLATE_LIMITS.name}
             aria-invalid={nameInvalid || undefined}
-            className="h-auto border-transparent bg-transparent px-0 py-1 font-heading text-3xl font-medium shadow-none focus-visible:border-transparent focus-visible:ring-0 md:text-3xl dark:bg-transparent"
+            className="h-auto border-transparent bg-transparent px-0 py-1 text-heading-32 shadow-none focus-visible:border-transparent focus-visible:ring-0"
           />
           {props.mode === 'edit' && (
             <DropdownMenu>
@@ -260,7 +260,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
                   />
                 }
               >
-                <MoreHorizontalIcon />
+                <IconDots />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {props.canDuplicate && (
@@ -270,7 +270,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
                 )}
                 {props.canDuplicate && <DropdownMenuSeparator />}
                 <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
-                  <Trash2Icon />
+                  <IconTrash />
                   Delete template
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -286,7 +286,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
           onChange={(e) => setInstructions(e.target.value)}
           placeholder="What is this template for? Anything the AI should keep in mind for the whole note."
           maxLength={TEMPLATE_LIMITS.instructions}
-          className="min-h-0 resize-none border-transparent bg-transparent px-0 text-base text-muted-foreground shadow-none focus-visible:border-transparent focus-visible:ring-0 md:text-base dark:bg-transparent"
+          className="min-h-0 resize-none border-transparent bg-transparent px-0 text-copy-16 text-gray-900 shadow-none focus-visible:border-transparent focus-visible:ring-0"
         />
       </div>
 
@@ -297,7 +297,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
         </TabsList>
 
         <TabsContent value="sections" className="flex flex-col gap-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-copy-14 text-gray-900">
             Enhanced notes follow these sections in order. Tell the AI what belongs in each.
           </p>
           <ol className="flex flex-col gap-3" aria-label="Sections">
@@ -316,8 +316,8 @@ export function TemplateEditor(props: TemplateEditorProps) {
                   }}
                   data-testid="template-section"
                   className={cn(
-                    'group/section flex gap-2 rounded-xl border bg-card p-3 shadow-xs transition-[opacity,box-shadow] duration-fast',
-                    dragKey === section.key && 'opacity-50 ring-2 ring-ring/40',
+                    'group/section flex gap-2 rounded-xl border border-gray-alpha-400 p-3 transition-[opacity,box-shadow] duration-150',
+                    dragKey === section.key && 'opacity-50 ring-2 ring-gray-600/50',
                   )}
                   onDragOver={(event) => {
                     if (!dragKey) return;
@@ -344,7 +344,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
                       aria-label={`Reorder ${label}`}
                       aria-describedby={`${ids}-reorder-help`}
                       data-testid="section-handle"
-                      className="flex size-7 cursor-grab items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 active:cursor-grabbing"
+                      className="flex size-7 cursor-grab items-center justify-center rounded-md text-gray-900 outline-none hover:bg-gray-alpha-100 hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 active:cursor-grabbing"
                       onDragStart={(event) => {
                         event.dataTransfer.effectAllowed = 'move';
                         event.dataTransfer.setData('text/plain', label);
@@ -363,10 +363,10 @@ export function TemplateEditor(props: TemplateEditorProps) {
                         }
                       }}
                     >
-                      <GripVerticalIcon className="size-4" />
+                      <IconGripVertical aria-hidden className="size-4" />
                     </button>
                     <span
-                      className="text-xs text-muted-foreground tabular-nums"
+                      className="text-label-12 text-gray-900 tabular-nums"
                       aria-hidden
                       data-testid="section-number"
                     >
@@ -386,7 +386,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
                         maxLength={TEMPLATE_LIMITS.heading}
                         aria-invalid={headingInvalid || undefined}
                         aria-describedby={isDuplicate ? `${headingId}-error` : undefined}
-                        className="font-medium"
+                        className="text-label-14"
                       />
                       <DropdownMenu>
                         <DropdownMenuTrigger
@@ -395,25 +395,25 @@ export function TemplateEditor(props: TemplateEditorProps) {
                               variant="ghost"
                               size="icon-sm"
                               aria-label={`${label} options`}
-                              className="text-muted-foreground"
+                              className="text-gray-900"
                             />
                           }
                         >
-                          <MoreHorizontalIcon />
+                          <IconDots />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
                             disabled={index === 0}
                             onClick={() => moveSection(index, index - 1)}
                           >
-                            <ArrowUpIcon />
+                            <IconArrowUp />
                             Move up
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             disabled={index === sections.length - 1}
                             onClick={() => moveSection(index, index + 1)}
                           >
-                            <ArrowDownIcon />
+                            <IconArrowDown />
                             Move down
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
@@ -422,14 +422,14 @@ export function TemplateEditor(props: TemplateEditorProps) {
                             disabled={sections.length <= TEMPLATE_LIMITS.minSections}
                             onClick={() => removeSection(index)}
                           >
-                            <Trash2Icon />
+                            <IconTrash />
                             Remove section
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
                     {isDuplicate && (
-                      <p id={`${headingId}-error`} className="text-xs text-destructive">
+                      <p id={`${headingId}-error`} className="text-copy-13 text-red-900">
                         Another section already uses this heading.
                       </p>
                     )}
@@ -442,7 +442,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
                       onChange={(e) => updateSection(section.key, { instructions: e.target.value })}
                       placeholder="What should go in this section?"
                       maxLength={TEMPLATE_LIMITS.sectionInstructions}
-                      className="min-h-14 resize-none text-sm md:text-sm"
+                      className="min-h-14 resize-none"
                     />
                   </div>
                 </li>
@@ -461,11 +461,11 @@ export function TemplateEditor(props: TemplateEditorProps) {
             onClick={addSection}
             disabled={sections.length >= TEMPLATE_LIMITS.maxSections}
           >
-            <PlusIcon />
+            <IconPlus data-icon="inline-start" />
             Add section
           </Button>
           {sections.length >= TEMPLATE_LIMITS.maxSections && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-copy-13 text-gray-900">
               Templates can have up to {TEMPLATE_LIMITS.maxSections} sections.
             </p>
           )}
@@ -476,9 +476,9 @@ export function TemplateEditor(props: TemplateEditorProps) {
         </TabsContent>
       </Tabs>
 
-      <div className="sticky bottom-0 z-20 -mx-6 -mb-10 border-t bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:-mx-8 sm:-mb-14">
+      <div className="sticky bottom-0 z-20 -mx-6 -mb-10 border-t border-gray-alpha-400 bg-background-100 sm:-mx-8 sm:-mb-14">
         <div className="flex items-center justify-between gap-3 px-6 py-3 sm:px-8">
-          <p className="truncate text-sm text-muted-foreground" data-testid="save-status">
+          <p className="truncate text-copy-14 text-gray-900" data-testid="save-status">
             {props.mode === 'create'
               ? 'New template'
               : dirty
@@ -498,7 +498,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
               </Button>
             )}
             <Button onClick={save} disabled={!dirty || pending}>
-              {pending && <Loader2Icon className="animate-spin" />}
+              {pending && <Spinner data-icon="inline-start" />}
               {props.mode === 'create' ? 'Create template' : 'Save'}
             </Button>
           </div>
