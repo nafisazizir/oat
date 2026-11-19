@@ -8,6 +8,7 @@ import {
   evidence33,
   rowAction,
   treeRow,
+  treeSettled,
 } from './docs-helpers';
 import { expect, test } from './fixtures';
 import { STORAGE_STATE } from './paths';
@@ -121,6 +122,7 @@ test('folders: create + rename inline, move a shared page into a private folder 
   const privateTree = page.getByTestId('page-tree');
   await expect(privateTree.getByRole('link', { name: 'Roadmap' })).toBeVisible();
   await expect(page.getByTestId('shared-tree').getByRole('link', { name: 'Roadmap' })).toBeHidden();
+  await treeSettled(page);
   await page.reload();
   await expect(page.getByText('Private', { exact: true }).first()).toBeVisible();
   const crumbs = page.getByRole('navigation', { name: 'Breadcrumb' });
@@ -171,6 +173,7 @@ test('drag a page onto a folder; delete the folder (its pages go to the trash)',
   await expect(treeRow(page, 'Old notes')).toHaveAttribute('data-node-id', /.+/);
   // Nested: the folder now has an expand toggle and the page sits under it.
   await expect(tree.getByRole('button', { name: 'Collapse Archive' })).toBeVisible();
+  await treeSettled(page);
   await page.goto(`/d/${folder.id}`);
   await expect(page.getByRole('main').getByTestId('folder-contents')).toContainText('Old notes');
   await evidence33(page, 'folder-page');
@@ -242,6 +245,7 @@ test.describe('conflicts', () => {
     await rename.fill('Renamed anyway');
     await rename.press('Enter');
     await expect(treeRow(page, 'Renamed anyway')).toBeVisible();
+    await treeSettled(page);
     await expect(page.getByText('This page was renamed elsewhere')).toHaveCount(0);
     await page.goto(`/d/${doc.id}`);
     await expect(page.getByTestId('document-title')).toHaveValue('Renamed anyway');

@@ -19,6 +19,8 @@ type Pending = { key: number; op: TreeOp; confirmedFor: ShellData | null };
 type OptimisticTree = {
   /** Shows `op` right away; returns a handle to confirm or roll it back. */
   apply(op: TreeOp): { confirm(): void; rollback(): void };
+  /** Some op is still waiting for the server. */
+  saving: boolean;
 };
 
 const ShellDataContext = createContext<ShellData | null>(null);
@@ -68,7 +70,8 @@ export function ShellDataProvider({
       ),
     [value, pending],
   );
-  const tree = useMemo(() => ({ apply }), [apply]);
+  const saving = pending.some((p) => p.confirmedFor === null);
+  const tree = useMemo(() => ({ apply, saving }), [apply, saving]);
 
   return (
     <OptimisticTreeContext.Provider value={tree}>

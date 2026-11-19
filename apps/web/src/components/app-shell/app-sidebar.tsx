@@ -50,7 +50,7 @@ import { WorkspaceAvatar } from '@/components/workspace/workspace-avatar';
 import { useCommandMenu } from './command-menu';
 import { CreateWorkspaceDialog } from './create-workspace-dialog';
 import { TreeSection } from './page-tree';
-import { useShellData } from './shell-data';
+import { useOptimisticTree, useShellData } from './shell-data';
 import { useTreeActions } from './tree-actions';
 import { useNewNote } from './use-new-note';
 import { UserMenu } from './user-menu';
@@ -170,11 +170,18 @@ export function AppSidebar() {
   const newNote = useNewNote();
   const { documents, workspace, trash } = useShellData();
   const { openTrash } = useTreeActions();
+  const { saving } = useOptimisticTree();
   // A personal workspace has nobody to share with: show "Shared" only if something is in it.
   const showShared = workspace.kind === 'team' || rootsOf(documents, 'shared').length > 0;
 
   return (
-    <Sidebar collapsible="icon" data-testid="app-sidebar" data-workspace-id={workspace.id}>
+    <Sidebar
+      collapsible="icon"
+      data-testid="app-sidebar"
+      data-workspace-id={workspace.id}
+      // Sidebar changes show before the server confirms them; e2e waits for this before navigating.
+      data-saving={saving || undefined}
+    >
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -245,10 +252,12 @@ export function AppSidebar() {
             <SidebarMenuButton tooltip="Trash" onClick={openTrash} data-testid="open-trash">
               <IconTrash />
               <span>Trash</span>
+              {trash.length > 0 && (
+                <span className="ms-auto text-label-12 text-gray-900 tabular-nums group-data-[collapsible=icon]:hidden">
+                  {trash.length}
+                </span>
+              )}
             </SidebarMenuButton>
-            {trash.length > 0 && (
-              <SidebarMenuBadge className="text-gray-900">{trash.length}</SidebarMenuBadge>
-            )}
           </SidebarMenuItem>
           {[
             { ...sections.templates, Icon: IconLayoutGrid },
