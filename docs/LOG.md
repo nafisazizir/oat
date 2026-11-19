@@ -134,3 +134,8 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - Remaining unticked tasks are human-only: 9.1 (signing/notarization/auto-update), 9.6 (prod infra + real keys), 9.5 (prod deploy + a week of real use).
 - Non-blocking review follow-ups were moved to docs/IDEAS.md ("Follow-ups from the autonomous run").
 - Next for the human: see "Waiting on human" above (try the app end to end via docs/DEV.md; real-permission checks for sidecar/calendar/mic-apps/onboarding; confirm D-18..D-31; then 9.6 → 9.5).
+
+## 2026-11-18 · human-requested · agent workflow generalised
+- `docs/FACTORY.md` moved to `.agent/FACTORY.md` and made tool-agnostic (no Claude Code assumptions: §6 "running long sessions", §8 REA client, §9 briefs now generic). Reusable procedures extracted to `.agent/skills/` (`task-file`, `subagent-briefs`, `rea-research`) as SKILL.md files.
+- New root `AGENTS.md` is the entry point for every agent tool (same content as the old `CLAUDE.md`, updated paths); `CLAUDE.md` is now a thin pointer holding only Claude Code specifics (`/loop`, `isolation: worktree`, REA `--client claude_code`). `apps/web/AGENTS.md` (Next.js-managed) unchanged.
+- References updated: README, PLAN §rules, research/granola ARCHITECTURE + FINDINGS; `.agent/` added to .prettierignore and .dockerignore.

@@ -1,35 +1,9 @@
-# Oat — agent entry point
+# Oat — Claude Code entry point
 
-Oat is a personal, AI meeting-notes app inspired by Granola: it captures mic + system audio on the desktop
-(no meeting bot), transcribes live, and turns your rough notes + the transcript into clean notes, inside a
-Notion-like workspace with private pages, team spaces, sharing and AI assistants.
+All agent instructions are tool-agnostic: read [`AGENTS.md`](AGENTS.md), then `.agent/FACTORY.md` and the
+docs it points to. Reusable procedures live in `.agent/skills/`.
 
-**Every session — human-started or autonomous — starts here.** Read in this order:
+Claude Code specifics:
 
-1. `docs/FACTORY.md` — how work is done: the loop, roles, gates, when to stop and ask.
-2. `docs/SPEC.md` — what we are building and the decisions already made.
-3. `docs/PLAN.md` — milestones and the task board. Pick work from here.
-4. `docs/DECISIONS.md` — decision log. Don't re-litigate a decision without writing a new entry.
-5. `research/granola/` — what we know about how Granola works (reference only, see clean-room rules).
-6. `docs/IDEAS.md` — backlog. Not in scope unless promoted into `PLAN.md`.
-
-## Hard rules
-
-- State lives on disk, not in conversation memory: update `docs/PLAN.md`, the task file in `docs/tasks/`,
-  and `docs/LOG.md` as you go. A fresh session must be able to resume from the files alone.
-- Clean room: never copy Granola's code, prompts, strings, icons or visual identity. Research produces
-  descriptions of *behaviour and architecture* in `research/granola/`; implementation works from those.
-- Never read, use, or exfiltrate Granola auth tokens or call Granola's servers.
-- Stuck on "how does Granola do X?" at any point → check `research/granola/` first, then have the
-  orchestrator spawn a Researcher that uses REA (https://rea.tools, MCP + CLI) to answer that one question.
-  See `docs/FACTORY.md` §2 "Research on demand" and §8.
-- Stop and ask the human for anything on the "Human checkpoints" list in `docs/FACTORY.md`.
-- Verify before claiming done. "Done" means the task's acceptance checks ran and passed, with evidence
-  recorded in the task file.
-
-## Stack at a glance
-
-pnpm + Turborepo · TypeScript everywhere · Electron + Vite (desktop) · Swift sidecar (audio capture) ·
-Next.js App Router on Vercel (web + API) · Postgres (Neon) + Drizzle · SQLite on desktop · Better Auth ·
-TipTap editor (JSON canonical, Markdown derived) · shadcn/ui + Tailwind tokens · Vercel AI SDK via AI Gateway ·
-Deepgram streaming STT (behind a provider interface) · eve for durable background agents (from M8).
+- Self-pace long orchestrator runs with `/loop`; spawn implementers with `isolation: worktree`.
+- REA setup uses `--client claude_code` (see `.agent/skills/rea-research/SKILL.md`).
