@@ -2,7 +2,17 @@
 
 import { DESKTOP_CODE_ENDPOINT } from '@oat/auth/desktop-link';
 import { Button } from '@oat/ui/components/button';
-import { CheckIcon, CopyIcon, Loader2Icon, MonitorIcon, ShieldAlertIcon } from 'lucide-react';
+import { Alert, AlertDescription } from '@oat/ui/components/alert';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconCheck, IconCopy, IconDeviceDesktop, IconShieldExclamation } from '@tabler/icons-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -71,17 +81,19 @@ export function DesktopHandoff({
 
   if (ui.step === 'opened') {
     return (
-      <div className="flex flex-col items-center gap-4 text-center" data-testid="desktop-opened">
-        <div className="flex size-11 items-center justify-center rounded-full bg-accent text-accent-foreground">
-          <MonitorIcon className="size-5" />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <h2 className="text-lg font-semibold">Back to the app</h2>
-          <p role="status" className="text-sm text-muted-foreground">
+      <Empty className="gap-5 p-0" data-testid="desktop-opened">
+        <EmptyHeader>
+          <EmptyMedia variant="icon" className="bg-brand-100 text-brand-900">
+            <IconDeviceDesktop />
+          </EmptyMedia>
+          <EmptyTitle className="text-heading-16">
+            <h2>Back to the app</h2>
+          </EmptyTitle>
+          <EmptyDescription role="status">
             Oat should open and finish signing in. You can close this tab.
-          </p>
-        </div>
-        <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent className="gap-1 text-copy-13 text-gray-900">
           <span>Didn’t open? Make sure Oat is running, then</span>
           <div className="flex gap-1">
             <Button
@@ -103,9 +115,9 @@ export function DesktopHandoff({
                 }}
               >
                 {ui.copied ? (
-                  <CheckIcon data-icon="inline-start" />
+                  <IconCheck data-icon="inline-start" />
                 ) : (
-                  <CopyIcon data-icon="inline-start" />
+                  <IconCopy data-icon="inline-start" />
                 )}
                 {ui.copied ? 'Copied' : 'Copy link for the app (dev)'}
               </Button>
@@ -114,20 +126,17 @@ export function DesktopHandoff({
           <span data-testid="desktop-never-share">
             Never share this link. Oat will never ask for it.
           </span>
-        </div>
-      </div>
+        </EmptyContent>
+      </Empty>
     );
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <p
-        className="flex items-start gap-2 rounded-lg bg-warning/15 p-3 text-left text-xs text-foreground"
-        data-testid="desktop-warning"
-      >
-        <ShieldAlertIcon className="mt-px size-4 shrink-0 text-warning-foreground" aria-hidden />
-        {HANDOFF_WARNING}
-      </p>
+      <Alert className="border-amber-400 bg-amber-100" data-testid="desktop-warning">
+        <IconShieldExclamation className="text-amber-900" aria-hidden />
+        <AlertDescription className="text-gray-1000">{HANDOFF_WARNING}</AlertDescription>
+      </Alert>
       <Button
         size="lg"
         className="w-full"
@@ -136,9 +145,9 @@ export function DesktopHandoff({
         onClick={continueToApp}
       >
         {ui.pending ? (
-          <Loader2Icon data-icon="inline-start" className="animate-spin" />
+          <Spinner data-icon="inline-start" />
         ) : (
-          <MonitorIcon data-icon="inline-start" />
+          <IconDeviceDesktop data-icon="inline-start" />
         )}
         Continue to the app
       </Button>
@@ -151,7 +160,7 @@ export function DesktopHandoff({
       >
         Use a different account
       </Button>
-      <p role="status" className="text-center text-xs text-destructive empty:hidden">
+      <p role="status" className="text-center text-copy-13 text-red-900 empty:hidden">
         {ui.error}
       </p>
     </div>

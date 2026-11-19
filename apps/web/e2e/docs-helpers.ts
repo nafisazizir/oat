@@ -90,3 +90,8 @@ export async function rowAction(page: Page, title: string, item: string) {
   await row.getByRole('button', { name: `More actions for ${title}` }).click();
   await page.getByRole('menuitem', { name: item }).click();
 }
+
+/** Sidebar changes show before the server confirms them: wait until none is pending. */
+export async function treeSettled(page: Page) {
+  await expect(page.getByTestId('app-sidebar')).not.toHaveAttribute('data-saving');
+}

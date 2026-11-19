@@ -19,21 +19,22 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@oat/ui/components/sidebar';
+import { Spinner } from '@oat/ui/components/spinner';
 import {
-  ChevronRightIcon,
-  FilePlusIcon,
-  FileTextIcon,
-  FolderIcon,
-  FolderInputIcon,
-  FolderOpenIcon,
-  FolderPlusIcon,
-  LockIcon,
-  MoreHorizontalIcon,
-  NotebookPenIcon,
-  PencilIcon,
-  PlusIcon,
-  Trash2Icon,
-} from 'lucide-react';
+  IconChevronRight,
+  IconDots,
+  IconFilePlus,
+  IconFileText,
+  IconFolder,
+  IconFolderOpen,
+  IconFolderPlus,
+  IconFolderSymlink,
+  IconLock,
+  IconNotes,
+  IconPencil,
+  IconPlus,
+  IconTrash,
+} from '@tabler/icons-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -50,6 +51,7 @@ import {
   titleOf,
 } from '@/lib/tree';
 
+import { isPendingId } from './optimistic-tree';
 import { useShellData } from './shell-data';
 import { useTreeActions } from './tree-actions';
 
@@ -153,7 +155,7 @@ export function TreeSection({ area, label }: { area: Area; label: string }) {
     <SidebarGroup data-testid={`tree-section-${area}`}>
       <SidebarGroupLabel
         {...rootDrop.handlers}
-        className={cn(rootDrop.over && 'bg-sidebar-accent text-sidebar-accent-foreground')}
+        className={cn(rootDrop.over && 'bg-brand-100 text-brand-1000')}
       >
         {label}
       </SidebarGroupLabel>
@@ -162,15 +164,15 @@ export function TreeSection({ area, label }: { area: Area; label: string }) {
           <DropdownMenuTrigger
             render={<SidebarGroupAction title={`Add to ${label}`} aria-label={`Add to ${label}`} />}
           >
-            <PlusIcon />
+            <IconPlus />
           </DropdownMenuTrigger>
           <DropdownMenuContent side="right" align="start">
             <DropdownMenuItem onClick={() => void actions.newPage({ area })}>
-              <FilePlusIcon />
+              <IconFilePlus />
               New page
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => void actions.newFolder({ area })}>
-              <FolderPlusIcon />
+              <IconFolderPlus />
               New folder
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -179,7 +181,7 @@ export function TreeSection({ area, label }: { area: Area; label: string }) {
       <SidebarGroupContent>
         <SidebarMenu data-testid={area === 'private' ? 'page-tree' : 'shared-tree'}>
           {rows.length === 0 && (
-            <li className="px-2 py-1 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+            <li className="px-2 py-1.5 text-copy-13 text-gray-900 group-data-[collapsible=icon]:hidden">
               {area === 'private' ? 'Pages only you can see.' : 'Pages your workspace can see.'}
             </li>
           )}
@@ -199,9 +201,10 @@ export function TreeSection({ area, label }: { area: Area; label: string }) {
 }
 
 function NodeIcon({ node, open }: { node: DocumentNode; open: boolean }) {
-  if (node.kind === 'folder') return open ? <FolderOpenIcon /> : <FolderIcon />;
-  if (node.kind === 'meeting') return <NotebookPenIcon />;
-  return <FileTextIcon />;
+  if (isPendingId(node.id)) return <Spinner />;
+  if (node.kind === 'folder') return open ? <IconFolderOpen /> : <IconFolder />;
+  if (node.kind === 'meeting') return <IconNotes />;
+  return <IconFileText />;
 }
 
 function TreeRow({
@@ -227,7 +230,8 @@ function TreeRow({
   }, isFolder && node.access.edit);
   // A private item inside a shared folder: marked, since the rest of the workspace can't see it.
   const lockedInShared = area === 'shared' && node.visibility === 'private';
-  const indent = { paddingLeft: `calc(0.5rem + ${depth} * 0.875rem)` };
+  const indent = { paddingInlineStart: `calc(0.5rem + ${depth} * 0.875rem)` };
+  const pending = isPendingId(node.id);
 
   return (
     <SidebarMenuItem
@@ -240,23 +244,23 @@ function TreeRow({
         event.dataTransfer.effectAllowed = 'move';
       }}
       {...drop.handlers}
-      className={cn(drop.over && 'rounded-md ring-2 ring-sidebar-ring')}
+      aria-busy={pending || undefined}
+      className={cn(drop.over && 'rounded-md bg-brand-100 ring-1 ring-brand-500 ring-inset')}
     >
       {renaming ? (
         <RenameInput node={node} style={indent} />
       ) : (
         <SidebarMenuButton
-          render={<Link href={`/d/${node.id}` as Route} />}
+          // Not openable until the server has created it (a moment after it appears).
+          render={pending ? <span aria-disabled /> : <Link href={`/d/${node.id}` as Route} />}
           isActive={active}
           tooltip={title}
           style={indent}
-          className={cn(isFolder && hasChildren ? 'pr-14' : 'pr-8')}
+          className={cn(isFolder && hasChildren ? 'pe-14' : 'pe-8')}
         >
           <NodeIcon node={node} open={open} />
-          <span className={cn(!node.title.trim() && 'text-muted-foreground')}>{title}</span>
-          {lockedInShared && (
-            <LockIcon className="ml-auto text-muted-foreground" aria-label="Only you" />
-          )}
+          <span className={cn(!node.title.trim() && 'text-gray-900')}>{title}</span>
+          {lockedInShared && <IconLock className="ms-auto text-gray-900" aria-label="Only you" />}
         </SidebarMenuButton>
       )}
       {isFolder && hasChildren && !renaming && (
@@ -266,7 +270,7 @@ function TreeRow({
           aria-expanded={open}
           onClick={onToggle}
         >
-          <ChevronRightIcon
+          <IconChevronRight
             className={cn('transition-transform duration-fast', open && 'rotate-90')}
           />
         </SidebarMenuAction>
@@ -288,7 +292,7 @@ function RowMenu({ node, title }: { node: DocumentNode; title: string }) {
       <DropdownMenuTrigger
         render={<SidebarMenuAction showOnHover aria-label={`More actions for ${title}`} />}
       >
-        <MoreHorizontalIcon />
+        <IconDots />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         side="right"
@@ -308,11 +312,11 @@ function RowMenu({ node, title }: { node: DocumentNode; title: string }) {
                 actions.startRename(node.id);
               }}
             >
-              <PencilIcon />
+              <IconPencil />
               Rename
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => actions.openMoveDialog(node)}>
-              <FolderInputIcon />
+              <IconFolderSymlink />
               Move to…
             </DropdownMenuItem>
           </>
@@ -321,11 +325,11 @@ function RowMenu({ node, title }: { node: DocumentNode; title: string }) {
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => void actions.newPage({ folderId: node.id })}>
-              <FilePlusIcon />
+              <IconFilePlus />
               New page inside
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => void actions.newFolder({ parentId: node.id })}>
-              <FolderPlusIcon />
+              <IconFolderPlus />
               New folder inside
             </DropdownMenuItem>
           </>
@@ -334,7 +338,7 @@ function RowMenu({ node, title }: { node: DocumentNode; title: string }) {
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={() => actions.remove(node)}>
-              <Trash2Icon />
+              <IconTrash />
               {isFolder ? 'Delete folder' : 'Move to trash'}
             </DropdownMenuItem>
           </>

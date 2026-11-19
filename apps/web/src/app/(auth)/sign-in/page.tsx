@@ -27,9 +27,9 @@ export default async function SignInPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <Card className="shadow-md">
+      <Card>
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">
+          <CardTitle className="text-heading-24">
             <h1>Welcome to Oat</h1>
           </CardTitle>
           <CardDescription>Sign in to your notes and workspaces.</CardDescription>
@@ -42,7 +42,7 @@ export default async function SignInPage({
           />
         </CardContent>
       </Card>
-      <p className="px-6 text-center text-xs text-muted-foreground">
+      <p className="px-6 text-center text-copy-13 text-gray-900">
         New here? Signing in creates your personal workspace.
       </p>
     </div>

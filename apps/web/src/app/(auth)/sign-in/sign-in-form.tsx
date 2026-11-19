@@ -1,9 +1,18 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
+import { Field, FieldLabel, FieldSeparator } from '@oat/ui/components/field';
 import { Input } from '@oat/ui/components/input';
-import { Label } from '@oat/ui/components/label';
-import { ArrowLeftIcon, Loader2Icon, MailCheckIcon, MailIcon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconArrowLeft, IconBrandGoogle, IconMail, IconMailCheck } from '@tabler/icons-react';
 import { useState } from 'react';
 
 import { authClient, GOOGLE_PROVIDER_ID } from '@/lib/auth-client';
@@ -73,38 +82,41 @@ export function SignInForm({
 
   if (state.step === 'sent') {
     return (
-      <div className="flex flex-col items-center gap-4 text-center" data-testid="magic-link-sent">
-        <div className="flex size-11 items-center justify-center rounded-full bg-accent text-accent-foreground">
-          <MailCheckIcon className="size-5" />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <h2 className="text-lg font-semibold">Check your email</h2>
-          <p role="status" className="text-sm text-muted-foreground">
-            We sent a sign-in link to{' '}
-            <span className="font-medium text-foreground">{state.email}</span>. It works once and
-            expires in 15 minutes.
-          </p>
-        </div>
-        {mailpitUrl && (
-          <a
-            href={mailpitUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+      <Empty className="gap-5 p-0" data-testid="magic-link-sent">
+        <EmptyHeader>
+          <EmptyMedia variant="icon" className="bg-brand-100 text-brand-900">
+            <IconMailCheck />
+          </EmptyMedia>
+          <EmptyTitle className="text-heading-16">
+            <h2>Check your email</h2>
+          </EmptyTitle>
+          <EmptyDescription role="status">
+            We sent a sign-in link to <span className="text-gray-1000">{state.email}</span>. It
+            works once and expires in 15 minutes.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          {mailpitUrl && (
+            <a
+              href={mailpitUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-copy-13 text-gray-900 underline underline-offset-4 hover:text-gray-1000"
+            >
+              Running locally? Open Mailpit
+            </a>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            onClick={() => setState({ step: 'form', pending: null, error: null })}
           >
-            Running locally? Open Mailpit
-          </a>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          type="button"
-          onClick={() => setState({ step: 'form', pending: null, error: null })}
-        >
-          <ArrowLeftIcon data-icon="inline-start" />
-          Use a different email
-        </Button>
-      </div>
+            <IconArrowLeft data-icon="inline-start" />
+            Use a different email
+          </Button>
+        </EmptyContent>
+      </Empty>
     );
   }
 
@@ -119,17 +131,17 @@ export function SignInForm({
           disabled={disabled}
           onClick={continueWithGoogle}
         >
-          {pending === 'google' && (
-            <Loader2Icon data-icon="inline-start" className="animate-spin" />
+          {pending === 'google' ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <IconBrandGoogle data-icon="inline-start" />
           )}
           Continue with Google
         </Button>
 
-        <div className="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden>
-          <span className="h-px flex-1 bg-border" />
+        <FieldSeparator aria-hidden className="text-label-12">
           or
-          <span className="h-px flex-1 bg-border" />
-        </div>
+        </FieldSeparator>
 
         <form
           className="flex flex-col gap-3"
@@ -139,8 +151,8 @@ export function SignInForm({
             if (typeof email === 'string' && email.trim()) void sendLink(email.trim());
           }}
         >
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="email">Work email</Label>
+          <Field>
+            <FieldLabel htmlFor="email">Work email</FieldLabel>
             <Input
               id="email"
               name="email"
@@ -150,12 +162,12 @@ export function SignInForm({
               required
               disabled={disabled}
             />
-          </div>
+          </Field>
           <Button type="submit" size="lg" className="w-full" disabled={disabled}>
             {pending === 'email' ? (
-              <Loader2Icon data-icon="inline-start" className="animate-spin" />
+              <Spinner data-icon="inline-start" />
             ) : (
-              <MailIcon data-icon="inline-start" />
+              <IconMail data-icon="inline-start" />
             )}
             Email me a sign-in link
           </Button>
@@ -163,7 +175,7 @@ export function SignInForm({
       </div>
 
       {/* Live region stays mounted (announcements); it takes no space while empty. */}
-      <p role="status" className="text-center text-xs text-destructive not-empty:mt-4">
+      <p role="status" className="text-center text-copy-13 text-red-900 not-empty:mt-4">
         {state.error}
       </p>
     </div>

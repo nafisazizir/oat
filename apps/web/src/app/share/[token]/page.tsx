@@ -1,5 +1,5 @@
 import { Badge } from '@oat/ui/components/badge';
-import { FileTextIcon, NotebookPenIcon } from 'lucide-react';
+import { IconNotes } from '@tabler/icons-react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
@@ -67,11 +67,13 @@ export default async function SharePage({ params }: Props) {
   return (
     <PageContainer className="gap-8" data-testid="shared-document">
       <header className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <Badge variant="secondary" className="gap-1">
-            {isMeeting ? <NotebookPenIcon /> : <FileTextIcon />}
-            {isMeeting ? 'Meeting notes' : 'Page'}
-          </Badge>
+        <div className="flex flex-wrap items-center gap-2 text-copy-13 text-gray-900">
+          {isMeeting && (
+            <Badge variant="secondary">
+              <IconNotes />
+              Meeting notes
+            </Badge>
+          )}
           {when && <span data-testid="shared-meeting-date">{formatDate(when)}</span>}
           {length && (
             <>
@@ -80,8 +82,8 @@ export default async function SharePage({ params }: Props) {
             </>
           )}
         </div>
-        <h1 className="font-heading text-3xl font-medium text-balance">{titleOf(shared.title)}</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-heading-32 text-balance text-gray-1000">{titleOf(shared.title)}</h1>
+        <p className="text-copy-14 text-gray-900">
           {shared.authorName ? `Shared by ${shared.authorName} · ` : ''}
           Edited {formatDate(shared.updatedAt)}
         </p>
@@ -103,32 +105,32 @@ function Transcript({ lines }: { lines: SharedTranscriptLine[] }) {
   return (
     <section
       aria-labelledby="transcript-heading"
-      className="flex flex-col gap-4 border-t pt-8"
+      className="flex flex-col gap-4 border-t border-gray-alpha-400 pt-8"
       data-testid="shared-transcript"
     >
       <SectionHeading>
         <span id="transcript-heading">Transcript</span>
       </SectionHeading>
       {lines.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No transcript was recorded.</p>
+        <p className="text-copy-14 text-gray-900">No transcript was recorded.</p>
       ) : (
         <ol className="flex flex-col gap-3">
           {lines.map((line, index) => (
-            <li key={index} className="grid grid-cols-[3.5rem_1fr] gap-x-3 text-sm">
-              <span className="pt-px font-mono text-xs text-muted-foreground tabular-nums">
+            <li key={index} className="grid grid-cols-[3.5rem_1fr] gap-x-3">
+              <span className="pt-px text-copy-13-mono text-gray-900 tabular-nums">
                 {offset(line.startMs)}
               </span>
               <div className="flex flex-col gap-0.5">
                 <span
                   className={
                     line.source === 'mic'
-                      ? 'text-xs font-medium text-foreground'
-                      : 'text-xs font-medium text-muted-foreground'
+                      ? 'text-label-12 text-gray-1000'
+                      : 'text-label-12 text-gray-900'
                   }
                 >
                   {line.speaker}
                 </span>
-                <p className="leading-relaxed">{line.text}</p>
+                <p className="text-copy-14 text-gray-1000">{line.text}</p>
               </div>
             </li>
           ))}

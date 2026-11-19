@@ -183,6 +183,8 @@ test.describe('signed in', () => {
     await evidence(page, 'workspace-switcher');
     await page.getByTestId('workspace-option').filter({ hasText: 'Personal' }).click();
     await expect(switcher).toContainText('Personal');
+    // The switcher shows the pick right away; wait for the server to store it.
+    await expect(switcher).not.toHaveAttribute('aria-busy');
     // The choice is stored on the session, so it survives a reload.
     await page.reload();
     await expect(switcher).toContainText('Personal');

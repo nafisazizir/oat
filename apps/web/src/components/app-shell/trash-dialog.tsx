@@ -8,11 +8,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@oat/ui/components/dialog';
-import { FileTextIcon, NotebookPenIcon, RotateCcwIcon, Trash2Icon } from 'lucide-react';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from '@oat/ui/components/item';
+import { IconArrowBackUp, IconFileText, IconNotes, IconTrash } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { EmptyState } from '@/components/page';
 import { formatDay } from '@/lib/format';
 import { type DocumentNode, titleOf } from '@/lib/tree';
 
@@ -22,7 +37,7 @@ import { useTreeActions } from './tree-actions';
 /**
  * The trash of the active workspace: documents the user may still read (their own, plus non-private
  * ones for owners/admins), newest first. Restore puts a page back in its folder (or the root if the
- * folder was deleted); "Delete forever" asks once more inline.
+ * folder was deleted); "Delete forever" asks once more inline. Both take effect immediately.
  */
 export function TrashDialog({
   open,
@@ -40,18 +55,23 @@ export function TrashDialog({
           <DialogDescription>Restore pages you deleted, or delete them for good.</DialogDescription>
         </DialogHeader>
         {trash.length === 0 ? (
-          <EmptyState
-            icon={Trash2Icon}
-            title="The trash is empty"
-            description="Pages you delete land here until you restore them or delete them forever."
-            className="py-8"
-          />
+          <Empty className="p-8">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <IconTrash />
+              </EmptyMedia>
+              <EmptyTitle className="text-heading-16">The trash is empty</EmptyTitle>
+              <EmptyDescription>
+                Pages you delete stay here until you restore them.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <ul className="-mx-2 flex max-h-96 flex-col overflow-y-auto">
+          <ItemGroup className="-mx-2 max-h-96 gap-0.5 overflow-y-auto">
             {trash.map((node) => (
               <TrashRow key={node.id} node={node} onNavigate={() => onOpenChange(false)} />
             ))}
-          </ul>
+          </ItemGroup>
         )}
       </DialogContent>
     </Dialog>
@@ -61,57 +81,43 @@ export function TrashDialog({
 function TrashRow({ node, onNavigate }: { node: DocumentNode; onNavigate: () => void }) {
   const { restore, deleteForever } = useTreeActions();
   const [confirming, setConfirming] = useState(false);
-  const [pending, setPending] = useState(false);
-  const Icon = node.kind === 'meeting' ? NotebookPenIcon : FileTextIcon;
-  const run = async (action: () => Promise<void>) => {
-    setPending(true);
-    try {
-      await action();
-    } finally {
-      setPending(false);
-      setConfirming(false);
-    }
-  };
+  const Icon = node.kind === 'meeting' ? IconNotes : IconFileText;
+  const title = titleOf(node);
 
   return (
-    <li
-      className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent"
-      data-testid="trash-item"
-    >
-      <Icon className="size-4 shrink-0 text-muted-foreground" />
-      <Link
-        href={`/d/${node.id}`}
-        onClick={onNavigate}
-        className="min-w-0 flex-1 truncate text-sm focus-visible:underline focus-visible:outline-none"
-      >
-        {titleOf(node)}
-      </Link>
-      {node.deletedAt && (
-        <span className="shrink-0 text-xs text-muted-foreground">{formatDay(node.deletedAt)}</span>
-      )}
-      {node.access.delete && (
-        <>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={pending}
-            onClick={() => void run(() => restore(node))}
+    <Item size="xs" role="listitem" className="hover:bg-gray-alpha-100" data-testid="trash-item">
+      <ItemMedia variant="icon" className="text-gray-900">
+        <Icon />
+      </ItemMedia>
+      <ItemContent className="min-w-0">
+        <ItemTitle className="w-full">
+          <Link
+            href={`/d/${node.id}`}
+            onClick={onNavigate}
+            className="truncate rounded-sm focus-visible:underline focus-visible:outline-none"
           >
-            <RotateCcwIcon data-icon="inline-start" />
+            {title}
+          </Link>
+        </ItemTitle>
+        {node.deletedAt && <ItemDescription>Deleted {formatDay(node.deletedAt)}</ItemDescription>}
+      </ItemContent>
+      {node.access.delete && (
+        <ItemActions className="gap-1">
+          <Button size="sm" variant="ghost" onClick={() => void restore(node)}>
+            <IconArrowBackUp data-icon="inline-start" />
             Restore
           </Button>
           <Button
-            size="sm"
+            size={confirming ? 'sm' : 'icon-sm'}
             variant={confirming ? 'destructive' : 'ghost'}
-            disabled={pending}
-            aria-label={confirming ? undefined : `Delete ${titleOf(node)} forever`}
-            onClick={() => (confirming ? void run(() => deleteForever(node)) : setConfirming(true))}
+            aria-label={confirming ? undefined : `Delete ${title} forever`}
+            onClick={() => (confirming ? void deleteForever(node) : setConfirming(true))}
             onBlur={() => setConfirming(false)}
           >
-            {confirming ? 'Delete forever' : <Trash2Icon />}
+            {confirming ? 'Delete forever' : <IconTrash />}
           </Button>
-        </>
+        </ItemActions>
       )}
-    </li>
+    </Item>
   );
 }

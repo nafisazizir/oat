@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
-import { SquarePenIcon } from 'lucide-react';
+import { IconEdit } from '@tabler/icons-react';
 
 import { useTreeActions } from './tree-actions';
 import { useNewNote } from './use-new-note';
@@ -13,7 +13,7 @@ export function NewNoteButton(props: Omit<React.ComponentProps<typeof Button>, '
   if (!canCreate) return null;
   return (
     <Button onClick={newNote} {...props}>
-      <SquarePenIcon data-icon="inline-start" />
+      <IconEdit data-icon="inline-start" />
       New note
     </Button>
   );
