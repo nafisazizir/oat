@@ -1,6 +1,6 @@
 import type { Editor, Range } from '@tiptap/core';
 
-/** Icon keys; the React layer maps them to lucide icons (keeps this module headless). */
+/** Icon keys; the React layer maps them to Tabler icons (keeps this module headless). */
 export type SlashIcon =
   | 'text'
   | 'heading-1'

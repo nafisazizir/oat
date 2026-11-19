@@ -162,6 +162,20 @@ describe('ParticipantChips', () => {
     await waitFor(() => expect(screen.queryByLabelText('Name')).toBeNull());
   });
 
+  it('removes optimistically and puts the chip back when the caller rejects', async () => {
+    let reject!: (error: Error) => void;
+    const onRemove = vi.fn(() => new Promise<void>((_, r) => (reject = r)));
+    render(<ParticipantChips participants={people} editable onRemove={onRemove} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Grace Hopper' }));
+    // Gone before the caller answers.
+    expect(screen.getAllByTestId('participant-chip')).toHaveLength(1);
+    expect(screen.getByTestId('participants').dataset.count).toBe('1');
+
+    reject(new Error('Network down'));
+    expect(await screen.findByText('Network down')).toBeTruthy();
+    expect(screen.getAllByTestId('participant-chip')).toHaveLength(2);
+  });
+
   it('shows the error the caller rejects with', async () => {
     const onAdd = vi.fn(async () => {
       throw new Error('You can’t edit this note.');

@@ -22,7 +22,14 @@ import {
 import { IN_PROGRESS_MAX_MS } from '@oat/meeting-ui/format';
 import { cn } from '@oat/ui';
 import { Button } from '@oat/ui/components/button';
-import { AudioLinesIcon, LaptopIcon, PanelRightOpenIcon } from 'lucide-react';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
+import { IconDeviceLaptop, IconLayoutSidebarRight, IconWaveSine } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import { AssistantToggleAnchor } from '@/components/assistant/document-assistant';
@@ -150,16 +157,14 @@ export function MeetingNote({
           <Button
             variant="ghost"
             size="sm"
-            className="ml-auto h-7"
+            className="-me-2 ms-auto"
             onClick={() => setOpen(true)}
             aria-expanded={false}
             data-testid="transcript-toggle"
           >
-            <PanelRightOpenIcon data-icon="inline-start" />
+            <IconLayoutSidebarRight data-icon="inline-start" />
             Transcript
-            {lines.length > 0 && (
-              <span className="text-muted-foreground tabular-nums">{lines.length}</span>
-            )}
+            {lines.length > 0 && <span className="text-gray-900 tabular-nums">{lines.length}</span>}
           </Button>
         )}
       </div>
@@ -200,7 +205,7 @@ export function MeetingNote({
           <section
             aria-label="Transcript"
             data-testid="transcript-panel"
-            className="mx-auto mb-14 flex h-96 w-full max-w-content flex-col overflow-hidden rounded-xl border bg-card px-0 sm:px-0"
+            className="mx-auto mb-14 flex h-96 w-full max-w-content flex-col overflow-hidden rounded-lg border border-gray-alpha-400 bg-background-100"
           >
             <PanelTitle count={lines.length} onClose={() => setOpen(false)} />
             {transcript}
@@ -213,13 +218,13 @@ export function MeetingNote({
         <SidePanel
           title={
             <>
-              <AudioLinesIcon aria-hidden className="size-4 text-muted-foreground" />
+              <IconWaveSine aria-hidden className="size-4 text-gray-900" />
               Transcript
             </>
           }
           meta={
             lines.length > 0 && (
-              <span className="text-xs text-muted-foreground tabular-nums">{lines.length}</span>
+              <span className="text-label-13 text-gray-900 tabular-nums">{lines.length}</span>
             )
           }
           closeLabel="Hide transcript"
@@ -240,11 +245,11 @@ export function MeetingNote({
 
 function PanelTitle({ count, onClose }: { count: number; onClose: () => void }) {
   return (
-    <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
-      <AudioLinesIcon aria-hidden className="size-4 text-muted-foreground" />
-      <h2 className="text-sm font-medium">Transcript</h2>
-      {count > 0 && <span className="text-xs text-muted-foreground tabular-nums">{count}</span>}
-      <Button variant="ghost" size="sm" className="ml-auto h-7" onClick={onClose}>
+    <header className="flex h-11 shrink-0 items-center gap-2 border-b border-gray-alpha-400 ps-4 pe-2">
+      <IconWaveSine aria-hidden className="size-4 text-gray-900" />
+      <h2 className="text-label-14 text-gray-1000">Transcript</h2>
+      {count > 0 && <span className="text-label-13 text-gray-900 tabular-nums">{count}</span>}
+      <Button variant="ghost" size="sm" className="ms-auto" onClick={onClose}>
         Hide
       </Button>
     </header>
@@ -264,34 +269,31 @@ function TranscriptBody({
 }) {
   if (items.length === 0) {
     return (
-      <div
-        className={cn(
-          'flex flex-1 flex-col items-center justify-center gap-2 px-8 py-10 text-center',
-        )}
-        data-testid="transcript-empty"
-      >
-        <div className="flex size-10 items-center justify-center rounded-full bg-accent text-accent-foreground">
-          <AudioLinesIcon aria-hidden className={cn('size-5', live && 'animate-pulse')} />
-        </div>
-        <p className="font-heading text-base font-medium">
-          {live ? 'Waiting for the transcript…' : 'No transcript'}
-        </p>
-        <p className="max-w-xs text-sm text-muted-foreground">
-          {live
-            ? 'This meeting is being recorded on a desktop. Lines appear here as they sync.'
-            : 'Record this meeting with the Oat desktop app to get a transcript here.'}
-        </p>
-      </div>
+      <Empty className="px-8 py-10" data-testid="transcript-empty">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <IconWaveSine aria-hidden className={cn('text-gray-900', live && 'animate-pulse')} />
+          </EmptyMedia>
+          <EmptyTitle className="text-heading-16">
+            {live ? 'Waiting for the transcript…' : 'No transcript'}
+          </EmptyTitle>
+          <EmptyDescription className="max-w-xs">
+            {live
+              ? 'This meeting is being recorded on a desktop. Lines appear here as they sync.'
+              : 'Record this meeting with the Oat desktop app to get a transcript here.'}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
   return (
     <>
       <p
-        className="flex shrink-0 items-center gap-1.5 border-b px-4 py-1.5 text-xs text-muted-foreground"
+        className="flex shrink-0 items-center gap-1.5 border-b border-gray-alpha-400 px-4 py-1.5 text-label-12 text-gray-900"
         data-testid="audio-hint"
         title="Recordings are kept only on the Mac that recorded the meeting. Open the note in the Oat desktop app there to listen back."
       >
-        <LaptopIcon aria-hidden className="size-3.5 shrink-0" />
+        <IconDeviceLaptop aria-hidden className="size-3.5 shrink-0" />
         Audio is on the Mac that recorded this meeting
       </p>
       <TranscriptList

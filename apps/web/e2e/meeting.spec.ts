@@ -147,8 +147,13 @@ test('meeting header, attendees, transcript panel (collapse, resize, click → d
   await page.reload();
   await settled(page);
   await expect(chips(page)).toHaveCount(2);
+  // Removal is optimistic: the chip goes at once, so wait for the server before reloading.
+  const removed = page.waitForResponse(
+    (r) => r.request().method() === 'DELETE' && /\/participants\//.test(r.url()) && r.ok(),
+  );
   await page.getByRole('button', { name: 'Remove Dana Scully' }).click();
   await expect(chips(page)).toHaveCount(1);
+  await removed;
   await page.reload();
   await settled(page);
   await expect(chips(page)).toHaveCount(1);

@@ -163,3 +163,10 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 
 - Renderer moved onto ziiz ramp, type roles, Tabler icons and registry components; optimistic workspace switch and settings saves now roll back on failure; skeletons match the loaded layout; ⌘/Ctrl+N and Esc shortcuts added. [task](tasks/ui-desktop.md)
 - Fast CI green except actionlint (Docker Hub 429). Desktop e2e is macOS-only and GitHub CI doesn't run it; run it on a Mac before merging.
+
+
+### Ziiz overhaul — document & meeting surfaces (PR 5)
+
+- Migrated `components/{page,document/**,meeting/**,pipeline/**}`, `d/[docId]` page + skeleton, `packages/editor/src/react/**` (+ `styles.css` var map to `--ds-*`) and `packages/meeting-ui/**` to ziiz ramp/type roles, Tabler icons and registry components (`Empty`, `Alert`, `AlertDialog`, `Item`, `Field`, `RadioGroup`, `ButtonGroup`, `Spinner`, `Kbd`, `material-menu`). meeting-ui public API unchanged.
+- Optimistic share access/transcript changes (writes serialized, rollback + toast; e2e `sharing.spec.ts`), optimistic attendee removal (unit test).
+- `ci --fast`: format/typecheck/lint/test pass; actionlint skipped locally by Docker Hub 429. Screenshots via `design-sweep` with `env -u DATABASE_URL` (the VM shell exports an unrelated `DATABASE_URL`).

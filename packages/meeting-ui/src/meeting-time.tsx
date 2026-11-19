@@ -5,7 +5,7 @@
  * it is being recorded (ticks every 30 s), or "Not recorded yet".
  */
 import { cn } from '@oat/ui/lib/utils';
-import { ClockIcon } from 'lucide-react';
+import { IconClock } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
 import { meetingWhen } from './format.ts';
@@ -36,11 +36,11 @@ export function MeetingTime({
 
   return (
     <p
-      className={cn('flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground', className)}
+      className={cn('flex flex-wrap items-center gap-1.5 text-label-14 text-gray-900', className)}
       data-testid="meeting-time"
       data-in-progress={ticking || undefined}
     >
-      <ClockIcon aria-hidden className="size-3.5" />
+      <IconClock aria-hidden className="size-3.5" />
       {when.label ? (
         <>
           {/* Day and time get the same separator (and spacing) as the duration after them. */}

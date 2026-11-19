@@ -1,5 +1,5 @@
 import type { Editor, JSONContent } from '@tiptap/core';
-import { MoonIcon, SunIcon } from 'lucide-react';
+import { IconMoon, IconSun } from '@tabler/icons-react';
 import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -46,7 +46,7 @@ function App() {
             Editable
           </label>
           <Button variant="ghost" size="icon-sm" aria-label="Toggle theme" onClick={toggleTheme}>
-            {dark ? <SunIcon /> : <MoonIcon />}
+            {dark ? <IconSun /> : <IconMoon />}
           </Button>
         </div>
       </header>

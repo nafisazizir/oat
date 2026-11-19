@@ -1,7 +1,6 @@
 'use client';
 
 import type { DocumentVisibility } from '@oat/core';
-import { cn } from '@oat/ui';
 import { Button } from '@oat/ui/components/button';
 import {
   Dialog,
@@ -13,54 +12,47 @@ import {
   DialogTrigger,
 } from '@oat/ui/components/dialog';
 import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+  FieldTitle,
+} from '@oat/ui/components/field';
+import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
 } from '@oat/ui/components/input-group';
-import { Label } from '@oat/ui/components/label';
+import { RadioGroup, RadioGroupItem } from '@oat/ui/components/radio-group';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import { Switch } from '@oat/ui/components/switch';
-import {
-  CheckIcon,
-  CopyIcon,
-  GlobeIcon,
-  InfoIcon,
-  LockIcon,
-  RefreshCwIcon,
-  Share2Icon,
-  UsersIcon,
-  type LucideIcon,
-} from 'lucide-react';
+import { IconCheck, IconCopy, IconInfoCircle, IconRefresh, IconShare } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useId, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useShellData } from '@/components/app-shell/shell-data';
 import { isApiError, sharingApi } from '@/lib/api-client';
 import type { DocumentSharing, UpdateSharingInput } from '@/lib/api-types';
 
-type Option = { value: DocumentVisibility; icon: LucideIcon; label: string; detail: string };
+type Option = { value: DocumentVisibility; label: string; detail: string };
 
 function options(s: DocumentSharing, isOwner: boolean): Option[] {
   const ws = s.workspace;
   const everyone =
     ws.kind === 'personal'
-      ? 'Your personal workspace (only you)'
+      ? 'Only you, in your personal workspace'
       : `Everyone in ${ws.name} (${ws.memberCount} ${ws.memberCount === 1 ? 'member' : 'members'})`;
   return [
-    {
-      value: 'private',
-      icon: LockIcon,
-      label: 'Private',
-      detail: isOwner ? 'Only you' : `Only ${s.owner.name}`,
-    },
-    { value: 'workspace', icon: UsersIcon, label: 'Workspace', detail: everyone },
+    { value: 'private', label: 'Private', detail: isOwner ? 'Only you' : `Only ${s.owner.name}` },
+    { value: 'workspace', label: 'Workspace', detail: everyone },
     {
       value: 'link',
-      icon: GlobeIcon,
       label: 'Anyone with the link',
-      detail: 'Workspace access, plus a read-only web page for anyone who has the link',
+      detail: 'Workspace access, plus a read-only page for anyone with the link',
     },
   ];
 }
@@ -82,9 +74,9 @@ export function accessSummary(s: DocumentSharing, isOwner: boolean): string {
 /**
  * The document page's "Share" button + dialog (5.3): general access (private / workspace / anyone with
  * the link), copy and reset the link, and — for meetings shared by link — whether link viewers see the
- * transcript (off by default). Changes apply immediately through `PATCH /api/documents/:id/share`; the
- * page re-renders its badge and sidebar. Sharing doesn't bump the content version, so the open editor's
- * autosave is unaffected.
+ * transcript (off by default). Access and transcript changes apply optimistically: the dialog shows the new
+ * state at once, `PATCH /api/documents/:id/share` confirms it, and a failure puts the previous state back with
+ * a toast. Sharing doesn't bump the content version, so the open editor's autosave is unaffected.
  */
 export function ShareDialog({ documentId }: { documentId: string }) {
   const router = useRouter();
@@ -92,9 +84,27 @@ export function ShareDialog({ documentId }: { documentId: string }) {
   const [open, setOpen] = useState(false);
   const [sharing, setSharing] = useState<DocumentSharing | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const [rotating, setRotating] = useState(false);
   const [copied, setCopied] = useState(false);
   const ids = { transcript: useId(), link: useId() };
+  /** Each change gets a number: only the newest one's answer (or rollback) is applied. */
+  const latest = useRef(0);
+  /**
+   * Writes go out one at a time, in the order the user made them: two overlapping PATCHes could otherwise
+   * commit in reverse and leave the server more open than the dialog shows.
+   */
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const send = useCallback(
+    (input: UpdateSharingInput) => {
+      const next = queue.current.then(
+        () => sharingApi.update(documentId, input),
+        () => sharingApi.update(documentId, input),
+      );
+      queue.current = next.catch(() => undefined);
+      return next;
+    },
+    [documentId],
+  );
 
   /** Fresh settings every time the dialog opens (someone else may have changed them). */
   function onOpenChange(next: boolean) {
@@ -108,22 +118,38 @@ export function ShareDialog({ documentId }: { documentId: string }) {
       );
   }
 
-  const update = useCallback(
-    async (input: UpdateSharingInput, success?: string) => {
-      setPending(true);
+  /** Optimistic change: show `optimistic` now, confirm with the server, roll back on failure. */
+  const change = useCallback(
+    async (input: UpdateSharingInput, optimistic: Partial<DocumentSharing>) => {
+      const previous = sharing;
+      if (!previous) return;
+      const seq = ++latest.current;
+      setSharing({ ...previous, ...optimistic });
       try {
-        const next = await sharingApi.update(documentId, input);
-        setSharing(next);
+        const next = await send(input);
+        if (seq === latest.current) setSharing(next);
         router.refresh();
-        if (success) toast.success(success);
       } catch (error) {
+        if (seq === latest.current) setSharing(previous);
         toast.error(isApiError(error) ? error.message : 'Couldn’t update sharing. Try again.');
-      } finally {
-        setPending(false);
       }
     },
-    [documentId, router],
+    [router, send, sharing],
   );
+
+  async function rotate() {
+    setRotating(true);
+    const seq = ++latest.current;
+    try {
+      const next = await send({ rotateLink: true });
+      if (seq === latest.current) setSharing(next);
+      toast.success('New link created. The old link no longer works.');
+    } catch (error) {
+      toast.error(isApiError(error) ? error.message : 'Couldn’t reset the link. Try again.');
+    } finally {
+      setRotating(false);
+    }
+  }
 
   const url =
     sharing?.sharePath && typeof window !== 'undefined'
@@ -136,7 +162,6 @@ export function ShareDialog({ documentId }: { documentId: string }) {
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-      toast.success('Link copied');
     } catch {
       toast.error('Couldn’t copy. Select the link and copy it instead.');
     }
@@ -148,7 +173,7 @@ export function ShareDialog({ documentId }: { documentId: string }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger render={<Button size="sm" variant="outline" data-testid="share-button" />}>
-        <Share2Icon data-icon="inline-start" />
+        <IconShare data-icon="inline-start" />
         Share
       </DialogTrigger>
       <DialogContent data-testid="share-dialog" className="sm:max-w-md">
@@ -160,67 +185,64 @@ export function ShareDialog({ documentId }: { documentId: string }) {
         </DialogHeader>
 
         {loadError ? (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="text-copy-14 text-red-900">
             {loadError}
           </p>
         ) : !sharing ? (
           <div
-            className="flex flex-col gap-2"
+            className="flex flex-col gap-3"
             role="status"
             aria-busy
             aria-label="Loading sharing settings"
           >
-            <Skeleton className="h-14 w-full" />
-            <Skeleton className="h-14 w-full" />
-            <Skeleton className="h-14 w-full" />
+            <Skeleton className="h-5 w-28" />
+            <div className="flex flex-col gap-2">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-[3.875rem] w-full rounded-lg" />
+              ))}
+            </div>
           </div>
         ) : (
           <div className="flex flex-col gap-5">
-            <fieldset disabled={locked || pending} className="flex flex-col gap-2">
-              <legend className="mb-2 text-xs font-medium text-muted-foreground">
+            <FieldSet disabled={locked}>
+              <FieldLegend variant="label" className="mb-0">
                 General access
-              </legend>
-              {options(sharing, isOwner).map((option) => {
-                const blocked = sharing.inPrivateFolder && option.value !== 'private';
-                const checked = sharing.visibility === option.value;
-                return (
-                  <label
-                    key={option.value}
-                    className={cn(
-                      'flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors duration-fast',
-                      'hover:bg-accent/60 has-focus-visible:ring-3 has-focus-visible:ring-ring/50',
-                      checked && 'border-primary/60 bg-accent',
-                      (blocked || locked) && 'cursor-not-allowed opacity-60 hover:bg-transparent',
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      name="visibility"
-                      value={option.value}
-                      checked={checked}
-                      disabled={blocked}
-                      onChange={() => void update({ visibility: option.value })}
-                      className="sr-only"
-                    />
-                    <span
-                      className={cn(
-                        'mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md',
-                        checked
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground',
-                      )}
+              </FieldLegend>
+              <RadioGroup
+                value={sharing.visibility}
+                disabled={locked}
+                className="gap-2"
+                onValueChange={(value) => {
+                  const visibility = value as DocumentVisibility;
+                  if (visibility !== sharing.visibility)
+                    void change({ visibility }, { visibility });
+                }}
+              >
+                {options(sharing, isOwner).map((option) => {
+                  const blocked = sharing.inPrivateFolder && option.value !== 'private';
+                  return (
+                    <FieldLabel
+                      key={option.value}
+                      className="rounded-lg border border-gray-alpha-400 transition-colors hover:bg-gray-alpha-100 has-data-checked:border-gray-alpha-600 has-data-checked:bg-gray-alpha-100 has-data-disabled:cursor-not-allowed has-data-disabled:hover:bg-transparent"
                     >
-                      <option.icon className="size-4" />
-                    </span>
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="text-sm font-medium">{option.label}</span>
-                      <span className="text-xs text-muted-foreground">{option.detail}</span>
-                    </span>
-                    {checked && <CheckIcon className="mt-1.5 size-4 text-primary" aria-hidden />}
-                  </label>
-                );
-              })}
-            </fieldset>
+                      <Field orientation="horizontal" className="items-start px-3 py-2.5">
+                        <RadioGroupItem
+                          value={option.value}
+                          disabled={blocked}
+                          className="mt-0.5"
+                        />
+                        <FieldContent className="gap-0">
+                          <FieldTitle>{option.label}</FieldTitle>
+                          <FieldDescription className="text-copy-13">
+                            {option.detail}
+                          </FieldDescription>
+                        </FieldContent>
+                      </Field>
+                    </FieldLabel>
+                  );
+                })}
+              </RadioGroup>
+            </FieldSet>
 
             {sharing.inPrivateFolder && (
               <Note>This is in a private folder. Move it out of the folder to share it.</Note>
@@ -230,8 +252,8 @@ export function ShareDialog({ documentId }: { documentId: string }) {
             )}
 
             {url && (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor={ids.link}>Link</Label>
+              <Field className="gap-2">
+                <FieldLabel htmlFor={ids.link}>Link</FieldLabel>
                 <InputGroup>
                   <InputGroupInput
                     id={ids.link}
@@ -239,55 +261,59 @@ export function ShareDialog({ documentId }: { documentId: string }) {
                     readOnly
                     value={url}
                     onFocus={(event) => event.currentTarget.select()}
-                    className="font-mono text-xs"
+                    className="text-label-13-mono"
                   />
                   <InputGroupAddon align="inline-end">
                     <InputGroupButton size="xs" onClick={() => void copy()} aria-label="Copy link">
-                      {copied ? <CheckIcon /> : <CopyIcon />}
+                      {copied ? <IconCheck /> : <IconCopy />}
                       {copied ? 'Copied' : 'Copy'}
                     </InputGroupButton>
                   </InputGroupAddon>
                 </InputGroup>
-                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span>View only. Not listed in search engines.</span>
+                <div className="flex min-h-6 items-center justify-between gap-2">
+                  <span className="text-label-13 text-gray-900">
+                    View only. Not listed in search engines.
+                  </span>
                   {sharing.canShare && (
                     <Button
                       size="xs"
                       variant="ghost"
-                      disabled={pending}
-                      onClick={() =>
-                        void update(
-                          { rotateLink: true },
-                          'New link created. The old link no longer works.',
-                        )
-                      }
+                      disabled={rotating}
+                      onClick={() => void rotate()}
                     >
-                      <RefreshCwIcon data-icon="inline-start" />
+                      <IconRefresh data-icon="inline-start" />
                       Reset link
                     </Button>
                   )}
                 </div>
-              </div>
+              </Field>
             )}
 
             {sharing.kind === 'meeting' && sharing.visibility === 'link' && (
-              <div className="flex items-start justify-between gap-4 rounded-lg border px-3 py-2.5">
-                <div className="flex flex-col gap-0.5">
-                  <Label htmlFor={ids.transcript}>Show transcript to link viewers</Label>
-                  <span className="text-xs text-muted-foreground">
-                    {sharing.shareTranscript
-                      ? 'People with the link can read the notes and the transcript.'
-                      : 'People with the link see the notes only.'}
-                  </span>
-                </div>
-                <Switch
-                  id={ids.transcript}
-                  data-testid="share-transcript"
-                  checked={sharing.shareTranscript}
-                  disabled={locked || pending}
-                  onCheckedChange={(checked) => void update({ shareTranscript: checked })}
-                />
-              </div>
+              <FieldLabel
+                htmlFor={ids.transcript}
+                className="rounded-lg border border-gray-alpha-400"
+              >
+                <Field orientation="horizontal" className="items-start px-3 py-2.5">
+                  <FieldContent className="gap-0">
+                    <FieldTitle>Show transcript to link viewers</FieldTitle>
+                    <FieldDescription className="text-copy-13">
+                      {sharing.shareTranscript
+                        ? 'People with the link can read the notes and the transcript.'
+                        : 'People with the link see the notes only.'}
+                    </FieldDescription>
+                  </FieldContent>
+                  <Switch
+                    id={ids.transcript}
+                    data-testid="share-transcript"
+                    checked={sharing.shareTranscript}
+                    disabled={locked}
+                    onCheckedChange={(checked) =>
+                      void change({ shareTranscript: checked }, { shareTranscript: checked })
+                    }
+                  />
+                </Field>
+              </FieldLabel>
             )}
           </div>
         )}
@@ -304,8 +330,8 @@ export function ShareDialog({ documentId }: { documentId: string }) {
 
 function Note({ children }: { children: React.ReactNode }) {
   return (
-    <p className="-mt-2 flex items-start gap-2 text-xs text-muted-foreground">
-      <InfoIcon className="mt-px size-3.5 shrink-0" />
+    <p className="-mt-2 flex items-start gap-2 text-copy-13 text-gray-900">
+      <IconInfoCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
       {children}
     </p>
   );

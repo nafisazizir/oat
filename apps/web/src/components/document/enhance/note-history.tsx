@@ -14,13 +14,9 @@ import {
   DialogTitle,
 } from '@oat/ui/components/dialog';
 import { Skeleton } from '@oat/ui/components/skeleton';
-import {
-  AlertCircleIcon,
-  Loader2Icon,
-  NotebookPenIcon,
-  PencilLineIcon,
-  SparklesIcon,
-} from 'lucide-react';
+import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@oat/ui/components/item';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconAlertCircle, IconNotes, IconPencil, IconSparkles } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
 import type { EnhancementDetail } from '@/lib/enhance';
@@ -144,7 +140,7 @@ export function NoteHistoryDialog({
                     <HistoryItem
                       active={selection.kind === 'snapshot' && selection.id === entry.snapshot.id}
                       onClick={() => onSelect({ kind: 'snapshot', id: entry.snapshot.id })}
-                      icon={PencilLineIcon}
+                      icon={IconPencil}
                       title="Your edited note"
                       meta={`${REASON[entry.snapshot.reason]} · ${when(entry.at)}`}
                       badge={
@@ -158,7 +154,7 @@ export function NoteHistoryDialog({
                     <HistoryItem
                       active={selection.kind === 'version' && selection.id === entry.run.id}
                       onClick={() => onSelect({ kind: 'version', id: entry.run.id })}
-                      icon={SparklesIcon}
+                      icon={IconSparkles}
                       title={`Version ${entry.run.number}`}
                       meta={`${entry.run.templateName ?? 'Template removed'} · ${when(entry.at)}`}
                       badge={
@@ -174,11 +170,11 @@ export function NoteHistoryDialog({
                 ),
               )}
               {latest && (
-                <li className="mt-1 border-t pt-1">
+                <li className="mt-1 border-t border-gray-alpha-400 pt-1">
                   <HistoryItem
                     active={selection.kind === 'original'}
                     onClick={() => onSelect({ kind: 'original' })}
-                    icon={NotebookPenIcon}
+                    icon={IconNotes}
                     title="My original notes"
                     meta={`Before version ${latest.number}`}
                     testId="history-original"
@@ -192,15 +188,15 @@ export function NoteHistoryDialog({
             aria-label="Preview"
             aria-busy={!shown && !failed}
             data-testid="history-preview"
-            className="min-h-48 overflow-y-auto rounded-lg border bg-background px-5 py-4 sm:min-h-80"
+            className="min-h-48 overflow-y-auto rounded-lg border border-gray-alpha-400 bg-background-100 px-5 py-4 sm:min-h-80"
           >
             {failed ? (
-              <p role="alert" className="flex items-center gap-2 text-sm text-muted-foreground">
-                <AlertCircleIcon className="size-4 text-destructive" />
+              <p role="alert" className="flex items-center gap-2 text-copy-14 text-gray-900">
+                <IconAlertCircle className="size-4 text-red-900" />
                 Couldn’t load this version.
               </p>
             ) : !entries.length ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-copy-14 text-gray-900">
                 No enhanced versions yet. Enhance the note to start its history.
               </p>
             ) : shown ? (
@@ -210,7 +206,6 @@ export function NoteHistoryDialog({
                 value={shown}
                 editable={false}
                 aria-label="Version preview"
-                className="text-sm"
               />
             ) : (
               <div className="flex flex-col gap-3" aria-hidden>
@@ -238,9 +233,7 @@ export function NoteHistoryDialog({
               }
               onClick={() => onRestore(selection)}
             >
-              {(versions.restoring || versions.checking) && (
-                <Loader2Icon data-icon="inline-start" className="animate-spin" />
-              )}
+              {(versions.restoring || versions.checking) && <Spinner data-icon="inline-start" />}
               {isCurrent
                 ? 'This is the current note'
                 : selection.kind === 'original'
@@ -267,33 +260,34 @@ function HistoryItem({
 }: {
   active: boolean;
   onClick: () => void;
-  icon: typeof SparklesIcon;
+  icon: React.ComponentType<{ className?: string }>;
   title: string;
   meta: string;
   badge?: React.ReactNode;
   testId: string;
 }) {
   return (
-    <button
-      type="button"
+    <Item
+      size="xs"
+      render={<button type="button" />}
       aria-current={active || undefined}
       data-testid={testId}
       onClick={onClick}
       className={cn(
-        'flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-fast hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
-        active && 'bg-accent',
+        'flex-nowrap text-start hover:bg-gray-alpha-100 active:bg-gray-alpha-200',
+        active && 'bg-gray-alpha-200 hover:bg-gray-alpha-200',
       )}
     >
-      <Icon
-        className={cn('mt-0.5 size-4 shrink-0', active ? 'text-primary' : 'text-muted-foreground')}
-      />
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="flex items-center gap-2 font-medium">
+      <ItemMedia variant="icon">
+        <Icon className={active ? 'text-gray-1000' : 'text-gray-900'} />
+      </ItemMedia>
+      <ItemContent className="min-w-0 gap-0.5">
+        <ItemTitle>
           {title}
           {badge}
-        </span>
-        <span className="truncate text-xs text-muted-foreground">{meta}</span>
-      </span>
-    </button>
+        </ItemTitle>
+        <ItemDescription className="truncate text-label-12">{meta}</ItemDescription>
+      </ItemContent>
+    </Item>
   );
 }

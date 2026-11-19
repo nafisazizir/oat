@@ -1,12 +1,13 @@
 import { Badge } from '@oat/ui/components/badge';
+import { Item, ItemContent, ItemMedia, ItemTitle } from '@oat/ui/components/item';
 import {
-  FileTextIcon,
-  FolderIcon,
-  FolderOpenIcon,
-  LockIcon,
-  NotebookPenIcon,
-  UsersIcon,
-} from 'lucide-react';
+  IconFile,
+  IconFolder,
+  IconFolderOpen,
+  IconLock,
+  IconNotes,
+  IconUsers,
+} from '@tabler/icons-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -131,8 +132,12 @@ export default async function DocumentPage({ params, searchParams }: Props) {
         title={titleOf({ title: folder.name, kind: 'folder' })}
         eyebrow={
           <>
-            <Badge variant="secondary" className="gap-1">
-              {isPrivate ? <LockIcon /> : <UsersIcon />}
+            <Badge variant="secondary">
+              {isPrivate ? (
+                <IconLock data-icon="inline-start" />
+              ) : (
+                <IconUsers data-icon="inline-start" />
+              )}
               {isPrivate ? 'Private folder' : audienceLabel(workspace)}
             </Badge>
             <span>Edited {formatDay(folder.updatedAt)}</span>
@@ -144,38 +149,38 @@ export default async function DocumentPage({ params, searchParams }: Props) {
 
       {children.length === 0 ? (
         <EmptyState
-          icon={FolderOpenIcon}
+          icon={IconFolderOpen}
           title="This folder is empty"
           description="Add a page here, or drag pages onto the folder in the sidebar."
         />
       ) : (
-        // Same list treatment as Home and Search: one card, divided rows.
         <ul
-          className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs"
+          className="flex flex-col divide-y divide-gray-alpha-400 overflow-hidden rounded-lg border border-gray-alpha-400"
           data-testid="folder-contents"
         >
           {children.map((child) => {
             const Icon =
               child.kind === 'folder'
-                ? FolderIcon
+                ? IconFolder
                 : child.kind === 'meeting'
-                  ? NotebookPenIcon
-                  : FileTextIcon;
+                  ? IconNotes
+                  : IconFile;
             return (
               <li key={child.id}>
-                <Link
-                  href={`/d/${child.id}`}
-                  className="flex items-center gap-3 px-4 py-3 transition-colors duration-fast hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-                >
-                  <Icon className="size-4 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate font-medium">{titleOf(child)}</span>
+                <Item size="sm" className="rounded-none" render={<Link href={`/d/${child.id}`} />}>
+                  <ItemMedia variant="icon">
+                    <Icon className="text-gray-900" />
+                  </ItemMedia>
+                  <ItemContent className="min-w-0">
+                    <ItemTitle className="block truncate">{titleOf(child)}</ItemTitle>
+                  </ItemContent>
                   {child.visibility === 'private' && !isPrivate && (
-                    <LockIcon className="size-3.5 text-muted-foreground" aria-label="Only you" />
+                    <IconLock className="size-3.5 text-gray-900" aria-label="Only you" />
                   )}
-                  <span className="shrink-0 text-xs text-muted-foreground">
+                  <span className="shrink-0 text-label-13 text-gray-900 tabular-nums">
                     {formatDay(child.updatedAt)}
                   </span>
-                </Link>
+                </Item>
               </li>
             );
           })}

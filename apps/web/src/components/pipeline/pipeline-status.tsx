@@ -2,7 +2,8 @@
 
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
-import { CircleAlertIcon, CircleCheckIcon, Loader2Icon, RotateCcwIcon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconAlertCircle, IconCircleCheck, IconRefresh } from '@tabler/icons-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -126,7 +127,7 @@ export function PipelineStatus({
       onClick={() => void start()}
       data-testid={testId}
     >
-      {starting ? <Loader2Icon className="animate-spin" /> : <RotateCcwIcon />}
+      {starting ? <Spinner data-icon="inline-start" /> : <IconRefresh data-icon="inline-start" />}
       {label}
     </Button>
   );
@@ -148,26 +149,26 @@ export function PipelineStatus({
       data-status={run.status}
     >
       {run.status === 'completed' ? (
-        <Badge variant="secondary" className="gap-1" title={details || undefined}>
-          <CircleCheckIcon />
+        <Badge variant="secondary" title={details || undefined}>
+          <IconCircleCheck data-icon="inline-start" className="text-green-800" />
           Post-meeting: done
         </Badge>
       ) : run.status === 'failed' ? (
         <>
-          <Badge variant="destructive" className="gap-1" title={run.error ?? undefined}>
-            <CircleAlertIcon />
+          <Badge variant="destructive" title={run.error ?? undefined}>
+            <IconAlertCircle data-icon="inline-start" />
             {run.retryable ? 'Post-meeting: failed' : 'Post-meeting: can’t run'}
           </Badge>
           {run.retryable && mayRun && startButton('Retry', 'pipeline-retry')}
           {!run.retryable && run.error && (
-            <span className="text-xs text-muted-foreground" data-testid="pipeline-error">
+            <span className="text-label-12 text-gray-900" data-testid="pipeline-error">
               {run.error}
             </span>
           )}
         </>
       ) : (
-        <Badge variant="outline" className="gap-1" role="status">
-          <Loader2Icon className="animate-spin motion-reduce:animate-none" />
+        <Badge variant="outline" role="status">
+          <Spinner data-icon="inline-start" className="motion-reduce:animate-none" />
           Post-meeting:{' '}
           {run.status === 'waiting'
             ? 'waiting for the pipeline…'

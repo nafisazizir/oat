@@ -5,16 +5,15 @@ import { NodeSelection } from '@tiptap/pm/state';
 import { useEditorState } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import {
-  BoldIcon,
-  CheckIcon,
-  CodeIcon,
-  HighlighterIcon,
-  ItalicIcon,
-  LinkIcon,
-  type LucideIcon,
-  StrikethroughIcon,
-  UnlinkIcon,
-} from 'lucide-react';
+  IconBold,
+  IconCheck,
+  IconCode,
+  IconHighlight,
+  IconItalic,
+  IconLink,
+  IconStrikethrough,
+  IconUnlink,
+} from '@tabler/icons-react';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@oat/ui/components/button';
@@ -23,12 +22,12 @@ import { Separator } from '@oat/ui/components/separator';
 
 type MarkName = 'bold' | 'italic' | 'strike' | 'code' | 'highlight';
 
-const MARKS: { name: MarkName; label: string; shortcut: string; icon: LucideIcon }[] = [
-  { name: 'bold', label: 'Bold', shortcut: '⌘B', icon: BoldIcon },
-  { name: 'italic', label: 'Italic', shortcut: '⌘I', icon: ItalicIcon },
-  { name: 'strike', label: 'Strikethrough', shortcut: '⌘⇧S', icon: StrikethroughIcon },
-  { name: 'code', label: 'Inline code', shortcut: '⌘E', icon: CodeIcon },
-  { name: 'highlight', label: 'Highlight', shortcut: '⌘⇧H', icon: HighlighterIcon },
+const MARKS: { name: MarkName; label: string; shortcut: string; icon: React.ComponentType }[] = [
+  { name: 'bold', label: 'Bold', shortcut: '⌘B', icon: IconBold },
+  { name: 'italic', label: 'Italic', shortcut: '⌘I', icon: IconItalic },
+  { name: 'strike', label: 'Strikethrough', shortcut: '⌘⇧S', icon: IconStrikethrough },
+  { name: 'code', label: 'Inline code', shortcut: '⌘E', icon: IconCode },
+  { name: 'highlight', label: 'Highlight', shortcut: '⌘⇧H', icon: IconHighlight },
 ];
 
 /** `example.com` → `https://example.com`; keeps explicit schemes, `mailto:`, relative and `#` links. */
@@ -143,7 +142,7 @@ export function BubbleToolbar({ editor }: { editor: Editor }) {
         if (!state.doc.textBetween(from, to, ' ').trim()) return false;
         return e.view.hasFocus() || element.contains(document.activeElement);
       }}
-      className="oat-editor-popup z-50 flex items-center gap-0.5 rounded-lg border bg-popover p-1 text-popover-foreground shadow-md"
+      className="oat-editor-popup z-50 flex items-center gap-0.5 rounded-lg material-menu p-1 text-gray-1000"
       role="toolbar"
       aria-label="Text formatting"
     >
@@ -153,13 +152,13 @@ export function BubbleToolbar({ editor }: { editor: Editor }) {
             ref={inputRef}
             aria-label="Link URL"
             placeholder="Paste or type a link…"
-            className="h-7 w-64"
+            className="h-8 w-64"
             value={href}
             onChange={(event) => setHref(event.target.value)}
             onKeyDown={onLinkKeyDown}
           />
           <Button size="icon-sm" variant="ghost" aria-label="Apply link" onClick={applyLink}>
-            <CheckIcon />
+            <IconCheck />
           </Button>
         </div>
       ) : (
@@ -172,7 +171,7 @@ export function BubbleToolbar({ editor }: { editor: Editor }) {
               aria-label={label}
               title={`${label} (${shortcut})`}
               aria-pressed={active[name]}
-              className="aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+              className="aria-pressed:bg-gray-alpha-200 aria-pressed:text-gray-1000"
               onClick={() => toggleMark(editor, name)}
             >
               <Icon />
@@ -185,10 +184,10 @@ export function BubbleToolbar({ editor }: { editor: Editor }) {
             aria-label={active.link ? 'Edit link' : 'Add link'}
             title="Link (⌘K)"
             aria-pressed={active.link}
-            className="aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+            className="aria-pressed:bg-gray-alpha-200 aria-pressed:text-gray-1000"
             onClick={openLink}
           >
-            <LinkIcon />
+            <IconLink />
           </Button>
           {active.link ? (
             <Button
@@ -198,7 +197,7 @@ export function BubbleToolbar({ editor }: { editor: Editor }) {
               title="Remove link"
               onClick={() => editor.chain().focus().extendMarkRange('link').unsetLink().run()}
             >
-              <UnlinkIcon />
+              <IconUnlink />
             </Button>
           ) : null}
         </>
