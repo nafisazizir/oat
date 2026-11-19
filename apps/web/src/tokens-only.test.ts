@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * Acceptance "no hard-coded colours outside @oat/ui tokens": app sources may only use token
- * utilities (ziiz ramps and legacy slots), never colour literals or non-ziiz Tailwind palettes.
+ * utilities (ziiz ramps), never colour literals or non-ziiz Tailwind palettes.
  * Same rules as @oat/ui's tokens.test.ts, applied to apps/web/src.
  */
 const srcDir = fileURLToPath(new URL('.', import.meta.url));

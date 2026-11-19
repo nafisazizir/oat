@@ -44,16 +44,16 @@ describe('oat palette', () => {
     expect(dark.get('--ds-background-100')).not.toBe(light.get('--ds-background-100'));
   });
 
-  it('loads the oat overrides after ziiz and keeps the legacy slot bridge', () => {
+  it('loads the oat overrides after ziiz without the legacy slot bridge', () => {
     const imports = [...styles.matchAll(/@import '([^']+)'/g)].map((m) => m[1]);
-    expect(imports.slice(0, 6)).toEqual([
+    expect(imports.slice(0, 5)).toEqual([
       'tailwindcss',
       'tw-animate-css',
       'shadcn/tailwind.css',
       '@nafisazizir/ziiz/theme.css',
       './tokens.css',
-      '@nafisazizir/ziiz/shadcn.css',
     ]);
+    expect(imports).not.toContain('@nafisazizir/ziiz/shadcn.css');
     expect(styles).toContain("@source './'");
     expect(styles).toContain('@custom-variant dark (&:is(.dark *))');
   });
@@ -73,7 +73,6 @@ describe('oat palette', () => {
 
   it('maps status and AI text roles to readable ramp steps in both themes', () => {
     for (const [role, ramp] of Object.entries({
-      destructive: 'red-900',
       success: 'green-900',
       warning: 'amber-1000',
       'ai-text': 'blue-900',

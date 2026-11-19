@@ -42,13 +42,13 @@ import { cn } from './lib/utils.ts';
 
 describe('cn', () => {
   it('joins conditionally and lets later Tailwind classes win', () => {
-    expect(cn('px-2 text-sm', null, { hidden: false, 'font-medium': true }, 'px-4')).toBe(
-      'text-sm font-medium px-4',
+    expect(cn('px-2 text-copy-14', null, { hidden: false, underline: true }, 'px-4')).toBe(
+      'text-copy-14 underline px-4',
     );
   });
 
   it('keeps a token colour next to a scale size (no false conflict)', () => {
-    expect(cn('text-sm', 'text-muted-foreground')).toBe('text-sm text-muted-foreground');
+    expect(cn('text-copy-14', 'text-gray-900')).toBe('text-copy-14 text-gray-900');
   });
 });
 
