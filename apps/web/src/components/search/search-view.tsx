@@ -105,9 +105,9 @@ function TranscriptRow({ hit }: { hit: TranscriptHit }) {
 /** Same box as a result row with a one-line snippet, so results land without a jump. */
 function ResultsSkeleton() {
   return (
-    <ul className={listClass} role="status" aria-busy="true" aria-label="Searching">
+    <div className={listClass} role="status" aria-busy="true" aria-label="Searching">
       {[0, 1, 2, 3].map((row) => (
-        <li key={row} className="flex gap-3 px-4 py-3">
+        <div key={row} className="flex gap-3 px-4 py-3">
           <Skeleton className="mt-0.5 size-4 shrink-0 rounded-sm" />
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex h-5 items-center justify-between gap-3">
@@ -118,9 +118,9 @@ function ResultsSkeleton() {
               <Skeleton className="h-3.5 w-4/5" />
             </div>
           </div>
-        </li>
+        </div>
       ))}
-    </ul>
+    </div>
   );
 }
 
