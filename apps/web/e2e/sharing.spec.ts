@@ -277,3 +277,34 @@ test('meeting notes: the transcript toggle (off by default) appears for link sha
   const again = await openShare(page);
   await expect(again.getByTestId('share-transcript')).toBeChecked();
 });
+
+test('access changes apply at once and roll back with a toast when the server refuses', async ({
+  page,
+}) => {
+  const doc = await apiCreateDocument(page, { title: 'Optimistic sharing' });
+  await page.goto(`/d/${doc.id}`);
+  await expect(page.getByTestId('document-title')).toHaveValue('Optimistic sharing');
+
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(`**/api/documents/${doc.id}/share`, async (route) => {
+    if (route.request().method() !== 'PATCH') return route.fallback();
+    await held;
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: { code: 'internal', message: 'Sharing is down.' } }),
+    });
+  });
+
+  const dialog = await openShare(page);
+  await expect(dialog.getByRole('radio', { name: /Private/ })).toBeChecked();
+  await dialog.getByText('Workspace', { exact: true }).click();
+  // Checked before the server has answered.
+  await expect(dialog.getByRole('radio', { name: /Workspace/ })).toBeChecked();
+
+  release();
+  await expect(page.getByText('Sharing is down.')).toBeVisible();
+  await expect(dialog.getByRole('radio', { name: /Private/ })).toBeChecked();
+  await expect(page.getByTestId('share-summary')).toHaveText('Only you can open this.');
+});

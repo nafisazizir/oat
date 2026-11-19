@@ -2,21 +2,22 @@
 
 import type { JSONContent } from '@oat/editor';
 import { OatEditor, type OatEditorProps } from '@oat/editor/react';
+import { Alert, AlertAction, AlertTitle } from '@oat/ui/components/alert';
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@oat/ui/components/popover';
+import { Spinner } from '@oat/ui/components/spinner';
 import {
-  AlertCircleIcon,
-  CheckIcon,
-  EllipsisIcon,
-  EyeIcon,
-  LinkIcon,
-  Loader2Icon,
-  LockIcon,
-  RotateCcwIcon,
-  Trash2Icon,
-  UsersIcon,
-} from 'lucide-react';
+  IconAlertCircle,
+  IconCheck,
+  IconDots,
+  IconEye,
+  IconLink,
+  IconLock,
+  IconRestore,
+  IconTrash,
+  IconUsers,
+} from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -193,17 +194,13 @@ export function DocumentEditor({
   return (
     <PageContainer className="gap-6">
       {trashed && (
-        <div
-          role="status"
-          data-testid="trash-banner"
-          className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm"
-        >
-          <Trash2Icon className="size-4 text-destructive" />
-          <span className="flex-1">This page is in the trash.</span>
+        <Alert role="status" data-testid="trash-banner" className="bg-background-200">
+          <IconTrash />
+          <AlertTitle>This page is in the trash.</AlertTitle>
           {doc.access.delete && (
-            <>
+            <AlertAction className="flex gap-2">
               <Button size="sm" variant="outline" onClick={() => void actions.restore(node)}>
-                <RotateCcwIcon data-icon="inline-start" />
+                <IconRestore data-icon="inline-start" />
                 Restore
               </Button>
               <Button
@@ -213,26 +210,19 @@ export function DocumentEditor({
               >
                 Delete forever
               </Button>
-            </>
+            </AlertAction>
           )}
-        </div>
+        </Alert>
       )}
 
       <header ref={headerRef} className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2 text-label-13 text-gray-900">
           <VisibilityBadge visibility={doc.visibility} workspace={workspace} />
-          {trashed ? (
-            <Badge variant="outline" className="gap-1">
-              <Trash2Icon />
-              In trash
+          {!trashed && !doc.access.edit && (
+            <Badge variant="outline">
+              <IconEye data-icon="inline-start" />
+              View only
             </Badge>
-          ) : (
-            !doc.access.edit && (
-              <Badge variant="outline" className="gap-1">
-                <EyeIcon />
-                View only
-              </Badge>
-            )
           )}
           <span>Edited {formatDay(updatedAt)}</span>
           {editable && (
@@ -249,7 +239,7 @@ export function DocumentEditor({
                 // Narrow (transcript + assistant open): the actions get a tidy row of their own.
                 compact
                   ? 'flex w-full flex-wrap items-center gap-2'
-                  : 'ml-auto flex flex-wrap items-center gap-2'
+                  : 'ms-auto flex flex-wrap items-center gap-2'
               }
               data-testid="document-actions"
               data-compact={compact || undefined}
@@ -286,7 +276,7 @@ export function DocumentEditor({
           rows={1}
           maxLength={200}
           autoFocus={autoFocusTitle}
-          className="w-full resize-none bg-transparent font-heading text-3xl font-medium [field-sizing:content] outline-none placeholder:text-muted-foreground/60"
+          className="w-full resize-none bg-transparent text-heading-32 text-gray-1000 caret-gray-1000 [field-sizing:content] outline-none placeholder:text-gray-700"
           onChange={(event) => {
             const next = event.target.value.replace(/\n/g, ' ');
             setTitle(next);
@@ -338,13 +328,13 @@ function VisibilityBadge({
 }) {
   const [Icon, label] =
     visibility === 'private'
-      ? [LockIcon, 'Private']
+      ? [IconLock, 'Private']
       : visibility === 'link'
-        ? [LinkIcon, `${audienceLabel(workspace)} + link`]
-        : [workspace.kind === 'personal' ? LockIcon : UsersIcon, audienceLabel(workspace)];
+        ? [IconLink, `${audienceLabel(workspace)} + link`]
+        : [workspace.kind === 'personal' ? IconLock : IconUsers, audienceLabel(workspace)];
   return (
-    <Badge variant="secondary" className="gap-1" data-testid="visibility-badge">
-      <Icon />
+    <Badge variant="secondary" data-testid="visibility-badge">
+      <Icon data-icon="inline-start" />
       {label}
     </Badge>
   );
@@ -361,7 +351,7 @@ function SaveStatus({
   onRetry: () => void;
   onReload: () => void;
 }) {
-  const base = 'inline-flex items-center gap-1';
+  const base = 'inline-flex min-h-6 items-center gap-1';
   switch (state) {
     case 'idle':
       return null;
@@ -369,46 +359,46 @@ function SaveStatus({
     case 'saving':
       return (
         <span className={base} data-testid="save-status" data-state="saving" aria-live="polite">
-          <Loader2Icon className="size-3 animate-spin" />
+          <Spinner className="size-3.5" />
           Saving…
         </span>
       );
     case 'saved':
       return (
         <span className={base} data-testid="save-status" data-state="saved" aria-live="polite">
-          <CheckIcon className="size-3" />
+          <IconCheck className="size-3.5" />
           Saved
         </span>
       );
     case 'error':
       return (
         <span
-          className={`${base} text-destructive`}
+          className={`${base} text-red-900`}
           data-testid="save-status"
           data-state="error"
           role="alert"
           title={error ?? undefined}
         >
-          <AlertCircleIcon className="size-3" />
+          <IconAlertCircle className="size-3.5" />
           Couldn’t save
-          <button type="button" className="underline underline-offset-2" onClick={onRetry}>
+          <Button size="xs" variant="ghost" className="text-red-900" onClick={onRetry}>
             Retry
-          </button>
+          </Button>
         </span>
       );
     case 'conflict':
       return (
         <span
-          className={`${base} text-destructive`}
+          className={`${base} text-red-900`}
           data-testid="save-status"
           data-state="conflict"
           role="alert"
         >
-          <AlertCircleIcon className="size-3" />
-          Changed elsewhere ·
-          <button type="button" className="underline underline-offset-2" onClick={onReload}>
+          <IconAlertCircle className="size-3.5" />
+          Changed elsewhere
+          <Button size="xs" variant="ghost" className="text-red-900" onClick={onReload}>
             Reload
-          </button>
+          </Button>
         </span>
       );
   }
@@ -449,7 +439,7 @@ function MoreActions({ children }: { children: React.ReactNode }) {
           />
         }
       >
-        <EllipsisIcon />
+        <IconDots />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-auto items-stretch">
         {children}

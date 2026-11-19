@@ -33,6 +33,7 @@
     "ai": "catalog:",
     "cmdk": "catalog:",
     "drizzle-orm": "catalog:",
+    "@tabler/icons-react": "catalog:",
     "lucide-react": "catalog:",
     "markdown-it": "catalog:",
     "next": "catalog:",

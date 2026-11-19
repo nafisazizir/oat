@@ -18,7 +18,7 @@
 import { Button } from '@oat/ui/components/button';
 import { cn } from '@oat/ui/lib/utils';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowDownIcon, AudioLinesIcon } from 'lucide-react';
+import { IconArrowDown, IconWaveSine } from '@tabler/icons-react';
 import {
   type KeyboardEvent,
   useCallback,
@@ -282,11 +282,11 @@ export function TranscriptList({
         <Button
           size="sm"
           variant="secondary"
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 shadow-md"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 material-menu"
           onClick={jumpToLive}
           data-testid="jump-to-live"
         >
-          <ArrowDownIcon data-icon="inline-start" />
+          <IconArrowDown data-icon="inline-start" />
           Jump to live
         </Button>
       )}
@@ -294,11 +294,11 @@ export function TranscriptList({
         <Button
           size="sm"
           variant="secondary"
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 shadow-md"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 material-menu"
           onClick={backToPlayhead}
           data-testid="back-to-playhead"
         >
-          <AudioLinesIcon data-icon="inline-start" />
+          <IconWaveSine data-icon="inline-start" />
           Back to playback
         </Button>
       )}
@@ -352,10 +352,10 @@ function SegmentRow({
       aria-current={focused ? 'true' : active ? 'time' : undefined}
     >
       {header && (
-        <div className="mb-1 flex items-baseline gap-2 px-1 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground/80">{speaker}</span>
+        <div className="mb-1 flex items-baseline gap-2 px-1">
+          <span className="text-label-12 text-gray-1000">{speaker}</span>
           <time
-            className="font-mono tabular-nums"
+            className="text-label-12-mono text-gray-900 tabular-nums"
             dateTime={`PT${Math.floor(segment.startMs / 1000)}S`}
           >
             {formatClock(segment.startMs)}
@@ -366,16 +366,19 @@ function SegmentRow({
         data-selectable
         {...select}
         className={cn(
-          'max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed transition-shadow duration-base',
+          'max-w-[85%] rounded-2xl px-3.5 py-2 text-copy-14 transition-[background-color,box-shadow] duration-100',
           me
-            ? 'rounded-br-md bg-me text-me-foreground'
-            : 'rounded-bl-md bg-them text-them-foreground',
-          // Interim: lighter, still ≥ 4.5:1 on the bubble (9.3b).
-          !final && 'italic opacity-75',
+            ? 'rounded-ee-md bg-blue-100 text-blue-1000'
+            : 'rounded-es-md bg-gray-100 text-gray-1000',
+          // Interim: a step lighter on the ramp, still ≥ 4.5:1 on the bubble (9.3b).
+          !final && (me ? 'text-blue-900 italic' : 'text-gray-900 italic'),
           onSelect &&
-            'cursor-pointer outline-none hover:ring-1 hover:ring-ring/30 focus-visible:ring-2 focus-visible:ring-ring',
-          active && 'ring-2 ring-primary shadow-sm',
-          focused && 'ring-2 ring-primary/60 ring-offset-2 ring-offset-background',
+            cn(
+              'cursor-pointer outline-none focus-visible:ring-3 focus-visible:ring-gray-600/50',
+              me ? 'hover:bg-blue-200' : 'hover:bg-gray-200',
+            ),
+          active && 'ring-2 ring-gray-1000',
+          focused && 'ring-2 ring-brand-600 ring-offset-2 ring-offset-background-100',
         )}
       >
         {segment.text}

@@ -1,6 +1,12 @@
 'use client';
 
-import { Label } from '@oat/ui/components/label';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldTitle,
+} from '@oat/ui/components/field';
 import { Switch } from '@oat/ui/components/switch';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
@@ -49,20 +55,22 @@ export function PipelineSwitch({
   }
 
   return (
-    <div className="flex items-start justify-between gap-4 rounded-lg border px-3 py-2.5">
-      <div className="flex flex-col gap-0.5">
-        <Label htmlFor={id}>{label}</Label>
-        <span className="text-xs text-muted-foreground">
-          {checked ? description.on : description.off}
-        </span>
-      </div>
-      <Switch
-        id={id}
-        data-testid={`pipeline-${setting}`}
-        checked={checked}
-        disabled={pending}
-        onCheckedChange={(next) => void change(next)}
-      />
-    </div>
+    <FieldLabel htmlFor={id} className="rounded-lg border border-gray-alpha-400">
+      <Field orientation="horizontal" className="items-start px-3 py-2.5">
+        <FieldContent className="gap-0">
+          <FieldTitle>{label}</FieldTitle>
+          <FieldDescription className="text-copy-13">
+            {checked ? description.on : description.off}
+          </FieldDescription>
+        </FieldContent>
+        <Switch
+          id={id}
+          data-testid={`pipeline-${setting}`}
+          checked={checked}
+          disabled={pending}
+          onCheckedChange={(next) => void change(next)}
+        />
+      </Field>
+    </FieldLabel>
   );
 }

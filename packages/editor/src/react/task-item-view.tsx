@@ -8,7 +8,7 @@ import {
   type ReactNodeViewProps,
   useEditorState,
 } from '@tiptap/react';
-import { CalendarIcon, CheckIcon, UserIcon, UserPlusIcon, XIcon } from 'lucide-react';
+import { IconCalendar, IconCheck, IconUser, IconUserPlus, IconX } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
 import { Button } from '@oat/ui/components/button';
@@ -22,7 +22,6 @@ import {
 } from '@oat/ui/components/command';
 import { Input } from '@oat/ui/components/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@oat/ui/components/popover';
-import { cn } from '@oat/ui/lib/utils';
 
 import { OatTaskItem } from '../task-item.ts';
 import { addDays, dueState, formatDue, localDay, nextMonday } from '../task-dates.ts';
@@ -138,7 +137,7 @@ function OwnerChip({ owner }: { owner: TaskOwner }) {
 function DueChip({ due, state, today }: { due: string; state?: string; today: string }) {
   return (
     <span className="oat-task-chip" data-kind="due" data-state={state} title={`Due ${due}`}>
-      <CalendarIcon className="size-3" aria-hidden />
+      <IconCalendar className="size-3" aria-hidden />
       {formatDue(due, today)}
     </span>
   );
@@ -205,7 +204,7 @@ function OwnerPicker({
             </button>
           ) : (
             <button type="button" className="oat-task-add" aria-label="Assign task">
-              <UserPlusIcon className="size-3.5" aria-hidden />
+              <IconUserPlus className="size-3.5" aria-hidden />
               <span>Assign</span>
             </button>
           )
@@ -233,7 +232,7 @@ function OwnerPicker({
                   >
                     {/* The popover is portalled outside `.oat-editor`: Tailwind, not the editor's CSS. */}
                     <span
-                      className="flex size-6 shrink-0 items-center justify-center rounded-full bg-me text-xs font-semibold text-me-foreground"
+                      className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gray-200 text-label-12 text-gray-1000"
                       aria-hidden
                     >
                       {initials(person.name)}
@@ -241,13 +240,11 @@ function OwnerPicker({
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate">{person.name}</span>
                       {person.email && (
-                        <span className="truncate text-xs text-muted-foreground">
-                          {person.email}
-                        </span>
+                        <span className="truncate text-label-12 text-gray-900">{person.email}</span>
                       )}
                     </span>
                     {owner && ownerKey(owner) === ownerKey(person) && (
-                      <CheckIcon className="size-4" aria-hidden />
+                      <IconCheck className="size-4" aria-hidden />
                     )}
                   </CommandItem>
                 ))}
@@ -257,13 +254,13 @@ function OwnerPicker({
               <CommandGroup>
                 {typed && !exact && (
                   <CommandItem value={`typed:${typed}`} onSelect={() => choose({ name: typed })}>
-                    <UserIcon aria-hidden />
+                    <IconUser aria-hidden />
                     <span className="truncate">Assign to “{typed}”</span>
                   </CommandItem>
                 )}
                 {owner && (
                   <CommandItem value="unassign" onSelect={() => choose(null)}>
-                    <XIcon aria-hidden />
+                    <IconX aria-hidden />
                     Unassign
                   </CommandItem>
                 )}
@@ -310,12 +307,12 @@ function DuePicker({
               aria-label={`Due ${formatDue(due, today)}. Change`}
               title={`Due ${due}`}
             >
-              <CalendarIcon className="size-3" aria-hidden />
+              <IconCalendar className="size-3" aria-hidden />
               {formatDue(due, today)}
             </button>
           ) : (
             <button type="button" className="oat-task-add" aria-label="Set due date">
-              <CalendarIcon className="size-3.5" aria-hidden />
+              <IconCalendar className="size-3.5" aria-hidden />
               <span>Due</span>
             </button>
           )
@@ -349,10 +346,10 @@ function DuePicker({
             type="button"
             size="xs"
             variant="ghost"
-            className={cn('self-start text-muted-foreground')}
+            className="self-start text-gray-900"
             onClick={() => choose(null)}
           >
-            <XIcon data-icon="inline-start" />
+            <IconX data-icon="inline-start" />
             Clear due date
           </Button>
         )}

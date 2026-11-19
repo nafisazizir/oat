@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
-import { FilePlusIcon } from 'lucide-react';
+import { IconFilePlus } from '@tabler/icons-react';
 
 import { useTreeActions } from '@/components/app-shell/tree-actions';
 
@@ -10,7 +10,7 @@ export function FolderActions({ folderId }: { folderId: string }) {
   const { newPage } = useTreeActions();
   return (
     <Button variant="outline" onClick={() => void newPage({ folderId })}>
-      <FilePlusIcon data-icon="inline-start" />
+      <IconFilePlus data-icon="inline-start" />
       New page
     </Button>
   );

@@ -12,7 +12,7 @@
   font-family: var(--font-family-sans);
   font-size: var(--type-base);
   line-height: var(--type-base-leading);
-  caret-color: var(--primary);
+  caret-color: var(--ds-gray-1000);
   outline: none;
   word-break: break-word;
   min-height: calc(var(--type-base-leading) * 3);
@@ -73,7 +73,7 @@
   margin-top: calc(var(--space) * 0.5);
 }
 .oat-editor li::marker {
-  color: var(--muted-foreground);
+  color: var(--ds-gray-900);
 }
 
 .oat-editor ul[data-type='taskList'] {
@@ -115,19 +115,19 @@
   content: '';
   position: absolute;
   inset: 0.25rem;
-  border: 1.5px solid var(--input);
+  border: 1.5px solid var(--ds-gray-alpha-400);
   border-radius: calc(var(--radius) * 0.4);
-  background: var(--background);
+  background: var(--ds-background-100);
   transition:
     background-color var(--duration-fast) var(--easing-standard),
     border-color var(--duration-fast) var(--easing-standard);
 }
 .oat-editor ul[data-type='taskList'] input[type='checkbox']:hover::before {
-  border-color: var(--primary);
+  border-color: var(--ds-gray-1000);
 }
 .oat-editor ul[data-type='taskList'] input[type='checkbox']:checked::before {
-  border-color: var(--primary);
-  background: var(--primary);
+  border-color: var(--ds-gray-1000);
+  background: var(--ds-gray-1000);
 }
 .oat-editor ul[data-type='taskList'] input[type='checkbox']:checked::after {
   content: '';
@@ -136,12 +136,12 @@
   left: 0.6rem;
   width: 0.3rem;
   height: 0.55rem;
-  border: solid var(--primary-foreground);
+  border: solid var(--ds-background-100);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
 .oat-editor ul[data-type='taskList'] input[type='checkbox']:focus-visible {
-  outline: 2px solid var(--ring);
+  outline: 2px solid var(--ds-gray-600);
   outline-offset: -1px;
 }
 .oat-editor ul[data-type='taskList'] input[type='checkbox']:disabled {
@@ -149,9 +149,9 @@
 }
 .oat-editor ul[data-type='taskList'] li[data-checked='true'] > div:not(.oat-task),
 .oat-editor .oat-task[data-checked='true'] > .oat-task-content {
-  color: var(--muted-foreground);
+  color: var(--ds-gray-900);
   text-decoration: line-through;
-  text-decoration-color: color-mix(in oklch, var(--muted-foreground) 60%, transparent);
+  text-decoration-color: color-mix(in oklch, var(--ds-gray-900) 60%, transparent);
 }
 
 /* ── Action items (8.4): owner + due chips on task items ─────────────
@@ -185,7 +185,7 @@
   min-height: var(--type-base-leading);
   font-size: var(--type-xs);
   line-height: var(--type-xs-leading);
-  color: var(--muted-foreground);
+  color: var(--ds-gray-900);
   user-select: none;
 }
 .oat-editor .oat-task-chip {
@@ -196,8 +196,8 @@
   height: calc(var(--space) * 5.5);
   padding: 0 calc(var(--space) * 2);
   border-radius: 999px;
-  background: var(--muted);
-  color: var(--muted-foreground);
+  background: var(--ds-gray-100);
+  color: var(--ds-gray-900);
   font: inherit;
   white-space: nowrap;
   transition:
@@ -209,19 +209,19 @@
 }
 .oat-editor button.oat-task-chip:hover,
 .oat-editor button.oat-task-chip[data-state='open'] {
-  background: color-mix(in oklch, var(--foreground) 10%, var(--muted));
-  color: var(--foreground);
+  background: color-mix(in oklch, var(--ds-gray-1000) 10%, var(--ds-gray-100));
+  color: var(--ds-gray-1000);
 }
 .oat-editor .oat-task-chip[data-kind='owner'] {
   padding-left: calc(var(--space) * 0.75);
 }
 .oat-editor .oat-task-chip[data-state='overdue'] {
-  background: color-mix(in oklch, var(--destructive) 14%, transparent);
-  color: var(--destructive);
+  background: color-mix(in oklch, var(--ds-red-900) 14%, transparent);
+  color: var(--ds-red-900);
 }
 .oat-editor .oat-task-chip[data-state='today'] {
-  background: color-mix(in oklch, var(--warning) 22%, transparent);
-  color: var(--warning-foreground);
+  background: color-mix(in oklch, var(--ds-amber-900) 22%, transparent);
+  color: var(--ds-amber-1000);
 }
 .oat-editor .oat-task-avatar {
   display: inline-flex;
@@ -231,8 +231,8 @@
   width: calc(var(--space) * 4);
   height: calc(var(--space) * 4);
   border-radius: 999px;
-  background: var(--me);
-  color: var(--me-foreground);
+  background: var(--ds-gray-200);
+  color: var(--ds-gray-1000);
   font-size: 0.625rem;
   font-weight: 600;
   line-height: 1;
@@ -246,7 +246,7 @@
   height: calc(var(--space) * 6);
   padding: 0 calc(var(--space) * 1.5);
   border-radius: calc(var(--radius) * 0.75);
-  color: var(--muted-foreground);
+  color: var(--ds-gray-900);
   font: inherit;
   cursor: pointer;
   opacity: 0;
@@ -261,12 +261,12 @@
 }
 .oat-editor .oat-task-add:hover,
 .oat-editor .oat-task-add[data-state='open'] {
-  background: var(--muted);
-  color: var(--foreground);
+  background: var(--ds-gray-100);
+  color: var(--ds-gray-1000);
 }
 .oat-editor .oat-task-add:focus-visible,
 .oat-editor .oat-task-chip:focus-visible {
-  outline: 2px solid var(--ring);
+  outline: 2px solid var(--ds-gray-600);
   outline-offset: 1px;
 }
 @media (hover: none) {
@@ -284,7 +284,7 @@
 /* ── Quote, code, divider ─────────────────────────────────────────── */
 .oat-editor blockquote {
   padding-left: calc(var(--space) * 4);
-  border-left: 3px solid var(--border);
+  border-left: 3px solid var(--ds-gray-alpha-400);
   font-family: var(--font-family-serif);
   font-size: var(--type-lg);
   line-height: var(--type-lg-leading);
@@ -293,8 +293,8 @@
 .oat-editor pre {
   padding: calc(var(--space) * 3) calc(var(--space) * 4);
   border-radius: var(--radius);
-  background: var(--muted);
-  border: 1px solid var(--border);
+  background: var(--ds-gray-100);
+  border: 1px solid var(--ds-gray-alpha-400);
   font-family: var(--font-family-mono);
   font-size: var(--type-sm);
   line-height: var(--type-sm-leading);
@@ -314,74 +314,74 @@
   font-size: 0.875em;
   padding: 0.1em 0.35em;
   border-radius: calc(var(--radius) * 0.6);
-  background: var(--muted);
-  border: 1px solid var(--border);
-  color: var(--foreground);
+  background: var(--ds-gray-100);
+  border: 1px solid var(--ds-gray-alpha-400);
+  color: var(--ds-gray-1000);
 }
 
 .oat-editor hr {
   border: 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--ds-gray-alpha-400);
   margin-block: calc(var(--space) * 5);
   cursor: pointer;
 }
 .oat-editor hr.ProseMirror-selectednode {
-  border-top-color: var(--ring);
+  border-top-color: var(--ds-gray-600);
 }
 
 /* ── Marks ────────────────────────────────────────────────────────── */
 .oat-editor mark {
-  background: color-mix(in oklch, var(--warning) 32%, transparent);
+  background: color-mix(in oklch, var(--ds-amber-900) 32%, transparent);
   color: inherit;
   border-radius: calc(var(--radius) * 0.25);
   padding-inline: 0.1em;
   box-decoration-break: clone;
 }
 .oat-editor a {
-  color: var(--primary);
+  color: var(--ds-gray-1000);
   text-decoration: underline;
-  text-decoration-color: color-mix(in oklch, var(--primary) 40%, transparent);
+  text-decoration-color: color-mix(in oklch, var(--ds-gray-1000) 40%, transparent);
   text-underline-offset: 0.2em;
   cursor: text;
 }
 .oat-editor a:hover {
-  text-decoration-color: var(--primary);
+  text-decoration-color: var(--ds-gray-1000);
 }
 
 /* ── Mentions ─────────────────────────────────────────────────────── */
 .oat-editor .oat-mention {
-  color: var(--me-foreground);
-  background: var(--me);
+  color: var(--ds-gray-1000);
+  background: var(--ds-gray-200);
   border-radius: calc(var(--radius) * 0.6);
   padding: 0.05em 0.3em;
   font-weight: 500;
   white-space: nowrap;
 }
 .oat-editor .suggestion {
-  color: var(--primary);
+  color: var(--ds-gray-1000);
 }
 
 /* ── Callout ──────────────────────────────────────────────────────── */
 .oat-editor [data-type='callout'] {
-  --callout-tint: var(--muted-foreground);
+  --callout-tint: var(--ds-gray-900);
   display: flex;
   gap: calc(var(--space) * 3);
   padding: calc(var(--space) * 3) calc(var(--space) * 4);
   border-radius: var(--radius);
-  background: color-mix(in oklab, var(--callout-tint) 9%, var(--background));
+  background: color-mix(in oklab, var(--callout-tint) 9%, var(--ds-background-100));
   border: 1px solid color-mix(in oklab, var(--callout-tint) 18%, transparent);
 }
 .oat-editor [data-type='callout'][data-variant='info'] {
-  --callout-tint: var(--primary);
+  --callout-tint: var(--ds-gray-1000);
 }
 .oat-editor [data-type='callout'][data-variant='success'] {
-  --callout-tint: var(--success);
+  --callout-tint: var(--ds-green-900);
 }
 .oat-editor [data-type='callout'][data-variant='warning'] {
-  --callout-tint: var(--warning);
+  --callout-tint: var(--ds-amber-900);
 }
 .oat-editor [data-type='callout'][data-variant='danger'] {
-  --callout-tint: var(--destructive);
+  --callout-tint: var(--ds-red-900);
 }
 .oat-editor [data-callout-emoji] {
   flex: none;
@@ -407,7 +407,7 @@
   content: attr(data-placeholder);
   float: left;
   height: 0;
-  color: var(--muted-foreground);
+  color: var(--ds-gray-900);
   opacity: 0.8;
   pointer-events: none;
 }
@@ -417,12 +417,12 @@
 
 /* ── Selection & cursors ──────────────────────────────────────────── */
 .oat-editor .ProseMirror-selectednode:not(hr) {
-  outline: 2px solid var(--ring);
+  outline: 2px solid var(--ds-gray-600);
   outline-offset: 2px;
   border-radius: calc(var(--radius) * 0.6);
 }
 .oat-editor .ProseMirror-gapcursor::after {
-  border-top-color: var(--foreground);
+  border-top-color: var(--ds-gray-1000);
 }
 
 /* Read-only: links are clickable. */

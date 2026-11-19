@@ -40,7 +40,7 @@
     "@tiptap/starter-kit": "catalog:",
     "@tiptap/static-renderer": "catalog:",
     "@tiptap/suggestion": "catalog:",
-    "lucide-react": "catalog:",
+    "@tabler/icons-react": "catalog:",
     "markdown-it": "catalog:",
     "markdown-it-mark": "catalog:",
     "sanitize-html": "catalog:"

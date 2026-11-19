@@ -7,7 +7,7 @@
  */
 import { Button } from '@oat/ui/components/button';
 import { cn } from '@oat/ui/lib/utils';
-import { PanelRightCloseIcon } from 'lucide-react';
+import { IconLayoutSidebarRightCollapse } from '@tabler/icons-react';
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -147,7 +147,10 @@ export function SidePanel({
 
   return (
     <aside
-      className={cn('relative flex min-h-0 shrink-0 flex-col border-l bg-background', className)}
+      className={cn(
+        'relative flex min-h-0 shrink-0 flex-col border-s border-gray-alpha-400 bg-background-100',
+        className,
+      )}
       style={{ width }}
       data-width={width}
       {...rest}
@@ -164,24 +167,24 @@ export function SidePanel({
         onPointerDown={onPointerDown}
         onKeyDown={onKeyDown}
         className={cn(
-          'group absolute inset-y-0 -left-1.5 z-10 w-3 cursor-col-resize outline-none',
+          'group absolute inset-y-0 -start-1.5 z-10 w-3 cursor-col-resize outline-none',
           'after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:transition-colors after:duration-fast',
-          'hover:after:w-0.5 hover:after:bg-ring/60 focus-visible:after:w-0.5 focus-visible:after:bg-ring',
-          dragging && 'after:w-0.5 after:bg-ring',
+          'hover:after:w-0.5 hover:after:bg-gray-500 focus-visible:after:w-0.5 focus-visible:after:bg-gray-600',
+          dragging && 'after:w-0.5 after:bg-gray-600',
         )}
       />
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
-        <h2 className="flex min-w-0 items-center gap-2 text-sm font-medium">{title}</h2>
+      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-gray-alpha-400 ps-4 pe-2">
+        <h2 className="flex min-w-0 items-center gap-2 text-label-14 text-gray-1000">{title}</h2>
         {meta}
         <Button
           variant="ghost"
           size="icon-sm"
-          className="ml-auto"
+          className="ms-auto"
           aria-label={closeLabel}
           onClick={onClose}
           data-testid="panel-close"
         >
-          <PanelRightCloseIcon />
+          <IconLayoutSidebarRightCollapse />
         </Button>
       </header>
       {children}

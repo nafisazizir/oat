@@ -10,13 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@oat/ui/components/dropdown-menu';
-import {
-  AlertCircleIcon,
-  ChevronDownIcon,
-  Loader2Icon,
-  RefreshCwIcon,
-  SparklesIcon,
-} from 'lucide-react';
+import { Alert, AlertAction, AlertTitle } from '@oat/ui/components/alert';
+import { ButtonGroup, ButtonGroupSeparator } from '@oat/ui/components/button-group';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconAlertCircle, IconChevronDown, IconRefresh, IconSparkles } from '@tabler/icons-react';
 import { useState } from 'react';
 
 import type { TemplateDto, TemplateList } from '@/lib/templates';
@@ -72,23 +69,18 @@ export function EnhanceButton({
   );
 
   return (
-    <div className="inline-flex items-center" data-slot="button-group">
-      <Button
-        size="sm"
-        data-testid="enhance-button"
-        disabled={busy}
-        onClick={() => start()}
-        className="rounded-r-none"
-      >
+    <ButtonGroup>
+      <Button size="sm" data-testid="enhance-button" disabled={busy} onClick={() => start()}>
         {busy ? (
-          <Loader2Icon data-icon="inline-start" className="animate-spin" />
+          <Spinner data-icon="inline-start" />
         ) : regenerate ? (
-          <RefreshCwIcon data-icon="inline-start" />
+          <IconRefresh data-icon="inline-start" />
         ) : (
-          <SparklesIcon data-icon="inline-start" />
+          <IconSparkles data-icon="inline-start" />
         )}
         {busy ? 'Enhancing…' : regenerate ? 'Regenerate' : 'Enhance'}
       </Button>
+      <ButtonGroupSeparator className="bg-gray-700" />
       <DropdownMenu onOpenChange={loadTemplates}>
         <DropdownMenuTrigger
           render={
@@ -97,11 +89,10 @@ export function EnhanceButton({
               disabled={busy}
               aria-label={regenerate ? 'Regenerate with a template' : 'Enhance with a template'}
               data-testid="enhance-template-menu"
-              className="rounded-l-none border-l border-l-primary-foreground/20"
             />
           }
         >
-          <ChevronDownIcon />
+          <IconChevronDown />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-52">
           <DropdownMenuGroup>
@@ -113,7 +104,7 @@ export function EnhanceButton({
               <DropdownMenuItem disabled>Couldn’t load templates</DropdownMenuItem>
             ) : !templates ? (
               <DropdownMenuItem disabled>
-                <Loader2Icon className="animate-spin" />
+                <Spinner />
                 Loading…
               </DropdownMenuItem>
             ) : (
@@ -127,7 +118,7 @@ export function EnhanceButton({
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-    </div>
+    </ButtonGroup>
   );
 }
 
@@ -136,19 +127,17 @@ export function EnhanceError({ enhancement }: { enhancement: Enhancement }) {
   const { state, retry, reattach, dismiss } = enhancement;
   if (state.phase !== 'failed') return null;
   return (
-    <div
-      role="alert"
-      data-testid="enhance-error"
-      className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm"
-    >
-      <AlertCircleIcon className="size-4 text-destructive" />
-      <span className="flex-1">{state.message}</span>
-      <Button size="sm" variant="outline" onClick={state.lost ? reattach : retry}>
-        {state.lost ? 'Reconnect' : 'Try again'}
-      </Button>
-      <Button size="sm" variant="ghost" onClick={dismiss}>
-        Dismiss
-      </Button>
-    </div>
+    <Alert role="alert" variant="destructive" data-testid="enhance-error">
+      <IconAlertCircle />
+      <AlertTitle className="text-copy-14">{state.message}</AlertTitle>
+      <AlertAction className="flex gap-2">
+        <Button size="sm" variant="outline" onClick={state.lost ? reattach : retry}>
+          {state.lost ? 'Reconnect' : 'Try again'}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={dismiss}>
+          Dismiss
+        </Button>
+      </AlertAction>
+    </Alert>
   );
 }
