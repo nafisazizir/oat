@@ -1,7 +1,7 @@
 import type { DesktopWorkspace } from '@oat/core/bridge';
 import { describe, expect, it } from 'vitest';
 
-import { activeAndFallback, roleLabel } from './workspaces-state.ts';
+import { activeAndFallback, roleLabel, withActive } from './workspaces-state.ts';
 
 const ws = (id: string, kind: 'personal' | 'team', role: DesktopWorkspace['role']) => ({
   id,
@@ -25,6 +25,22 @@ describe('workspace switcher state', () => {
     expect(activeAndFallback({ workspaces: all, activeId: 'board', targetId: 'me' })).toMatchObject(
       { active: { id: 'board' }, fallback: { id: 'me' } },
     );
+  });
+
+  it('switches optimistically: new notes follow when I can add to the workspace, else go to personal', () => {
+    expect(withActive(null, 'team')).toBeNull();
+    const snapshot = { workspaces: all, activeId: 'me', targetId: 'me' };
+    expect(withActive(snapshot, 'team')).toEqual({
+      workspaces: all,
+      activeId: 'team',
+      targetId: 'team',
+    });
+    expect(withActive(snapshot, 'board')).toEqual({
+      workspaces: all,
+      activeId: 'board',
+      targetId: 'me',
+    });
+    expect(snapshot.activeId).toBe('me');
   });
 
   it('labels personal and team roles', () => {

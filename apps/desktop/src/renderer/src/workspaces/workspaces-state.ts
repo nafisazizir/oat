@@ -33,8 +33,31 @@ export function useWorkspaces(): WorkspacesView {
     snapshot,
     ...activeAndFallback(snapshot),
     async setActive(workspaceId) {
-      setSnapshot(await call('workspaces:set-active', { workspaceId }));
+      // Switch at once; main answers with what it saved, or the switch is undone and the caller shows why.
+      const before = snapshot;
+      setSnapshot((s) => withActive(s, workspaceId));
+      try {
+        setSnapshot(await call('workspaces:set-active', { workspaceId }));
+      } catch (e) {
+        setSnapshot((s) => (s?.activeId === workspaceId ? before : s));
+        throw e;
+      }
     },
+  };
+}
+
+/** `snapshot` with `workspaceId` active (the optimistic half of a switch). */
+export function withActive(
+  snapshot: WorkspacesSnapshot | null,
+  workspaceId: string,
+): WorkspacesSnapshot | null {
+  if (!snapshot) return snapshot;
+  const target = snapshot.workspaces.find((w) => w.id === workspaceId);
+  const personal = snapshot.workspaces.find((w) => w.kind === 'personal');
+  return {
+    ...snapshot,
+    activeId: workspaceId,
+    targetId: target?.canCreate ? workspaceId : (personal?.id ?? snapshot.targetId),
   };
 }
 

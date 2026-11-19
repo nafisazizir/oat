@@ -8,12 +8,14 @@ import type { RecordingSnapshot, TranscriptBackfillStatus } from '@oat/core/brid
 import { type TranscriptItem, TranscriptList } from '@oat/meeting-ui';
 import { cn } from '@oat/ui/lib/utils';
 import {
-  AlertCircleIcon,
-  AudioLinesIcon,
-  HistoryIcon,
-  Loader2Icon,
-  WifiOffIcon,
-} from 'lucide-react';
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@oat/ui/components/empty';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconAlertCircle, IconHistory, IconWaveSine, IconWifiOff } from '@tabler/icons-react';
 
 import { archiveFailed, type TranscriptionHealth, transcriptionHealth } from '../recording-view.ts';
 import { type TranscriptNotice, transcriptNotices } from './transcript-notices.ts';
@@ -83,11 +85,11 @@ export function TranscriptPanel({
 }
 
 const NOTICE_TONE: Record<TranscriptNotice['kind'], string> = {
-  recovered: 'border-warning/40 bg-warning/10',
-  filling: 'border-border bg-muted/50 text-muted-foreground',
-  retrying: 'border-warning/40 bg-warning/10',
-  failed: 'border-destructive/30 bg-destructive/10 text-destructive',
-  filled: 'border-border bg-muted/50 text-muted-foreground',
+  recovered: 'border-amber-300 bg-amber-100 text-gray-1000',
+  filling: 'border-gray-alpha-400 bg-background-200 text-gray-900',
+  retrying: 'border-amber-300 bg-amber-100 text-gray-1000',
+  failed: 'border-red-300 bg-red-100 text-red-900',
+  filled: 'border-gray-alpha-400 bg-background-200 text-gray-900',
 };
 
 /** Above the transcript: what happened to it (2.7). Live region, so progress is announced. */
@@ -100,20 +102,20 @@ function TranscriptNotices({ notices }: { notices: readonly TranscriptNotice[] }
           data-testid="transcript-notice"
           data-kind={n.kind}
           className={cn(
-            'flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs',
+            'flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-copy-13',
             NOTICE_TONE[n.kind],
           )}
         >
           {n.kind === 'filling' ? (
-            <Loader2Icon aria-hidden className="mt-px size-3.5 shrink-0 animate-spin" />
+            <Spinner aria-hidden className="mt-0.5 size-3.5 shrink-0" />
           ) : n.kind === 'filled' ? (
-            <HistoryIcon aria-hidden className="mt-px size-3.5 shrink-0" />
+            <IconHistory aria-hidden className="mt-0.5 size-3.5 shrink-0" />
           ) : (
-            <AlertCircleIcon
+            <IconAlertCircle
               aria-hidden
               className={cn(
-                'mt-px size-3.5 shrink-0',
-                n.kind === 'failed' ? 'text-destructive' : 'text-warning',
+                'mt-0.5 size-3.5 shrink-0',
+                n.kind === 'failed' ? 'text-red-900' : 'text-amber-900',
               )}
             />
           )}
@@ -143,10 +145,10 @@ function EmptyTranscript({
   if (!loaded || status === 'starting') {
     return (
       <div
-        className="flex flex-1 flex-col items-center justify-center gap-2 text-sm text-muted-foreground"
+        className="flex flex-1 flex-col items-center justify-center gap-2 text-label-14 text-gray-900"
         data-testid="transcript-loading"
       >
-        <Loader2Icon aria-hidden className="size-5 animate-spin" />
+        <Spinner aria-hidden className="size-5" />
         {status === 'starting'
           ? 'Starting…'
           : failed
@@ -158,44 +160,39 @@ function EmptyTranscript({
   const listening = status === 'recording' || status === 'paused';
   if (listening && (health === 'offline' || health === 'reconnecting')) {
     return (
-      <div
-        className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center"
-        data-testid="transcript-empty"
-      >
-        <div className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <WifiOffIcon aria-hidden className="size-5" />
-        </div>
-        <div className="flex flex-col gap-1">
-          <p className="font-heading text-lg font-medium">Waiting for transcription</p>
-          <p className="max-w-xs text-sm text-muted-foreground">
+      <Empty className="flex-1 px-8" data-testid="transcript-empty">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <IconWifiOff aria-hidden />
+          </EmptyMedia>
+          <EmptyTitle>Waiting for transcription</EmptyTitle>
+          <EmptyDescription>
             {archiveFailed
               ? 'Recording continues, but the audio can’t be saved on this Mac right now, so what is said while transcription is offline may be lost.'
               : 'Your audio is still being recorded and saved on this Mac. The transcript fills in when the connection is back.'}
-          </p>
-        </div>
-      </div>
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
   return (
-    <div
-      className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center"
-      data-testid="transcript-empty"
-    >
-      <div className="flex size-11 items-center justify-center rounded-full bg-accent text-accent-foreground">
-        <AudioLinesIcon aria-hidden className={cn('size-5', listening && 'animate-pulse')} />
-      </div>
-      <div className="flex flex-col gap-1">
-        <p className="font-heading text-lg font-medium">
-          {listening ? 'Listening…' : 'No transcript yet'}
-        </p>
-        <p className="max-w-xs text-sm text-muted-foreground">
+    <Empty className="flex-1 px-8" data-testid="transcript-empty">
+      <EmptyHeader>
+        <EmptyMedia
+          variant="icon"
+          className={listening ? 'bg-brand-100 text-brand-900' : undefined}
+        >
+          <IconWaveSine aria-hidden className={cn(listening && 'animate-pulse')} />
+        </EmptyMedia>
+        <EmptyTitle>{listening ? 'Listening…' : 'No transcript yet'}</EmptyTitle>
+        <EmptyDescription>
           {listening
             ? 'What you and the other side say appears here as it’s spoken.'
             : past
               ? 'Nothing was transcribed for this note. Record to add to it.'
               : 'Start recording to transcribe your microphone (you) and your computer’s audio (them), live.'}
-        </p>
-      </div>
-    </div>
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   );
 }

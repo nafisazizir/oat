@@ -8,7 +8,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@oat/ui/components/dialog';
-import { CopyIcon, Loader2Icon } from 'lucide-react';
+import { Skeleton } from '@oat/ui/components/skeleton';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconCopy } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
 import { BridgeCallError, call } from '../bridge.ts';
@@ -38,7 +40,7 @@ export function ConflictsPanel({ refreshKey }: { refreshKey: number | null }) {
   if (conflicts.length === 0) return null;
   return (
     <section className="flex flex-col gap-1" data-testid="conflicts" aria-label="Conflicted copies">
-      <h2 className="px-2 text-xs font-medium text-muted-foreground">
+      <h2 className="flex h-8 items-center px-2.5 text-label-12 text-gray-900">
         Conflicted copies ({conflicts.length})
       </h2>
       <ul className="flex flex-col gap-0.5">
@@ -46,13 +48,15 @@ export function ConflictsPanel({ refreshKey }: { refreshKey: number | null }) {
           <li key={c.copyId}>
             <button
               type="button"
-              className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+              className="flex w-full items-start gap-2.5 rounded-md px-2.5 py-1.5 text-start transition-colors outline-none hover:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50 active:bg-gray-alpha-200"
               onClick={() => setOpenId(c.copyId)}
             >
-              <CopyIcon className="mt-0.5 size-3.5 shrink-0 text-warning" />
+              <IconCopy aria-hidden className="mt-0.5 size-4 shrink-0 text-amber-900" />
               <span className="flex min-w-0 flex-col">
-                <span className="truncate text-sm">{c.originalTitle ?? c.title}</span>
-                <span className="truncate text-xs text-muted-foreground">
+                <span className="truncate text-label-14 text-gray-1000">
+                  {c.originalTitle ?? c.title}
+                </span>
+                <span className="truncate text-label-12 text-gray-900">
                   {conflictOrigin(c.device, c.at)}
                 </span>
               </span>
@@ -118,7 +122,7 @@ function CompareDialog({
               : 'Loading…'}
           </DialogDescription>
         </DialogHeader>
-        {detail && (
+        {detail ? (
           <div className="grid max-h-[55vh] grid-cols-2 gap-4 overflow-auto">
             <Side
               label="Other version"
@@ -128,8 +132,21 @@ function CompareDialog({
             />
             <Side label="This copy" lines={detail.copy} testId="compare-copy" />
           </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4" aria-busy>
+            {['Other version', 'This copy'].map((label) => (
+              <section key={label} className="flex min-w-0 flex-col gap-2">
+                <h3 className="text-label-12 text-gray-900">{label}</h3>
+                <div className="flex flex-col gap-2 rounded-md border border-gray-alpha-400 bg-background-200 p-3">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                </div>
+              </section>
+            ))}
+          </div>
         )}
-        <p role="alert" className="text-sm text-destructive empty:hidden">
+        <p role="alert" className="text-copy-14 text-red-900 empty:hidden">
           {error}
         </p>
         <DialogFooter>
@@ -138,18 +155,14 @@ function CompareDialog({
             disabled={!detail || pending !== null}
             onClick={() => void keep('original')}
           >
-            {pending === 'original' && (
-              <Loader2Icon className="animate-spin" data-icon="inline-start" />
-            )}
+            {pending === 'original' && <Spinner data-icon="inline-start" />}
             Keep other version
           </Button>
           <Button
             disabled={!detail?.original || pending !== null}
             onClick={() => void keep('copy')}
           >
-            {pending === 'copy' && (
-              <Loader2Icon className="animate-spin" data-icon="inline-start" />
-            )}
+            {pending === 'copy' && <Spinner data-icon="inline-start" />}
             Keep this copy
           </Button>
         </DialogFooter>
@@ -171,16 +184,19 @@ function Side({
 }) {
   return (
     <section className="flex min-w-0 flex-col gap-2" data-testid={testId}>
-      <h3 className="text-xs font-medium text-muted-foreground">{label}</h3>
-      <div className="rounded-md border bg-muted/30 p-3 text-sm leading-relaxed" data-selectable>
+      <h3 className="text-label-12 text-gray-900">{label}</h3>
+      <div
+        className="rounded-md border border-gray-alpha-400 bg-background-200 p-3 text-copy-14 text-gray-1000"
+        data-selectable
+      >
         {lines === null ? (
-          <p className="text-muted-foreground">{empty}</p>
+          <p className="text-gray-900">{empty}</p>
         ) : (
           lines.map((line, i) => (
             <p
               key={i}
-              className={`min-h-5 whitespace-pre-wrap break-words ${i === 0 ? 'font-medium' : ''} ${
-                line.changed ? '-mx-1 rounded-sm bg-warning/20 px-1' : ''
+              className={`min-h-5 whitespace-pre-wrap break-words ${i === 0 ? 'text-heading-14' : ''} ${
+                line.changed ? '-mx-1 rounded-sm bg-amber-200 px-1' : ''
               }`}
             >
               {line.text}
