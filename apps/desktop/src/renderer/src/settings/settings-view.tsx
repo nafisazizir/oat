@@ -3,6 +3,8 @@ import { Kbd } from '@oat/ui/components/kbd';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { useEffect } from 'react';
 
+import { escapeClosesView } from '../keyboard.ts';
+
 import { RecordingSettings } from './recording-settings.tsx';
 import { SetupSettings } from './setup-settings.tsx';
 import { StorageSettings } from './storage-settings.tsx';
@@ -20,15 +22,7 @@ export function SettingsView({
 }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.defaultPrevented) return;
-      // A dialog or menu open over the view handles Esc itself.
-      if (
-        document.querySelector(
-          '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
-        )
-      )
-        return;
-      onClose();
+      if (escapeClosesView(event, document)) onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
