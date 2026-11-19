@@ -85,7 +85,7 @@ function TrashRow({ node, onNavigate }: { node: DocumentNode; onNavigate: () => 
   const title = titleOf(node);
 
   return (
-    <Item size="xs" className="hover:bg-gray-alpha-100" data-testid="trash-item">
+    <Item size="xs" role="listitem" className="hover:bg-gray-alpha-100" data-testid="trash-item">
       <ItemMedia variant="icon" className="text-gray-900">
         <Icon />
       </ItemMedia>
