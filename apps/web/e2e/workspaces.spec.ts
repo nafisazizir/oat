@@ -152,7 +152,7 @@ test('invite → accept → change role → remove, with two users', async ({ br
 
   // As a member they see the list but can't invite or change roles.
   await invitee.goto('/settings/workspace/members');
-  await expect(memberRow(invitee, inviteeEmail)).toContainText('(you)');
+  await expect(memberRow(invitee, inviteeEmail)).toContainText('You');
   await expect(invitee.getByRole('button', { name: 'Invite people' })).toHaveCount(0);
   await expect(invitee.getByTestId('member-role-select').filter({ visible: true })).toHaveCount(0);
   await expect(invitee.getByRole('button', { name: /^Remove / })).toHaveCount(0);
@@ -167,6 +167,8 @@ test('invite → accept → change role → remove, with two users', async ({ br
   await row.getByTestId('member-role-select').filter({ visible: true }).click();
   await owner.page.getByRole('option', { name: 'Admin' }).click();
   await expect(row.getByTestId('member-role-select').filter({ visible: true })).toHaveText('Admin');
+  // The row updates optimistically; the toast confirms the server saved it.
+  await expect(owner.page.getByText(/is now admin$/)).toBeVisible();
   await shot(owner.page, 'members-role-changed');
 
   // The new admin now sees the invite button.
@@ -181,6 +183,7 @@ test('invite → accept → change role → remove, with two users', async ({ br
   await expect(remove).toBeHidden();
   await expect(memberRow(owner.page, inviteeEmail)).toHaveCount(0);
   await expect(owner.page.getByTestId('member-row').filter({ visible: true })).toHaveCount(1);
+  await expect(owner.page.getByText(/^Removed /)).toBeVisible();
 
   // Removed: the invitee is back in their personal workspace and can't see the team.
   await invitee.goto('/home');
@@ -237,6 +240,7 @@ test('wrong account, revoked invite, leave and delete', async ({ browser }) => {
     .getByRole('button', { name: 'Revoke' })
     .click();
   await expect(owner.page.getByTestId('invite-row').filter({ visible: true })).toHaveCount(0);
+  await expect(owner.page.getByText(/ revoked$/)).toBeVisible();
   await other.reload();
   await expect(other.getByRole('heading', { name: 'This invitation was revoked' })).toBeVisible();
   await other.close();

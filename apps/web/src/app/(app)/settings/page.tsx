@@ -1,14 +1,21 @@
 import { Badge } from '@oat/ui/components/badge';
-import { Button } from '@oat/ui/components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@oat/ui/components/card';
-import { Separator } from '@oat/ui/components/separator';
-import { ChevronRightIcon } from 'lucide-react';
-import type { Metadata } from 'next';
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from '@oat/ui/components/item';
+import { IconChevronRight, IconPlugConnected, IconUser } from '@tabler/icons-react';
+import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 import { connection } from 'next/server';
 
 import { PageContainer, PageHeader } from '@/components/page';
+import { SettingsList, SettingsSection } from '@/components/settings/section';
 import { ThemeTabs } from '@/components/theme-toggle';
+import { WorkspaceAvatar } from '@/components/workspace/workspace-avatar';
 import { integrationModes, serverEnv } from '@/lib/env';
 import { getShellData } from '@/server/shell';
 
@@ -21,23 +28,39 @@ const integrationLabels = {
   calendar: 'Google Calendar',
 } as const;
 
-function Row({
-  label,
-  hint,
-  children,
+const ICON_TILE =
+  'flex size-8 items-center justify-center rounded-md border border-gray-alpha-400 text-gray-1000 [&_svg]:size-4';
+
+/** A settings row that opens a sub-page: the whole row is the link. */
+function LinkRow({
+  href,
+  media,
+  title,
+  description,
+  testId,
 }: {
-  label: React.ReactNode;
-  hint?: string;
-  children: React.ReactNode;
+  href: Route;
+  media: React.ReactNode;
+  title: string;
+  description: string;
+  testId?: string;
 }) {
   return (
-    <div className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-col gap-0.5">
-        <div className="font-medium">{label}</div>
-        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-      </div>
-      {children}
-    </div>
+    <Item
+      render={<Link href={href} data-testid={testId} />}
+      className="transition-colors duration-fast outline-none hover:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50 focus-visible:ring-inset"
+    >
+      <ItemMedia>{media}</ItemMedia>
+      <ItemContent className="min-w-0 gap-0">
+        <ItemTitle className="w-full min-w-0">
+          <span className="truncate">{title}</span>
+        </ItemTitle>
+        <ItemDescription className="truncate text-copy-13">{description}</ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        <IconChevronRight aria-hidden className="size-4 text-gray-900" />
+      </ItemActions>
+    </Item>
   );
 }
 
@@ -45,121 +68,92 @@ export default async function SettingsPage() {
   // Explicitly per-request: reads runtime env (not just dynamic because the layout reads cookies).
   await connection();
   const modes = integrationModes(serverEnv());
-  const { workspace: currentWorkspace } = await getShellData();
+  const mocked = (Object.keys(integrationLabels) as (keyof typeof integrationLabels)[]).filter(
+    (key) => modes[key] !== 'real',
+  );
+  const { workspace } = await getShellData();
 
   return (
     <PageContainer>
-      <PageHeader title="Settings" description="Appearance, workspace and environment." />
+      <PageHeader title="Settings" />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>About me</CardTitle>
-          <CardDescription>
-            Your role, what you care about, and names to spell right. The AI uses it when it writes
-            your notes and answers questions.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Row label="Profile" hint="Only you see it.">
-            <Button
-              variant="outline"
-              role="link"
-              nativeButton={false}
-              render={<Link href="/settings/profile" data-testid="settings-profile-link" />}
-            >
-              Edit About me
-              <ChevronRightIcon data-icon="inline-end" />
-            </Button>
-          </Row>
-        </CardContent>
-      </Card>
+      <SettingsList aria-label="Settings pages">
+        <LinkRow
+          href="/settings/profile"
+          testId="settings-profile-link"
+          media={
+            <span className={ICON_TILE}>
+              <IconUser />
+            </span>
+          }
+          title="About me"
+          description="Your role, focus and names to spell right. The AI uses it."
+        />
+        <LinkRow
+          href="/settings/workspace"
+          media={<WorkspaceAvatar workspace={workspace} size="default" />}
+          title={workspace.name}
+          description={
+            workspace.kind === 'personal'
+              ? 'Personal workspace, just for you'
+              : 'Team workspace · name, icon, members and invites'
+          }
+        />
+        <LinkRow
+          href="/settings/integrations"
+          media={
+            <span className={ICON_TILE}>
+              <IconPlugConnected />
+            </span>
+          }
+          title="Integrations"
+          description="Google Calendar, Notion and what happens after a meeting"
+        />
+      </SettingsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Appearance</CardTitle>
-          <CardDescription>Choose how Oat looks on this device.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Row label="Theme" hint="System follows your operating system.">
-            <ThemeTabs />
-          </Row>
-        </CardContent>
-      </Card>
+      <SettingsSection title="Appearance">
+        <SettingsList>
+          <Item className="flex-col items-stretch sm:flex-row sm:items-center">
+            <ItemContent>
+              <ItemTitle>Theme</ItemTitle>
+              <ItemDescription className="text-copy-13">
+                System follows your operating system.
+              </ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <ThemeTabs />
+            </ItemActions>
+          </Item>
+        </SettingsList>
+      </SettingsSection>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Workspace</CardTitle>
-          <CardDescription>The workspace you’re in now.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col divide-y">
-          <Row
-            label={currentWorkspace.name}
-            hint={
-              currentWorkspace.kind === 'personal'
-                ? 'Personal workspace, just for you.'
-                : 'Team workspace: name, icon, members and invites.'
-            }
-          >
-            <Button
-              role="link"
-              nativeButton={false}
-              render={<Link href="/settings/workspace" />}
-              variant="outline"
-            >
-              {currentWorkspace.kind === 'personal' ? 'About this workspace' : 'Manage workspace'}
-              <ChevronRightIcon data-icon="inline-end" />
-            </Button>
-          </Row>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Integrations</CardTitle>
-          <CardDescription>Google Calendar shows your upcoming meetings on Home.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Row label="Calendar" hint="Connect or disconnect Google Calendar.">
-            <Button
-              variant="outline"
-              role="link"
-              nativeButton={false}
-              render={<Link href="/settings/integrations" />}
-            >
-              Manage integrations
-              <ChevronRightIcon data-icon="inline-end" />
-            </Button>
-          </Row>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Environment</CardTitle>
-          <CardDescription>
-            Integrations use local mocks until a key is set in{' '}
-            <code className="font-mono">.env</code>.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col">
-          {(Object.keys(integrationLabels) as (keyof typeof integrationLabels)[]).map(
-            (key, index) => (
-              <div key={key}>
-                {index > 0 && <Separator className="my-3" />}
-                <div className="flex items-center justify-between gap-4">
-                  <span>{integrationLabels[key]}</span>
-                  <Badge
-                    variant={modes[key] === 'real' ? 'default' : 'outline'}
-                    data-testid={`integration-${key}`}
-                  >
-                    {modes[key] === 'real' ? 'Live' : 'Local mock'}
+      {/* Only worth showing while something still runs on a local mock (development). */}
+      {mocked.length > 0 && (
+        <SettingsSection
+          title="Environment"
+          description={
+            <>
+              These use local mocks until a key is set in{' '}
+              <code className="text-label-13-mono">.env</code>.
+            </>
+          }
+        >
+          <SettingsList>
+            {mocked.map((key) => (
+              <Item key={key} size="sm" className="px-4">
+                <ItemContent>
+                  <ItemTitle>{integrationLabels[key]}</ItemTitle>
+                </ItemContent>
+                <ItemActions>
+                  <Badge variant="outline" data-testid={`integration-${key}`}>
+                    Local mock
                   </Badge>
-                </div>
-              </div>
-            ),
-          )}
-        </CardContent>
-      </Card>
+                </ItemActions>
+              </Item>
+            ))}
+          </SettingsList>
+        </SettingsSection>
+      )}
     </PageContainer>
   );
 }
