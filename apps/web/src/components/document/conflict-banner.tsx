@@ -11,7 +11,9 @@ import {
   DialogTitle,
 } from '@oat/ui/components/dialog';
 import { cn } from '@oat/ui';
-import { CopyIcon, Loader2Icon } from 'lucide-react';
+import { Alert, AlertAction, AlertDescription, AlertTitle } from '@oat/ui/components/alert';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconCopy } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
@@ -86,33 +88,33 @@ export function ConflictBanner({ conflict }: { conflict: ConflictDetail }) {
 
   return (
     <div className="mx-auto w-full max-w-content px-6 pt-6 sm:px-8" data-testid="conflict-banner">
-      <div
-        role="status"
-        className="flex flex-col gap-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm sm:flex-row sm:items-center"
-      >
-        <CopyIcon className="size-4 shrink-0 text-warning" aria-hidden />
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="font-medium">Conflicted copy from {from}</p>
-          <p className="text-muted-foreground">
-            {usable ? (
-              <>
-                This text was saved while{' '}
-                <Link className="underline underline-offset-2" href={`/d/${original.id}`}>
-                  the note
-                </Link>{' '}
-                changed elsewhere, so both versions were kept.
-              </>
-            ) : (
-              'The note it was copied from is gone; this copy is an ordinary page now.'
-            )}
-          </p>
-        </div>
+      <Alert role="status" className="border-amber-400 bg-amber-100">
+        <IconCopy className="text-amber-900" aria-hidden />
+        <AlertTitle className="text-gray-1000">Conflicted copy from {from}</AlertTitle>
+        <AlertDescription className="text-gray-900">
+          {usable ? (
+            <>
+              This text was saved while{' '}
+              <Link
+                className="text-gray-1000 underline underline-offset-2"
+                href={`/d/${original.id}`}
+              >
+                the note
+              </Link>{' '}
+              changed elsewhere, so both versions were kept.
+            </>
+          ) : (
+            'The note it was copied from is gone; this copy is an ordinary page now.'
+          )}
+        </AlertDescription>
         {usable && (
-          <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-            Compare
-          </Button>
+          <AlertAction>
+            <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+              Compare
+            </Button>
+          </AlertAction>
         )}
-      </div>
+      </Alert>
       {usable && (
         <CompareDialog
           open={open}
@@ -170,7 +172,7 @@ function CompareDialog({
           />
           <Side label="This copy" lines={diff.right} testId="compare-copy" />
         </div>
-        <p role="alert" className="text-sm text-destructive empty:hidden">
+        <p role="alert" className="text-copy-14 text-red-900 empty:hidden">
           {error ??
             (!canResolve
               ? 'You can’t resolve this copy.'
@@ -184,15 +186,11 @@ function CompareDialog({
             disabled={!canResolve || pending !== null}
             onClick={() => onKeep('original')}
           >
-            {pending === 'original' && (
-              <Loader2Icon className="animate-spin" data-icon="inline-start" />
-            )}
+            {pending === 'original' && <Spinner data-icon="inline-start" />}
             Keep other version
           </Button>
           <Button disabled={!canKeepCopy || pending !== null} onClick={() => onKeep('copy')}>
-            {pending === 'copy' && (
-              <Loader2Icon className="animate-spin" data-icon="inline-start" />
-            )}
+            {pending === 'copy' && <Spinner data-icon="inline-start" />}
             Keep this copy
           </Button>
         </DialogFooter>
@@ -212,15 +210,15 @@ function Side({
 }) {
   return (
     <section className="flex min-w-0 flex-col gap-2" data-testid={testId}>
-      <h3 className="text-xs font-medium text-muted-foreground">{label}</h3>
-      <div className="rounded-md border bg-muted/30 p-3 text-sm leading-relaxed">
+      <h3 className="text-label-13 text-gray-900">{label}</h3>
+      <div className="rounded-md border border-gray-alpha-400 bg-background-200 p-3 text-copy-14 text-gray-1000">
         {lines.map((line, i) => (
           <p
             key={i}
             className={cn(
               'min-h-5 whitespace-pre-wrap break-words',
-              i === 0 && 'font-medium',
-              line.changed && '-mx-1 rounded-sm bg-warning/20 px-1',
+              i === 0 && 'text-label-14',
+              line.changed && '-mx-1 rounded-sm bg-amber-200 px-1',
             )}
           >
             {line.text}

@@ -864,6 +864,9 @@ importers:
       '@oat/ui':
         specifier: workspace:*
         version: link:../ui
+      '@tabler/icons-react':
+        specifier: 'catalog:'
+        version: 3.52.0(react@19.3.1)
       '@tiptap/core':
         specifier: 'catalog:'
         version: 3.34.0(@tiptap/pm@3.34.0)
@@ -903,9 +906,6 @@ importers:
       '@tiptap/suggestion':
         specifier: 'catalog:'
         version: 3.34.0(@floating-ui/dom@1.8.0)(@tiptap/core@3.34.0(@tiptap/pm@3.34.0))(@tiptap/pm@3.34.0)
-      lucide-react:
-        specifier: 'catalog:'
-        version: 1.73.0(@types/react@19.3.0)(react@19.3.1)
       markdown-it:
         specifier: 'catalog:'
         version: 15.0.3
@@ -1066,12 +1066,12 @@ importers:
       '@oat/ui':
         specifier: workspace:*
         version: link:../ui
+      '@tabler/icons-react':
+        specifier: 'catalog:'
+        version: 3.52.0(react@19.3.1)
       '@tanstack/react-virtual':
         specifier: 'catalog:'
         version: 3.14.26(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      lucide-react:
-        specifier: 'catalog:'
-        version: 1.73.0(@types/react@19.3.0)(react@19.3.1)
     devDependencies:
       '@testing-library/dom':
         specifier: 'catalog:'

@@ -2,15 +2,17 @@
 
 import { Button } from '@oat/ui/components/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@oat/ui/components/dialog';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@oat/ui/components/alert-dialog';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@oat/ui/components/dropdown-menu';
-import { HistoryIcon, NotebookPenIcon, Undo2Icon } from 'lucide-react';
+import { IconArrowBackUp, IconHistory, IconNotes } from '@tabler/icons-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -131,14 +133,14 @@ export function EnhanceToolbar({
               data-testid="enhance-history"
               onClick={() => openHistory({ kind: 'version', id: latest.id })}
             >
-              <HistoryIcon />
+              <IconHistory />
               Note history
             </DropdownMenuItem>
             <DropdownMenuItem
               data-testid="enhance-original"
               onClick={() => openHistory({ kind: 'original' })}
             >
-              <NotebookPenIcon />
+              <IconNotes />
               Show my original notes
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -146,7 +148,7 @@ export function EnhanceToolbar({
               disabled={versions.restoring || versions.checking}
               onClick={() => versions.undo()}
             >
-              <Undo2Icon />
+              <IconArrowBackUp />
               Undo enhancement
             </DropdownMenuItem>
           </>
@@ -161,7 +163,7 @@ export function EnhanceToolbar({
             openHistory(latest ? { kind: 'version', id: latest.id } : { kind: 'original' })
           }
         >
-          <HistoryIcon data-icon="inline-start" />
+          <IconHistory data-icon="inline-start" />
           History
         </Button>
       )}
@@ -175,26 +177,30 @@ export function EnhanceToolbar({
         onRestore={restore}
       />
 
-      <Dialog open={pending !== null} onOpenChange={(open) => !open && versions.cancelPending()}>
-        <DialogContent data-testid="replace-confirm" showCloseButton={false}>
+      <AlertDialog
+        open={pending !== null}
+        onOpenChange={(open) => !open && versions.cancelPending()}
+      >
+        <AlertDialogContent data-testid="replace-confirm">
           {copy && (
             <>
-              <DialogHeader>
-                <DialogTitle>{copy.title}</DialogTitle>
-                <DialogDescription>{copy.description}</DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline" onClick={versions.cancelPending}>
-                  Cancel
-                </Button>
-                <Button data-testid="replace-confirm-action" onClick={versions.confirmPending}>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{copy.title}</AlertDialogTitle>
+                <AlertDialogDescription>{copy.description}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={versions.cancelPending}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  data-testid="replace-confirm-action"
+                  onClick={versions.confirmPending}
+                >
                   {copy.action}
-                </Button>
-              </DialogFooter>
+                </AlertDialogAction>
+              </AlertDialogFooter>
             </>
           )}
-        </DialogContent>
-      </Dialog>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

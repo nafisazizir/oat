@@ -158,12 +158,14 @@ export function MenuList<I>({
       role="listbox"
       aria-label={label}
       className={cn(
-        'max-h-80 w-72 overflow-y-auto rounded-lg border bg-popover p-1 text-sm text-popover-foreground shadow-md',
+        'max-h-80 w-72 overflow-y-auto rounded-lg material-menu p-1 text-label-14 text-gray-1000',
         className,
       )}
     >
       {items.length === 0 ? (
-        <div className="px-2 py-1.5 text-muted-foreground">{loading ? 'Loading…' : empty}</div>
+        <div className="px-2 py-1.5 text-label-14 text-gray-900">
+          {loading ? 'Loading…' : empty}
+        </div>
       ) : (
         items.map((item, index) => (
           <div
@@ -172,7 +174,7 @@ export function MenuList<I>({
             role="option"
             aria-selected={index === active}
             data-index={index}
-            className="flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 outline-none select-none aria-selected:bg-accent aria-selected:text-accent-foreground"
+            className="flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 outline-none select-none aria-selected:bg-gray-alpha-200"
             onMouseDown={(event) => event.preventDefault()}
             onMouseMove={() => setActive(index)}
             onClick={() => onSelect(item)}

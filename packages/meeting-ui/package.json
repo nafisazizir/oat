@@ -23,7 +23,7 @@
   "dependencies": {
     "@oat/ui": "workspace:*",
     "@tanstack/react-virtual": "catalog:",
-    "lucide-react": "catalog:"
+    "@tabler/icons-react": "catalog:"
   },
   "devDependencies": {
     "@testing-library/dom": "catalog:",

@@ -1,16 +1,26 @@
 import { cn } from '@oat/ui';
-import { ChevronLeftIcon, type LucideIcon } from 'lucide-react';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+} from '@oat/ui/components/empty';
+import { IconChevronLeft } from '@tabler/icons-react';
 import type { Route } from 'next';
 import Link from 'next/link';
+
+/** An icon component (Tabler, or any component that takes a `className`). */
+export type PageIcon = React.ComponentType<{ className?: string }>;
 
 /** "‹ Settings": the one way a sub-page links back to its parent (eyebrow above the title). */
 export function BackLink({ href, children }: { href: Route; children: React.ReactNode }) {
   return (
     <Link
       href={href}
-      className="-ml-1 inline-flex w-fit items-center gap-0.5 rounded-sm pr-1 text-xs text-muted-foreground transition-colors duration-fast hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+      className="-ms-1 inline-flex min-h-6 w-fit items-center gap-0.5 rounded-sm pe-1 text-label-13 text-gray-900 transition-colors hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 focus-visible:outline-none"
     >
-      <ChevronLeftIcon className="size-3.5" />
+      <IconChevronLeft className="size-3.5" aria-hidden />
       {children}
     </Link>
   );
@@ -43,26 +53,22 @@ export function PageHeader({
   return (
     <header className="flex flex-col gap-2">
       {eyebrow && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">{eyebrow}</div>
+        <div className="flex items-center gap-2 text-label-13 text-gray-900">{eyebrow}</div>
       )}
       <div className="flex items-end justify-between gap-4">
-        <h1 className="text-3xl font-medium">{title}</h1>
+        <h1 className="text-heading-32 text-gray-1000">{title}</h1>
         {children}
       </div>
-      {description && <p className="text-base text-muted-foreground">{description}</p>}
+      {description && <p className="text-copy-16 text-gray-900">{description}</p>}
     </header>
   );
 }
 
 export function SectionHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="font-sans text-xs font-medium tracking-wide text-muted-foreground uppercase">
-      {children}
-    </h2>
-  );
+  return <h2 className="text-label-13 text-gray-900">{children}</h2>;
 }
 
-/** Dashed "nothing here yet" panel: icon, title, one line of help, optional actions. */
+/** "Nothing here yet": ziiz `Empty` with an icon, a title, one line of help and optional actions. */
 export function EmptyState({
   icon: Icon,
   title,
@@ -71,7 +77,7 @@ export function EmptyState({
   className,
   titleAs: Title = 'h3',
 }: {
-  icon: LucideIcon;
+  icon: PageIcon;
   title: string;
   description: React.ReactNode;
   children?: React.ReactNode;
@@ -80,22 +86,19 @@ export function EmptyState({
   titleAs?: 'h1' | 'h2' | 'h3';
 }) {
   return (
-    <div
-      className={cn(
-        'flex flex-col items-center gap-4 rounded-xl border border-dashed px-6 py-12 text-center',
-        className,
-      )}
-    >
-      <div className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <Icon className="size-5" />
-      </div>
-      <div className="flex max-w-sm flex-col gap-1">
-        <Title className="text-lg font-medium">{title}</Title>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
+    <Empty className={cn('border border-dashed border-gray-alpha-400', className)}>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Icon className="text-gray-900" />
+        </EmptyMedia>
+        <Title data-slot="empty-title" className="text-heading-20 text-gray-1000">
+          {title}
+        </Title>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
       {children && (
-        <div className="flex flex-wrap items-center justify-center gap-2">{children}</div>
+        <EmptyContent className="flex-row flex-wrap justify-center">{children}</EmptyContent>
       )}
-    </div>
+    </Empty>
   );
 }

@@ -9,7 +9,8 @@ import { Input } from '@oat/ui/components/input';
 import { Label } from '@oat/ui/components/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@oat/ui/components/popover';
 import { cn } from '@oat/ui/lib/utils';
-import { CalendarIcon, Loader2Icon, PlusIcon, XIcon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconCalendar, IconPlus, IconX } from '@tabler/icons-react';
 import { type FormEvent, useId, useState } from 'react';
 
 import { initials, isPlausibleEmail, type Participant } from './format.ts';
@@ -32,21 +33,28 @@ export function ParticipantChips({
   onRemove,
   className,
 }: ParticipantChipsProps) {
-  const [removing, setRemoving] = useState<string | null>(null);
+  // Optimistic remove: the chip goes at once; it comes back (with the error) if `onRemove` rejects.
+  const [removed, setRemoved] = useState<ReadonlySet<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
 
   async function remove(p: Participant) {
     if (!onRemove) return;
-    setRemoving(p.id);
+    setRemoved((prev) => new Set(prev).add(p.id));
     setError(null);
     try {
       await onRemove(p);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Couldn’t remove them.');
     } finally {
-      setRemoving(null);
+      setRemoved((prev) => {
+        const next = new Set(prev);
+        next.delete(p.id);
+        return next;
+      });
     }
   }
+
+  const shown = removed.size ? participants.filter((p) => !removed.has(p.id)) : participants;
 
   return (
     <div className={cn('flex flex-col gap-1', className)}>
@@ -54,42 +62,37 @@ export function ParticipantChips({
         aria-label="Attendees"
         className="flex flex-wrap items-center gap-1.5"
         data-testid="participants"
-        data-count={participants.length}
+        data-count={shown.length}
       >
-        {participants.map((p) => (
+        {shown.map((p) => (
           <li
             key={p.id}
             data-testid="participant-chip"
             data-source={p.source}
             title={p.email ?? undefined}
-            className="group inline-flex h-7 max-w-56 items-center gap-1.5 rounded-full border bg-card pr-2.5 pl-0.5 text-xs text-card-foreground"
+            className="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-full border border-gray-alpha-400 bg-background-100 ps-0.5 pe-2.5 text-label-13 text-gray-1000 has-[button]:pe-0.5"
           >
             <span
               aria-hidden
-              className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent text-[0.625rem] font-semibold text-accent-foreground"
+              className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gray-200 text-label-12 text-gray-1000"
             >
               {initials(p.name || p.email || '?')}
             </span>
             <span className="truncate">{p.name || p.email}</span>
             {p.source === 'calendar' && (
-              <CalendarIcon
+              <IconCalendar
                 aria-label="From the calendar"
-                className="size-3 shrink-0 text-muted-foreground"
+                className="size-3 shrink-0 text-gray-900"
               />
             )}
             {editable && onRemove && (
               <button
                 type="button"
                 aria-label={`Remove ${p.name || p.email}`}
-                disabled={removing === p.id}
                 onClick={() => void remove(p)}
-                className="-mr-1 flex size-4 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-60 transition-opacity duration-fast group-hover:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-40"
+                className="flex size-6 shrink-0 items-center justify-center rounded-full text-gray-900 transition-colors hover:bg-gray-alpha-200 hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 focus-visible:outline-none"
               >
-                {removing === p.id ? (
-                  <Loader2Icon className="size-3 animate-spin" />
-                ) : (
-                  <XIcon className="size-3" />
-                )}
+                <IconX className="size-3" />
               </button>
             )}
           </li>
@@ -99,12 +102,12 @@ export function ParticipantChips({
             <AddParticipant onAdd={onAdd} />
           </li>
         )}
-        {participants.length === 0 && !(editable && onAdd) && (
-          <li className="text-xs text-muted-foreground">No attendees</li>
+        {shown.length === 0 && !(editable && onAdd) && (
+          <li className="text-label-13 text-gray-900">No attendees</li>
         )}
       </ul>
       {error && (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-label-13 text-red-900">
           {error}
         </p>
       )}
@@ -158,20 +161,18 @@ function AddParticipant({ onAdd }: { onAdd: NonNullable<ParticipantChipsProps['o
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 rounded-full px-2.5 text-xs text-muted-foreground"
+            className="h-7 rounded-full px-2.5 text-button-12 text-gray-900"
             data-testid="add-participant"
           />
         }
       >
-        <PlusIcon data-icon="inline-start" />
+        <IconPlus data-icon="inline-start" />
         Add attendee
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72">
         <form noValidate className="flex flex-col gap-2.5" onSubmit={(event) => void submit(event)}>
           <div className="flex flex-col gap-1">
-            <Label htmlFor={`${id}-name`} className="text-xs">
-              Name
-            </Label>
+            <Label htmlFor={`${id}-name`}>Name</Label>
             <Input
               id={`${id}-name`}
               value={name}
@@ -182,8 +183,8 @@ function AddParticipant({ onAdd }: { onAdd: NonNullable<ParticipantChipsProps['o
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label htmlFor={`${id}-email`} className="text-xs">
-              Email <span className="font-normal text-muted-foreground">(optional)</span>
+            <Label htmlFor={`${id}-email`}>
+              Email <span className="text-gray-900">(optional)</span>
             </Label>
             <Input
               id={`${id}-email`}
@@ -195,12 +196,12 @@ function AddParticipant({ onAdd }: { onAdd: NonNullable<ParticipantChipsProps['o
             />
           </div>
           {error && (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-label-13 text-red-900">
               {error}
             </p>
           )}
           <Button type="submit" size="sm" disabled={pending} className="self-end">
-            {pending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+            {pending && <Spinner data-icon="inline-start" />}
             Add
           </Button>
         </form>

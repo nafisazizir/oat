@@ -2,7 +2,7 @@
 
 import type { EnhanceBlock, EnhanceOutput, ListItemBlock } from '@oat/ai/enhance';
 import { Skeleton } from '@oat/ui/components/skeleton';
-import { SparklesIcon } from 'lucide-react';
+import { IconSparkles } from '@tabler/icons-react';
 
 /**
  * Read-only live view of the notes while the AI writes them (D-20): the same prose styles and my-vs-AI colours
@@ -21,9 +21,9 @@ export function EnhancePreview({ output }: { output: EnhanceOutput | null }) {
       <p
         role="status"
         aria-live="polite"
-        className="flex items-center gap-2 text-sm text-muted-foreground"
+        className="flex min-h-6 items-center gap-2 text-label-14 text-gray-900"
       >
-        <SparklesIcon className="size-4 animate-pulse text-primary" />
+        <IconSparkles className="size-4 animate-pulse text-brand-700" />
         Writing your notes from the transcript…
       </p>
       {sections.length === 0 ? (

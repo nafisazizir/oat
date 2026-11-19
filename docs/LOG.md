@@ -169,3 +169,10 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - Home now uses ziiz Item/Empty, ramp colors, type roles and Tabler icons; removes redundant sharing metadata and matches loading rows to the calendar/recent-document layout. Gallery demonstrates eleven ramps, all 31 roles and floating materials. Sonner uses ramp variables and the modal material. [task](tasks/ui-final-pass.md)
 - Removed only the UI Lucide dev dependency: the web dependency is still needed by excluded PR #5 files. Editor, meeting-ui, document routes and components, the catalog and bridge import are unchanged.
 - Fast CI (including actionlint) and gallery build pass; six new tests pass. Light/dark ramp and toast screenshots checked. Home is not visually verified; full integration/E2E and independent review were not run in this part.
+
+
+### Ziiz overhaul — document & meeting surfaces (PR 5)
+
+- Migrated `components/{page,document/**,meeting/**,pipeline/**}`, `d/[docId]` page + skeleton, `packages/editor/src/react/**` (+ `styles.css` var map to `--ds-*`) and `packages/meeting-ui/**` to ziiz ramp/type roles, Tabler icons and registry components (`Empty`, `Alert`, `AlertDialog`, `Item`, `Field`, `RadioGroup`, `ButtonGroup`, `Spinner`, `Kbd`, `material-menu`). meeting-ui public API unchanged.
+- Optimistic share access/transcript changes (writes serialized, rollback + toast; e2e `sharing.spec.ts`), optimistic attendee removal (unit test).
+- `ci --fast`: format/typecheck/lint/test pass; actionlint skipped locally by Docker Hub 429. Screenshots via `design-sweep` with `env -u DATABASE_URL` (the VM shell exports an unrelated `DATABASE_URL`).
