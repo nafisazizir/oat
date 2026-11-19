@@ -9,7 +9,8 @@
   --ds-gray-600: oklch(0.776 0.0175 84);
   --ds-gray-700: oklch(0.703 0.0159 84);
   --ds-gray-800: oklch(0.648 0.0146 84);
-  --ds-gray-900: oklch(0.572 0.0129 84);
+  /* Darker than the supplied ziiz oat palette for AA text on gray-100. */
+  --ds-gray-900: oklch(0.536 0.0129 84);
   --ds-gray-1000: oklch(0.266 0.006 84);
   --ds-gray-alpha-100: oklch(0.331 0.069 77.6 / 0.044);
   --ds-gray-alpha-200: oklch(0.331 0.0692 77.6 / 0.069);

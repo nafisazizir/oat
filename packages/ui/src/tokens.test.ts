@@ -11,7 +11,31 @@ const variables = (body: string) =>
 const light = variables(tokens.slice(0, tokens.indexOf('.dark')));
 const dark = variables(tokens.slice(tokens.indexOf('.dark')));
 
+function luminance(value: string) {
+  const [L, C, h] = value.match(/[\d.]+/g)!.map(Number) as [number, number, number];
+  const a = C * Math.cos((h * Math.PI) / 180);
+  const b = C * Math.sin((h * Math.PI) / 180);
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  return (
+    0.2126 * (4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s) +
+    0.7152 * (-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s) +
+    0.0722 * (-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s)
+  );
+}
+
 describe('oat palette', () => {
+  it.each(['background-100', 'background-200', 'gray-100'])(
+    'keeps gray-900 text AA on %s',
+    (background) => {
+      for (const theme of [light, dark]) {
+        const fg = luminance(theme.get('--ds-gray-900')!);
+        const bg = luminance(theme.get(`--ds-${background}`)!);
+        expect((Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05)).toBeGreaterThanOrEqual(4.5);
+      }
+    },
+  );
   it('defines the same ramp in both themes', () => {
     expect([...light.keys()].sort()).toEqual([...dark.keys()].sort());
     expect(light.size).toBeGreaterThan(100);
