@@ -1,7 +1,8 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
-import { CopyIcon, Loader2Icon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconCopy } from '@tabler/icons-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
@@ -40,7 +41,7 @@ export function DuplicateButton({
         })
       }
     >
-      {pending ? <Loader2Icon className="animate-spin" /> : <CopyIcon />}
+      {pending ? <Spinner data-icon="inline-start" /> : <IconCopy data-icon="inline-start" />}
       {label}
     </Button>
   );

@@ -1,7 +1,8 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
-import { ArrowUpRightIcon, Loader2Icon, RefreshCwIcon, SendIcon } from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconArrowUpRight, IconRefresh, IconSend } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -125,12 +126,12 @@ export function NotionExportButton({
           rel="noopener noreferrer"
           data-testid="notion-link"
           title={`Sent to Notion ${formatDay(exported.pushedAt)}`}
-          className="inline-flex items-center gap-0.5 rounded-sm underline-offset-2 hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          className="inline-flex items-center gap-0.5 rounded-sm text-label-13 text-gray-900 underline-offset-2 outline-none hover:text-gray-1000 hover:underline focus-visible:ring-3 focus-visible:ring-gray-600/50"
         >
           {exported.changedSince
             ? 'Notion copy is older'
             : `In Notion · ${formatDay(exported.pushedAt)}`}
-          <ArrowUpRightIcon className="size-3" />
+          <IconArrowUpRight aria-hidden className="size-3.5" />
         </a>
       )}
       <Button
@@ -141,11 +142,11 @@ export function NotionExportButton({
         data-testid="notion-send"
       >
         {sending ? (
-          <Loader2Icon data-icon="inline-start" className="animate-spin" />
+          <Spinner data-icon="inline-start" />
         ) : exported ? (
-          <RefreshCwIcon data-icon="inline-start" />
+          <IconRefresh data-icon="inline-start" />
         ) : (
-          <SendIcon data-icon="inline-start" />
+          <IconSend data-icon="inline-start" />
         )}
         {exported ? 'Update in Notion' : 'Send to Notion'}
       </Button>

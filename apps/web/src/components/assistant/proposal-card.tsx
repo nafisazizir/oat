@@ -1,16 +1,11 @@
 'use client';
 
 import { cn } from '@oat/ui';
+import { Alert, AlertAction, AlertDescription } from '@oat/ui/components/alert';
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
-import {
-  AlertTriangleIcon,
-  CheckIcon,
-  FilePenLineIcon,
-  Loader2Icon,
-  RotateCwIcon,
-  XIcon,
-} from 'lucide-react';
+import { Spinner } from '@oat/ui/components/spinner';
+import { IconAlertTriangle, IconCheck, IconRotateClockwise, IconX } from '@tabler/icons-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -44,14 +39,17 @@ export function ProposalCard({
   const router = useRouter();
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Rejecting changes nothing in the note, so it shows at once; a failure puts the buttons back.
+  const [optimistic, setOptimistic] = useState<ChatProposal['status'] | null>(null);
   const title = session.sources.documents[proposal.documentId]?.title;
-  const status = proposal.status;
+  const status = optimistic ?? proposal.status;
 
   async function decide(decision: 'approve' | 'reject') {
     const threadId = session.threadId();
     if (!threadId || busy) return;
     setBusy(decision);
     setNotice(null);
+    if (decision === 'reject') setOptimistic('rejected');
     // Approving a change to the note that is open here: lock the editor (nothing typed during the round
     // trips can be overwritten), save what the user typed first so the change is checked against what they
     // see, then patch only the changed blocks into the editor.
@@ -90,7 +88,14 @@ export function ProposalCard({
         }
       }
     } catch (error) {
-      if (isApiError(error, 'stale_version') || isApiError(error, 'proposal_closed')) {
+      if (decision === 'reject') {
+        setOptimistic(null);
+        if (!isApiError(error, 'proposal_closed')) {
+          toast.error('Couldn’t reject the change', {
+            description: isApiError(error) ? error.message : 'Something went wrong. Try again.',
+          });
+        }
+      } else if (isApiError(error, 'stale_version') || isApiError(error, 'proposal_closed')) {
         // The new status (stale / already decided) comes back with the thread.
       } else if (isApiError(error)) {
         setNotice(error.message);
@@ -100,6 +105,7 @@ export function ProposalCard({
     } finally {
       unlock();
       await session.refresh();
+      setOptimistic(null);
       setBusy(null);
     }
   }
@@ -109,24 +115,21 @@ export function ProposalCard({
       data-testid="proposal-card"
       data-status={status}
       aria-label="Suggested edit"
-      className="my-2 flex flex-col gap-3 rounded-xl border bg-card p-3 shadow-xs"
+      className="flex flex-col gap-3 rounded-xl border border-gray-alpha-400 p-3"
     >
-      <header className="flex items-start gap-2">
-        <FilePenLineIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <header className="flex min-h-9 items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="text-xs text-muted-foreground">Suggested edit to</span>
+          <span className="text-label-12 text-gray-900">Suggested edit to</span>
           {title ? (
             <Link
               href={`/d/${proposal.documentId}` as Route}
-              className="truncate text-sm font-medium hover:underline"
+              className="truncate text-heading-14 text-gray-1000 underline-offset-2 hover:underline"
               data-testid="proposal-document"
             >
               {title}
             </Link>
           ) : (
-            <span className="text-sm font-medium text-muted-foreground">
-              A note you can’t open anymore
-            </span>
+            <span className="text-heading-14 text-gray-900">A note you can’t open anymore</span>
           )}
         </div>
         <StatusBadge status={status} />
@@ -134,23 +137,23 @@ export function ProposalCard({
 
       <ol className="flex flex-col gap-2">
         {proposal.changes.map((change, i) => (
-          <li key={`${change.blockId}-${i}`} className="flex flex-col gap-1 text-sm">
+          <li key={`${change.blockId}-${i}`} className="flex flex-col gap-1 text-copy-14">
             <DiffLine kind="before" text={change.before} />
             <DiffLine kind="after" text={change.after} />
           </li>
         ))}
       </ol>
 
-      {proposal.summary && (
-        <p className="text-xs text-muted-foreground">
-          <span className="font-medium">Assistant’s note:</span> {proposal.summary}
-        </p>
-      )}
+      {proposal.summary && <p className="text-copy-13 text-gray-900">{proposal.summary}</p>}
 
       {status === 'pending' && (
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" onClick={() => void decide('approve')} disabled={busy !== null}>
-            {busy === 'approve' ? <Loader2Icon className="animate-spin" /> : <CheckIcon />}
+            {busy === 'approve' ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <IconCheck data-icon="inline-start" />
+            )}
             Approve
           </Button>
           <Button
@@ -159,39 +162,38 @@ export function ProposalCard({
             onClick={() => void decide('reject')}
             disabled={busy !== null}
           >
-            {busy === 'reject' ? <Loader2Icon className="animate-spin" /> : <XIcon />}
+            <IconX data-icon="inline-start" />
             Reject
           </Button>
         </div>
       )}
 
       {(status === 'stale' || status === 'failed') && (
-        <div
-          role="status"
-          className="flex flex-wrap items-center gap-2 rounded-lg bg-warning/15 px-3 py-2 text-xs"
-        >
-          <AlertTriangleIcon className="size-3.5 shrink-0" />
-          <span className="flex-1">
+        <Alert role="status" className="border-amber-400 bg-amber-100">
+          <IconAlertTriangle className="text-amber-900" />
+          <AlertDescription>
             {status === 'stale'
-              ? 'The note changed since this suggestion, so it wasn’t applied. Re-run to get a fresh one.'
-              : 'This change no longer fits the note. Re-run to get a fresh one.'}
-          </span>
+              ? 'The note changed since this suggestion, so it wasn’t applied.'
+              : 'This change no longer fits the note.'}
+          </AlertDescription>
           {question && (
-            <Button
-              size="xs"
-              variant="outline"
-              disabled={session.busy}
-              onClick={() => session.ask(question)}
-            >
-              <RotateCwIcon />
-              Re-run
-            </Button>
+            <AlertAction>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={session.busy}
+                onClick={() => session.ask(question)}
+              >
+                <IconRotateClockwise data-icon="inline-start" />
+                Re-run
+              </Button>
+            </AlertAction>
           )}
-        </div>
+        </Alert>
       )}
 
       {notice && (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-copy-13 text-red-900">
           {notice}
         </p>
       )}
@@ -206,19 +208,15 @@ function DiffLine({ kind, text }: { kind: 'before' | 'after'; text: string }) {
       data-diff={kind}
       className={cn(
         'grid grid-cols-[1rem_1fr] rounded-md px-2 py-1 break-words whitespace-pre-wrap',
-        before ? 'bg-destructive/10 text-foreground/80' : 'bg-success/15 text-foreground',
+        before ? 'bg-red-100 text-gray-900' : 'bg-green-100 text-gray-1000',
       )}
     >
-      <span aria-hidden className="font-mono text-muted-foreground select-none">
+      <span aria-hidden className={cn('select-none', before ? 'text-red-900' : 'text-green-900')}>
         {before ? '−' : '+'}
       </span>
       <span>
         <span className="sr-only">{before ? 'Before: ' : 'After: '}</span>
-        {before ? (
-          <del className="decoration-destructive/50">{text || '(empty)'}</del>
-        ) : (
-          text || '(empty)'
-        )}
+        {before ? <del className="decoration-red-700">{text || '(empty)'}</del> : text || '(empty)'}
       </span>
     </p>
   );
@@ -230,8 +228,8 @@ function StatusBadge({ status }: { status: ChatProposal['status'] }) {
       return <Badge variant="secondary">Needs your approval</Badge>;
     case 'applied':
       return (
-        <Badge variant="secondary" className="gap-1">
-          <CheckIcon />
+        <Badge variant="secondary">
+          <IconCheck data-icon="inline-start" />
           Applied
         </Badge>
       );

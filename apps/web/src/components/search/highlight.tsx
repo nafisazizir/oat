@@ -9,7 +9,7 @@ export function Highlight({ html, className }: { html: string; className?: strin
     <span className={className}>
       {highlightParts(html).map((part, i) =>
         part.mark ? (
-          <mark key={i} className="rounded-[3px] bg-warning/30 px-px text-current">
+          <mark key={i} className="rounded-xs bg-amber-300 px-px text-current">
             {part.text}
           </mark>
         ) : (
