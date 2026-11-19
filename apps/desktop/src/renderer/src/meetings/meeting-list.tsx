@@ -11,6 +11,8 @@ import { Spinner } from '@oat/ui/components/spinner';
 import { IconPlus } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
+import { isNewNoteShortcut } from '../keyboard.ts';
+
 /** The platform's command key, for shortcut hints. */
 export const MOD =
   typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? '⌘' : 'Ctrl';
@@ -27,8 +29,7 @@ export function NewMeetingButton({
   useEffect(() => {
     if (disabled || pending) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== 'n' || !(event.metaKey || event.ctrlKey)) return;
-      if (event.shiftKey || event.altKey || event.repeat) return;
+      if (!isNewNoteShortcut(event)) return;
       event.preventDefault();
       onClick();
     };

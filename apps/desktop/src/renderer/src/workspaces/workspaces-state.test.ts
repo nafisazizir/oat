@@ -1,7 +1,7 @@
 import type { DesktopWorkspace } from '@oat/core/bridge';
 import { describe, expect, it } from 'vitest';
 
-import { activeAndFallback, roleLabel, withActive } from './workspaces-state.ts';
+import { activeAndFallback, roleLabel, undoSwitch, withActive } from './workspaces-state.ts';
 
 const ws = (id: string, kind: 'personal' | 'team', role: DesktopWorkspace['role']) => ({
   id,
@@ -46,5 +46,20 @@ describe('workspace switcher state', () => {
   it('labels personal and team roles', () => {
     expect(all.map(roleLabel)).toEqual(['Personal space', 'Member', 'View only']);
     expect(roleLabel(ws('x', 'team', null))).toBe('Team');
+  });
+});
+
+describe('undoSwitch', () => {
+  const workspaces = [ws('p', 'personal', 'owner'), ws('t', 'team', 'member')];
+  const before = { workspaces, activeId: 'p', targetId: 'p' };
+
+  it('restores the snapshot from before a rejected switch', () => {
+    const optimistic = withActive(before, 't');
+    expect(undoSwitch(before, 't')(optimistic)).toBe(before);
+  });
+
+  it('keeps a later switch the user made while the first was pending', () => {
+    const later = { workspaces, activeId: 'p', targetId: 'p' };
+    expect(undoSwitch(before, 't')(later)).toBe(later);
   });
 });

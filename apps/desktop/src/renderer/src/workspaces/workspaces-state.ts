@@ -39,11 +39,20 @@ export function useWorkspaces(): WorkspacesView {
       try {
         setSnapshot(await call('workspaces:set-active', { workspaceId }));
       } catch (e) {
-        setSnapshot((s) => (s?.activeId === workspaceId ? before : s));
+        setSnapshot(undoSwitch(before, workspaceId));
         throw e;
       }
     },
   };
+}
+
+/**
+ * Undo a failed switch to `workspaceId`: back to `before`, unless the user has switched again since
+ * (then the later switch stands).
+ */
+export function undoSwitch(before: WorkspacesSnapshot | null, workspaceId: string) {
+  return (current: WorkspacesSnapshot | null) =>
+    current?.activeId === workspaceId ? before : current;
 }
 
 /** `snapshot` with `workspaceId` active (the optimistic half of a switch). */
