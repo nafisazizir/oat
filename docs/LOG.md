@@ -158,3 +158,8 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - Latest PR run after `4663a6b`: web 63 passed, editor 16 passed, DB integration 51 passed; Swift and review passed. Linux fails only the unchanged desktop backfill boundary assertion (`16600 <= 16000`). Identical failure reproduced on untouched main with 100ms mock-outage control latency; normal main focused test passes. Escalated for approval of a test-only observed-outage timing anchor; no desktop edits or empty CI retries made. Detailed evidence and isolated light/dark visual checks are in the task file.
 - Human approved the test-only backfill fix: start-boundary assertions now use observed audio time at the outage-control acknowledgement, preserving all tolerances and no-loss checks. Normal and 100ms-delayed focused integration cases each pass; desktop lint/typecheck pass. Committing the pending investigation evidence with the fix and continuing PR 3 CI.
 - PR 3 source commit `acd50e7` is green: Linux `135856733308`, Swift `135856733932` and Devin Review all passed (`3 passed, 0 failed, 0 pending`). Foundation CI remediation complete; task file closed with no additional source changes.
+
+## 2026-11-19 — ziiz overhaul: desktop renderer
+
+- Renderer moved onto ziiz ramp, type roles, Tabler icons and registry components; optimistic workspace switch and settings saves now roll back on failure; skeletons match the loaded layout; ⌘/Ctrl+N and Esc shortcuts added. [task](tasks/ui-desktop.md)
+- Fast CI green except actionlint (Docker Hub 429). Desktop e2e is macOS-only, so it was left to CI.
