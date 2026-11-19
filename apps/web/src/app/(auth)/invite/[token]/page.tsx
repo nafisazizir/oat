@@ -45,8 +45,15 @@ function Notice({
       </CardHeader>
       {action === 'home' && (
         <CardContent>
-          <Button asChild variant="outline" size="lg" className="w-full">
-            <Link href="/home">Go to Oat</Link>
+          <Button
+            role="link"
+            nativeButton={false}
+            render={<Link href="/home" />}
+            variant="outline"
+            size="lg"
+            className="w-full"
+          >
+            Go to Oat
           </Button>
         </CardContent>
       )}
@@ -139,8 +146,14 @@ export default async function InvitePage({ params }: Props) {
           Sign in as <span className="font-medium text-foreground">{invite.email}</span> to accept.
           New to Oat? Signing in creates your account.
         </p>
-        <Button asChild size="lg" className="w-full">
-          <Link href={signInPath(here) as Route}>Sign in to accept</Link>
+        <Button
+          role="link"
+          nativeButton={false}
+          render={<Link href={signInPath(here) as Route} />}
+          size="lg"
+          className="w-full"
+        >
+          Sign in to accept
         </Button>
       </InviteCard>
     );

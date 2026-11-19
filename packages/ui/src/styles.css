@@ -1,167 +1,110 @@
-/*
- * @oat/ui/styles.css — import once at each app's root (apps/web, apps/desktop renderer, gallery).
- * Tailwind v4 + shadcn variants + self-hosted fonts + Oat tokens, mapped to Tailwind theme names.
- * Values live in tokens.css; this file only wires names → variables. No colour literals here.
- */
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-
-/* Self-hosted variable fonts (bundled by the consumer; no font CDN at runtime). */
-@import '@fontsource-variable/instrument-sans/wght.css';
+@import '@nafisazizir/ziiz/theme.css';
+@import './tokens.css';
+@import '@nafisazizir/ziiz/shadcn.css';
+@import '@fontsource-variable/inter/wght.css';
 @import '@fontsource-variable/newsreader/opsz.css';
 @import '@fontsource-variable/jetbrains-mono/wght.css';
 
-@import './tokens.css';
-
-/* Scan this package's sources for class names (consumers' own sources are auto-detected). */
 @source './';
-
 @custom-variant dark (&:is(.dark *));
 
+:root {
+  --font-sans: 'Inter Variable', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', monospace;
+  --font-family-serif: 'Newsreader Variable', serif;
+}
+
+:root,
+.dark {
+  --destructive-foreground: var(--ds-background-100);
+  --success: var(--ds-green-900);
+  --success-foreground: var(--ds-background-100);
+  --warning: var(--ds-amber-700);
+  --warning-foreground: var(--ds-amber-1000);
+  --selection: var(--ds-blue-300);
+  --overlay: var(--ds-gray-alpha-600);
+  --me: var(--ds-blue-100);
+  --me-foreground: var(--ds-blue-1000);
+  --them: var(--ds-gray-100);
+  --them-foreground: var(--ds-gray-1000);
+  --my-text: var(--ds-gray-1000);
+  --ai-text: var(--ds-blue-900);
+  --font-family-sans: var(--font-sans);
+  --font-family-heading: var(--font-sans);
+  --font-family-mono: var(--font-mono);
+  --space: 0.25rem;
+  --content-width: 44rem;
+  --tracking-heading: -0.012em;
+  --type-xs: 0.75rem;
+  --type-xs-leading: 1rem;
+  --type-sm: 0.875rem;
+  --type-sm-leading: 1.25rem;
+  --type-base: 1rem;
+  --type-base-leading: 1.5rem;
+  --type-lg: 1.125rem;
+  --type-lg-leading: 1.75rem;
+  --type-xl: 1.25rem;
+  --type-xl-leading: 1.75rem;
+  --type-2xl: 1.5rem;
+  --type-2xl-leading: 2rem;
+  --duration-fast: 100ms;
+  --duration-base: 160ms;
+  --duration-slow: 260ms;
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --easing-enter: cubic-bezier(0, 0, 0.15, 1);
+  --easing-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
 @theme inline {
-  /* Colours */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
   --color-selection: var(--selection);
   --color-overlay: var(--overlay);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
   --color-me: var(--me);
   --color-me-foreground: var(--me-foreground);
   --color-them: var(--them);
   --color-them-foreground: var(--them-foreground);
   --color-my-text: var(--my-text);
   --color-ai-text: var(--ai-text);
-
-  /* Typography */
-  --font-sans: var(--font-family-sans);
-  --font-serif: var(--font-family-serif);
-  --font-mono: var(--font-family-mono);
-  --font-heading: var(--font-family-heading);
-  --text-xs: var(--type-xs);
-  --text-xs--line-height: var(--type-xs-leading);
-  --text-sm: var(--type-sm);
-  --text-sm--line-height: var(--type-sm-leading);
-  --text-base: var(--type-base);
-  --text-base--line-height: var(--type-base-leading);
-  --text-lg: var(--type-lg);
-  --text-lg--line-height: var(--type-lg-leading);
-  --text-xl: var(--type-xl);
-  --text-xl--line-height: var(--type-xl-leading);
-  --text-2xl: var(--type-2xl);
-  --text-2xl--line-height: var(--type-2xl-leading);
-  --text-3xl: var(--type-3xl);
-  --text-3xl--line-height: var(--type-3xl-leading);
-  --text-4xl: var(--type-4xl);
-  --text-4xl--line-height: var(--type-4xl-leading);
-
-  /* Radius (one knob: --radius) */
-  --radius-xs: calc(var(--radius) * 0.25);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-
-  /* Spacing & layout */
-  --spacing: var(--space);
   --container-content: var(--content-width);
-
-  /* Elevation */
-  --shadow-xs: var(--elevation-xs);
-  --shadow-sm: var(--elevation-sm);
-  --shadow-md: var(--elevation-md);
-  --shadow-lg: var(--elevation-lg);
-
-  /* Motion: every `transition-*` utility defaults to the standard token pair. */
-  --default-transition-duration: var(--duration-base);
-  --default-transition-timing-function: var(--easing-standard);
-  --ease-standard: var(--easing-standard);
-  --ease-enter: var(--easing-enter);
-  --ease-exit: var(--easing-exit);
 }
-
 @utility duration-fast {
   transition-duration: var(--duration-fast);
-  --tw-duration: var(--duration-fast);
 }
 @utility duration-base {
   transition-duration: var(--duration-base);
-  --tw-duration: var(--duration-base);
 }
 @utility duration-slow {
   transition-duration: var(--duration-slow);
-  --tw-duration: var(--duration-slow);
 }
 
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  html {
-    @apply font-sans;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-  }
-  body {
-    @apply bg-background text-foreground text-sm;
-  }
-  h1,
-  h2,
-  h3 {
-    @apply font-heading;
-    letter-spacing: var(--tracking-heading);
-    text-wrap: balance;
-  }
-  p {
-    text-wrap: pretty;
-  }
-  ::selection {
-    @apply bg-selection;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 1ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 1ms !important;
-    }
-  }
+@theme inline {
+  --color-brand-100: var(--ds-brand-100);
+  --color-brand-200: var(--ds-brand-200);
+  --color-brand-300: var(--ds-brand-300);
+  --color-brand-400: var(--ds-brand-400);
+  --color-brand-500: var(--ds-brand-500);
+  --color-brand-600: var(--ds-brand-600);
+  --color-brand-700: var(--ds-brand-700);
+  --color-brand-800: var(--ds-brand-800);
+  --color-brand-900: var(--ds-brand-900);
+  --color-brand-1000: var(--ds-brand-1000);
+  --color-brand-alpha-100: var(--ds-brand-alpha-100);
+  --color-brand-alpha-200: var(--ds-brand-alpha-200);
+  --color-brand-alpha-300: var(--ds-brand-alpha-300);
+  --color-brand-alpha-400: var(--ds-brand-alpha-400);
+  --color-brand-alpha-500: var(--ds-brand-alpha-500);
+  --color-brand-alpha-600: var(--ds-brand-alpha-600);
+  --color-brand-alpha-700: var(--ds-brand-alpha-700);
+  --color-brand-alpha-800: var(--ds-brand-alpha-800);
+  --color-brand-alpha-900: var(--ds-brand-alpha-900);
+  --color-brand-alpha-1000: var(--ds-brand-alpha-1000);
+  --color-brand-950: var(--ds-brand-950);
+  --color-brand-on: var(--ds-brand-on);
 }

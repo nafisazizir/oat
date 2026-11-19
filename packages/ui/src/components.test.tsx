@@ -18,6 +18,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from './components/dialog.tsx';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from './components/dropdown-menu.tsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './components/select.tsx';
 import { Sidebar, SidebarContent, SidebarProvider, SidebarTrigger } from './components/sidebar.tsx';
 import { Switch } from './components/switch.tsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/tabs.tsx';
@@ -47,18 +62,18 @@ describe('Button', () => {
       </>,
     );
     const save = screen.getByRole('button', { name: 'Save' });
-    expect(save.dataset.variant).toBe('default');
-    expect(save.className).toContain('bg-primary');
-    expect(save.className).toContain('text-primary-foreground');
+
+    expect(save.className).toContain('bg-gray-1000');
+    expect(save.className).toContain('text-background-100');
     const cancel = screen.getByRole('button', { name: 'Cancel' });
-    expect(cancel.dataset.variant).toBe('outline');
-    expect(cancel.dataset.size).toBe('sm');
+    expect(cancel.className).toContain('border-gray-alpha-400');
+    expect(cancel.className).toContain('h-8');
   });
 
-  it('renders as its child with asChild', () => {
+  it('renders a link with render', () => {
     render(
-      <Button asChild>
-        <a href="/notes">Notes</a>
+      <Button role="link" nativeButton={false} render={<a href="/notes" />}>
+        Notes
       </Button>,
     );
     const link = screen.getByRole('link', { name: 'Notes' });
@@ -71,9 +86,7 @@ describe('Dialog', () => {
     const user = userEvent.setup();
     render(
       <Dialog>
-        <DialogTrigger asChild>
-          <Button>Share</Button>
-        </DialogTrigger>
+        <DialogTrigger render={<Button />}>Share</DialogTrigger>
         <DialogContent>
           <DialogTitle>Share note</DialogTitle>
           <DialogDescription>Anyone with the link can view.</DialogDescription>
@@ -83,9 +96,74 @@ describe('Dialog', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Share' }));
     const dialog = screen.getByRole('dialog', { name: 'Share note' });
-    expect(dialog.className).toContain('bg-popover');
+    expect(dialog.className).toContain('material-modal');
     await user.click(within(dialog).getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('Base UI consumer composition', () => {
+  it('opens a labelled menu group and activates an item with onClick', async () => {
+    const user = userEvent.setup();
+    let picked = false;
+    render(
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<Button />}>Actions</DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Meeting</DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={() => {
+                picked = true;
+              }}
+            >
+              Duplicate
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Actions' }));
+    expect(await screen.findByRole('group', { name: 'Meeting' })).toBeTruthy();
+    await user.click(screen.getByRole('menuitem', { name: 'Duplicate' }));
+    expect(picked).toBe(true);
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+  });
+
+  it('shows item labels before the select popup mounts and updates the selection', async () => {
+    const user = userEvent.setup();
+    render(
+      <Select
+        items={{ general: 'General meeting', customer: 'Customer call' }}
+        defaultValue="general"
+      >
+        <SelectTrigger aria-label="Template">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="general">General meeting</SelectItem>
+          <SelectItem value="customer">Customer call</SelectItem>
+        </SelectContent>
+      </Select>,
+    );
+    const trigger = screen.getByRole('combobox', { name: 'Template' });
+    expect(trigger.textContent).toContain('General meeting');
+    await user.click(trigger);
+    await user.click(screen.getByRole('option', { name: 'Customer call' }));
+    expect(trigger.textContent).toContain('Customer call');
+  });
+
+  it('shows an empty select placeholder without inventing a selection', () => {
+    render(
+      <Select items={[]}>
+        <SelectTrigger aria-label="Template">
+          <SelectValue placeholder="Choose template" />
+        </SelectTrigger>
+      </Select>,
+    );
+    expect(screen.getByRole('combobox', { name: 'Template' }).textContent).toContain(
+      'Choose template',
+    );
   });
 });
 
@@ -125,22 +203,21 @@ describe('ToggleGroup (segmented)', () => {
     let value = 'light';
     render(
       <ToggleGroup
-        type="single"
-        variant="segmented"
+        variant="outline"
         aria-label="Theme"
-        defaultValue="light"
-        onValueChange={(next) => (value = next)}
+        defaultValue={['light']}
+        onValueChange={([next]) => (value = next ?? value)}
       >
         <ToggleGroupItem value="light">Light</ToggleGroupItem>
         <ToggleGroupItem value="dark">Dark</ToggleGroupItem>
       </ToggleGroup>,
     );
-    expect(screen.getByRole('radiogroup', { name: 'Theme' }).dataset.variant).toBe('segmented');
-    expect(screen.getByRole('radio', { name: 'Light' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('group', { name: 'Theme' }).dataset.variant).toBe('outline');
+    expect(screen.getByRole('button', { name: 'Light' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.queryByRole('tab')).toBeNull();
-    await user.click(screen.getByRole('radio', { name: 'Dark' }));
+    await user.click(screen.getByRole('button', { name: 'Dark' }));
     expect(value).toBe('dark');
-    expect(screen.getByRole('radio', { name: 'Dark' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Dark' }).getAttribute('aria-pressed')).toBe('true');
   });
 });
 

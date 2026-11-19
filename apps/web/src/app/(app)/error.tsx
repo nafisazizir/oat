@@ -34,8 +34,8 @@ export default function AppError({
         </div>
         <div className="flex gap-2">
           <Button onClick={() => reset()}>Try again</Button>
-          <Button variant="ghost" asChild>
-            <Link href="/home">Go home</Link>
+          <Button variant="ghost" role="link" nativeButton={false} render={<Link href="/home" />}>
+            Go home
           </Button>
         </div>
       </div>

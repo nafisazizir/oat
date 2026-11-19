@@ -47,8 +47,15 @@ export default async function ConfirmSignInPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button asChild variant="outline" size="lg" className="w-full">
-            <Link href="/sign-in">Back to sign in</Link>
+          <Button
+            role="link"
+            nativeButton={false}
+            render={<Link href="/sign-in" />}
+            variant="outline"
+            size="lg"
+            className="w-full"
+          >
+            Back to sign in
           </Button>
         </CardContent>
       </Card>

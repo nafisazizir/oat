@@ -177,10 +177,10 @@ export function NotionTargetPicker({
           if (!next) setQuery('');
         }}
       >
-        <PopoverTrigger asChild>
-          <Button variant={target ? 'outline' : 'default'} className="shrink-0">
-            {target ? 'Change' : 'Choose page or database'}
-          </Button>
+        <PopoverTrigger
+          render={<Button variant={target ? 'outline' : 'default'} className="shrink-0" />}
+        >
+          {target ? 'Change' : 'Choose page or database'}
         </PopoverTrigger>
         <PopoverContent align="end" className="w-80 p-0">
           <Command shouldFilter={false} aria-label="Notion pages and databases">

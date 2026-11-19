@@ -48,11 +48,9 @@ export default async function TemplatesPage() {
         description="Templates shape how Oat turns your notes and the transcript into clean notes."
       >
         {canCreate && (
-          <Button asChild>
-            <Link href="/templates/new">
-              <PlusIcon />
-              New template
-            </Link>
+          <Button role="link" nativeButton={false} render={<Link href="/templates/new" />}>
+            <PlusIcon />
+            New template
           </Button>
         )}
       </PageHeader>
@@ -89,11 +87,14 @@ export default async function TemplatesPage() {
             }
           >
             {canCreate && (
-              <Button variant="outline" asChild>
-                <Link href="/templates/new">
-                  <PlusIcon />
-                  New template
-                </Link>
+              <Button
+                variant="outline"
+                role="link"
+                nativeButton={false}
+                render={<Link href="/templates/new" />}
+              >
+                <PlusIcon />
+                New template
               </Button>
             )}
           </EmptyState>

@@ -235,7 +235,11 @@ function RetentionCard({
             requestSave();
           }}
         >
-          <Select value={kind} onValueChange={(v) => changeKind(v as PolicyKind)}>
+          <Select
+            items={Object.entries(KIND_LABELS).map(([value, label]) => ({ value, label }))}
+            value={kind}
+            onValueChange={(v) => changeKind(v as PolicyKind)}
+          >
             <SelectTrigger aria-label="Retention policy" data-testid="retention-kind">
               <SelectValue />
             </SelectTrigger>
@@ -362,7 +366,11 @@ function RecordingsList({
           Recordings
         </h3>
         {meetings.length > 1 && (
-          <Select value={sort} onValueChange={(v) => setSort(v as StorageSort)}>
+          <Select
+            items={Object.entries(SORT_LABELS).map(([value, label]) => ({ value, label }))}
+            value={sort}
+            onValueChange={(v) => setSort(v as StorageSort)}
+          >
             <SelectTrigger size="sm" aria-label="Sort recordings" data-testid="storage-sort">
               <SelectValue />
             </SelectTrigger>

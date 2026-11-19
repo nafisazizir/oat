@@ -1,20 +1,22 @@
-import * as React from 'react';
+import { mergeProps } from '@base-ui/react/merge-props';
+import { useRender } from '@base-ui/react/use-render';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { cn } from '@oat/ui/lib/utils';
-import { Slot } from 'radix-ui';
+
+import { cn } from '../lib/utils.ts';
 
 const badgeVariants = cva(
-  'group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!',
+  'group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-label-12 whitespace-nowrap transition-colors focus-visible:border-gray-600 focus-visible:ring-3 focus-visible:ring-gray-600/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-red-800 aria-invalid:ring-3 aria-invalid:ring-red-800/20 [&>svg]:pointer-events-none [&>svg]:size-3!',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground [a]:hover:bg-primary/80',
-        secondary: 'bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80',
+        default: 'bg-gray-1000 text-background-100 [a]:hover:bg-gray-950 [a]:active:bg-gray-900',
+        secondary: 'bg-gray-100 text-gray-1000 [a]:hover:bg-gray-200 [a]:active:bg-gray-300',
         destructive:
-          'bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20',
-        outline: 'border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground',
-        ghost: 'hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50',
-        link: 'text-primary underline-offset-4 hover:underline',
+          'bg-red-100 text-red-800 focus-visible:ring-red-800/20 [a]:hover:bg-red-200 [a]:active:bg-red-300',
+        outline:
+          'border-gray-alpha-400 text-gray-1000 [a]:hover:border-gray-alpha-500 [a]:hover:bg-gray-alpha-100 [a]:hover:text-gray-900 [a]:active:bg-gray-alpha-200',
+        ghost: '[a]:hover:bg-gray-alpha-100 [a]:hover:text-gray-900 [a]:active:bg-gray-alpha-200',
+        link: 'text-gray-1000 underline-offset-4 [a]:hover:underline',
       },
     },
     defaultVariants: {
@@ -26,19 +28,23 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant = 'default',
-  asChild = false,
+  render,
   ...props
-}: React.ComponentProps<'span'> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot.Root : 'span';
-
-  return (
-    <Comp
-      data-slot="badge"
-      data-variant={variant}
-      className={cn(badgeVariants({ variant }), className)}
-      {...props}
-    />
-  );
+}: useRender.ComponentProps<'span'> & VariantProps<typeof badgeVariants>) {
+  return useRender({
+    defaultTagName: 'span',
+    props: mergeProps<'span'>(
+      {
+        className: cn(badgeVariants({ variant }), className),
+      },
+      props,
+    ),
+    render,
+    state: {
+      slot: 'badge',
+      variant,
+    },
+  });
 }
 
 export { Badge, badgeVariants };

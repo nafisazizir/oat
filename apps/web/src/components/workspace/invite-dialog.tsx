@@ -96,7 +96,11 @@ export function InviteDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="invite-role">Role</Label>
-              <Select value={role} onValueChange={(value) => setRole(value as Role)}>
+              <Select
+                items={roles.map((value) => ({ value, label: ROLE_INFO[value].label }))}
+                value={role}
+                onValueChange={(value) => setRole(value as Role)}
+              >
                 <SelectTrigger id="invite-role" className="w-full" disabled={pending}>
                   <SelectValue />
                 </SelectTrigger>

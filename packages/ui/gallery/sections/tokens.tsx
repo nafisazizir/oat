@@ -69,6 +69,9 @@ function SwatchTile({ token, on, note }: Swatch) {
 export function ColourTokens() {
   return (
     <div className="flex flex-col gap-8">
+      <div className="rounded-md bg-brand-700 p-4 text-brand-on">
+        Oat brand · brand-700 on brand-on
+      </div>
       {colourGroups.map((group) => (
         <div key={group.title} className="flex flex-col gap-3">
           <h3 className="font-sans text-xs font-medium tracking-wide text-muted-foreground uppercase">

@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * Acceptance "no hard-coded colours outside @oat/ui tokens": app sources may only use token
- * utilities (`bg-primary`, `text-muted-foreground`, …), never colour literals or Tailwind's default
- * palette. Same rules as @oat/ui's tokens.test.ts, applied to apps/web/src.
+ * utilities (ziiz ramps and legacy slots), never colour literals or non-ziiz Tailwind palettes.
+ * Same rules as @oat/ui's tokens.test.ts, applied to apps/web/src.
  */
 const srcDir = fileURLToPath(new URL('.', import.meta.url));
 
@@ -20,13 +20,16 @@ function sourceFiles(dir: string): string[] {
 }
 
 const palette =
-  'slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose';
+  'slate|zinc|neutral|stone|orange|yellow|lime|emerald|cyan|sky|indigo|violet|fuchsia|rose';
 const forbidden: [string, RegExp][] = [
   ['hex colour', /#[0-9a-fA-F]{3,8}\b(?![\w-])/],
   ['colour function', /\b(?:rgba?|hsla?|oklch|oklab|lab|lch|hwb|color)\(/],
   ['Tailwind palette colour', new RegExp(`\\b[a-z-]+-(?:${palette})-\\d{2,3}\\b`)],
   ['black/white utility', /\b(?:bg|text|border|ring|fill|stroke|from|to|via)-(?:black|white)\b/],
-  ['arbitrary colour value', /\b(?:bg|text|border|ring|fill|stroke)-\[(?:#|rgb|hsl|oklch)/],
+  [
+    'arbitrary colour value',
+    /\b(?:bg|text|border|ring|fill|stroke|outline|from|via|to|divide|placeholder|caret|accent|decoration|shadow)-\[(?:#|color:|[a-zA-Z-]+(?:\(|\]))/,
+  ],
 ];
 
 describe('apps/web uses design tokens only', () => {

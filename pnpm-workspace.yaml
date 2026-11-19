@@ -7,6 +7,14 @@ packages:
 
 # Shared dependency versions. Workspace packages reference these with "catalog:".
 catalog:
+  '@nafisazizir/ziiz': 0.1.1
+  '@fontsource-variable/inter': ^5.2.8
+  '@base-ui/react': ^1.6.0
+  '@tabler/icons-react': ^3.48.0
+  '@shadcn/react': ^0.3.0
+  'input-otp': ^1.4.2
+  'react-day-picker': ^10.0.1
+  'date-fns': ^4.4.0
   '@ai-sdk/openai-compatible': ^3.0.92
   '@ai-sdk/react': ^4.0.177
   '@ai-sdk/provider': ^4.0.38

@@ -4,6 +4,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -79,74 +80,79 @@ function WorkspaceSwitcher() {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <SidebarMenuButton
-            size="lg"
-            className="data-[state=open]:bg-sidebar-accent group-data-[collapsible=icon]:pl-1!"
-            data-testid="workspace-switcher"
-            aria-busy={pending || undefined}
-          >
-            <WorkspaceTile workspace={currentWorkspace} />
-            <div className="flex min-w-0 flex-col gap-0.5 leading-none">
-              <span className="truncate font-medium">{currentWorkspace.name}</span>
-              <span className="truncate text-xs text-muted-foreground">
-                {memberLabel(currentWorkspace)}
-              </span>
-            </div>
-            <ChevronsUpDownIcon className="ml-auto text-muted-foreground" />
-          </SidebarMenuButton>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="start"
-          className="w-(--radix-dropdown-menu-trigger-width) min-w-56"
+        <DropdownMenuTrigger
+          render={
+            <SidebarMenuButton
+              size="lg"
+              className="data-[state=open]:bg-sidebar-accent group-data-[collapsible=icon]:pl-1!"
+              data-testid="workspace-switcher"
+              aria-busy={pending || undefined}
+            />
+          }
         >
-          <DropdownMenuLabel className="text-xs text-muted-foreground">
-            Workspaces
-          </DropdownMenuLabel>
-          {workspaces.map((workspace) => (
+          <WorkspaceTile workspace={currentWorkspace} />
+          <div className="flex min-w-0 flex-col gap-0.5 leading-none">
+            <span className="truncate font-medium">{currentWorkspace.name}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {memberLabel(currentWorkspace)}
+            </span>
+          </div>
+          <ChevronsUpDownIcon className="ml-auto text-muted-foreground" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-(--anchor-width) min-w-56">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Workspaces
+            </DropdownMenuLabel>
+            {workspaces.map((workspace) => (
+              <DropdownMenuItem
+                key={workspace.id}
+                className="gap-2 py-1.5"
+                data-testid="workspace-option"
+                onClick={() => {
+                  if (workspace.id !== currentWorkspace.id) switchTo(workspace);
+                }}
+              >
+                <WorkspaceTile workspace={workspace} className="size-5" />
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate">{workspace.name}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {memberLabel(workspace)}
+                  </span>
+                </div>
+                {workspace.id === currentWorkspace.id && <CheckIcon className="ml-auto" />}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
             <DropdownMenuItem
-              key={workspace.id}
-              className="gap-2 py-1.5"
-              data-testid="workspace-option"
-              onSelect={() => {
-                if (workspace.id !== currentWorkspace.id) switchTo(workspace);
-              }}
+              nativeButton={false}
+              render={<Link href="/settings/workspace" />}
+              className="gap-2"
             >
-              <WorkspaceTile workspace={workspace} className="size-5" />
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate">{workspace.name}</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {memberLabel(workspace)}
-                </span>
-              </div>
-              {workspace.id === currentWorkspace.id && <CheckIcon className="ml-auto" />}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild className="gap-2">
-            <Link href="/settings/workspace">
               <SettingsIcon />
               Workspace settings
-            </Link>
-          </DropdownMenuItem>
-          {canInvite && (
-            <DropdownMenuItem asChild className="gap-2">
-              <Link href="/settings/workspace/members">
+            </DropdownMenuItem>
+            {canInvite && (
+              <DropdownMenuItem
+                nativeButton={false}
+                render={<Link href="/settings/workspace/members" />}
+                className="gap-2"
+              >
                 <UserPlusIcon />
                 Invite members
-              </Link>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem className="gap-2" onClick={() => setCreateOpen(true)}>
+              <PlusIcon />
+              Create workspace
             </DropdownMenuItem>
-          )}
-          <DropdownMenuItem className="gap-2" onSelect={() => setCreateOpen(true)}>
-            <PlusIcon />
-            Create workspace
-          </DropdownMenuItem>
-          {isTeam && (
-            <DropdownMenuItem className="gap-2" onSelect={() => setLeaveOpen(true)}>
-              <LogOutIcon />
-              Leave {currentWorkspace.name}
-            </DropdownMenuItem>
-          )}
+            {isTeam && (
+              <DropdownMenuItem className="gap-2" onClick={() => setLeaveOpen(true)}>
+                <LogOutIcon />
+                Leave {currentWorkspace.name}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
       <CreateWorkspaceDialog open={createOpen} onOpenChange={setCreateOpen} />
@@ -206,38 +212,32 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              asChild
+              render={<Link href={sections.home.href} />}
               isActive={pathname === sections.home.href}
               tooltip={sections.home.label}
             >
-              <Link href={sections.home.href}>
-                <HomeIcon />
-                <span>{sections.home.label}</span>
-              </Link>
+              <HomeIcon />
+              <span>{sections.home.label}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              asChild
+              render={<Link href={sections.tasks.href} data-testid="nav-tasks" />}
               isActive={pathname === sections.tasks.href}
               tooltip={sections.tasks.label}
             >
-              <Link href={sections.tasks.href} data-testid="nav-tasks">
-                <ListTodoIcon />
-                <span>{sections.tasks.label}</span>
-              </Link>
+              <ListTodoIcon />
+              <span>{sections.tasks.label}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              asChild
+              render={<Link href={sections.assistant.href} data-testid="nav-assistant" />}
               isActive={inSection(pathname, sections.assistant.href)}
               tooltip={sections.assistant.label}
             >
-              <Link href={sections.assistant.href} data-testid="nav-assistant">
-                <SparklesIcon />
-                <span>{sections.assistant.label}</span>
-              </Link>
+              <SparklesIcon />
+              <span>{sections.assistant.label}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -266,11 +266,13 @@ export function AppSidebar() {
             { ...sections.settings, Icon: SettingsIcon },
           ].map(({ href, label, Icon }) => (
             <SidebarMenuItem key={href}>
-              <SidebarMenuButton asChild isActive={inSection(pathname, href)} tooltip={label}>
-                <Link href={href}>
-                  <Icon />
-                  <span>{label}</span>
-                </Link>
+              <SidebarMenuButton
+                render={<Link href={href} />}
+                isActive={inSection(pathname, href)}
+                tooltip={label}
+              >
+                <Icon />
+                <span>{label}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}

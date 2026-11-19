@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@oat/ui/components/dropdown-menu';
@@ -72,31 +73,30 @@ export function WorkspaceSwitcher({ view }: { view: WorkspacesView }) {
           </span>
           <ChevronsUpDownIcon className="size-4 shrink-0 text-muted-foreground" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="start"
-          className="w-(--radix-dropdown-menu-trigger-width) min-w-56"
-        >
-          <DropdownMenuLabel className="text-xs text-muted-foreground">
-            Workspaces
-          </DropdownMenuLabel>
-          {snapshot.workspaces.map((w) => (
-            <DropdownMenuItem
-              key={w.id}
-              className="gap-2 py-1.5"
-              data-testid="workspace-option"
-              data-workspace-id={w.id}
-              onSelect={() => {
-                if (w.id !== active.id) void choose(w.id);
-              }}
-            >
-              <WorkspaceTile workspace={w} className="size-6" />
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate">{w.name}</span>
-                <span className="truncate text-xs text-muted-foreground">{roleLabel(w)}</span>
-              </span>
-              {w.id === active.id && <CheckIcon className="ml-auto" />}
-            </DropdownMenuItem>
-          ))}
+        <DropdownMenuContent align="start" className="w-(--anchor-width) min-w-56">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Workspaces
+            </DropdownMenuLabel>
+            {snapshot.workspaces.map((w) => (
+              <DropdownMenuItem
+                key={w.id}
+                className="gap-2 py-1.5"
+                data-testid="workspace-option"
+                data-workspace-id={w.id}
+                onClick={() => {
+                  if (w.id !== active.id) void choose(w.id);
+                }}
+              >
+                <WorkspaceTile workspace={w} className="size-6" />
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate">{w.name}</span>
+                  <span className="truncate text-xs text-muted-foreground">{roleLabel(w)}</span>
+                </span>
+                {w.id === active.id && <CheckIcon className="ml-auto" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
       {fallback && (

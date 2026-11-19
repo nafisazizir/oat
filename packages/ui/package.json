@@ -29,18 +29,22 @@
     "tailwindcss": "^4"
   },
   "dependencies": {
-    "@fontsource-variable/instrument-sans": "catalog:",
     "@fontsource-variable/jetbrains-mono": "catalog:",
     "@fontsource-variable/newsreader": "catalog:",
     "class-variance-authority": "catalog:",
     "cmdk": "catalog:",
-    "cn": "catalog:",
-    "lucide-react": "catalog:",
     "next-themes": "catalog:",
-    "radix-ui": "catalog:",
     "react-resizable-panels": "catalog:",
     "sonner": "catalog:",
-    "tw-animate-css": "catalog:"
+    "tw-animate-css": "catalog:",
+    "@nafisazizir/ziiz": "catalog:",
+    "@fontsource-variable/inter": "catalog:",
+    "@base-ui/react": "catalog:",
+    "@tabler/icons-react": "catalog:",
+    "@shadcn/react": "catalog:",
+    "input-otp": "catalog:",
+    "react-day-picker": "catalog:",
+    "date-fns": "catalog:"
   },
   "devDependencies": {
     "@playwright/test": "catalog:",
@@ -61,6 +65,7 @@
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "lucide-react": "catalog:"
   }
 }

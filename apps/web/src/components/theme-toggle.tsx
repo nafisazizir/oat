@@ -4,6 +4,7 @@ import { Button } from '@oat/ui/components/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -29,29 +30,40 @@ export function ThemeMenu() {
   return (
     <DropdownMenu>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="Theme" data-testid="theme-menu">
-              <SunIcon className="dark:hidden" />
-              <MoonIcon className="hidden dark:block" />
-            </Button>
-          </DropdownMenuTrigger>
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Theme"
+                  data-testid="theme-menu"
+                />
+              }
+            />
+          }
+        >
+          <SunIcon className="dark:hidden" />
+          <MoonIcon className="hidden dark:block" />
         </TooltipTrigger>
         <TooltipContent>Theme</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuLabel>Theme</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={theme}
-          onValueChange={(value) => setTheme(parsePreference(value))}
-        >
-          {options.map(({ value, label, Icon }) => (
-            <DropdownMenuRadioItem key={value} value={value}>
-              <Icon />
-              {label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Theme</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={theme}
+            onValueChange={(value) => setTheme(parsePreference(value))}
+          >
+            {options.map(({ value, label, Icon }) => (
+              <DropdownMenuRadioItem key={value} value={value}>
+                <Icon />
+                {label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -65,12 +77,11 @@ export function ThemeTabs() {
   const { theme, setTheme } = useTheme();
   return (
     <ToggleGroup
-      type="single"
-      variant="segmented"
+      variant="outline"
       spacing={0.5}
       aria-label="Theme"
-      value={theme}
-      onValueChange={(value) => {
+      value={[theme]}
+      onValueChange={([value]) => {
         if (value) setTheme(parsePreference(value));
       }}
     >

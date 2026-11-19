@@ -21,7 +21,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, []);
   return (
     <ThemeProvider>
-      <TooltipProvider delayDuration={300}>
+      <TooltipProvider delay={300}>
         {children}
         <ThemedToaster />
       </TooltipProvider>

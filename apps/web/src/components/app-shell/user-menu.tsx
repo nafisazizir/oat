@@ -5,6 +5,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -38,40 +39,40 @@ export function UserMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <SidebarMenuButton
-          size="lg"
-          className="data-[state=open]:bg-sidebar-accent group-data-[collapsible=icon]:pl-1!"
-          data-testid="user-menu"
-          tooltip={user.name}
-        >
-          <Avatar size="sm">
-            {user.image && <AvatarImage src={user.image} alt="" />}
-            <AvatarFallback className="text-xs font-semibold">
-              {user.name.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex min-w-0 flex-col gap-0.5 leading-none">
-            <span className="truncate font-medium">{user.name}</span>
-            <span className="truncate text-xs text-muted-foreground">{user.email}</span>
-          </div>
-          <ChevronsUpDownIcon className="ml-auto text-muted-foreground" />
-        </SidebarMenuButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        side="top"
-        align="start"
-        className="w-(--radix-dropdown-menu-trigger-width) min-w-56"
+      <DropdownMenuTrigger
+        render={
+          <SidebarMenuButton
+            size="lg"
+            className="data-[state=open]:bg-sidebar-accent group-data-[collapsible=icon]:pl-1!"
+            data-testid="user-menu"
+            tooltip={user.name}
+          />
+        }
       >
-        <DropdownMenuLabel className="flex flex-col gap-0.5">
-          <span className="truncate">{user.name}</span>
-          <span className="truncate text-xs font-normal text-muted-foreground">{user.email}</span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={pending} onSelect={signOut}>
-          <LogOutIcon />
-          Sign out
-        </DropdownMenuItem>
+        <Avatar size="sm">
+          {user.image && <AvatarImage src={user.image} alt="" />}
+          <AvatarFallback className="text-xs font-semibold">
+            {user.name.charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex min-w-0 flex-col gap-0.5 leading-none">
+          <span className="truncate font-medium">{user.name}</span>
+          <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+        </div>
+        <ChevronsUpDownIcon className="ml-auto text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start" className="w-(--anchor-width) min-w-56">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="flex flex-col gap-0.5">
+            <span className="truncate">{user.name}</span>
+            <span className="truncate text-xs font-normal text-muted-foreground">{user.email}</span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem disabled={pending} onClick={signOut}>
+            <LogOutIcon />
+            Sign out
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

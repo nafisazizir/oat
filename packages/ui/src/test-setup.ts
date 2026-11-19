@@ -4,7 +4,21 @@ import { afterEach } from 'vitest';
 // Vitest globals are off, so Testing Library can't register its own cleanup.
 afterEach(() => cleanup());
 
-// jsdom gaps that Radix / cmdk / the sidebar touch.
+// jsdom gaps that Base UI / cmdk / the sidebar touch.
+class PointerEventStub extends MouseEvent {
+  readonly pointerType: string;
+  readonly pointerId: number;
+  readonly isPrimary: boolean;
+
+  constructor(type: string, init: PointerEventInit = {}) {
+    super(type, init);
+    this.pointerType = init.pointerType ?? 'mouse';
+    this.pointerId = init.pointerId ?? 1;
+    this.isPrimary = init.isPrimary ?? true;
+  }
+}
+globalThis.PointerEvent ??= PointerEventStub as typeof PointerEvent;
+
 class ResizeObserverStub {
   observe() {}
   unobserve() {}

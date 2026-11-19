@@ -228,7 +228,10 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
         <Separator />
         <div className="flex items-center justify-between gap-4">
           <Label>Template</Label>
-          <Select defaultValue="general">
+          <Select
+            items={{ general: 'General meeting', 'one-on-one': '1:1', customer: 'Customer call' }}
+            defaultValue="general"
+          >
             <SelectTrigger className="w-44">
               <SelectValue />
             </SelectTrigger>
@@ -251,13 +254,7 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
       </Specimen>
 
       <Specimen name="toggle-group (segmented)">
-        <ToggleGroup
-          type="single"
-          variant="segmented"
-          spacing={0.5}
-          defaultValue="light"
-          aria-label="Theme"
-        >
+        <ToggleGroup variant="outline" spacing={0.5} defaultValue={['light']} aria-label="Theme">
           <ToggleGroupItem value="light" className="px-3">
             Light
           </ToggleGroupItem>
@@ -404,11 +401,9 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
       <Specimen name="dialog · sheet · sonner">
         <div className="flex flex-wrap gap-2">
           <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <LinkIcon data-icon="inline-start" />
-                Share…
-              </Button>
+            <DialogTrigger render={<Button variant="outline" />}>
+              <LinkIcon data-icon="inline-start" />
+              Share…
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -424,19 +419,15 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
                 </Button>
               </div>
               <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="outline">Cancel</Button>
-                </DialogClose>
+                <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
                 <Button>Copy link</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
           <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline">
-                <UsersIcon data-icon="inline-start" />
-                Attendees
-              </Button>
+            <SheetTrigger render={<Button variant="outline" />}>
+              <UsersIcon data-icon="inline-start" />
+              Attendees
             </SheetTrigger>
             <SheetContent>
               <SheetHeader>
@@ -490,51 +481,55 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
         <div className="grid min-h-72 grid-cols-2 items-start gap-4 md:grid-cols-4">
           <div className="flex flex-col items-start gap-2">
             <Tooltip {...pinned}>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" aria-label="Start recording">
-                  <MicIcon />
-                </Button>
+              <TooltipTrigger
+                render={<Button variant="outline" size="icon" aria-label="Start recording" />}
+              >
+                <MicIcon />
               </TooltipTrigger>
               <TooltipContent side="right">Start recording ⌘R</TooltipContent>
             </Tooltip>
           </div>
           <div className="flex flex-col items-start">
             <DropdownMenu {...pinned} modal={false}>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  Note actions
-                  <EllipsisIcon data-icon="inline-end" />
-                </Button>
+              <DropdownMenuTrigger render={<Button variant="outline" />}>
+                Note actions
+                <EllipsisIcon data-icon="inline-end" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-52">
-                <DropdownMenuLabel>Weekly design sync</DropdownMenuLabel>
                 <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <LinkIcon />
-                    Copy link
-                    <DropdownMenuShortcut>⌘L</DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <UsersIcon />
-                    Move to team space
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem variant="destructive">
-                    <Trash2Icon />
-                    Delete
-                  </DropdownMenuItem>
+                  <DropdownMenuLabel>Weekly design sync</DropdownMenuLabel>
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem>
+                      <LinkIcon />
+                      Copy link
+                      <DropdownMenuShortcut>⌘L</DropdownMenuShortcut>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <UsersIcon />
+                      Move to team space
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem variant="destructive">
+                      <Trash2Icon />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
           <div className="flex flex-col items-start">
-            <Select defaultValue="en" {...pinned}>
+            <Select
+              items={{ en: 'English', de: 'Deutsch', fr: 'Français', ja: '日本語' }}
+              defaultValue="en"
+              {...pinned}
+            >
               <SelectTrigger className="w-40" aria-label="Transcript language">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent position="popper">
+              <SelectContent alignItemWithTrigger={false}>
                 <SelectGroup>
                   <SelectItem value="en">English</SelectItem>
                   <SelectItem value="de">Deutsch</SelectItem>
@@ -546,11 +541,9 @@ export function ComponentGallery({ staticOverlays }: { staticOverlays: boolean }
           </div>
           <div className="flex flex-col items-end">
             <Popover {...pinned} modal={false}>
-              <PopoverTrigger asChild>
-                <Button variant="outline">
-                  <CalendarIcon data-icon="inline-start" />
-                  Thu 14 Nov
-                </Button>
+              <PopoverTrigger render={<Button variant="outline" />}>
+                <CalendarIcon data-icon="inline-start" />
+                Thu 14 Nov
               </PopoverTrigger>
               <PopoverContent align="end" className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">

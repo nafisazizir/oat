@@ -195,6 +195,7 @@ export function TasksView({ workspaceId }: { workspaceId: string }) {
         </TabsList>
         <div className="flex items-center gap-2">
           <Select
+            items={TASK_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))}
             value={status}
             onValueChange={(value) => {
               setStatus(value as TaskStatus);
@@ -218,6 +219,7 @@ export function TasksView({ workspaceId }: { workspaceId: string }) {
             </SelectContent>
           </Select>
           <Select
+            items={TASK_DUE_FILTERS.map((value) => ({ value, label: DUE_LABELS[value] }))}
             value={due}
             onValueChange={(value) => {
               setDue(value as TaskDueFilter);

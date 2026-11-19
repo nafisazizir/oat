@@ -47,11 +47,16 @@ export function MeetingEventLineView({
         </time>
       )}
       {conferenceUrl && (
-        <Button variant="outline" size="sm" className="ml-1 h-6 px-2 text-xs" asChild>
-          <a href={conferenceUrl} target="_blank" rel="noopener noreferrer">
-            <VideoIcon data-icon="inline-start" />
-            Join{conferenceLabel ? ` ${conferenceLabel}` : ''}
-          </a>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-1 h-6 px-2 text-xs"
+          role="link"
+          nativeButton={false}
+          render={<a href={conferenceUrl} target="_blank" rel="noopener noreferrer" />}
+        >
+          <VideoIcon data-icon="inline-start" />
+          Join{conferenceLabel ? ` ${conferenceLabel}` : ''}
         </Button>
       )}
     </p>

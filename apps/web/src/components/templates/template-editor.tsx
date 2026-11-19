@@ -250,24 +250,26 @@ export function TemplateEditor(props: TemplateEditorProps) {
           />
           {props.mode === 'edit' && (
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Template actions"
-                  className="mt-1.5"
-                >
-                  <MoreHorizontalIcon />
-                </Button>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Template actions"
+                    className="mt-1.5"
+                  />
+                }
+              >
+                <MoreHorizontalIcon />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {props.canDuplicate && (
-                  <DropdownMenuItem onSelect={() => duplicate()} disabled={pending}>
+                  <DropdownMenuItem onClick={() => duplicate()} disabled={pending}>
                     Duplicate
                   </DropdownMenuItem>
                 )}
                 {props.canDuplicate && <DropdownMenuSeparator />}
-                <DropdownMenuItem variant="destructive" onSelect={() => setDeleteOpen(true)}>
+                <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
                   <Trash2Icon />
                   Delete template
                 </DropdownMenuItem>
@@ -387,27 +389,29 @@ export function TemplateEditor(props: TemplateEditorProps) {
                         className="font-medium"
                       />
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`${label} options`}
-                            className="text-muted-foreground"
-                          >
-                            <MoreHorizontalIcon />
-                          </Button>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`${label} options`}
+                              className="text-muted-foreground"
+                            />
+                          }
+                        >
+                          <MoreHorizontalIcon />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
                             disabled={index === 0}
-                            onSelect={() => moveSection(index, index - 1)}
+                            onClick={() => moveSection(index, index - 1)}
                           >
                             <ArrowUpIcon />
                             Move up
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             disabled={index === sections.length - 1}
-                            onSelect={() => moveSection(index, index + 1)}
+                            onClick={() => moveSection(index, index + 1)}
                           >
                             <ArrowDownIcon />
                             Move down
@@ -416,7 +420,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
                           <DropdownMenuItem
                             variant="destructive"
                             disabled={sections.length <= TEMPLATE_LIMITS.minSections}
-                            onSelect={() => removeSection(index)}
+                            onClick={() => removeSection(index)}
                           >
                             <Trash2Icon />
                             Remove section
