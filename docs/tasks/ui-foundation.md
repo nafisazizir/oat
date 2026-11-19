@@ -1,6 +1,6 @@
 # UI foundation — ziiz and oat palette
 
-status: in_progress (PR 3 CI remediation)
+status: done
 branch: devin/1795115262-ziiz-foundation
 
 ## Goal
@@ -78,5 +78,6 @@ Diff reviewed against the requested foundation scope. All 61 registry files are 
 - Visually checked isolated light/dark sidebar/text fixtures: `/home/ubuntu/oat-foundation-fixes-light.png`, `/home/ubuntu/oat-foundation-fixes-dark.png`. Browser geometry check: action 24x24, icon 16x16 with exactly unchanged coordinates. A full-app screenshot attempt occurred after the E2E server exited and did not render; these are component-fixture screenshots, not full-app screenshots.
 - The escalation was approved: the boundary assertion now uses audio time observed when the mock outage-control request acknowledges activation. Existing tolerances, gap-duration bounds, replay/backfill and no-loss assertions are unchanged. No production code changed.
 - Focused desktop integration checks after the fix: normal `1 passed` (14.23s); with the original 100ms outage-request delay reproducer `1 passed` (13.97s). Desktop lint and typecheck both exit 0. Pending escalation evidence is included with this approved test-only fix; PR CI is being rerun.
+- Final source verification for `acd50e7`: PR 3 **3 passed, 0 failed, 0 pending, 0 skipped**. Linux job `135856733308`, Swift sidecar job `135856733932`, and Devin Review all passed. This documentation-only closeout changes no source or tests.
 - Computed palette: light background `oklch(0.982 0.002 84)`, dark background `oklch(0.198 0.0072 76)`, brand probe `oklch(0.48 0.0686 62)`, body font `Inter Variable`. Gallery menu opens with pointer input; no page errors. The existing theme initializer emits React's client-side script-tag warning.
 - Persistent command logs: `/home/ubuntu/oat-foundation-ci-fast.log`, `/home/ubuntu/oat-foundation-ci-full.log`, `/home/ubuntu/oat-foundation-e2e.log`, `/home/ubuntu/oat-foundation-{web,desktop,gallery}-build.log`, `/home/ubuntu/oat-foundation-shots.log`.
