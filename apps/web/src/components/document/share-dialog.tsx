@@ -89,6 +89,22 @@ export function ShareDialog({ documentId }: { documentId: string }) {
   const ids = { transcript: useId(), link: useId() };
   /** Each change gets a number: only the newest one's answer (or rollback) is applied. */
   const latest = useRef(0);
+  /**
+   * Writes go out one at a time, in the order the user made them: two overlapping PATCHes could otherwise
+   * commit in reverse and leave the server more open than the dialog shows.
+   */
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const send = useCallback(
+    (input: UpdateSharingInput) => {
+      const next = queue.current.then(
+        () => sharingApi.update(documentId, input),
+        () => sharingApi.update(documentId, input),
+      );
+      queue.current = next.catch(() => undefined);
+      return next;
+    },
+    [documentId],
+  );
 
   /** Fresh settings every time the dialog opens (someone else may have changed them). */
   function onOpenChange(next: boolean) {
@@ -110,7 +126,7 @@ export function ShareDialog({ documentId }: { documentId: string }) {
       const seq = ++latest.current;
       setSharing({ ...previous, ...optimistic });
       try {
-        const next = await sharingApi.update(documentId, input);
+        const next = await send(input);
         if (seq === latest.current) setSharing(next);
         router.refresh();
       } catch (error) {
@@ -118,14 +134,14 @@ export function ShareDialog({ documentId }: { documentId: string }) {
         toast.error(isApiError(error) ? error.message : 'Couldn’t update sharing. Try again.');
       }
     },
-    [documentId, router, sharing],
+    [router, send, sharing],
   );
 
   async function rotate() {
     setRotating(true);
     const seq = ++latest.current;
     try {
-      const next = await sharingApi.update(documentId, { rotateLink: true });
+      const next = await send({ rotateLink: true });
       if (seq === latest.current) setSharing(next);
       toast.success('New link created. The old link no longer works.');
     } catch (error) {
