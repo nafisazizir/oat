@@ -50,11 +50,7 @@ export function RecordingControls({
   };
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button variant="outline" size="sm" className="ms-auto" disabled={state.pending > 0} />
-        }
-      >
+      <PopoverTrigger render={<Button variant="outline" size="sm" disabled={state.pending > 0} />}>
         <IconMicrophone aria-hidden />
         Record
       </PopoverTrigger>
@@ -81,30 +77,28 @@ export function RecordingControls({
 
 function LiveControls() {
   const state = useBrowserRecording();
-  const busy = state.status === 'starting' || state.status === 'stopping';
+  const busy = state.changing || state.status === 'starting' || state.status === 'stopping';
   const seconds = Math.floor(state.elapsed);
   return (
     <div
-      className="ms-auto flex flex-wrap items-center gap-2"
+      className="flex items-center gap-1.5"
       data-testid="web-recording"
       data-status={state.status}
     >
       <span className="inline-flex items-center gap-1.5 text-label-13 text-gray-1000" role="status">
         <span className="size-1.5 rounded-full bg-red-700" aria-hidden />
-        {busy
-          ? state.status === 'starting'
-            ? 'Starting…'
-            : 'Stopping…'
-          : state.status === 'paused'
-            ? 'Paused'
-            : 'Recording'}
+        <span className="sr-only">
+          {busy ? state.status : state.status === 'paused' ? 'Paused' : 'Recording'}
+        </span>
       </span>
       <span className="text-label-13 text-gray-900 tabular-nums">
         {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}
       </span>
       <Button
         variant="ghost"
-        size="sm"
+        size="icon-sm"
+        aria-label={state.status === 'paused' ? 'Resume' : 'Pause'}
+        title={state.status === 'paused' ? 'Resume recording' : 'Pause recording'}
         disabled={busy}
         onClick={() => void browserRecording.pause()}
       >
@@ -113,16 +107,16 @@ function LiveControls() {
         ) : (
           <IconPlayerPause aria-hidden />
         )}
-        {state.status === 'paused' ? 'Resume' : 'Pause'}
       </Button>
       <Button
         variant="outline"
-        size="sm"
+        size="icon-sm"
+        aria-label="Stop recording"
+        title="Stop recording"
         disabled={busy}
         onClick={() => void browserRecording.stop()}
       >
         <IconPlayerStop aria-hidden />
-        Stop recording
       </Button>
     </div>
   );
@@ -133,11 +127,11 @@ export function RecordingFeedback({ documentId }: { documentId: string }) {
   if (state.documentId !== documentId) return null;
   return (
     <>
-      {(state.error || state.syncError) && (
+      {state.error && (
         <Alert variant="destructive">
           <AlertTitle>Recording needs attention</AlertTitle>
           <AlertDescription>
-            {state.error || state.syncError}
+            {state.error}
             <Button variant="outline" size="sm" onClick={() => browserRecording.retry()}>
               Retry
             </Button>
@@ -149,9 +143,19 @@ export function RecordingFeedback({ documentId }: { documentId: string }) {
           {state.notice}
         </p>
       )}
-      {(state.pending > 0 || state.status === 'ended') && (
-        <p role="status" className="text-label-12 text-gray-900" data-testid="recording-sync">
-          {state.pending > 0 ? `Syncing transcript · ${state.pending} queued` : 'Transcript saved'}
+      {state.audioNotice && (
+        <p role="status" className="text-copy-13 text-amber-900">
+          {state.audioNotice}
+        </p>
+      )}
+      {(state.syncError || state.syncDelayed) && (
+        <p role="status" className="text-label-12 text-amber-900" data-testid="recording-sync">
+          {state.syncError
+            ? 'Transcript sync failed.'
+            : 'Transcript sync is taking longer than usual.'}{' '}
+          <Button variant="ghost" size="xs" onClick={() => browserRecording.retry()}>
+            Retry
+          </Button>
         </p>
       )}
     </>

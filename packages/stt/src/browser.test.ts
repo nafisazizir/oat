@@ -42,6 +42,33 @@ const frame = (tUs = 0) => ({
 afterEach(() => vi.useRealTimers());
 
 describe('browser STT', () => {
+  it('reuses one id across interim updates and their final, allocating a new id only after finalization', async () => {
+    vi.useFakeTimers();
+    const socket = new Socket();
+    const stream = new BrowserSttStream({
+      source: 'mic',
+      sampleRate: 16000,
+      socket: () => socket,
+      getToken: async () => ({
+        listenUrl: 'ws://localhost/listen',
+        accessToken: 'token',
+        keyterms: [],
+      }),
+    });
+    const segments: SttSegment[] = [];
+    stream.on('segment', (segment) => segments.push(segment));
+    await vi.advanceTimersByTimeAsync(0);
+    socket.open();
+    stream.write(frame());
+    socket.result('the', false, 0.01);
+    socket.result('the project', false, 0.02);
+    socket.result('the project', true, 0.02);
+    expect(new Set(segments.map((s) => s.id)).size).toBe(1);
+    stream.write(frame(20000));
+    socket.result('Next utterance', false, 0.04);
+    expect(segments.at(-1)!.id).not.toBe(segments[0]!.id);
+    stream.close();
+  });
   it('detects a stalled socket even when backpressure prevents sending captured frames', async () => {
     vi.useFakeTimers();
     const first = new Socket();

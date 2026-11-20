@@ -1,5 +1,8 @@
 import type { SyncPushEntry, SyncPushResponse } from '@oat/core/sync';
 
+export const hasSyncBacklog = (since: number | null, now: number) =>
+  since !== null && now - since > 5000;
+
 type Entry = SyncPushEntry extends infer E
   ? E extends { version: number }
     ? Omit<E, 'version'>

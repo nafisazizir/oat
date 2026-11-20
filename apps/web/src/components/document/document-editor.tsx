@@ -61,12 +61,16 @@ export function DocumentEditor({
   document: doc,
   workspace,
   meta,
+  headerActions,
+  overflowActions,
 }: {
   document: DocumentDetail;
   /** The document's workspace: who "workspace" visibility reaches. */
   workspace: WorkspaceAudience;
   /** Shown under the title (the meeting header of a meeting note, 3.4). */
   meta?: React.ReactNode;
+  headerActions?: React.ReactNode;
+  overflowActions?: React.ReactNode;
 }) {
   const router = useRouter();
   const actions = useTreeActions();
@@ -251,6 +255,7 @@ export function DocumentEditor({
                   onEnhancing={enhancement.follow}
                 />
               )}
+              {headerActions}
               {editable && isMeeting && (
                 <EnhanceToolbar
                   enhancement={enhancement}
@@ -258,12 +263,20 @@ export function DocumentEditor({
                   workspaceId={doc.workspaceId}
                 />
               )}
-              <NotionExportButton
-                documentId={doc.id}
-                beforeSend={autosave.flush}
-                {...(compact ? { wrap: (control) => <MoreActions>{control}</MoreActions> } : {})}
-              />
+              {compact && overflowActions ? (
+                <MoreActions>
+                  <NotionExportButton documentId={doc.id} beforeSend={autosave.flush} />
+                  {overflowActions}
+                </MoreActions>
+              ) : (
+                <NotionExportButton
+                  documentId={doc.id}
+                  beforeSend={autosave.flush}
+                  {...(compact ? { wrap: (control) => <MoreActions>{control}</MoreActions> } : {})}
+                />
+              )}
               <ShareDialog documentId={doc.id} />
+              {!compact && overflowActions && <MoreActions>{overflowActions}</MoreActions>}
             </div>
           )}
         </div>

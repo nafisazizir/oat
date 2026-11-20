@@ -38,7 +38,7 @@ integrations, look and feel) is ours to shape.
 | Area | Requirement |
 |---|---|
 | Capture | Mic + system audio on macOS (Apple Silicon, macOS 14.4+), start/stop/pause, survives sleep/network drops (buffers and resumes). |
-| Browser capture (D-32) | Mic + optional shared browser-tab audio; start/stop/pause, visible errors, reconnect replay and retrying transcript sync. Warn before leaving; loss of tab sharing does not stop mic capture. Device-local OPFS archive/playback follows in step B; never upload audio. |
+| Browser capture (D-32) | Mic + optional shared browser-tab audio; start/stop/pause, visible errors, reconnect replay and retrying transcript sync. Warn before leaving; loss of tab sharing does not stop mic capture. Device-local OPFS Opus/WebM archive per source/part; transcript-linked playback and local audio deletion. No audio storage upload or sync. |
 | Audio archive | Every recording saved locally (per meeting, mic and system as separate Opus files), playback synced to the transcript (click a segment → jump to audio), retention settings (keep forever / N days / max GB), delete per meeting, "show in Finder". Local only — never synced. |
 | Transcription | Live streaming STT, two-source labelling (me/them), stored as timestamped segments. |
 | Editor | TipTap block editor (headings, lists, checklists, quotes, code, callouts, mentions, links), slash menu, Markdown shortcuts. |

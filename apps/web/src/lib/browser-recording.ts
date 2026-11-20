@@ -1,9 +1,11 @@
 import type { SyncPushResponse, SyncMeetingPush } from '@oat/core/sync';
+import { updateLiveTranscript } from '@oat/meeting-ui/live-transcript';
 import { BrowserSttStream, type SttSegment, type AudioFrame } from '@oat/stt/browser';
 
 import { meetingApi } from './meeting';
 import { pcmWorkletModule } from './recording-pcm';
-import { RecordingQueue } from './recording-queue';
+import { RecordingQueue, hasSyncBacklog } from './recording-queue';
+import { audioStore, BrowserAudioArchive } from './audio-store';
 
 export interface RecordingState {
   documentId: string | null;
@@ -14,6 +16,11 @@ export interface RecordingState {
   notice: string | null;
   pending: number;
   syncError: string | null;
+  pendingSince: number | null;
+  meetingId: string | null;
+  audioNotice: string | null;
+  changing: boolean;
+  syncDelayed: boolean;
 }
 const initial: RecordingState = {
   documentId: null,
@@ -24,6 +31,11 @@ const initial: RecordingState = {
   notice: null,
   pending: 0,
   syncError: null,
+  pendingSince: null,
+  meetingId: null,
+  audioNotice: null,
+  changing: false,
+  syncDelayed: false,
 };
 const active = (state: RecordingState) => !['idle', 'ended'].includes(state.status);
 export function supportsRecording() {
@@ -59,11 +71,21 @@ export class BrowserRecording {
   #queue = new RecordingQueue(
     (entries) =>
       recordingPost<SyncPushResponse>('/api/sync/push', { entries, device: { name: 'Browser' } }),
-    (pending, syncError) => this.#set({ pending, syncError }),
+    (pending, syncError) =>
+      this.#set({
+        pending,
+        syncError,
+        pendingSince: pending ? (this.#state.pendingSince ?? Date.now()) : null,
+        syncDelayed: pending ? this.#state.syncDelayed : false,
+      }),
   );
   #meeting: SyncMeetingPush | undefined;
   #timer: ReturnType<typeof setInterval> | undefined;
   #tab = false;
+  #archive: BrowserAudioArchive | undefined;
+  #clockStart = 0;
+  #clockMs = () =>
+    Math.max(0, ((this.#context?.currentTime ?? this.#clockStart) - this.#clockStart) * 1000);
   snapshot = () => this.#state;
   serverSnapshot = () => initial;
   subscribe = (listener: () => void) => {
@@ -121,6 +143,7 @@ export class BrowserRecording {
         URL.revokeObjectURL(url);
       }
       const clockStart = context.currentTime;
+      this.#clockStart = clockStart;
       this.#meeting = {
         id: info.meetingId ?? crypto.randomUUID(),
         documentId,
@@ -129,6 +152,14 @@ export class BrowserRecording {
         calendarEventId: info.recording?.calendarEventId ?? null,
         platform: 'browser',
       };
+      this.#set({ meetingId: this.#meeting.id });
+      this.#archive = new BrowserAudioArchive(audioStore, this.#meeting.id, (audioNotice) =>
+        this.#set({ audioNotice }),
+      );
+      await this.#archive.start(
+        this.#clockMs(),
+        this.#media.map((stream, index) => ({ stream, source: index === 0 ? 'mic' : 'system' })),
+      );
       for (const [index, media] of this.#media.entries()) {
         const source = index === 0 ? 'mic' : 'system';
         const stream = new BrowserSttStream({
@@ -143,9 +174,7 @@ export class BrowserRecording {
             this.#set({ error: null });
         });
         stream.on('segment', (segment) => {
-          const segments = this.#state.segments.filter((s) => s.id !== segment.id);
-          if (segment.text) segments.push(segment);
-          segments.sort((a, b) => a.startMs - b.startMs);
+          const segments = updateLiveTranscript(this.#state.segments, segment);
           this.#set({ segments });
           if (segment.isFinal) {
             if (!segment.text)
@@ -200,7 +229,10 @@ export class BrowserRecording {
       this.#set({ status: 'recording' });
       void this.#queue.flush();
       this.#timer = setInterval(() => {
-        this.#set({ elapsed: Math.max(0, context.currentTime - clockStart) });
+        this.#set({
+          elapsed: Math.max(0, context.currentTime - clockStart),
+          syncDelayed: hasSyncBacklog(this.#state.pendingSince, Date.now()),
+        });
         void this.#queue.flush();
         if (!active(this.#state) && !this.#queue.pending) {
           clearInterval(this.#timer);
@@ -208,6 +240,8 @@ export class BrowserRecording {
         }
       }, 1000);
     } catch (error) {
+      await this.#archive?.end(this.#clockMs(), true);
+      this.#archive = undefined;
       this.#release();
       this.#streams.forEach((stream) => stream.close());
       this.#streams = [];
@@ -223,16 +257,25 @@ export class BrowserRecording {
   }
 
   async pause() {
+    if (this.#state.changing) return;
+    this.#set({ changing: true });
     try {
       if (this.#state.status === 'recording') {
-        await this.#context?.suspend();
         this.#set({ status: 'paused' });
+        await this.#context?.suspend();
+        await this.#archive?.end(this.#clockMs(), false);
       } else if (this.#state.status === 'paused') {
+        await this.#archive?.start(
+          this.#clockMs(),
+          this.#media.map((stream, index) => ({ stream, source: index === 0 ? 'mic' : 'system' })),
+        );
         await this.#context?.resume();
         this.#set({ status: 'recording' });
       }
     } catch {
       this.#set({ error: 'Could not change microphone capture. Stop and retry recording.' });
+    } finally {
+      this.#set({ changing: false });
     }
   }
   #release() {
@@ -245,9 +288,13 @@ export class BrowserRecording {
     void context?.close().catch(() => {});
   }
   async stop() {
-    if (!['recording', 'paused'].includes(this.#state.status)) return;
+    if (this.#state.changing || !['recording', 'paused'].includes(this.#state.status)) return;
     const endedAt = new Date().toISOString();
+    const endMs = this.#clockMs();
     this.#set({ status: 'stopping' });
+    await this.#context?.suspend().catch(() => {});
+    await this.#archive?.end(endMs, true);
+    this.#archive = undefined;
     this.#release();
     await Promise.all(this.#streams.map((stream) => stream.finish()));
     this.#streams = [];

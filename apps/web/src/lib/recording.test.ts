@@ -2,7 +2,7 @@ import type { SyncPushEntry } from '@oat/core/sync';
 import { describe, expect, it, vi } from 'vitest';
 
 import { PcmConverter } from './recording-pcm';
-import { RecordingQueue } from './recording-queue';
+import { RecordingQueue, hasSyncBacklog } from './recording-queue';
 
 describe('browser PCM conversion', () => {
   it('downmixes, clips and resamples continuously across arbitrary worklet boundaries', () => {
@@ -24,6 +24,11 @@ describe('browser PCM conversion', () => {
 });
 
 describe('recording sync queue', () => {
+  it('keeps healthy sync quiet and warns only after five seconds of backlog', () => {
+    expect(hasSyncBacklog(null, 10000)).toBe(false);
+    expect(hasSyncBacklog(1000, 6000)).toBe(false);
+    expect(hasSyncBacklog(1000, 6001)).toBe(true);
+  });
   const entry = { op: 'delete' as const, table: 'transcript_segment' as const, id: 'segment' };
   it('does not push empty batches, retains failed writes, and serializes retries with concurrent additions', async () => {
     let release!: (value: { results: { version: number; status: 'ok' }[] }) => void;

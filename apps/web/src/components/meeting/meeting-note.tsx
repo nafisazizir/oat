@@ -19,10 +19,22 @@ import {
   type TranscriptItem,
   TranscriptList,
   useStoredState,
+  PlaybackBar,
+  activeSegmentAt,
+  playerKey,
 } from '@oat/meeting-ui';
 import { IN_PROGRESS_MAX_MS } from '@oat/meeting-ui/format';
 import { cn } from '@oat/ui';
 import { Button } from '@oat/ui/components/button';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+} from '@oat/ui/components/alert-dialog';
 import {
   Empty,
   EmptyDescription,
@@ -40,6 +52,7 @@ import type { DocumentDetail } from '@/lib/api-types';
 import { appendLines, type MeetingInfo, meetingApi, participantError } from '@/lib/meeting';
 import { type DeepLinkFocus, focusedLine, segmentHref, wantsTranscript } from '@/lib/transcript';
 import { useHydrated } from '@/lib/use-hydrated';
+import { useOpfsPlayback } from '@/lib/use-opfs-playback';
 import type { WorkspaceAudience } from '@/lib/workspace';
 
 const OPEN_KEY = 'oat.transcript.open';
@@ -89,6 +102,20 @@ export function MeetingNote({
   const recording = useBrowserRecording();
   const recordingHere = recording.documentId === doc.id;
   const browserLive = recordingHere && !['idle', 'ended'].includes(recording.status);
+  const { player, audioRef, secondaryRef, local, deleteAudio } = useOpfsPlayback(
+    info.meetingId ?? (recordingHere ? recording.meetingId : null),
+    recordingHere && recording.status === 'ended' ? 1 : 0,
+  );
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const activeId = useSyncExternalStore(
+    player.clock.subscribe,
+    () =>
+      local
+        ? activeSegmentAt(recordingHere ? recording.segments : lines, player.clock.ms)
+        : undefined,
+    () => undefined,
+  );
   useEffect(() => {
     if (!recordingHere || recording.status !== 'ended' || recording.pending) return;
     let cancelled = false;
@@ -105,6 +132,25 @@ export function MeetingNote({
 
   // Panel open: remembered per browser; a transcript deep link always opens it.
   const [open, setOpen] = useStoredState<boolean>(OPEN_KEY, true);
+  useEffect(() => {
+    if (
+      recordingHere &&
+      (recording.error ||
+        recording.syncError ||
+        recording.syncDelayed ||
+        recording.audioNotice ||
+        recording.notice)
+    )
+      setOpen(true);
+  }, [
+    recordingHere,
+    recording.error,
+    recording.syncError,
+    recording.syncDelayed,
+    recording.audioNotice,
+    recording.notice,
+    setOpen,
+  ]);
   const linkKey = wantsTranscript(focus) ? `${focus.seg ?? ''}|${focus.t ?? ''}` : null;
   useEffect(() => {
     if (linkKey) setOpen(true);
@@ -117,10 +163,11 @@ export function MeetingNote({
   const select = useCallback(
     (segment: TranscriptItem) => {
       setPicked({ id: segment.id, link: linkKey });
+      if (local) player.seek(segment.startMs);
       // Shareable moment link without a server round trip (Next.js keeps its router in sync).
       window.history.replaceState(null, '', segmentHref(doc.id, segment.startMs, segment.id));
     },
-    [doc.id, linkKey],
+    [doc.id, linkKey, local, player],
   );
 
   // Still being recorded somewhere: every few seconds, fetch the lines from the last one on (and times,
@@ -178,10 +225,6 @@ export function MeetingNote({
             {...(hydrated ? {} : { timeZone: 'UTC' })}
           />
         )}
-        <RecordingControls
-          documentId={doc.id}
-          eligible={editable && !(info.endedAt && lines.length > 0)}
-        />
         {!open && (
           <Button
             variant="ghost"
@@ -197,7 +240,6 @@ export function MeetingNote({
           </Button>
         )}
       </div>
-      <RecordingFeedback documentId={doc.id} />
       {eventLine}
       <ParticipantChips
         participants={info.participants}
@@ -223,19 +265,78 @@ export function MeetingNote({
   );
 
   const transcript = (
-    <TranscriptBody
-      items={items}
-      focusId={focusId}
-      onSelect={select}
-      live={polling || browserLive}
-    />
+    <>
+      <RecordingFeedback documentId={doc.id} />
+      {deleteError && (
+        <p role="alert" className="text-copy-13 text-red-900">
+          {deleteError}
+        </p>
+      )}
+      {local && !browserLive ? (
+        <PlaybackBar player={player} />
+      ) : info.startedAt && !browserLive ? (
+        <AudioHint />
+      ) : null}
+      <TranscriptBody
+        items={items}
+        focusId={focusId}
+        onSelect={select}
+        live={polling || browserLive}
+        activeId={activeId}
+        playheadKey={local ? player.seekCount : undefined}
+      />
+    </>
   );
 
   return (
-    <div className="flex min-w-0 flex-1">
+    <div className="flex min-w-0 flex-1" onKeyDown={(event) => playerKey(event, player)}>
+      <audio ref={audioRef} hidden preload="metadata" data-testid="playback-audio" />
+      <audio ref={secondaryRef} hidden preload="metadata" />
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete audio from this browser?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This only removes local audio. Your transcript and notes are kept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setDeleteOpen(false);
+                setDeleteError(null);
+                void deleteAudio().catch(() =>
+                  setDeleteError('Could not delete local audio. Please retry.'),
+                );
+              }}
+            >
+              Delete audio
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {/* At least the window's height, so "Ask about this note" sits at its bottom (9.3b). */}
       <div className="flex min-h-[calc(100svh-3rem)] min-w-0 flex-1 flex-col">
-        <DocumentEditor document={doc} workspace={workspace} meta={header} />
+        <DocumentEditor
+          document={doc}
+          workspace={workspace}
+          meta={header}
+          headerActions={
+            <RecordingControls
+              documentId={doc.id}
+              eligible={editable && !(info.endedAt && lines.length > 0)}
+            />
+          }
+          overflowActions={
+            local && !browserLive ? (
+              <Button variant="ghost" onClick={() => setDeleteOpen(true)}>
+                Delete audio from this browser
+              </Button>
+            ) : null
+          }
+        />
         {open && !wide && (
           <section
             aria-label="Transcript"
@@ -296,11 +397,15 @@ function TranscriptBody({
   focusId,
   onSelect,
   live,
+  activeId,
+  playheadKey,
 }: {
   items: TranscriptItem[];
   focusId: string | undefined;
   onSelect: (segment: TranscriptItem) => void;
   live: boolean;
+  activeId?: string | undefined;
+  playheadKey?: number | undefined;
 }) {
   if (items.length === 0) {
     return (
@@ -323,21 +428,28 @@ function TranscriptBody({
   }
   return (
     <>
-      <p
-        className="flex shrink-0 items-center gap-1.5 border-b border-gray-alpha-400 px-4 py-1.5 text-label-12 text-gray-900"
-        data-testid="audio-hint"
-        title="Only transcripts sync. Audio stays on the recording device."
-      >
-        <IconDeviceLaptop aria-hidden className="size-3.5 shrink-0" />
-        Audio stays on the recording device
-      </p>
       <TranscriptList
         segments={items}
         focusId={focusId}
         onSelect={onSelect}
         follow={live && !focusId}
+        activeId={activeId}
+        {...(playheadKey !== undefined ? { playheadKey } : {})}
         className="min-h-0"
       />
     </>
+  );
+}
+
+function AudioHint() {
+  return (
+    <p
+      className="flex shrink-0 items-center gap-1.5 border-b border-gray-alpha-400 px-4 py-1.5 text-label-12 text-gray-900"
+      data-testid="audio-hint"
+      title="Only transcripts sync. Audio stays on the recording device."
+    >
+      <IconDeviceLaptop aria-hidden className="size-3.5 shrink-0" />
+      Audio stays on the recording device
+    </p>
   );
 }
