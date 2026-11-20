@@ -218,12 +218,26 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
   await page.keyboard.press('End');
   await page.keyboard.type(' today');
   await saved(page);
+  let releaseVersions!: () => void;
+  const versionsReady = new Promise<void>((resolve) => {
+    releaseVersions = resolve;
+  });
+  const versionsPath = `**/api/documents/${doc.id}/enhancements`;
+  await page.route(versionsPath, async (route) => {
+    await versionsReady;
+    await route.continue();
+  });
   await page.reload();
   await expect(editor(page)).toContainText('send security report today');
 
   // --- Never lose text: the edited note the regenerate replaced is in Note history ----------------
   // ("send … today" was typed after the undo, so it is not stored anywhere: restoring warns and saves it.)
   await page.getByTestId('document-more').click();
+  await expect(page.getByTestId('notion-send')).toBeVisible();
+  await expect(page.getByTestId('history-button')).toHaveCount(0);
+  releaseVersions();
+  await expect(page.getByTestId('history-button')).toBeVisible();
+  await page.unroute(versionsPath);
   await page.getByTestId('history-button').click();
   const savedNotes = page.getByTestId('history-snapshot');
   await expect(savedNotes).toHaveCount(1);

@@ -171,6 +171,7 @@ test('a meeting ends → the pipeline enhances it and auto-sends it to Notion', 
   // The note's Notion button loads its status once: after a reload it links to the page the pipeline made.
   await page.reload();
   await expect(page.getByTestId('pipeline-status')).toHaveText('Post-meeting: done');
+  await page.getByTestId('document-more').click();
   const link = page.getByTestId('notion-link');
   await expect(link).toContainText('In Notion');
   await expect(page.getByTestId('notion-send')).toHaveText('Update in Notion');

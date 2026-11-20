@@ -24,12 +24,14 @@ export function NotionExportButton({
   documentId,
   beforeSend,
   wrap,
+  fallback,
 }: {
   documentId: string;
   /** Flush pending edits so Notion gets what's on screen. */
   beforeSend?: () => Promise<void>;
   /** Places the control (e.g. in a "More actions" popover, 9.3b); only called when Notion is set up. */
   wrap?: (control: React.ReactNode) => React.ReactNode;
+  fallback?: React.ReactNode;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<NotionDocumentStatus | null>(null);
@@ -46,7 +48,7 @@ export function NotionExportButton({
     };
   }, [documentId]);
 
-  if (!status?.configured) return null;
+  if (!status?.configured) return fallback ?? null;
   const exported = status.export;
 
   const toSettings = (message: string, description: string, label = 'Open settings') =>

@@ -76,20 +76,27 @@ export function DocumentEditor({
   const actions = useTreeActions();
   const headerRef = useRef<HTMLElement>(null);
   const compact = useNarrow(headerRef, COMPACT_HEADER_PX);
-  const secondaryActions = (history: React.ReactNode) =>
-    history || overflowActions ? (
-      <MoreActions>
-        {history}
-        <NotionExportButton documentId={doc.id} beforeSend={autosave.flush} />
-        {overflowActions}
-      </MoreActions>
-    ) : (
-      <NotionExportButton
-        documentId={doc.id}
-        beforeSend={autosave.flush}
-        wrap={(control) => <MoreActions>{control}</MoreActions>}
-      />
-    );
+  const secondaryActions = (history: React.ReactNode) => (
+    <NotionExportButton
+      documentId={doc.id}
+      beforeSend={autosave.flush}
+      fallback={
+        history || overflowActions ? (
+          <MoreActions>
+            {history}
+            {overflowActions}
+          </MoreActions>
+        ) : null
+      }
+      wrap={(control) => (
+        <MoreActions>
+          {history}
+          {control}
+          {overflowActions}
+        </MoreActions>
+      )}
+    />
+  );
   const [title, setTitle] = useState(doc.title);
   // The editor's content: as loaded, then replaced when an enhancement lands (4.4).
   const [content, setContent] = useState(doc.contentJson);
