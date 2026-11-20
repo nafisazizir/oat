@@ -3,6 +3,8 @@
 Status: complete · step A review fixes + step B · human-approved.
 Branch: `devin/1795160469-web-recording` (fresh origin/main).
 
+CI escalation at pushed `f2b07e9`: Linux job `136199802201` failed; Swift `136199802349` and Devin Review passed. CI artifact dark-axe retry found search snippet contrast 4.1:1 instead of 4.5:1; reproduced exactly on fresh `origin/main` (`6b4c68d`) by waiting for indexed snippets before scanning. Reproduction lives only in detached worktree `/home/ubuntu/repos/oat-pr11-base/apps/web/e2e/pr11-contrast-repro.spec.ts`; output `/home/ubuntu/oat-pr11-base-contrast-repro.log` (**1 failed, 1 passed**, intentional baseline reproduction). Existing accessibility/templates specs passed on both branches (**5 passed, 1 skipped** each); full base web suite **64 passed, 17 skipped**. The normal scan can precede snippet indexing. Search highlight/result code is unchanged by this PR. Templates first failed its console guard on `GET /api/sync/events` 429s, then retried with leftover custom-template state (6 cards instead of 5). Exact SSE limiter branch is unverified; base full suite did not reproduce those 429s. No unrelated styling, sync-limit or CI-config changes made; awaiting lead scope decision. Artifact `/home/ubuntu/oat-pr11-ci-artifacts.zip`; reproduction logs `/home/ubuntu/oat-pr11-{ci-failure-repro,base-failure-repro,base-full-e2e}.log`. Latest local fast/recording/recovery gates remain the passing checks below.
+
 ## Step A acceptance
 
 - Browser-safe STT entry; fresh token per connect, bearer subprotocol, shared parser/query parameters, reconnect/backoff with in-memory PCM replay. Fake-WebSocket unit coverage.
