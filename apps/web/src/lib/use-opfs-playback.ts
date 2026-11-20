@@ -67,7 +67,7 @@ export function useOpfsPlayback(userId: string, meetingId: string | null, revisi
           }
         }
         if (Object.keys(row).length && part.endMs > part.startMs) {
-          parts.push(part);
+          parts.push({ ...part, sources: part.sources.filter((source) => !!row[source]) });
           sources.push(row);
         }
       }

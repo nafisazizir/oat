@@ -32,16 +32,22 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   useSyncEvents(); // live tree/page updates when another tab or device edits (3.5)
-  const { data: session, isPending } = authClient.useSession();
   useEffect(
     () => () => {
-      void browserRecording.endSession(false);
+      void browserRecording.endSession();
     },
-    [data.user.id],
+    [],
   );
   useEffect(() => {
-    if (!isPending) void browserRecording.sessionChanged(session?.user.id ?? null);
-  }, [isPending, session?.user.id]);
+    void browserRecording.sessionChanged(data.user.id);
+  }, [data.user.id]);
+  useEffect(
+    () =>
+      authClient.useSession.subscribe((session) => {
+        if (!session.isPending) void browserRecording.sessionChanged(session.data?.user.id ?? null);
+      }),
+    [],
+  );
   return (
     <ShellDataProvider value={data}>
       <SidebarProvider defaultOpen={defaultOpen}>

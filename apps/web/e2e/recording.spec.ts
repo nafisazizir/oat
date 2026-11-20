@@ -57,6 +57,20 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   expect(headers['origin']).toBe(baseURL);
   expect(Boolean(headers['cookie'])).toBe(true);
   expect(headers['authorization']).toBeUndefined();
+  const heldBefore = await page.evaluate(async () =>
+    (await navigator.locks.query()).held?.map((lock) => lock.name),
+  );
+  expect(heldBefore?.filter((name) => name?.startsWith('oat-recording:'))).toHaveLength(2);
+  const otherTab = await page.context().newPage();
+  await otherTab.goto(`/d/${doc.id}`);
+  await otherTab.getByRole('button', { name: 'Record', exact: true }).click();
+  await otherTab.getByRole('button', { name: 'Mic only', exact: true }).click();
+  await expect(
+    otherTab.getByRole('alert').filter({ hasText: 'Recording needs attention' }),
+  ).toContainText('This note is already being recorded in another tab');
+  await otherTab.close();
+  await page.bringToFront();
+  await expect(page.getByTestId('web-recording')).toHaveAttribute('data-status', 'recording');
   await expect(page.getByTestId('transcript-segment').first()).toBeVisible({ timeout: 30000 });
   await expect
     .poll(async () => {

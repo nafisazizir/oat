@@ -3,6 +3,31 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BrowserRecording } from './browser-recording';
 import { meetingApi } from './meeting';
 import { BrowserAudioArchive } from './audio-store';
+import { IN_PROGRESS_MAX_MS } from '@oat/meeting-ui/format';
+
+function recordingLocks(occupied = false) {
+  const held = new Set<string>();
+  return {
+    get held() {
+      return occupied || held.size > 0;
+    },
+    request: vi.fn(
+      async (
+        _name: string,
+        _options: unknown,
+        callback: (lock: object | null) => Promise<void>,
+      ) => {
+        if (occupied || held.has(_name)) return callback(null);
+        held.add(_name);
+        try {
+          await callback({});
+        } finally {
+          held.delete(_name);
+        }
+      },
+    ),
+  };
+}
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -31,13 +56,15 @@ describe('browser capture failures', () => {
     expect(recording.snapshot()).toMatchObject({ status: 'idle', pending: 0, segments: [] });
   });
 
-  it.each(['sign out', 'account change', 'shell unmount'])(
+  it.each(['sign out', 'account change', 'shell unmount', 'stale meeting', 'new meeting'])(
     'stops tracks and sockets and finalizes the archive on %s',
     async (reason) => {
       vi.stubGlobal('window', new EventTarget());
       const stop = vi.fn();
       const track = { stop, addEventListener: vi.fn() };
+      const locks = recordingLocks();
       vi.stubGlobal('navigator', {
+        locks,
         mediaDevices: {
           getUserMedia: async () => ({ getTracks: () => [track], getAudioTracks: () => [track] }),
         },
@@ -76,8 +103,11 @@ describe('browser capture failures', () => {
       vi.spyOn(BrowserAudioArchive.prototype, 'start').mockResolvedValue();
       const finalize = vi.spyOn(BrowserAudioArchive.prototype, 'end').mockResolvedValue();
       vi.spyOn(meetingApi, 'get').mockResolvedValue({
-        meetingId: 'meeting',
-        startedAt: null,
+        meetingId: reason === 'new meeting' ? null : 'meeting',
+        startedAt:
+          reason === 'stale meeting'
+            ? new Date(Date.now() - IN_PROGRESS_MAX_MS - 1).toISOString()
+            : null,
         endedAt: null,
         participants: [],
       });
@@ -103,10 +133,18 @@ describe('browser capture failures', () => {
       );
       const recording = new BrowserRecording();
       await recording.start('document', false, 'alice');
+      expect(recording.snapshot().status).toBe('recording');
+      expect(locks.held).toBe(true);
+      expect(locks.request).toHaveBeenCalledWith(
+        `oat-recording:${recording.snapshot().meetingId}`,
+        { ifAvailable: true },
+        expect.any(Function),
+      );
       await recording.sessionChanged('alice');
       expect(stop).not.toHaveBeenCalled();
       if (reason === 'account change') await recording.sessionChanged('bob');
-      else await recording.endSession(reason === 'sign out');
+      else await recording.endSession();
+      expect(locks.held).toBe(false);
       expect(stop).toHaveBeenCalledOnce();
       expect(closeSocket).toHaveBeenCalledOnce();
       expect(closeContext).toHaveBeenCalledOnce();
@@ -117,13 +155,40 @@ describe('browser capture failures', () => {
         documentId: null,
         segments: [],
       });
-      if (reason === 'sign out')
+      if (reason === 'sign out' || reason === 'shell unmount')
         expect(pushed).toContainEqual(
           expect.objectContaining({
             table: 'meeting',
             row: expect.objectContaining({ endedAt: expect.any(String) }),
           }),
         );
+    },
+  );
+  it.each(['tab', 'device'])(
+    'refuses a live recording on another %s and releases the microphone and any acquired lock',
+    async (where) => {
+      vi.stubGlobal('window', new EventTarget());
+      const stop = vi.fn();
+      const locks = recordingLocks(where === 'tab');
+      vi.stubGlobal('navigator', {
+        locks,
+        mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop }] }) },
+      });
+      vi.spyOn(meetingApi, 'get').mockResolvedValue({
+        meetingId: 'meeting',
+        startedAt: new Date().toISOString(),
+        endedAt: null,
+        participants: [],
+      });
+      const recording = new BrowserRecording();
+      await recording.start('document', false, 'alice');
+      expect(recording.snapshot().error).toBe(
+        where === 'tab'
+          ? 'This note is already being recorded in another tab'
+          : 'This note is being recorded on another device',
+      );
+      expect(stop).toHaveBeenCalledOnce();
+      expect(locks.held).toBe(where === 'tab');
     },
   );
   it('rechecks ended transcripts before starting and releases the granted microphone', async () => {

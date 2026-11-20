@@ -1,5 +1,6 @@
 import type { SyncPushResponse, SyncMeetingPush } from '@oat/core/sync';
 import { updateLiveTranscript } from '@oat/meeting-ui/live-transcript';
+import { meetingWhen } from '@oat/meeting-ui/format';
 import { BrowserSttStream, type SttSegment, type AudioFrame } from '@oat/stt/browser';
 
 import { meetingApi } from './meeting';
@@ -42,6 +43,7 @@ export function supportsRecording() {
   return (
     typeof window !== 'undefined' &&
     !!navigator.mediaDevices?.getUserMedia &&
+    !!navigator.locks?.request &&
     typeof AudioContext !== 'undefined' &&
     typeof AudioWorkletNode !== 'undefined' &&
     typeof WebSocket !== 'undefined'
@@ -63,6 +65,37 @@ export async function recordingPost<T>(path: string, body?: unknown): Promise<T>
 }
 
 export class BrowserRecording {
+  #unlocks: (() => void)[] = [];
+  #locks: Promise<void>[] = [];
+  async #takeLock(meetingId: string) {
+    if (!navigator.locks?.request)
+      throw new Error(
+        'This browser cannot coordinate recording across tabs. Use a browser with Web Locks support.',
+      );
+    await new Promise<void>((resolve, reject) => {
+      const held = navigator.locks
+        .request<void>(`oat-recording:${meetingId}`, { ifAvailable: true }, async (lock) => {
+          if (!lock) {
+            reject(new Error('This note is already being recorded in another tab'));
+            return;
+          }
+          if (this.#cancelled) {
+            reject(new Error('Recording stopped.'));
+            return;
+          }
+          await new Promise<void>((unlock) => {
+            this.#unlocks.push(unlock);
+            resolve();
+          });
+        })
+        .catch(reject);
+      this.#locks.push(held);
+    });
+  }
+  async #dropLock() {
+    this.#unlocks.splice(0).forEach((unlock) => unlock());
+    await Promise.all(this.#locks.splice(0));
+  }
   #userId: string | null = null;
   #cancelled = false;
   #starting: Promise<void> | undefined;
@@ -152,10 +185,10 @@ export class BrowserRecording {
         throw new Error(
           'This meeting already has a finished transcript. Create a new note to record.',
         );
-      if (info.startedAt && !info.endedAt)
-        throw new Error(
-          'This meeting may already be recording on another device. Stop it there first.',
-        );
+      await this.#takeLock(info.meetingId ?? documentId);
+      this.#checkSession();
+      if (meetingWhen(info.startedAt, info.endedAt, Date.now()).inProgress)
+        throw new Error('This note is being recorded on another device');
       const context = new AudioContext();
       this.#context = context;
       await context.resume();
@@ -177,6 +210,10 @@ export class BrowserRecording {
         calendarEventId: info.recording?.calendarEventId ?? null,
         platform: 'browser',
       };
+      if (!info.meetingId) {
+        await this.#takeLock(this.#meeting.id);
+        this.#checkSession();
+      }
       this.#set({ meetingId: this.#meeting.id });
       this.#archive = new BrowserAudioArchive(
         new AudioStore(userId),
@@ -273,6 +310,7 @@ export class BrowserRecording {
       this.#release();
       this.#streams.forEach((stream) => stream.close());
       this.#streams = [];
+      await this.#dropLock();
       this.#set({
         status: 'idle',
         error: this.#cancelled
@@ -351,6 +389,7 @@ export class BrowserRecording {
         row: { ...this.#meeting, endedAt },
       });
     await this.#queue.flush();
+    await this.#dropLock();
     this.#set({ status: 'ended' });
   }
   sessionChanged(userId: string | null) {
@@ -382,6 +421,7 @@ export class BrowserRecording {
         });
       if (flush) await this.#queue.flush();
       this.#queue.clear();
+      await this.#dropLock();
       this.#meeting = undefined;
       this.#userId = null;
       this.#set({ ...initial });

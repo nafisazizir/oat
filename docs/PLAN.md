@@ -101,7 +101,7 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 
 ## M9 — Ship v1
 
-- [x] Human-requested: web recording, step A capture/STT/sync + review fixes and step B OPFS archive/playback complete, including one-row header and source-toggle polish · [task](tasks/web-recording.md)
+- [x] Human-requested: web recording, step A capture/STT/sync + step B OPFS archive/playback, header/source polish, PR 11 account/session isolation and recording/playback reliability fixes · [task](tasks/web-recording.md)
 
 - [x] Human-requested: unify desktop/web shell and note layout · [task](tasks/unify-shell.md)
 

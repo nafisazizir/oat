@@ -56,11 +56,15 @@ PCM replay and pending sync buffer in memory. Step B archives per-source Opus/We
 
 ## Header/player polish
 
+PR 11 concurrency review: each recording holds an ifAvailable Web Lock keyed by its meeting id through stop/finalization, failure and session cleanup. A brand-new meeting also holds a document-id alias until stop, covering the race before its generated meeting id reaches other tabs. Refetched recent live metadata uses the shared six-hour meeting heuristic to reject another-device capture. Added occupied-lock and recent-device rejection, stale-meeting acceptance, new-meeting dual-lock coverage and held-until-teardown checks. Recording E2E verifies two held keys for a new note and a real second-tab rejection while the first continues.
+
+PR 11 local review gates: `pnpm run ci --fast` **ci: ok** (26.6s); browser recording E2E **2 passed** after correcting the warning selector to account for its nested Retry button and the Next route announcer's separate alert role. Logs: `/home/ubuntu/oat-pr11-review-{ci,e2e}.log`. Initial validation also corrected the session Atom subscription and the Web Locks generic. No new screenshot/visual review was requested. CI loop continues separately; its initial Linux failure is the pipeline E2E's Notion selector, now hidden in overflow.
+
 PR 11 playback review: shared availability resolution is used by desktop and browser adapters before selecting URLs. A missing preferred source falls back to an existing source without calling the preference setter. Desktop hook regressions cover both single-source directions and restoring the original preference on a dual-source recording.
 
 PR 11 STT review: replay filtering and timeline frame ends share integer-microsecond rounding. Finish has a single 15-second deadline across reconnects/backpressure and resolves on server close even with unacknowledged frames. Added fractional-ms trim/reconnect, residual-frame close, offline and backpressure deadline regressions.
 
-PR 11 session review: sign-out awaits capture teardown and a bounded best-effort flush before removing cookies. Shell disposal and session identity changes stop tracks/sockets immediately, finalize local audio, clear timers and discard pending account-owned writes instead of retrying under a different account. Pending permission grants are cancelled logically and released when they arrive. Added teardown and late-permission tests.
+PR 11 session review: sign-out awaits capture teardown and a bounded best-effort flush before removing cookies. Shell disposal also flushes; session identity changes discard pending account-owned writes instead of retrying under a different account. All three stop tracks/sockets immediately, finalize local audio and clear timers. Pending permission grants are cancelled logically and released when they arrive. Added teardown and late-permission tests. The shell subscribes to the existing vanilla auth-client session Atom, not a React auth hook.
 
 PR 11 security review: audio stores now use an immutable signed-in account id and `oat-audio/<userId>/<meetingId>` paths. Playback hides prior-account state immediately, revokes old URLs on account changes, and ignores legacy unscoped data. Added same-meeting-id cross-account load/read/delete isolation coverage. Final review validation is recorded below after all five fixes.
 
