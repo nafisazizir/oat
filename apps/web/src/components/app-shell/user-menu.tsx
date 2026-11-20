@@ -17,6 +17,7 @@ import { useTransition } from 'react';
 import { toast } from 'sonner';
 
 import { authClient } from '@/lib/auth-client';
+import { browserRecording } from '@/lib/browser-recording';
 
 import { useShellData } from './shell-data';
 
@@ -28,6 +29,7 @@ export function UserMenu() {
 
   const signOut = () =>
     startTransition(async () => {
+      await browserRecording.endSession();
       const { error } = await authClient.signOut();
       if (error) {
         toast.error('Couldn’t sign out. Try again.');

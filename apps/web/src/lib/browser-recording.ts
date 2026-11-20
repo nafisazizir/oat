@@ -49,6 +49,7 @@ export function supportsRecording() {
 }
 export async function recordingPost<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(path, {
+    signal: AbortSignal.timeout(10000),
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'content-type': 'application/json' },
@@ -62,6 +63,12 @@ export async function recordingPost<T>(path: string, body?: unknown): Promise<T>
 }
 
 export class BrowserRecording {
+  #userId: string | null = null;
+  #cancelled = false;
+  #starting: Promise<void> | undefined;
+  #ending: Promise<void> | undefined;
+  #stopping: Promise<void> | undefined;
+  #changing: Promise<void> | undefined;
   #state = initial;
   #listeners = new Set<() => void>();
   #context: AudioContext | undefined;
@@ -105,7 +112,20 @@ export class BrowserRecording {
     }
   };
 
-  async start(documentId: string, tab: boolean, userId: string) {
+  start(documentId: string, tab: boolean, userId: string): Promise<void> {
+    if (this.#starting || this.#ending || active(this.#state) || this.#queue.pending)
+      return Promise.resolve();
+    this.#userId = userId;
+    this.#cancelled = false;
+    this.#starting = this.#start(documentId, tab, userId).finally(() => {
+      this.#starting = undefined;
+    });
+    return this.#starting;
+  }
+  #checkSession() {
+    if (this.#cancelled) throw new Error('Recording stopped.');
+  }
+  async #start(documentId: string, tab: boolean, userId: string) {
     if (active(this.#state) || this.#queue.pending) return;
     clearInterval(this.#timer);
     this.#state = { ...initial, documentId, status: 'starting' };
@@ -116,6 +136,7 @@ export class BrowserRecording {
       if (tab) {
         const shared = await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true });
         this.#media.push(shared);
+        this.#checkSession();
         shared.getVideoTracks().forEach((track) => track.stop());
         if (!shared.getAudioTracks().length)
           throw new Error('Choose a browser tab and tick “Share tab audio”, then retry.');
@@ -124,7 +145,9 @@ export class BrowserRecording {
         audio: { echoCancellation: true, noiseSuppression: true },
       });
       this.#media.unshift(mic);
+      this.#checkSession();
       const info = await meetingApi.get(documentId, { recording: true, transcript: true });
+      this.#checkSession();
       if (info.endedAt && info.transcript?.length)
         throw new Error(
           'This meeting already has a finished transcript. Create a new note to record.',
@@ -136,9 +159,11 @@ export class BrowserRecording {
       const context = new AudioContext();
       this.#context = context;
       await context.resume();
+      this.#checkSession();
       const url = URL.createObjectURL(new Blob([pcmWorkletModule()], { type: 'text/javascript' }));
       try {
         await context.audioWorklet.addModule(url);
+        this.#checkSession();
       } finally {
         URL.revokeObjectURL(url);
       }
@@ -162,6 +187,7 @@ export class BrowserRecording {
         this.#clockMs(),
         this.#media.map((stream, index) => ({ stream, source: index === 0 ? 'mic' : 'system' })),
       );
+      this.#checkSession();
       for (const [index, media] of this.#media.entries()) {
         const source = index === 0 ? 'mic' : 'system';
         const stream = new BrowserSttStream({
@@ -249,8 +275,9 @@ export class BrowserRecording {
       this.#streams = [];
       this.#set({
         status: 'idle',
-        error:
-          error instanceof Error
+        error: this.#cancelled
+          ? null
+          : error instanceof Error
             ? error.message
             : 'Recording could not start. Check microphone permission and retry.',
       });
@@ -259,6 +286,14 @@ export class BrowserRecording {
   }
 
   async pause() {
+    if (this.#changing) return this.#changing;
+    this.#changing = this.#pause().finally(() => {
+      this.#changing = undefined;
+    });
+    return this.#changing;
+  }
+  async #pause() {
+    if (this.#cancelled) return;
     if (this.#state.changing) return;
     this.#set({ changing: true });
     try {
@@ -272,6 +307,7 @@ export class BrowserRecording {
           this.#media.map((stream, index) => ({ stream, source: index === 0 ? 'mic' : 'system' })),
         );
         await this.#context?.resume();
+        if (this.#cancelled) return;
         this.#set({ status: 'recording' });
       }
     } catch {
@@ -289,7 +325,14 @@ export class BrowserRecording {
     this.#context = undefined;
     void context?.close().catch(() => {});
   }
-  async stop() {
+  stop(): Promise<void> {
+    if (this.#stopping) return this.#stopping;
+    this.#stopping = this.#stop().finally(() => {
+      this.#stopping = undefined;
+    });
+    return this.#stopping;
+  }
+  async #stop() {
     if (this.#state.changing || !['recording', 'paused'].includes(this.#state.status)) return;
     const endedAt = new Date().toISOString();
     const endMs = this.#clockMs();
@@ -300,6 +343,7 @@ export class BrowserRecording {
     this.#release();
     await Promise.all(this.#streams.map((stream) => stream.finish()));
     this.#streams = [];
+    if (this.#cancelled) return;
     if (this.#meeting)
       this.#queue.enqueue({
         op: 'upsert',
@@ -309,9 +353,46 @@ export class BrowserRecording {
     await this.#queue.flush();
     this.#set({ status: 'ended' });
   }
+  sessionChanged(userId: string | null) {
+    return this.#userId !== null && this.#userId !== userId
+      ? this.endSession(false)
+      : Promise.resolve();
+  }
+  endSession(flush = true): Promise<void> {
+    if (this.#ending) return this.#ending;
+    this.#cancelled = true;
+    const endMs = this.#clockMs();
+    this.#release();
+    this.#streams.forEach((stream) => stream.close());
+    if (!flush) this.#queue.clear();
+    clearInterval(this.#timer);
+    window.removeEventListener('beforeunload', this.#warn);
+    this.#ending = (async () => {
+      if (this.#archive) await this.#starting;
+      await this.#changing;
+      await this.#stopping;
+      await this.#archive?.end(endMs, true);
+      this.#archive = undefined;
+      this.#streams = [];
+      if (flush && this.#meeting && active(this.#state))
+        this.#queue.enqueue({
+          op: 'upsert',
+          table: 'meeting',
+          row: { ...this.#meeting, endedAt: new Date().toISOString() },
+        });
+      if (flush) await this.#queue.flush();
+      this.#queue.clear();
+      this.#meeting = undefined;
+      this.#userId = null;
+      this.#set({ ...initial });
+    })().finally(() => {
+      this.#ending = undefined;
+    });
+    return this.#ending;
+  }
   retry() {
-    if (this.#state.status === 'idle' && this.#state.documentId)
-      void this.start(this.#state.documentId, this.#tab);
+    if (this.#state.status === 'idle' && this.#state.documentId && this.#userId)
+      void this.start(this.#state.documentId, this.#tab, this.#userId);
     else {
       this.#streams
         .filter((stream) => stream.status !== 'open')

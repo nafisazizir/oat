@@ -1,6 +1,9 @@
 'use client';
 
 import { SidebarInset, SidebarProvider } from '@oat/ui/components/sidebar';
+import { useEffect } from 'react';
+import { authClient } from '@/lib/auth-client';
+import { browserRecording } from '@/lib/browser-recording';
 import { BrowserRecordingBanner } from '@/components/meeting/recording-controls';
 
 import type { ShellData } from '@/lib/tree';
@@ -29,6 +32,16 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   useSyncEvents(); // live tree/page updates when another tab or device edits (3.5)
+  const { data: session, isPending } = authClient.useSession();
+  useEffect(
+    () => () => {
+      void browserRecording.endSession(false);
+    },
+    [data.user.id],
+  );
+  useEffect(() => {
+    if (!isPending) void browserRecording.sessionChanged(session?.user.id ?? null);
+  }, [isPending, session?.user.id]);
   return (
     <ShellDataProvider value={data}>
       <SidebarProvider defaultOpen={defaultOpen}>

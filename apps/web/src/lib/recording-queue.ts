@@ -27,6 +27,11 @@ export class RecordingQueue {
   get pending() {
     return this.#pending.length;
   }
+  clear() {
+    this.#pending = [];
+    this.#error = null;
+    this.#changed(0, null);
+  }
   enqueue(entry: Entry) {
     this.#pending.push({ ...entry, version: ++this.#version } as SyncPushEntry);
     this.#changed(this.pending, this.#error);
