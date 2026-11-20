@@ -4,6 +4,7 @@ import { BrowserRecording } from './browser-recording';
 import { meetingApi } from './meeting';
 import { BrowserAudioArchive } from './audio-store';
 import { IN_PROGRESS_MAX_MS } from '@oat/meeting-ui/format';
+import { BrowserSttStream, type SttSegment } from '@oat/stt/browser';
 
 function recordingLocks(occupied = false) {
   const held = new Set<string>();
@@ -134,6 +135,21 @@ describe('browser capture failures', () => {
       },
     });
     const pushed: unknown[] = [];
+    const listeners = vi.spyOn(BrowserSttStream.prototype, 'on');
+    const finish = vi.spyOn(BrowserSttStream.prototype, 'finish').mockImplementation(async () => {
+      expect(stop).toHaveBeenCalled();
+      const listener = listeners.mock.calls.find(([event]) => event === 'segment')?.[1] as (
+        segment: SttSegment,
+      ) => void;
+      listener({
+        id: 'last-utterance',
+        source: 'mic',
+        startMs: 12000,
+        endMs: 13000,
+        text: 'Last words',
+        isFinal: true,
+      });
+    });
     let offline = reason === 'failed signout';
     vi.stubGlobal(
       'fetch',
@@ -176,6 +192,10 @@ describe('browser capture failures', () => {
     expect(locks.held).toBe(false);
     expect(stop).toHaveBeenCalledOnce();
     expect(closeSocket).toHaveBeenCalledOnce();
+    expect(finish).toHaveBeenCalledOnce();
+    expect(finish.mock.invocationCallOrder[0]).toBeLessThan(
+      closeSocket.mock.invocationCallOrder[0]!,
+    );
     expect(closeContext).toHaveBeenCalledOnce();
     expect(disconnect).toHaveBeenCalled();
     expect(finalize).toHaveBeenCalledWith(reason === 'stale meeting' ? 12000 : 0, true);
@@ -191,7 +211,15 @@ describe('browser capture failures', () => {
           row: expect.objectContaining({ endedAt: expect.any(String) }),
         }),
       );
+    if (reason === 'sign out' || reason === 'shell unmount')
+      expect(pushed).toContainEqual(
+        expect.objectContaining({
+          table: 'transcript_segment',
+          row: expect.objectContaining({ text: 'Last words' }),
+        }),
+      );
     if (reason === 'failed signout') {
+      expect([...persisted.values()].some((value) => value.includes('Last words'))).toBe(true);
       expect(
         [...persisted.values()].some((value) =>
           JSON.parse(value).some((entry: { row?: { endedAt?: string } }) => entry.row?.endedAt),

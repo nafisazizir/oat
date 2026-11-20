@@ -439,7 +439,6 @@ export class BrowserRecording {
     this.#cancelled = true;
     const endMs = this.#clockMs();
     this.#release();
-    this.#streams.forEach((stream) => stream.close());
     clearInterval(this.#timer);
     window.removeEventListener('beforeunload', this.#warn);
     this.#ending = (async () => {
@@ -448,16 +447,22 @@ export class BrowserRecording {
       await this.#stopping;
       await this.#archive?.end(endMs, true);
       this.#archive = undefined;
-      this.#streams = [];
+      const streams = this.#streams.slice();
+      await Promise.allSettled(streams.map((stream) => stream.finish()));
       if (this.#meeting && active(this.#state))
         this.#queue.enqueue({
           op: 'upsert',
           table: 'meeting',
           row: { ...this.#meeting, endedAt: new Date().toISOString() },
         });
-      if (flush) await this.#queue.flush();
-      if (this.#userId && this.#queue.pending)
-        savePendingRecording(this.#userId, this.#queue.entries);
+      try {
+        if (flush) await this.#queue.flush();
+        if (this.#userId && this.#queue.pending)
+          savePendingRecording(this.#userId, this.#queue.entries);
+      } finally {
+        streams.forEach((stream) => stream.close());
+        this.#streams = [];
+      }
       this.#queue.clear();
       await this.#dropLock();
       this.#meeting = undefined;
