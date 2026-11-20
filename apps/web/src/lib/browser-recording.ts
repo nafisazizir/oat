@@ -5,7 +5,7 @@ import { BrowserSttStream, type SttSegment, type AudioFrame } from '@oat/stt/bro
 import { meetingApi } from './meeting';
 import { pcmWorkletModule } from './recording-pcm';
 import { RecordingQueue, hasSyncBacklog } from './recording-queue';
-import { audioStore, BrowserAudioArchive } from './audio-store';
+import { AudioStore, BrowserAudioArchive } from './audio-store';
 
 export interface RecordingState {
   documentId: string | null;
@@ -105,7 +105,7 @@ export class BrowserRecording {
     }
   };
 
-  async start(documentId: string, tab: boolean) {
+  async start(documentId: string, tab: boolean, userId: string) {
     if (active(this.#state) || this.#queue.pending) return;
     clearInterval(this.#timer);
     this.#state = { ...initial, documentId, status: 'starting' };
@@ -153,8 +153,10 @@ export class BrowserRecording {
         platform: 'browser',
       };
       this.#set({ meetingId: this.#meeting.id });
-      this.#archive = new BrowserAudioArchive(audioStore, this.#meeting.id, (audioNotice) =>
-        this.#set({ audioNotice }),
+      this.#archive = new BrowserAudioArchive(
+        new AudioStore(userId),
+        this.#meeting.id,
+        (audioNotice) => this.#set({ audioNotice }),
       );
       await this.#archive.start(
         this.#clockMs(),

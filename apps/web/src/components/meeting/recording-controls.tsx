@@ -15,6 +15,7 @@ import { useState, useSyncExternalStore } from 'react';
 
 import { browserRecording, supportsRecording } from '@/lib/browser-recording';
 import { useHydrated } from '@/lib/use-hydrated';
+import { useShellData } from '@/components/app-shell/shell-data';
 
 export function useBrowserRecording() {
   return useSyncExternalStore(
@@ -31,6 +32,7 @@ export function RecordingControls({
   documentId: string;
   eligible: boolean;
 }) {
+  const { user } = useShellData();
   const state = useBrowserRecording();
   const hydrated = useHydrated();
   const [open, setOpen] = useState(false);
@@ -46,7 +48,7 @@ export function RecordingControls({
     return null;
   const start = (tab: boolean) => {
     setOpen(false);
-    void browserRecording.start(documentId, tab);
+    void browserRecording.start(documentId, tab, user.id);
   };
   return (
     <Popover open={open} onOpenChange={setOpen}>

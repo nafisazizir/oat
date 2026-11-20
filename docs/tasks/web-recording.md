@@ -56,6 +56,8 @@ PCM replay and pending sync buffer in memory. Step B archives per-source Opus/We
 
 ## Header/player polish
 
+PR 11 security review: audio stores now use an immutable signed-in account id and `oat-audio/<userId>/<meetingId>` paths. Playback hides prior-account state immediately, revokes old URLs on account changes, and ignores legacy unscoped data. Added same-meeting-id cross-account load/read/delete isolation coverage. Final review validation is recorded below after all five fixes.
+
 - Fetched and compared `origin/main`: its document action container also uses `flex-wrap`, and its History button stays inline even in compact mode. This is a source comparison, not a separately rendered baseline.
 - Primary actions no longer wrap within their row. History and Notion are always in the existing More actions popover, alongside local audio deletion; Enhance/Regenerate and Share stay visible. Pipeline status stays mounted with the header metadata, outside the primary action row. History dialogs remain mounted outside the popover. History/Notion E2E selectors now open the overflow before using those controls.
 - Shared PlaybackBar shows Me/Them/Both only if the recording's parts contain both sources, including when sources occur in different parts. Empty, mic-only and system-only recordings have no toggle. Regression coverage also checks source/speed callbacks; desktop gets the same shared behavior without adapter changes.

@@ -116,11 +116,16 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
       ),
     )
     .toBeLessThan(150);
-  const metadata = await page.evaluate(async (id) => {
-    const root = await navigator.storage.getDirectory();
-    const dir = await (await root.getDirectoryHandle('oat-audio')).getDirectoryHandle(id);
-    return JSON.parse(await (await (await dir.getFileHandle('metadata.json')).getFile()).text());
-  }, meeting.meetingId);
+  const userId = (await (await page.request.get('/api/auth/get-session')).json()).user.id as string;
+  const metadata = await page.evaluate(
+    async ({ id, userId }) => {
+      const root = await navigator.storage.getDirectory();
+      const account = await (await root.getDirectoryHandle('oat-audio')).getDirectoryHandle(userId);
+      const dir = await account.getDirectoryHandle(id);
+      return JSON.parse(await (await (await dir.getFileHandle('metadata.json')).getFile()).text());
+    },
+    { id: meeting.meetingId, userId },
+  );
   expect(metadata.finalized).toBe(true);
   expect(metadata.parts).toHaveLength(2);
   await expect(page.getByRole('radiogroup', { name: 'Listen to' })).toHaveCount(0);

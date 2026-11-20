@@ -55,6 +55,27 @@ const metadata: AudioMetadata = {
   ],
 };
 describe('OPFS audio store', () => {
+  it('isolates accounts with the same meeting id and ignores legacy unscoped audio', async () => {
+    const root = new Directory();
+    const alice = new AudioStore('alice', async () => root);
+    const bob = new AudioStore('bob', async () => root);
+    await alice.save(metadata);
+    const writer = await alice.writer('meeting', 1, 'mic');
+    await writer.write('private audio');
+    await writer.close();
+    const legacy = await (
+      await root.getDirectoryHandle('oat-audio')
+    ).getDirectoryHandle('meeting', { create: true });
+    legacy.files.set('metadata.json', new Blob([JSON.stringify(metadata)]));
+    expect(await bob.load('meeting')).toBeNull();
+    await expect(bob.blob('meeting', 1, 'mic')).rejects.toMatchObject({ name: 'NotFoundError' });
+    await expect(bob.delete('meeting')).rejects.toMatchObject({ name: 'NotFoundError' });
+    await bob.save(metadata);
+    await bob.delete('meeting');
+    expect(await alice.load('meeting')).toEqual(metadata);
+    expect(await (await alice.blob('meeting', 1, 'mic')).text()).toBe('private audio');
+    expect(() => new AudioStore('../alice')).toThrow('Invalid user id');
+  });
   it('finalizes asynchronous recorder chunks and creates a new clock-aligned part on resume', async () => {
     const recorders: Recorder[] = [];
     class Recorder extends EventTarget {
@@ -80,7 +101,7 @@ describe('OPFS audio store', () => {
     }
     vi.stubGlobal('MediaRecorder', Recorder);
     vi.stubGlobal('MediaStream', class {});
-    const store = new AudioStore(async () => root);
+    const store = new AudioStore('alice', async () => root);
     const root = new Directory();
     const notice = vi.fn();
     const archive = new BrowserAudioArchive(store, 'meeting', notice);
@@ -110,7 +131,7 @@ describe('OPFS audio store', () => {
 
   it('writes chunks incrementally per part/source, round-trips clock metadata and deletes only local audio', async () => {
     const root = new Directory();
-    const store = new AudioStore(async () => root);
+    const store = new AudioStore('alice', async () => root);
     await store.save(metadata);
     const writer = await store.writer('meeting', 1, 'mic');
     await writer.write(new Blob(['first']));
@@ -123,19 +144,19 @@ describe('OPFS audio store', () => {
     expect(await store.load('meeting')).toBeNull();
   });
   it('handles absent/empty archives and rejects invalid meeting paths', async () => {
-    const store = new AudioStore(async () => new Directory());
+    const store = new AudioStore('alice', async () => new Directory());
     expect(await store.load('missing')).toBeNull();
     await expect(store.directory('../outside', true)).rejects.toThrow('Invalid meeting id');
   });
   it('surfaces quota failures and degrades unavailable OPFS to a recording notice', async () => {
     const root = new Directory();
-    const store = new AudioStore(async () => root);
+    const store = new AudioStore('alice', async () => root);
     ((await store.directory('meeting', true)) as Directory).full = true;
     await expect(store.save(metadata)).rejects.toMatchObject({ name: 'QuotaExceededError' });
     const notice = vi.fn();
     vi.stubGlobal('MediaRecorder', { isTypeSupported: () => true });
     const archive = new BrowserAudioArchive(
-      new AudioStore(async () => {
+      new AudioStore('alice', async () => {
         throw new Error('Unavailable');
       }),
       'meeting',

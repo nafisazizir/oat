@@ -7,21 +7,24 @@ import {
   type PlaybackSource,
 } from '@oat/meeting-ui';
 import { clampMs, nextSpeed, seekTarget } from '@oat/meeting-ui/playback';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { audioStore, type AudioMetadata, type AudioSource } from './audio-store';
+import { AudioStore, type AudioMetadata, type AudioSource } from './audio-store';
 
 interface LocalAudio {
+  userId: string;
   metadata: AudioMetadata;
   urls: Partial<Record<AudioSource, string>>[];
 }
 
-export function useOpfsPlayback(meetingId: string | null, revision: number) {
+export function useOpfsPlayback(userId: string, meetingId: string | null, revision: number) {
+  const audioStore = useMemo(() => new AudioStore(userId), [userId]);
   const audioRef = useRef<HTMLAudioElement>(null);
   const secondaryRef = useRef<HTMLAudioElement>(null);
   const [clock] = useState(() => new PlaybackClock());
   const [loaded, setLocal] = useState<LocalAudio | null>(null);
-  const local = loaded?.metadata.meetingId === meetingId ? loaded : null;
+  const local =
+    loaded?.userId === userId && loaded.metadata.meetingId === meetingId ? loaded : null;
   const [version, setVersion] = useState(0);
   const [index, setIndex] = useState(0);
   const [source, setSource] = useState<PlaybackSource>('mix');
@@ -67,7 +70,8 @@ export function useOpfsPlayback(meetingId: string | null, revision: number) {
           sources.push(row);
         }
       }
-      if (!cancelled && parts.length) setLocal({ metadata: { ...metadata, parts }, urls: sources });
+      if (!cancelled && parts.length)
+        setLocal({ userId, metadata: { ...metadata, parts }, urls: sources });
     };
     void load().catch(() => {});
     return () => {
@@ -76,7 +80,7 @@ export function useOpfsPlayback(meetingId: string | null, revision: number) {
       other?.pause();
       urls.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [meetingId, revision, version, clock]);
+  }, [userId, audioStore, meetingId, revision, version, clock]);
 
   const part = local?.metadata.parts[index];
   const urls = local?.urls[index];

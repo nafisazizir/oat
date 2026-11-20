@@ -25,7 +25,7 @@ describe('browser capture failures', () => {
       ],
     });
     const recording = new BrowserRecording();
-    await recording.start('document', false);
+    await recording.start('document', false, 'alice');
     expect(get).toHaveBeenCalledWith('document', { recording: true, transcript: true });
     expect(recording.snapshot().error).toContain('finished transcript');
     expect(stop).toHaveBeenCalledOnce();
@@ -43,7 +43,7 @@ describe('browser capture failures', () => {
     );
     vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } });
     const recording = new BrowserRecording();
-    const start = recording.start('document', false);
+    const start = recording.start('document', false, 'alice');
     const before = new Event('beforeunload', { cancelable: true });
     window.dispatchEvent(before);
     expect(before.defaultPrevented).toBe(true);
@@ -69,7 +69,7 @@ describe('browser capture failures', () => {
     }));
     vi.stubGlobal('navigator', { mediaDevices: { getUserMedia, getDisplayMedia } });
     const recording = new BrowserRecording();
-    await recording.start('document', true);
+    await recording.start('document', true, 'alice');
     expect(getDisplayMedia).toHaveBeenCalledWith({ audio: true, video: true });
     expect(getUserMedia).not.toHaveBeenCalled();
     expect(recording.snapshot().error).toContain('Share tab audio');

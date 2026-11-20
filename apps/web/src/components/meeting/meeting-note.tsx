@@ -46,6 +46,7 @@ import { IconDeviceLaptop, IconLayoutSidebarRight, IconWaveSine } from '@tabler/
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import { AssistantToggleAnchor } from '@/components/assistant/document-assistant';
+import { useShellData } from '@/components/app-shell/shell-data';
 import { RecordingControls, RecordingFeedback, useBrowserRecording } from './recording-controls';
 import { DocumentEditor } from '@/components/document/document-editor';
 import type { DocumentDetail } from '@/lib/api-types';
@@ -95,6 +96,7 @@ export function MeetingNote({
   eventLine?: React.ReactNode;
 }) {
   const hydrated = useHydrated();
+  const { user } = useShellData();
   const wide = useWide();
   const [info, setInfo] = useState(initial);
   const lines = useMemo(() => info.transcript ?? [], [info.transcript]);
@@ -103,6 +105,7 @@ export function MeetingNote({
   const recordingHere = recording.documentId === doc.id;
   const browserLive = recordingHere && !['idle', 'ended'].includes(recording.status);
   const { player, audioRef, secondaryRef, local, deleteAudio } = useOpfsPlayback(
+    user.id,
     info.meetingId ?? (recordingHere ? recording.meetingId : null),
     recordingHere && recording.status === 'ended' ? 1 : 0,
   );

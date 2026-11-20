@@ -23,18 +23,25 @@ interface AudioWriter {
   write(data: Blob | string): Promise<void>;
   close(): Promise<void>;
 }
-const safeId = (id: string) => {
-  if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error('Invalid meeting id');
+const safeId = (id: string, kind = 'meeting') => {
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error(`Invalid ${kind} id`);
   return id;
 };
 
 export class AudioStore {
   constructor(
+    readonly userId: string,
     readonly root: () => Promise<AudioDirectory> = () => navigator.storage.getDirectory(),
-  ) {}
+  ) {
+    safeId(userId, 'user');
+  }
+  async accountDirectory(create = false) {
+    return (
+      await (await this.root()).getDirectoryHandle('oat-audio', { create })
+    ).getDirectoryHandle(this.userId, { create });
+  }
   async directory(id: string, create = false) {
-    const root = await this.root();
-    return (await root.getDirectoryHandle('oat-audio', { create })).getDirectoryHandle(safeId(id), {
+    return (await this.accountDirectory(create)).getDirectoryHandle(safeId(id), {
       create,
     });
   }
@@ -76,11 +83,10 @@ export class AudioStore {
     return (await dir.getFileHandle(`${part}-${source}.webm`)).getFile();
   }
   async delete(id: string) {
-    const root = await (await this.root()).getDirectoryHandle('oat-audio');
+    const root = await this.accountDirectory();
     await root.removeEntry(safeId(id), { recursive: true });
   }
 }
-export const audioStore = new AudioStore();
 interface ArchiveRecorder {
   recorder?: MediaRecorder;
   writer: AudioWriter;
