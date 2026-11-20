@@ -27,6 +27,19 @@ export const SOURCE_LABELS: Record<PlaybackSource, string> = {
   mix: 'Both',
 };
 
+export function availablePlaybackSource(
+  preferred: PlaybackSource,
+  parts: readonly PlaybackPart[],
+): PlaybackSource {
+  if (preferred === 'mix' || parts.some((part) => part.sources.includes(preferred)))
+    return preferred;
+  return parts.some((part) => part.sources.includes('mic'))
+    ? 'mic'
+    : parts.some((part) => part.sources.includes('system'))
+      ? 'system'
+      : 'mix';
+}
+
 export function nextSpeed(speed: number): PlaybackSpeed {
   const i = PLAYBACK_SPEEDS.indexOf(speed as PlaybackSpeed);
   return PLAYBACK_SPEEDS[(i + 1) % PLAYBACK_SPEEDS.length]!;

@@ -56,6 +56,8 @@ PCM replay and pending sync buffer in memory. Step B archives per-source Opus/We
 
 ## Header/player polish
 
+PR 11 playback review: shared availability resolution is used by desktop and browser adapters before selecting URLs. A missing preferred source falls back to an existing source without calling the preference setter. Desktop hook regressions cover both single-source directions and restoring the original preference on a dual-source recording.
+
 PR 11 STT review: replay filtering and timeline frame ends share integer-microsecond rounding. Finish has a single 15-second deadline across reconnects/backpressure and resolves on server close even with unacknowledged frames. Added fractional-ms trim/reconnect, residual-frame close, offline and backpressure deadline regressions.
 
 PR 11 session review: sign-out awaits capture teardown and a bounded best-effort flush before removing cookies. Shell disposal and session identity changes stop tracks/sockets immediately, finalize local audio, clear timers and discard pending account-owned writes instead of retrying under a different account. Pending permission grants are cancelled logically and released when they arrive. Added teardown and late-permission tests.

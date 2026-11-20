@@ -16,6 +16,7 @@ export { PlaybackBar, playerKey, type MeetingPlayback } from '@oat/meeting-ui';
 import { BridgeCallError, bridge, call } from '../bridge.ts';
 import {
   clampMs,
+  availablePlaybackSource,
   isSource,
   isSpeed,
   nextSpeed,
@@ -47,7 +48,7 @@ export function useMeetingPlayback(meetingId: string | null): {
   const [seekCount, setSeekCount] = useState(0);
   const [storedSource, setSource] = useStoredState<string>('oat.desktop.playback.source', 'mix');
   const [storedSpeed, setSpeed] = useStoredState<number>('oat.desktop.playback.speed', 1);
-  const source: PlaybackSource = isSource(storedSource) ? storedSource : 'mix';
+  const preferredSource: PlaybackSource = isSource(storedSource) ? storedSource : 'mix';
   const speed = isSpeed(storedSpeed) ? storedSpeed : 1;
 
   // (Re)load the timeline + URL: on another meeting, and whenever the archive changes (a recording ended,
@@ -71,6 +72,7 @@ export function useMeetingPlayback(meetingId: string | null): {
   }, [meetingId, version]);
 
   const info = loaded && loaded.meetingId === meetingId ? loaded.info : null;
+  const source = availablePlaybackSource(preferredSource, info?.parts ?? []);
   const url = info?.status === 'available' ? info.url : null;
   // The WAV's length is the timeline's: a new recording session makes a new URL, so the element reloads.
   const src = url ? `${url}${source}.wav?v=${Math.round(info!.durationMs)}` : null;

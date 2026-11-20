@@ -6,7 +6,7 @@ import {
   type PlaybackInfo,
   type PlaybackSource,
 } from '@oat/meeting-ui';
-import { clampMs, nextSpeed, seekTarget } from '@oat/meeting-ui/playback';
+import { availablePlaybackSource, clampMs, nextSpeed, seekTarget } from '@oat/meeting-ui/playback';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AudioStore, type AudioMetadata, type AudioSource } from './audio-store';
@@ -27,7 +27,8 @@ export function useOpfsPlayback(userId: string, meetingId: string | null, revisi
     loaded?.userId === userId && loaded.metadata.meetingId === meetingId ? loaded : null;
   const [version, setVersion] = useState(0);
   const [index, setIndex] = useState(0);
-  const [source, setSource] = useState<PlaybackSource>('mix');
+  const [preferredSource, setSource] = useState<PlaybackSource>('mix');
+  const source = availablePlaybackSource(preferredSource, local?.metadata.parts ?? []);
   const [speed, setSpeed] = useState(1);
   const [playing, setPlaying] = useState(false);
   const [playError, setPlayError] = useState<string | null>(null);
