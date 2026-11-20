@@ -14,7 +14,13 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
 } from '@oat/ui/components/dropdown-menu';
-import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@oat/ui/components/sidebar';
+import {
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarMenuBadge,
+} from '@oat/ui/components/sidebar';
+import { Kbd } from '@oat/ui/components/kbd';
 import {
   IconSelector,
   IconSettings,
@@ -28,7 +34,6 @@ import { useEffect, useState } from 'react';
 import { call } from '../bridge.ts';
 import { LocalSearch } from '../sync/local-search.tsx';
 import { useRecordingAction } from '../recording/recording-controls.tsx';
-import { MOD } from '../meetings/meeting-list.tsx';
 
 export function DesktopSearch({
   refreshKey,
@@ -60,10 +65,10 @@ export function DesktopSearch({
         <SidebarMenuButton tooltip="Search" onClick={() => setOpen(true)}>
           <IconSearch aria-hidden />
           <span>Search</span>
-          <span className="ms-auto text-label-12 text-gray-900" aria-hidden>
-            {MOD} K
-          </span>
         </SidebarMenuButton>
+        <SidebarMenuBadge>
+          <Kbd>⌘K</Kbd>
+        </SidebarMenuBadge>
       </SidebarMenuItem>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

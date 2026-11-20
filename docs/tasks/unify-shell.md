@@ -44,3 +44,9 @@ Screenshots:
 - `/home/ubuntu/shell-web-light.png`
 
 Desktop captures use stubbed IPC, not native Electron/macOS. Native traffic-light placement, real recording and desktop Playwright E2E were not exercised on Linux. No Swift, IPC-contract or main-process files changed. Initial checks caught two removed imports still used elsewhere (`cn`, `IconRefresh`); both were restored before the final green run.
+
+## Follow-up — sidebar action parity
+
+- Replaced the filled New meeting note button with the web's SidebarMenuItem/SidebarMenuButton composition, `IconEdit`, `tooltip="New note"` and `text-brand-900 hover:text-brand-1000`. Preserved the label, aria-label, test ID, pending spinner, disabled state and recording shortcut handler.
+- New meeting and Search use SidebarMenuBadge with plain Kbd (`⌘N`/`⌘K`); removed the opacity-based shortcut styling. Renderer regression assertions cover both badges and the brand-text row.
+- Fast CI: format/typecheck/lint/test/actionlint all passed, `ci: ok` (35.1s). Desktop rebuilt (`✓ built in 613ms`, existing chunk-size warning). Regenerated and inspected `/home/ubuntu/shell-desktop-light.png`; built-renderer stub capture reported `errors: []`. The capture helper also refreshed the dark image.

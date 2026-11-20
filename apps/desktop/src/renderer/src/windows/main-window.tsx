@@ -54,7 +54,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarMenu,
-  SidebarMenuItem,
   SidebarInset,
   SidebarTrigger,
 } from '@oat/ui/components/sidebar';
@@ -401,16 +400,14 @@ function SignedInShell({
         <SidebarHeader>
           <WorkspaceSwitcher view={workspaces} />
           <SidebarMenu>
-            <SidebarMenuItem>
-              <NewMeetingButton
-                disabled={recording || !snapshot}
-                pending={starting.pending}
-                onClick={() => {
-                  setSettingsOpen(false);
-                  void starting.run(() => call('recording:start', startRequest(input)));
-                }}
-              />
-            </SidebarMenuItem>
+            <NewMeetingButton
+              disabled={recording || !snapshot}
+              pending={starting.pending}
+              onClick={() => {
+                setSettingsOpen(false);
+                void starting.run(() => call('recording:start', startRequest(input)));
+              }}
+            />
             <DesktopSearch
               refreshKey={sync.lastSyncedAt}
               onOpen={(hit) => {

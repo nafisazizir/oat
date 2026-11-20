@@ -100,6 +100,11 @@ afterEach(() => {
 describe('desktop shell', () => {
   it('keeps new meeting recording behavior for click and shortcut', async () => {
     render(<MainWindow />);
+    const button = screen.getByTestId('new-meeting');
+    expect(button.className).toContain('text-brand-900 hover:text-brand-1000');
+    expect(
+      button.parentElement?.querySelector('[data-sidebar="menu-badge"] kbd')?.textContent,
+    ).toBe('⌘N');
     await userEvent.click(screen.getByRole('button', { name: 'New meeting note' }));
     expect(model.invoke).toHaveBeenCalledWith('recording:start', { input: 'sidecar' });
     await waitFor(() =>
@@ -113,6 +118,10 @@ describe('desktop shell', () => {
 
   it('opens local search with Command-K and handles an empty result', async () => {
     render(<MainWindow />);
+    const button = screen.getByRole('button', { name: 'Search' });
+    expect(
+      button.parentElement?.querySelector('[data-sidebar="menu-badge"] kbd')?.textContent,
+    ).toBe('⌘K');
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     expect(await screen.findByRole('dialog')).toBeTruthy();
     await userEvent.type(

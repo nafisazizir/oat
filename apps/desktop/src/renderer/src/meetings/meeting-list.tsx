@@ -4,24 +4,20 @@
  */
 import type { MeetingNoteSummary } from '@oat/core/bridge';
 import { shortWhen } from '@oat/meeting-ui';
-import { Button } from '@oat/ui/components/button';
 import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuBadge,
 } from '@oat/ui/components/sidebar';
-import { Kbd, KbdGroup } from '@oat/ui/components/kbd';
+import { Kbd } from '@oat/ui/components/kbd';
 import { Spinner } from '@oat/ui/components/spinner';
 import { IconEdit, IconNotes } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
 import { isNewNoteShortcut } from '../keyboard.ts';
-
-/** The platform's command key, for shortcut hints. */
-export const MOD =
-  typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? '⌘' : 'Ctrl';
 
 export function NewMeetingButton({
   onClick,
@@ -44,20 +40,22 @@ export function NewMeetingButton({
   }, [disabled, pending, onClick]);
 
   return (
-    <Button
-      className="w-full justify-start group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-2"
-      aria-label="New meeting note"
-      disabled={disabled || pending}
-      onClick={onClick}
-      data-testid="new-meeting"
-    >
-      {pending ? <Spinner data-icon="inline-start" /> : <IconEdit data-icon="inline-start" />}
-      <span className="group-data-[collapsible=icon]:hidden">New meeting note</span>
-      <KbdGroup aria-hidden className="ms-auto group-data-[collapsible=icon]:hidden">
-        <Kbd className="bg-background-100/20 text-background-100">{MOD}</Kbd>
-        <Kbd className="bg-background-100/20 text-background-100">N</Kbd>
-      </KbdGroup>
-    </Button>
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        tooltip="New note"
+        className="text-brand-900 hover:text-brand-1000"
+        aria-label="New meeting note"
+        disabled={disabled || pending}
+        onClick={onClick}
+        data-testid="new-meeting"
+      >
+        {pending ? <Spinner data-icon="inline-start" /> : <IconEdit />}
+        <span>New meeting note</span>
+      </SidebarMenuButton>
+      <SidebarMenuBadge>
+        <Kbd>⌘N</Kbd>
+      </SidebarMenuBadge>
+    </SidebarMenuItem>
   );
 }
 
