@@ -155,6 +155,22 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   await expect(page.getByRole('radiogroup', { name: 'Listen to' })).toHaveCount(0);
   await page.getByTestId('playback-toggle').click();
   await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'playing');
+  await expect
+    .poll(
+      async () => ({
+        ended: await page
+          .getByTestId('playback-audio')
+          .evaluate((audio: HTMLAudioElement) => audio.ended),
+        ms: Number(
+          await page
+            .getByTestId('playback')
+            .locator('[data-current-ms]')
+            .getAttribute('data-current-ms'),
+        ),
+      }),
+      { timeout: 10000 },
+    )
+    .toEqual({ ended: true, ms: Math.round(metadata.parts.at(-1).endMs / 100) * 100 });
   await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'paused', {
     timeout: 10000,
   });
