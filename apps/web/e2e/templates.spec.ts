@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import type { Locator, Page } from '@playwright/test';
 
+import { SIGNED_OUT, signInWithMagicLink, uniqueAddress } from './auth-helpers';
 import { expect, test } from './fixtures';
 
 /**
@@ -12,8 +13,14 @@ import { expect, test } from './fixtures';
  */
 const EVIDENCE = fileURLToPath(new URL('../../../docs/tasks/evidence/4.3/', import.meta.url));
 
-test.use({ viewport: { width: 1280, height: 860 } });
+test.use({ storageState: SIGNED_OUT, viewport: { width: 1280, height: 860 } });
 test.describe.configure({ mode: 'serial' });
+
+test.beforeEach(async ({ page, baseURL }) => {
+  await page.goto('/sign-in');
+  await signInWithMagicLink(page, uniqueAddress('e2e-templates'), baseURL!);
+  await expect(page).toHaveURL(/\/home$/);
+});
 
 /**
  * `tall` grows the viewport for the shot instead of `fullPage` (the app shell's sidebar is fixed, so a

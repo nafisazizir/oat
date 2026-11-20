@@ -3,6 +3,10 @@ import { expect, test } from './fixtures';
 test('failed saved-transcript recovery shows a non-blocking warning and retries without losing data', async ({
   page,
 }) => {
+  let syncConnections = 0;
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/sync/events') syncConnections++;
+  });
   await page.goto('/');
   const { user } = await (await page.request.get('/api/auth/get-session')).json();
   const key = `oat-recording-pending:${encodeURIComponent(user.id)}:recovery-test`;
@@ -33,9 +37,12 @@ test('failed saved-transcript recovery shows a non-blocking warning and retries 
   await page.reload();
   const warning = page.getByTestId('recording-recovery');
   await expect(warning).toContainText('Saved transcript could not be synced');
+  await expect(page.locator('html')).toHaveAttribute('data-sync-live', '');
+  const connectionsBeforeRetry = syncConnections;
   expect(await page.evaluate((key) => localStorage.getItem(key), key)).not.toBeNull();
   offline = false;
   await warning.getByRole('button', { name: 'Retry', exact: true }).click();
   await expect(warning).toHaveCount(0);
   expect(await page.evaluate((key) => localStorage.getItem(key), key)).toBeNull();
+  expect(syncConnections).toBe(connectionsBeforeRetry);
 });

@@ -101,7 +101,7 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 
 ## M9 — Ship v1
 
-- [x] Human-requested: web recording, step A capture/STT/sync + step B OPFS archive/playback, header/source polish, PR 11 account/session isolation, stale-recording append, pending-sync recovery and STT finalization/reconnect reliability · remote CI blocked on baseline search contrast and sync-events 429s; scope decision pending · [task](tasks/web-recording.md)
+- [x] Human-requested: web recording, step A capture/STT/sync + step B OPFS archive/playback, header/source polish, PR 11 account/session isolation, stale-recording append, pending-sync recovery and STT finalization/reconnect reliability · authorized contrast/isolation follow-up passes local gates; remote CI watch pending · [task](tasks/web-recording.md)
 
 - [x] Human-requested: unify desktop/web shell and note layout · [task](tasks/unify-shell.md)
 

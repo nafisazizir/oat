@@ -23,6 +23,10 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   page,
   baseURL,
 }) => {
+  let syncConnections = 0;
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/sync/events') syncConnections++;
+  });
   const providerResults: { start: number; duration: number; is_final: boolean; text: string }[] =
     [];
   page.on('websocket', (socket) =>
@@ -45,6 +49,8 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   await signInWithMagicLink(page, uniqueAddress('web-recording'), baseURL!);
   const doc = await apiCreateDocument(page, { title: 'Browser standup', kind: 'meeting' });
   await page.goto(`/d/${doc.id}`);
+  await expect(page.locator('html')).toHaveAttribute('data-sync-live', '');
+  const connectionsBeforeStart = syncConnections;
   await page.getByRole('button', { name: 'Record', exact: true }).click();
   const pushed = page.waitForResponse(
     (response) => response.url().endsWith('/api/sync/push') && response.ok(),
@@ -61,6 +67,7 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
     (await navigator.locks.query()).held?.map((lock) => lock.name),
   );
   expect(heldBefore?.filter((name) => name?.startsWith('oat-recording:'))).toHaveLength(2);
+  expect(syncConnections).toBe(connectionsBeforeStart);
   const otherTab = await page.context().newPage();
   await otherTab.goto(`/d/${doc.id}`);
   await otherTab.getByRole('button', { name: 'Record', exact: true }).click();
@@ -70,6 +77,8 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   ).toContainText('This note is already being recorded in another tab');
   await otherTab.close();
   await page.bringToFront();
+  await expect(page.locator('html')).toHaveAttribute('data-sync-live', '');
+  const connectionsAfterTabSwitch = syncConnections;
   await expect(page.getByTestId('web-recording')).toHaveAttribute('data-status', 'recording');
   await expect(page.getByTestId('transcript-segment').first()).toBeVisible({ timeout: 30000 });
   await expect
@@ -101,6 +110,7 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   const persisted = await page.getByTestId('transcript-segment').count();
   const words = await page.getByTestId('transcript-segment').allTextContents();
   expect(persisted).toBeGreaterThan(0);
+  expect(syncConnections).toBe(connectionsAfterTabSwitch);
   await page.reload();
   await expect(page.getByTestId('transcript-segment')).toHaveCount(persisted);
   await expect(page.getByTestId('transcript-segment')).toHaveText(words);
