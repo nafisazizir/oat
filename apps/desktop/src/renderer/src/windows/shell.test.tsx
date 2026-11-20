@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { SearchHitSnapshot } from '@oat/core/bridge';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +11,7 @@ const model = vi.hoisted(() => {
   const sync = { state: 'idle', pending: 0, parked: 0, lastSyncedAt: null, error: null };
   return {
     invoke: vi.fn(),
+    searchHits: [] as SearchHitSnapshot[],
     user,
     sync,
     recording: {
@@ -46,7 +48,11 @@ vi.mock('../meetings/meetings-state.ts', () => ({
   bumpMeetingsVersion: vi.fn(),
 }));
 vi.mock('../meetings/meeting-view.tsx', () => ({
-  MeetingView: () => <section>Meeting content</section>,
+  MeetingView: ({ documentId }: { documentId: string | null }) => (
+    <section data-testid="meeting-content" data-document-id={documentId}>
+      Meeting content
+    </section>
+  ),
 }));
 vi.mock('../settings/settings-view.tsx', () => ({
   SettingsView: () => <section data-testid="settings">Settings content</section>,
@@ -83,11 +89,12 @@ beforeEach(() => {
     },
   );
   Element.prototype.scrollIntoView = () => {};
+  model.searchHits = [];
   model.invoke.mockReset().mockImplementation(async (channel: string) => {
     if (channel === 'recording:options')
       return { defaultInput: 'sidecar', defaultFixture: null, fixtures: [] };
     if (channel === 'conflicts:list') return { conflicts: [] };
-    if (channel === 'search:query') return { hits: [] };
+    if (channel === 'search:query') return { hits: model.searchHits };
     if (channel === 'api:me') return { user: model.user };
     return undefined;
   });
@@ -130,6 +137,48 @@ describe('desktop shell', () => {
     );
     expect(await screen.findByText('Nothing on this Mac matches.')).toBeTruthy();
     expect(model.invoke).toHaveBeenCalledWith('search:query', { query: 'absent' });
+  });
+
+  it('keeps page search hits read-only and opens meeting hits', async () => {
+    model.searchHits = [
+      {
+        documentId: 'page-id',
+        updatedAt: '2026-11-20T00:00:00.000Z',
+        kind: 'page',
+        title: 'Project page',
+        snippet: 'Read only',
+        in: 'note',
+        segmentId: null,
+        startMs: null,
+      },
+      {
+        documentId: 'meeting-id',
+        updatedAt: '2026-11-20T00:00:00.000Z',
+        kind: 'meeting',
+        title: 'Project meeting',
+        snippet: 'Open meeting',
+        in: 'note',
+        segmentId: null,
+        startMs: null,
+      },
+    ];
+    render(<MainWindow />);
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await userEvent.type(
+      screen.getByLabelText('Search notes and transcripts on this Mac'),
+      'project',
+    );
+    const pageHit = await screen.findByText('Project page');
+    expect(pageHit.closest('button')).toBeNull();
+    expect(pageHit.closest('[data-selectable]')).not.toBeNull();
+    await userEvent.click(pageHit);
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(screen.getByTestId('meeting-content').getAttribute('data-document-id')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: /Project meeting/ }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByTestId('meeting-content').getAttribute('data-document-id')).toBe(
+      'meeting-id',
+    );
   });
 
   it('exposes desktop actions through the account menu', async () => {

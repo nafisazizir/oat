@@ -190,3 +190,5 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - Compose-backed web light capture: **2 passed (42.3s)**. Inspected built-renderer desktop light/dark and web meeting screenshots at `/home/ubuntu/shell-{desktop-light,desktop-dark,web-light}.png`; aligned columns and intact surfaces. Desktop uses stubbed IPC; native macOS chrome, real capture and desktop E2E remain unverified on Linux.
 
 - Follow-up: New meeting note now matches web's brand-text SidebarMenuButton rather than a filled button; both primary actions use SidebarMenuBadge/Kbd shortcuts. Recording handlers and pending/disabled behavior retained. Fast CI green (`ci: ok`, 35.1s); rebuilt desktop and refreshed/inspected the light screenshot (`errors: []`). [evidence](tasks/unify-shell.md#follow-up--sidebar-action-parity)
+
+- PR #10 review: keep plain-page local-search results read-only instead of opening them in MeetingView. Added a mixed page/meeting navigation regression test; focused shell tests **5 passed**. [task](tasks/unify-shell.md#pr-10-review-fixes)

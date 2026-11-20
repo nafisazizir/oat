@@ -411,6 +411,7 @@ function SignedInShell({
             <DesktopSearch
               refreshKey={sync.lastSyncedAt}
               onOpen={(hit) => {
+                if (hit.kind !== 'meeting') return;
                 setSelected(hit.documentId);
                 setSettingsOpen(false);
               }}

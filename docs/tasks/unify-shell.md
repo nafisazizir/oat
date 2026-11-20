@@ -47,6 +47,11 @@ Desktop captures use stubbed IPC, not native Electron/macOS. Native traffic-ligh
 
 ## Follow-up — sidebar action parity
 
+
 - Replaced the filled New meeting note button with the web's SidebarMenuItem/SidebarMenuButton composition, `IconEdit`, `tooltip="New note"` and `text-brand-900 hover:text-brand-1000`. Preserved the label, aria-label, test ID, pending spinner, disabled state and recording shortcut handler.
 - New meeting and Search use SidebarMenuBadge with plain Kbd (`⌘N`/`⌘K`); removed the opacity-based shortcut styling. Renderer regression assertions cover both badges and the brand-text row.
 - Fast CI: format/typecheck/lint/test/actionlint all passed, `ci: ok` (35.1s). Desktop rebuilt (`✓ built in 613ms`, existing chunk-size warning). Regenerated and inspected `/home/ubuntu/shell-desktop-light.png`; built-renderer stub capture reported `errors: []`. The capture helper also refreshed the dark image.
+
+## PR #10 review fixes
+
+- Page search hits remain read-only; only meeting hits receive navigation callbacks, with an additional kind guard at the shell boundary. Added a mixed-results regression test checking that page clicks keep the dialog/selection unchanged and meeting clicks open the meeting. Focused shell test run: **5 passed**; full fast CI follows both review fixes.
