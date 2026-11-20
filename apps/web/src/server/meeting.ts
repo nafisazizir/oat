@@ -1,7 +1,7 @@
 import 'server-only';
 
-import { type Db, meeting, participant } from '@oat/db';
-import { and, asc, count, eq } from 'drizzle-orm';
+import { type Db, meeting, participant, transcriptSegment } from '@oat/db';
+import { and, asc, count, eq, max } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { MeetingInfo, MeetingParticipant } from '@/lib/meeting';
@@ -81,12 +81,26 @@ export async function loadMeetingInfo(
         .where(eq(participant.meetingId, meet.id))
         .orderBy(asc(participant.createdAt), asc(participant.id))
     : [];
+  const [lastSegment] =
+    opts.recording && meet
+      ? await db
+          .select({ endMs: max(transcriptSegment.endMs) })
+          .from(transcriptSegment)
+          .where(eq(transcriptSegment.meetingId, meet.id))
+      : [];
   return {
     meetingId: meet?.id ?? null,
     startedAt: meet?.startedAt?.toISOString() ?? null,
     endedAt: meet?.endedAt?.toISOString() ?? null,
     participants: participants.map(toParticipant),
-    ...(opts.recording ? { recording: { calendarEventId: meet?.calendarEventId ?? null } } : {}),
+    ...(opts.recording
+      ? {
+          recording: {
+            calendarEventId: meet?.calendarEventId ?? null,
+            lastSegmentEndMs: lastSegment?.endMs ?? 0,
+          },
+        }
+      : {}),
     ...(opts.transcript
       ? { transcript: meet ? await transcriptLines(db, meet.id, opts.after) : [] }
       : {}),

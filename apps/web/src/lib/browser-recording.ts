@@ -124,7 +124,9 @@ export class BrowserRecording {
   #tab = false;
   #archive: BrowserAudioArchive | undefined;
   #clockStart = 0;
+  #clockOffsetMs = 0;
   #clockMs = () =>
+    this.#clockOffsetMs +
     Math.max(0, ((this.#context?.currentTime ?? this.#clockStart) - this.#clockStart) * 1000);
   snapshot = () => this.#state;
   serverSnapshot = () => initial;
@@ -200,8 +202,6 @@ export class BrowserRecording {
       } finally {
         URL.revokeObjectURL(url);
       }
-      const clockStart = context.currentTime;
-      this.#clockStart = clockStart;
       this.#meeting = {
         id: info.meetingId ?? crypto.randomUUID(),
         documentId,
@@ -220,6 +220,14 @@ export class BrowserRecording {
         this.#meeting.id,
         (audioNotice) => this.#set({ audioNotice }),
       );
+      this.#clockOffsetMs = Math.max(
+        await this.#archive.restore(),
+        info.recording?.lastSegmentEndMs ?? 0,
+      );
+      this.#set({ elapsed: this.#clockOffsetMs / 1000 });
+      const clockStart = context.currentTime;
+      this.#clockStart = clockStart;
+      this.#checkSession();
       await this.#archive.start(
         this.#clockMs(),
         this.#media.map((stream, index) => ({ stream, source: index === 0 ? 'mic' : 'system' })),
@@ -268,7 +276,9 @@ export class BrowserRecording {
               source,
               sampleRate: 16000,
               ...data,
-              tUs: Math.max(0, data.tUs - Math.round(clockStart * 1000000)),
+              tUs:
+                Math.round(this.#clockOffsetMs * 1000) +
+                Math.max(0, data.tUs - Math.round(clockStart * 1000000)),
             } satisfies AudioFrame);
         };
         const mute = context.createGain();
@@ -295,7 +305,7 @@ export class BrowserRecording {
       void this.#queue.flush();
       this.#timer = setInterval(() => {
         this.#set({
-          elapsed: Math.max(0, context.currentTime - clockStart),
+          elapsed: this.#clockMs() / 1000,
           syncDelayed: hasSyncBacklog(this.#state.pendingSince, Date.now()),
         });
         void this.#queue.flush();

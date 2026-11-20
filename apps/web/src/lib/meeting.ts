@@ -18,7 +18,7 @@ export type MeetingInfo = {
   meetingId: string | null;
   startedAt: string | null;
   endedAt: string | null;
-  recording?: { calendarEventId: string | null };
+  recording?: { calendarEventId: string | null; lastSegmentEndMs?: number };
   participants: MeetingParticipant[];
   /** Only with `?transcript=1`. */
   transcript?: TranscriptLine[];

@@ -100,7 +100,10 @@ describe('browser capture failures', () => {
           close = closeSocket;
         },
       );
-      vi.spyOn(BrowserAudioArchive.prototype, 'start').mockResolvedValue();
+      vi.spyOn(BrowserAudioArchive.prototype, 'restore').mockResolvedValue(
+        reason === 'stale meeting' ? 8000 : 0,
+      );
+      const archiveStart = vi.spyOn(BrowserAudioArchive.prototype, 'start').mockResolvedValue();
       const finalize = vi.spyOn(BrowserAudioArchive.prototype, 'end').mockResolvedValue();
       vi.spyOn(meetingApi, 'get').mockResolvedValue({
         meetingId: reason === 'new meeting' ? null : 'meeting',
@@ -110,6 +113,10 @@ describe('browser capture failures', () => {
             : null,
         endedAt: null,
         participants: [],
+        recording: {
+          calendarEventId: null,
+          lastSegmentEndMs: reason === 'stale meeting' ? 12000 : 0,
+        },
       });
       const pushed: unknown[] = [];
       vi.stubGlobal(
@@ -134,6 +141,11 @@ describe('browser capture failures', () => {
       const recording = new BrowserRecording();
       await recording.start('document', false, 'alice');
       expect(recording.snapshot().status).toBe('recording');
+      expect(archiveStart).toHaveBeenCalledWith(
+        reason === 'stale meeting' ? 12000 : 0,
+        expect.any(Array),
+      );
+      expect(recording.snapshot().elapsed).toBe(reason === 'stale meeting' ? 12 : 0);
       expect(locks.held).toBe(true);
       expect(locks.request).toHaveBeenCalledWith(
         `oat-recording:${recording.snapshot().meetingId}`,
@@ -149,7 +161,7 @@ describe('browser capture failures', () => {
       expect(closeSocket).toHaveBeenCalledOnce();
       expect(closeContext).toHaveBeenCalledOnce();
       expect(disconnect).toHaveBeenCalled();
-      expect(finalize).toHaveBeenCalledWith(0, true);
+      expect(finalize).toHaveBeenCalledWith(reason === 'stale meeting' ? 12000 : 0, true);
       expect(recording.snapshot()).toMatchObject({
         status: 'idle',
         documentId: null,

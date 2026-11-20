@@ -56,6 +56,8 @@ PCM replay and pending sync buffer in memory. Step B archives per-source Opus/We
 
 ## Header/player polish
 
+PR 11 round 2: stale meeting restart restores account-scoped archive metadata, appends after the highest part number and resumes its logical clock after the greater of archive duration/part ends and the server's maximum segment end. The recording metadata read includes the latter without truncating at the reader's 5000-line limit. Covered by archive preservation, stale capture offset and meeting API integration assertions.
+
 PR 11 CI loop: Linux job 136177335741 failed in pipeline.spec.ts at `getByTestId('notion-link')` with `Error: element(s) not found`; the test did not open the new overflow. Updated its selector sequence. The same run passed History and assistant on retry. History also had a reachable loading race: switching the secondary-actions tree from a NotionExportButton-rooted popover to a MoreActions-rooted popover unmounted an already-open menu when versions arrived. Keep a single NotionExportButton-rooted tree, with a fallback for non-Notion actions, and force the delayed-versions case in the existing E2E.
 
 Final local gates: `pnpm run ci --fast` **ci: ok** (30.4s); recording + enhancement history + pipeline + Notion E2Es **5 passed (1.2m)**, including the delayed-History regression. Evidence logs: `/home/ubuntu/oat-pr11-final-{ci,e2e}.log`. No visual capture requested for these behavior/security fixes; UI remains visually unverified in this review pass. Remote check evidence is saved separately at `/home/ubuntu/oat-pr11-ci-status.md` after the combined push.

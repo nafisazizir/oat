@@ -127,6 +127,18 @@ describe('OPFS audio store', () => {
     });
     expect(await (await store.blob('meeting', 2, 'mic')).text()).toBe('opus-chunk');
     expect(notice).not.toHaveBeenCalled();
+    const restarted = new BrowserAudioArchive(store, 'meeting', notice);
+    expect(await restarted.restore()).toBe(4000);
+    await restarted.start(5000, streams);
+    await restarted.end(7000, true);
+    expect((await store.load('meeting'))?.parts).toHaveLength(3);
+    expect((await store.load('meeting'))?.parts[2]).toMatchObject({
+      part: 3,
+      startMs: 5000,
+      endMs: 7000,
+    });
+    expect(await (await store.blob('meeting', 1, 'mic')).text()).toBe('opus-chunk');
+    expect(await (await store.blob('meeting', 3, 'mic')).text()).toBe('opus-chunk');
   });
 
   it('writes chunks incrementally per part/source, round-trips clock metadata and deletes only local audio', async () => {

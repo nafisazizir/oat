@@ -98,12 +98,25 @@ export class BrowserAudioArchive {
   readonly metadata: AudioMetadata;
   #recorders: ArchiveRecorder[] = [];
   #failed = false;
+  #loaded = false;
   constructor(
     readonly store: AudioStore,
     meetingId: string,
     readonly notice: (message: string) => void,
   ) {
     this.metadata = { version: 1, meetingId, durationMs: 0, finalized: false, parts: [] };
+  }
+  async restore() {
+    if (!this.#loaded) {
+      this.#loaded = true;
+      try {
+        const existing = await this.store.load(this.metadata.meetingId);
+        if (existing) Object.assign(this.metadata, existing);
+      } catch {
+        this.#fail();
+      }
+    }
+    return Math.max(this.metadata.durationMs, 0, ...this.metadata.parts.map((part) => part.endMs));
   }
   #fail() {
     if (this.#failed) return;
@@ -119,6 +132,7 @@ export class BrowserAudioArchive {
     this.notice('Audio is not being saved in this browser. Transcript recording continues.');
   }
   async start(startMs: number, streams: { source: AudioSource; stream: MediaStream }[]) {
+    await this.restore();
     if (this.#failed) return;
     try {
       if (
@@ -126,7 +140,8 @@ export class BrowserAudioArchive {
         !MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
       )
         throw new Error('Opus recording is unavailable');
-      const part = this.metadata.parts.length + 1;
+      const part = Math.max(0, ...this.metadata.parts.map((part) => part.part)) + 1;
+      this.metadata.finalized = false;
       const sources = streams.filter((s) =>
         s.stream.getAudioTracks().some((t) => t.readyState === 'live'),
       );
