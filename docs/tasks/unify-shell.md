@@ -55,3 +55,5 @@ Desktop captures use stubbed IPC, not native Electron/macOS. Native traffic-ligh
 ## PR #10 review fixes
 
 - Page search hits remain read-only; only meeting hits receive navigation callbacks, with an additional kind guard at the shell boundary. Added a mixed-results regression test checking that page clicks keep the dialog/selection unchanged and meeting clicks open the meeting. Focused shell test run: **5 passed**; full fast CI follows both review fixes.
+- Global search ignores `defaultPrevented` keyboard events. Verified BubbleToolbar registers a native bubble listener on `editor.view.dom` and desktop search registers a bubble listener on `window`, so the editor receives the event first, irrespective of listener registration order. Added Command-K/Control-K propagation tests: editor consumption suppresses search, while an unhandled event from the same editable target opens it.
+- After both fixes, `pnpm run ci --fast`: format/actionlint/typecheck/lint/test all pass, `ci: ok` (34.8s). Shell renderer coverage now includes **7 passing tests**. These behavior-only fixes were not visually re-captured; native macOS/Electron remains unverified locally.

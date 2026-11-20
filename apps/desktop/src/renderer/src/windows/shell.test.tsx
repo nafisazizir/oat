@@ -139,6 +139,34 @@ describe('desktop shell', () => {
     expect(model.invoke).toHaveBeenCalledWith('search:query', { query: 'absent' });
   });
 
+  it.each(['metaKey', 'ctrlKey'] as const)(
+    'lets editor link handling consume %s+K before global search',
+    (modifier) => {
+      render(<MainWindow />);
+      const editor = document.createElement('div');
+      editor.contentEditable = 'true';
+      screen.getByTestId('meeting-content').append(editor);
+      const editLink = vi.fn((event: KeyboardEvent) => {
+        expect(event.defaultPrevented).toBe(false);
+        event.preventDefault();
+      });
+      editor.addEventListener('keydown', editLink);
+      const event = new KeyboardEvent('keydown', {
+        key: 'k',
+        [modifier]: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      fireEvent(editor, event);
+      expect(editLink).toHaveBeenCalledOnce();
+      expect(event.defaultPrevented).toBe(true);
+      expect(screen.queryByRole('dialog')).toBeNull();
+      editor.removeEventListener('keydown', editLink);
+      fireEvent.keyDown(editor, { key: 'k', [modifier]: true });
+      expect(screen.getByRole('dialog')).toBeTruthy();
+    },
+  );
+
   it('keeps page search hits read-only and opens meeting hits', async () => {
     model.searchHits = [
       {
