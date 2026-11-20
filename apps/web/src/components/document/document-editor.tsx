@@ -76,6 +76,20 @@ export function DocumentEditor({
   const actions = useTreeActions();
   const headerRef = useRef<HTMLElement>(null);
   const compact = useNarrow(headerRef, COMPACT_HEADER_PX);
+  const secondaryActions = (history: React.ReactNode) =>
+    history || overflowActions ? (
+      <MoreActions>
+        {history}
+        <NotionExportButton documentId={doc.id} beforeSend={autosave.flush} />
+        {overflowActions}
+      </MoreActions>
+    ) : (
+      <NotionExportButton
+        documentId={doc.id}
+        beforeSend={autosave.flush}
+        wrap={(control) => <MoreActions>{control}</MoreActions>}
+      />
+    );
   const [title, setTitle] = useState(doc.title);
   // The editor's content: as loaded, then replaced when an enhancement lands (4.4).
   const [content, setContent] = useState(doc.contentJson);
@@ -238,16 +252,7 @@ export function DocumentEditor({
             />
           )}
           {!trashed && (
-            <div
-              className={
-                // Narrow (transcript + assistant open): the actions get a tidy row of their own.
-                compact
-                  ? 'flex w-full flex-wrap items-center gap-2'
-                  : 'ms-auto flex flex-wrap items-center gap-2'
-              }
-              data-testid="document-actions"
-              data-compact={compact || undefined}
-            >
+            <>
               {isMeeting && (
                 <PipelineStatus
                   documentId={doc.id}
@@ -255,29 +260,30 @@ export function DocumentEditor({
                   onEnhancing={enhancement.follow}
                 />
               )}
-              {headerActions}
-              {editable && isMeeting && (
-                <EnhanceToolbar
-                  enhancement={enhancement}
-                  versions={versions}
-                  workspaceId={doc.workspaceId}
-                />
-              )}
-              {compact && overflowActions ? (
-                <MoreActions>
-                  <NotionExportButton documentId={doc.id} beforeSend={autosave.flush} />
-                  {overflowActions}
-                </MoreActions>
-              ) : (
-                <NotionExportButton
-                  documentId={doc.id}
-                  beforeSend={autosave.flush}
-                  {...(compact ? { wrap: (control) => <MoreActions>{control}</MoreActions> } : {})}
-                />
-              )}
-              <ShareDialog documentId={doc.id} />
-              {!compact && overflowActions && <MoreActions>{overflowActions}</MoreActions>}
-            </div>
+              <div
+                className={
+                  // Narrow (transcript + assistant open): the actions get a tidy row of their own.
+                  compact
+                    ? 'flex w-full shrink-0 items-center gap-2'
+                    : 'ms-auto flex shrink-0 items-center gap-2'
+                }
+                data-testid="document-actions"
+                data-compact={compact || undefined}
+              >
+                {headerActions}
+                {editable && isMeeting ? (
+                  <EnhanceToolbar
+                    enhancement={enhancement}
+                    versions={versions}
+                    workspaceId={doc.workspaceId}
+                    renderSecondaryActions={secondaryActions}
+                  />
+                ) : (
+                  secondaryActions(null)
+                )}
+                <ShareDialog documentId={doc.id} />
+              </div>
+            </>
           )}
         </div>
         <textarea
@@ -417,7 +423,7 @@ function SaveStatus({
   }
 }
 
-/** Below this header width the secondary actions go into the "More actions" popover (9.3b). */
+/** Below this header width the primary actions get a row of their own (9.3b). */
 const COMPACT_HEADER_PX = 560;
 
 /** The element is narrower than `px` (ResizeObserver; `false` before the first measurement). */
@@ -436,8 +442,7 @@ function useNarrow(ref: React.RefObject<HTMLElement | null>, px: number): boolea
 }
 
 /**
- * Secondary header actions (Send to Notion) behind "…" when the note column is narrow (9.3b). The post-meeting
- * status stays in the row: it follows a running enhancement into the editor, so it must stay mounted.
+ * Secondary header actions behind "…" leave room for recording, Enhance and Share.
  */
 function MoreActions({ children }: { children: React.ReactNode }) {
   return (

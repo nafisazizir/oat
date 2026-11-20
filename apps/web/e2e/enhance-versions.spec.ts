@@ -140,7 +140,9 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
   expect(prompts[0]).toContain('Riley Versions');
 
   await expect(page.getByTestId('enhance-button')).toHaveText(/Regenerate/);
+  await page.getByTestId('document-more').click();
   await expect(page.getByTestId('history-button')).toBeVisible();
+  await page.keyboard.press('Escape');
   const v1Ai = await editor(page).locator('[data-origin="ai"]').count();
   expect(v1Ai).toBeGreaterThan(0);
 
@@ -171,6 +173,7 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
   await expect(editor(page)).toContainText('pilot in two clinics (edited)');
 
   // --- Note history: two versions; restore version 1 ------------------------------------------------
+  await page.getByTestId('document-more').click();
   await page.getByTestId('history-button').click();
   const versions = page.getByTestId('history-version');
   await expect(versions).toHaveCount(2);
@@ -220,6 +223,7 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
 
   // --- Never lose text: the edited note the regenerate replaced is in Note history ----------------
   // ("send … today" was typed after the undo, so it is not stored anywhere: restoring warns and saves it.)
+  await page.getByTestId('document-more').click();
   await page.getByTestId('history-button').click();
   const savedNotes = page.getByTestId('history-snapshot');
   await expect(savedNotes).toHaveCount(1);
@@ -238,6 +242,7 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
   await expect(editor(page)).toContainText('pilot in two clinics (edited)');
   await expect(editor(page).locator('[data-origin="ai"]').first()).toBeVisible();
   // …and what it replaced was saved too.
+  await page.getByTestId('document-more').click();
   await page.getByTestId('history-button').click();
   await expect(page.getByTestId('history-snapshot')).toHaveCount(2);
   await expect(page.getByTestId('history-snapshot').first()).toContainText(

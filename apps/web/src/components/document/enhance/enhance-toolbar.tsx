@@ -13,7 +13,7 @@ import {
 } from '@oat/ui/components/alert-dialog';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@oat/ui/components/dropdown-menu';
 import { IconArrowBackUp, IconHistory, IconNotes } from '@tabler/icons-react';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 
 import { EnhanceButton } from './enhance-controls';
@@ -64,10 +64,12 @@ export function EnhanceToolbar({
   enhancement,
   versions,
   workspaceId,
+  renderSecondaryActions = (history) => history,
 }: {
   enhancement: Enhancement;
   versions: NoteVersions;
   workspaceId: string;
+  renderSecondaryActions?: (history: ReactNode) => ReactNode;
 }) {
   const latest = versions.list?.versions[0];
   const hasHistory = Boolean(latest || versions.list?.snapshots.length);
@@ -154,18 +156,20 @@ export function EnhanceToolbar({
           </>
         )}
       </EnhanceButton>
-      {hasHistory && (
-        <Button
-          size="sm"
-          variant="outline"
-          data-testid="history-button"
-          onClick={() =>
-            openHistory(latest ? { kind: 'version', id: latest.id } : { kind: 'original' })
-          }
-        >
-          <IconHistory data-icon="inline-start" />
-          History
-        </Button>
+      {renderSecondaryActions(
+        hasHistory ? (
+          <Button
+            size="sm"
+            variant="outline"
+            data-testid="history-button"
+            onClick={() =>
+              openHistory(latest ? { kind: 'version', id: latest.id } : { kind: 'original' })
+            }
+          >
+            <IconHistory data-icon="inline-start" />
+            History
+          </Button>
+        ) : null,
       )}
 
       <NoteHistoryDialog

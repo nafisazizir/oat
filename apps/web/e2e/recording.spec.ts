@@ -123,6 +123,7 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   }, meeting.meetingId);
   expect(metadata.finalized).toBe(true);
   expect(metadata.parts).toHaveLength(2);
+  await expect(page.getByRole('radiogroup', { name: 'Listen to' })).toHaveCount(0);
   await page.getByTestId('playback-toggle').click();
   await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'playing');
   await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'paused', {
@@ -142,8 +143,29 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
     .toBeLessThan(2000);
   await page.getByTestId('playback-toggle').click();
   if (process.env.E2E_PLAYBACK_SCREENSHOTS) {
+    await expect(page.getByTestId('pipeline-status')).toContainText('Post-meeting: done');
+    await page.reload();
+    await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'paused');
+    if (!(await page.getByTestId('enhance-button').textContent())?.includes('Regenerate')) {
+      await page.getByTestId('enhance-button').click();
+      await expect(page.getByText('Notes enhanced', { exact: true })).toBeVisible();
+    }
+    await expect(page.getByTestId('enhance-button')).toContainText('Regenerate');
+    await page.getByTestId('document-more').click();
+    await expect(page.getByTestId('history-button')).toBeVisible();
+    await expect(page.getByTestId('notion-send')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('history-button')).not.toBeVisible();
+    const actions = page.getByTestId('document-actions');
+    const boxes = await Promise.all([
+      actions.getByTestId('enhance-button').boundingBox(),
+      actions.getByRole('button', { name: 'Share', exact: true }).boundingBox(),
+      actions.getByTestId('document-more').boundingBox(),
+    ]);
+    expect(boxes.every((box) => box && Math.abs(box.y - boxes[0]!.y) < 3)).toBe(true);
     await page.screenshot({
       path: `${process.env.E2E_PLAYBACK_SCREENSHOTS}/web-play-light.png`,
+      animations: 'disabled',
       style: 'nextjs-portal { display: none !important; }',
     });
     await page.evaluate(() => {

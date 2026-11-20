@@ -228,11 +228,14 @@ function Player({ player, info }: { player: MeetingPlayback; info: PlaybackInfo 
             </Badge>
           )}
           <div className="ms-auto flex items-center gap-1">
-            <SourceToggle
-              value={player.source}
-              onChange={player.setSource}
-              available={player.sourceOptions}
-            />
+            {info.parts.some((part) => part.sources.includes('mic')) &&
+              info.parts.some((part) => part.sources.includes('system')) && (
+                <SourceToggle
+                  value={player.source}
+                  onChange={player.setSource}
+                  available={player.sourceOptions}
+                />
+              )}
             <Button
               variant="ghost"
               size="xs"

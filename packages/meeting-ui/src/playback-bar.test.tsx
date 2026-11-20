@@ -48,4 +48,51 @@ describe('injected shared playback controller', () => {
     expect(playerKey(event as unknown as Parameters<typeof playerKey>[0], player)).toBe(true);
     expect(seekBy).toHaveBeenCalledWith(5000);
   });
+  it('shows source choices only when the recording includes both mic and system audio', () => {
+    const player: MeetingPlayback = {
+      info: {
+        meetingId: 'meeting',
+        status: 'available',
+        url: 'oat-audio://local/mix.wav',
+        durationMs: 1000,
+        parts: [],
+      },
+      available: true,
+      loadError: null,
+      playError: null,
+      playing: false,
+      buffering: false,
+      clock: new PlaybackClock(),
+      seekCount: 0,
+      source: 'mix',
+      speed: 1,
+      seek: vi.fn(),
+      seekBy: vi.fn(),
+      toggle: vi.fn(),
+      pause: vi.fn(),
+      setSource: vi.fn(),
+      cycleSpeed: vi.fn(),
+      retry: vi.fn(),
+    };
+    const { rerender } = render(<PlaybackBar player={player} />);
+    for (const sources of [[], ['mic'], ['system'], ['mic', 'system']] as const) {
+      player.info!.parts = [
+        { part: 1, startMs: 0, endMs: 1000, sources: [...sources], partial: false },
+      ];
+      rerender(<PlaybackBar player={player} />);
+      expect(screen.queryByRole('radiogroup', { name: 'Listen to' }) !== null).toBe(
+        sources.length === 2,
+      );
+    }
+    fireEvent.click(screen.getByRole('radio', { name: 'Me' }));
+    expect(player.setSource).toHaveBeenCalledWith('mic');
+    fireEvent.click(screen.getByRole('button', { name: 'Playback speed 1×' }));
+    expect(player.cycleSpeed).toHaveBeenCalledOnce();
+    player.info!.parts = [
+      { part: 1, startMs: 0, endMs: 500, sources: ['mic'], partial: false },
+      { part: 2, startMs: 500, endMs: 1000, sources: ['system'], partial: false },
+    ];
+    rerender(<PlaybackBar player={player} />);
+    expect(screen.queryByRole('radiogroup', { name: 'Listen to' })).not.toBeNull();
+  });
 });
