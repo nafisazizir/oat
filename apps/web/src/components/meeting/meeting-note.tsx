@@ -9,7 +9,7 @@
  * - Clicking a line picks it: the URL becomes that line's deep link (shareable; the jump target for audio
  *   playback in 3.7) without a server round trip.
  * - While the meeting is still being recorded on a desktop, the panel polls for new lines every 5 s.
- * - No player here (3.7): audio never leaves the Mac that recorded it (D-10), and the panel says so.
+ * - Audio stays on the recording device (D-10/D-32); this panel receives transcripts only.
  */
 import {
   MeetingTime,
@@ -34,6 +34,7 @@ import { IconDeviceLaptop, IconLayoutSidebarRight, IconWaveSine } from '@tabler/
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import { AssistantToggleAnchor } from '@/components/assistant/document-assistant';
+import { RecordingControls, RecordingFeedback, useBrowserRecording } from './recording-controls';
 import { DocumentEditor } from '@/components/document/document-editor';
 import type { DocumentDetail } from '@/lib/api-types';
 import { appendLines, type MeetingInfo, meetingApi, participantError } from '@/lib/meeting';
@@ -85,6 +86,22 @@ export function MeetingNote({
   const [info, setInfo] = useState(initial);
   const lines = useMemo(() => info.transcript ?? [], [info.transcript]);
   const editable = doc.access.edit && doc.deletedAt === null;
+  const recording = useBrowserRecording();
+  const recordingHere = recording.documentId === doc.id;
+  const browserLive = recordingHere && !['idle', 'ended'].includes(recording.status);
+  useEffect(() => {
+    if (!recordingHere || recording.status !== 'ended' || recording.pending) return;
+    let cancelled = false;
+    void meetingApi
+      .get(doc.id, { transcript: true })
+      .then((next) => {
+        if (!cancelled) setInfo(next);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [doc.id, recordingHere, recording.status, recording.pending]);
 
   // Panel open: remembered per browser; a transcript deep link always opens it.
   const [open, setOpen] = useStoredState<boolean>(OPEN_KEY, true);
@@ -133,26 +150,37 @@ export function MeetingNote({
     };
   }, [polling, doc.id, lastStart, now]);
 
-  const items = useMemo<TranscriptItem[]>(
-    () =>
-      lines.map((l) => ({
-        id: l.id,
-        source: l.source,
-        startMs: l.startMs,
-        text: l.text,
-        ...(l.source === 'system' && l.speaker !== 'Them' ? { speaker: l.speaker } : {}),
-      })),
-    [lines],
-  );
+  const items = useMemo<TranscriptItem[]>(() => {
+    const merged = new Map<string, TranscriptItem>(
+      lines.map((l) => [
+        l.id,
+        {
+          id: l.id,
+          source: l.source,
+          startMs: l.startMs,
+          text: l.text,
+          ...(l.source === 'system' && l.speaker !== 'Them' ? { speaker: l.speaker } : {}),
+        },
+      ]),
+    );
+    if (recordingHere) for (const segment of recording.segments) merged.set(segment.id, segment);
+    return [...merged.values()].sort((a, b) => a.startMs - b.startMs);
+  }, [lines, recordingHere, recording.segments]);
 
   const header = (
     <div className="flex flex-col gap-2.5" data-testid="meeting-header">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <MeetingTime
-          startedAt={info.startedAt}
-          endedAt={info.endedAt}
-          // Server render + hydration in UTC (they must agree), then the viewer's zone.
-          {...(hydrated ? {} : { timeZone: 'UTC' })}
+        {!browserLive && (
+          <MeetingTime
+            startedAt={info.startedAt}
+            endedAt={info.endedAt}
+            // Server render + hydration in UTC (they must agree), then the viewer's zone.
+            {...(hydrated ? {} : { timeZone: 'UTC' })}
+          />
+        )}
+        <RecordingControls
+          documentId={doc.id}
+          eligible={editable && !(info.endedAt && lines.length > 0)}
         />
         {!open && (
           <Button
@@ -169,6 +197,7 @@ export function MeetingNote({
           </Button>
         )}
       </div>
+      <RecordingFeedback documentId={doc.id} />
       {eventLine}
       <ParticipantChips
         participants={info.participants}
@@ -194,7 +223,12 @@ export function MeetingNote({
   );
 
   const transcript = (
-    <TranscriptBody items={items} focusId={focusId} onSelect={select} live={polling} />
+    <TranscriptBody
+      items={items}
+      focusId={focusId}
+      onSelect={select}
+      live={polling || browserLive}
+    />
   );
 
   return (
@@ -208,7 +242,7 @@ export function MeetingNote({
             data-testid="transcript-panel"
             className="mx-auto mb-14 flex h-96 w-full max-w-content flex-col overflow-hidden rounded-lg border border-gray-alpha-400 bg-background-100"
           >
-            <PanelTitle count={lines.length} onClose={() => setOpen(false)} />
+            <PanelTitle count={items.length} onClose={() => setOpen(false)} />
             {transcript}
           </section>
         )}
@@ -224,8 +258,8 @@ export function MeetingNote({
             </>
           }
           meta={
-            lines.length > 0 && (
-              <span className="text-label-13 text-gray-900 tabular-nums">{lines.length}</span>
+            items.length > 0 && (
+              <span className="text-label-13 text-gray-900 tabular-nums">{items.length}</span>
             )
           }
           closeLabel="Hide transcript"
@@ -280,8 +314,8 @@ function TranscriptBody({
           </EmptyTitle>
           <EmptyDescription className="max-w-xs">
             {live
-              ? 'This meeting is being recorded on a desktop. Lines appear here as they sync.'
-              : 'Record this meeting with the Oat desktop app to get a transcript here.'}
+              ? 'Listening for speech. Transcript lines appear here as they arrive.'
+              : 'Record in this browser or the Oat desktop app to get a transcript here.'}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -292,10 +326,10 @@ function TranscriptBody({
       <p
         className="flex shrink-0 items-center gap-1.5 border-b border-gray-alpha-400 px-4 py-1.5 text-label-12 text-gray-900"
         data-testid="audio-hint"
-        title="Recordings are kept only on the Mac that recorded the meeting. Open the note in the Oat desktop app there to listen back."
+        title="Only transcripts sync. Audio stays on the recording device."
       >
         <IconDeviceLaptop aria-hidden className="size-3.5 shrink-0" />
-        Audio is on the Mac that recorded this meeting
+        Audio stays on the recording device
       </p>
       <TranscriptList
         segments={items}

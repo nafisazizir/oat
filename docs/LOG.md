@@ -193,3 +193,8 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 
 - PR #10 review: keep plain-page local-search results read-only instead of opening them in MeetingView. Added a mixed page/meeting navigation regression test; focused shell tests **5 passed**. [task](tasks/unify-shell.md#pr-10-review-fixes)
 - PR #10 review: global search now respects editor-consumed Command-K/Control-K. Verified editor-target bubble handling precedes window bubble handling and added tests for both consumed/unhandled events. Fast CI after both review fixes: **ci: ok** (34.8s), including **7 passing shell tests**. [task](tasks/unify-shell.md#pr-10-review-fixes)
+
+## 2026-11-20 — Web recording step A
+
+- Human approved browser mic/shared-tab recording (D-32), extending local-only audio policy without changing desktop capture. Step A covers capture/STT/transcript sync; OPFS archive/playback is step B. [task](tasks/web-recording.md)
+- Step A complete: browser-safe Deepgram stream with token refresh and paced replay; AudioWorklet mic/optional tab capture; retrying cookie-authenticated transcript sync; ziiz recording controls, optimistic transcript and navigation-safe session banner. No desktop capture/IPC changes. Fast CI **ci: ok** (31.1s, 11 new unit tests), production web build successful, fake-mic/mock-STT E2E **2 passed (45.0s)**; inspected `/home/ubuntu/web-rec-light.png`. Real shared-tab UI and real providers remain unverified; OPFS archive/playback remains step B.

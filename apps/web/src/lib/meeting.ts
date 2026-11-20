@@ -18,6 +18,7 @@ export type MeetingInfo = {
   meetingId: string | null;
   startedAt: string | null;
   endedAt: string | null;
+  recording?: { calendarEventId: string | null };
   participants: MeetingParticipant[];
   /** Only with `?transcript=1`. */
   transcript?: TranscriptLine[];
@@ -29,15 +30,21 @@ const enc = encodeURIComponent;
 
 export const meetingApi = {
   /** `after`: only transcript lines starting at or after it (ms). */
-  get: (documentId: string, opts: { transcript?: boolean; after?: number } = {}) =>
-    request<MeetingInfo>(
+  get: (
+    documentId: string,
+    opts: { transcript?: boolean; after?: number; recording?: boolean } = {},
+  ) => {
+    const query = new URLSearchParams();
+    if (opts.transcript) {
+      query.set('transcript', '1');
+      if (opts.after) query.set('after', String(Math.floor(opts.after)));
+    }
+    if (opts.recording) query.set('recording', '1');
+    return request<MeetingInfo>(
       'GET',
-      `/api/documents/${enc(documentId)}/meeting${
-        opts.transcript
-          ? `?transcript=1${opts.after ? `&after=${Math.floor(opts.after)}` : ''}`
-          : ''
-      }`,
-    ),
+      `/api/documents/${enc(documentId)}/meeting${query.size ? `?${query}` : ''}`,
+    );
+  },
   addParticipant: (documentId: string, input: AddParticipantInput) =>
     request<MeetingParticipant>('POST', `/api/documents/${enc(documentId)}/participants`, input),
   removeParticipant: (documentId: string, participantId: string) =>

@@ -1,4 +1,5 @@
-import { Fanout, type AudioFrame, type Unsubscribe } from '@oat/audio';
+import type { AudioFrame, Unsubscribe } from '@oat/audio';
+import { Fanout } from '@oat/audio/emitter';
 
 import { uuidv7 } from './ids.ts';
 import type {

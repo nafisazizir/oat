@@ -56,12 +56,17 @@ export async function loadMeetingInfo(
   actor: Actor,
   documentId: string,
   /** `after`: only lines starting at or after this many ms (live polling fetches what's new). */
-  opts: { transcript?: boolean; after?: number } = {},
+  opts: { transcript?: boolean; after?: number; recording?: boolean } = {},
 ): Promise<MeetingInfo | null> {
   const doc = await getDocument(db, actor, documentId);
   if (doc.kind !== 'meeting') return null;
   const [meet] = await db
-    .select({ id: meeting.id, startedAt: meeting.startedAt, endedAt: meeting.endedAt })
+    .select({
+      id: meeting.id,
+      startedAt: meeting.startedAt,
+      endedAt: meeting.endedAt,
+      calendarEventId: meeting.calendarEventId,
+    })
     .from(meeting)
     .where(eq(meeting.documentId, doc.id));
   const participants = meet
@@ -81,6 +86,7 @@ export async function loadMeetingInfo(
     startedAt: meet?.startedAt?.toISOString() ?? null,
     endedAt: meet?.endedAt?.toISOString() ?? null,
     participants: participants.map(toParticipant),
+    ...(opts.recording ? { recording: { calendarEventId: meet?.calendarEventId ?? null } } : {}),
     ...(opts.transcript
       ? { transcript: meet ? await transcriptLines(db, meet.id, opts.after) : [] }
       : {}),
@@ -154,6 +160,7 @@ export function createMeetingApi(deps: ApiDeps) {
         const after = Number(url.searchParams.get('after'));
         const info = await loadMeetingInfo(db, actor, params.id, {
           transcript: url.searchParams.get('transcript') === '1',
+          recording: url.searchParams.get('recording') === '1',
           ...(Number.isInteger(after) && after > 0 ? { after } : {}),
         });
         if (!info) throw badRequest('Only meeting notes have a meeting side.');

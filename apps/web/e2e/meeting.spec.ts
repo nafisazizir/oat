@@ -125,7 +125,7 @@ test('meeting header, attendees, transcript panel (collapse, resize, click → d
   await expect(panel(page)).toContainText('40');
   // No player on the web (3.7, D-10): the panel says where the audio is.
   await expect(panel(page).getByTestId('audio-hint')).toHaveText(
-    'Audio is on the Mac that recorded this meeting',
+    'Audio stays on the recording device',
   );
   await expect(page.getByTestId('playback')).toHaveCount(0);
   await expect(

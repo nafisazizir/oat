@@ -1,6 +1,7 @@
 'use client';
 
 import { SidebarInset, SidebarProvider } from '@oat/ui/components/sidebar';
+import { BrowserRecordingBanner } from '@/components/meeting/recording-controls';
 
 import type { ShellData } from '@/lib/tree';
 
@@ -36,6 +37,7 @@ export function AppShell({
             <AppSidebar />
             <SidebarInset>
               <TopBar />
+              <BrowserRecordingBanner />
               <div className="flex min-h-0 flex-1 flex-col">{children}</div>
             </SidebarInset>
             <CommandMenu />
