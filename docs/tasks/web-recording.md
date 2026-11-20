@@ -56,6 +56,8 @@ PCM replay and pending sync buffer in memory. Step B archives per-source Opus/We
 
 ## Header/player polish
 
+PR 11 STT review: replay filtering and timeline frame ends share integer-microsecond rounding. Finish has a single 15-second deadline across reconnects/backpressure and resolves on server close even with unacknowledged frames. Added fractional-ms trim/reconnect, residual-frame close, offline and backpressure deadline regressions.
+
 PR 11 session review: sign-out awaits capture teardown and a bounded best-effort flush before removing cookies. Shell disposal and session identity changes stop tracks/sockets immediately, finalize local audio, clear timers and discard pending account-owned writes instead of retrying under a different account. Pending permission grants are cancelled logically and released when they arrive. Added teardown and late-permission tests.
 
 PR 11 security review: audio stores now use an immutable signed-in account id and `oat-audio/<userId>/<meetingId>` paths. Playback hides prior-account state immediately, revokes old URLs on account changes, and ignores legacy unscoped data. Added same-meeting-id cross-account load/read/delete isolation coverage. Final review validation is recorded below after all five fixes.

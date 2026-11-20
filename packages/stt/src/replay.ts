@@ -1,6 +1,7 @@
 import type { AudioFrame } from '@oat/audio';
 
-const frameEndUs = (f: AudioFrame) => f.tUs + (f.pcm.length / f.sampleRate) * 1_000_000;
+export const frameEndUs = (f: AudioFrame) =>
+  Math.round(f.tUs + (f.pcm.length / f.sampleRate) * 1_000_000);
 
 /**
  * Rolling per-stream audio buffer (D-17): keeps at least `capacityMs` of the most recent audio so a new

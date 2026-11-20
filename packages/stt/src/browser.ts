@@ -3,7 +3,7 @@ import type { AudioFrame } from '@oat/audio';
 import { backoffDelay } from './backoff.ts';
 import { buildListenUrl } from './listen-url.ts';
 import { isDeepgramResults, mapDeepgramResults } from './deepgram-results.ts';
-import { SocketTimeline } from './replay.ts';
+import { frameEndUs, SocketTimeline } from './replay.ts';
 import { BaseSttStream } from './stream-base.ts';
 import type { SttStreamOptions } from './types.ts';
 
@@ -42,7 +42,7 @@ export class BrowserSttStream extends BaseSttStream {
   #keepAlive: ReturnType<typeof setInterval>;
   #attempt = 0;
   #generation = 0;
-  #committed: number | undefined;
+  #committedUs: number | undefined;
   #finishing = false;
   #finish: Promise<void> | undefined;
   #resolve: (() => void) | undefined;
@@ -72,7 +72,7 @@ export class BrowserSttStream extends BaseSttStream {
   }
 
   get committedMs() {
-    return this.#committed;
+    return this.#committedUs === undefined ? undefined : this.#committedUs / 1000;
   }
 
   async #open() {
@@ -124,15 +124,16 @@ export class BrowserSttStream extends BaseSttStream {
           const mapped = mapDeepgramResults(message, {
             source: this.source,
             toRecordingMs: (s) => this.#timeline.toRecordingMs(s),
-            committedMs: this.#committed,
+            committedMs: this.committedMs,
           });
           if (mapped.segment) this.emitSegment(mapped.segment);
           else if (message.is_final) this.retractInterim();
           if (message.is_final) {
-            this.#committed = Math.max(this.#committed ?? 0, mapped.chunkEndMs);
-            this.#frames = this.#frames.filter(
-              (f) => f.tUs / 1000 + (f.pcm.length / this.sampleRate) * 1000 > this.#committed!,
+            this.#committedUs = Math.max(
+              this.#committedUs ?? 0,
+              Math.round(mapped.chunkEndMs * 1000),
             );
+            this.#frames = this.#frames.filter((f) => frameEndUs(f) > this.#committedUs!);
           }
         } catch {
           this.emitError({
@@ -144,7 +145,7 @@ export class BrowserSttStream extends BaseSttStream {
       };
       socket.onerror = () => this.#lost('STT is disconnected; audio is buffered and will replay.');
       socket.onclose = () => {
-        if (this.#finishing && this.#frames.length === 0) this.close();
+        if (this.#finishing) this.close();
         else this.#lost('STT disconnected; retrying with buffered audio.');
       };
     } catch {
@@ -171,7 +172,6 @@ export class BrowserSttStream extends BaseSttStream {
     if (this.terminated) return;
     ++this.#generation;
     clearTimeout(this.#watch);
-    clearTimeout(this.#finishWatch);
     this.#detach();
     this.setStatus('reconnecting');
     this.emitError({ code: 'connection', message, fatal: false });
@@ -225,6 +225,15 @@ export class BrowserSttStream extends BaseSttStream {
     this.#finish = new Promise((resolve) => {
       this.#resolve = resolve;
     });
+    this.#finishWatch = setTimeout(() => {
+      this.emitError({
+        code: 'connection',
+        message:
+          'STT finalization timed out. Some final transcript may be missing; local audio is retained when available.',
+        fatal: false,
+      });
+      this.close();
+    }, 15000);
     this.#endSocket();
     return this.#finish;
   }
@@ -233,11 +242,6 @@ export class BrowserSttStream extends BaseSttStream {
     if (this.#socket?.readyState !== 1 || this.#unsent.length || this.#endSent) return;
     this.#endSent = true;
     this.#socket.send(JSON.stringify({ type: 'CloseStream' }));
-    clearTimeout(this.#finishWatch);
-    this.#finishWatch = setTimeout(
-      () => this.#lost('Waiting for final STT results; keep this tab open while audio replays.'),
-      15000,
-    );
   }
 
   close() {

@@ -42,6 +42,66 @@ const frame = (tUs = 0) => ({
 afterEach(() => vi.useRealTimers());
 
 describe('browser STT', () => {
+  it('trims finalized fractional-ms frames in integer microseconds before reconnecting', async () => {
+    vi.useFakeTimers();
+    const sockets: Socket[] = [];
+    const stream = new BrowserSttStream({
+      source: 'mic',
+      sampleRate: 16000,
+      getToken: async () => ({
+        listenUrl: 'ws://localhost/listen',
+        accessToken: 'token',
+        keyterms: [],
+      }),
+      socket: () => {
+        const socket = new Socket();
+        sockets.push(socket);
+        return socket;
+      },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    sockets[0]!.open();
+    stream.write({ ...frame(1001), pcm: new Int16Array(2) });
+    sockets[0]!.result('final', true, 2 / 16000);
+    expect(stream.committedMs).toBe(1.126);
+    sockets[0]!.onclose?.();
+    await vi.advanceTimersByTimeAsync(1000);
+    sockets[1]!.open();
+    expect(sockets[1]!.sent.filter((data) => data instanceof Uint8Array)).toHaveLength(0);
+    stream.write(frame(1126));
+    const finish = stream.finish();
+    sockets[1]!.onclose?.();
+    await finish;
+    expect(stream.status).toBe('closed');
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(sockets).toHaveLength(2);
+  });
+
+  it.each(['offline', 'backpressure'])(
+    'bounds finish even with buffered frames and %s',
+    async (failure) => {
+      vi.useFakeTimers();
+      const socket = new Socket();
+      socket.bufferedAmount = 600000;
+      const stream = new BrowserSttStream({
+        source: 'mic',
+        sampleRate: 16000,
+        socket: () => socket,
+        getToken: async () => {
+          if (failure === 'offline') throw new Error('offline');
+          return { listenUrl: 'ws://localhost/listen', accessToken: 'token', keyterms: [] };
+        },
+      });
+      stream.write(frame(1001));
+      await vi.advanceTimersByTimeAsync(0);
+      if (failure === 'backpressure') socket.open();
+      const finish = stream.finish();
+      expect(stream.finish()).toBe(finish);
+      await vi.advanceTimersByTimeAsync(15001);
+      await finish;
+      expect(stream.status).toBe('closed');
+    },
+  );
   it('reuses one id across interim updates and their final, allocating a new id only after finalization', async () => {
     vi.useFakeTimers();
     const socket = new Socket();
