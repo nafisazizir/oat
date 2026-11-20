@@ -27,6 +27,14 @@ export class RecordingQueue {
   get pending() {
     return this.#pending.length;
   }
+  get entries() {
+    return this.#pending.slice();
+  }
+  restore(entries: SyncPushEntry[]) {
+    this.#pending = entries.slice();
+    this.#version = Math.max(this.#version, 0, ...entries.map((entry) => entry.version));
+    this.#changed(this.pending, this.#error);
+  }
   clear() {
     this.#pending = [];
     this.#error = null;
@@ -62,5 +70,37 @@ export class RecordingQueue {
         return;
       }
     }
+  }
+}
+
+const outboxPrefix = (userId: string) => `oat-recording-pending:${encodeURIComponent(userId)}:`;
+export function savePendingRecording(
+  userId: string,
+  entries: SyncPushEntry[],
+  storage = globalThis.localStorage,
+) {
+  if (!entries.length) return;
+  if (!storage)
+    throw new Error('Pending transcript could not be saved locally. Retry before signing out.');
+  storage.setItem(`${outboxPrefix(userId)}${crypto.randomUUID()}`, JSON.stringify(entries));
+}
+export async function retryPendingRecordings(
+  userId: string,
+  push: (entries: SyncPushEntry[]) => Promise<SyncPushResponse>,
+  storage = globalThis.localStorage,
+) {
+  if (!storage) return;
+  const keys = Array.from({ length: storage.length }, (_, i) => storage.key(i)).filter(
+    (key): key is string => key !== null && key.startsWith(outboxPrefix(userId)),
+  );
+  for (const key of keys) {
+    const entries: unknown = JSON.parse(storage.getItem(key) ?? '[]');
+    if (!Array.isArray(entries))
+      throw new Error('Saved transcript recovery data could not be read.');
+    const queue = new RecordingQueue(push, () => {});
+    queue.restore(entries as SyncPushEntry[]);
+    await queue.flush();
+    if (queue.pending) storage.setItem(key, JSON.stringify(queue.entries));
+    else storage.removeItem(key);
   }
 }

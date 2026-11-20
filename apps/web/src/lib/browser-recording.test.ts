@@ -56,126 +56,154 @@ describe('browser capture failures', () => {
     expect(recording.snapshot()).toMatchObject({ status: 'idle', pending: 0, segments: [] });
   });
 
-  it.each(['sign out', 'account change', 'shell unmount', 'stale meeting', 'new meeting'])(
-    'stops tracks and sockets and finalizes the archive on %s',
-    async (reason) => {
-      vi.stubGlobal('window', new EventTarget());
-      const stop = vi.fn();
-      const track = { stop, addEventListener: vi.fn() };
-      const locks = recordingLocks();
-      vi.stubGlobal('navigator', {
-        locks,
-        mediaDevices: {
-          getUserMedia: async () => ({ getTracks: () => [track], getAudioTracks: () => [track] }),
-        },
-      });
-      const disconnect = vi.fn();
-      class Node {
-        port = {};
-        gain = { value: 1 };
-        connect() {
-          return this;
-        }
-        disconnect = disconnect;
+  it.each([
+    'sign out',
+    'account change',
+    'shell unmount',
+    'stale meeting',
+    'new meeting',
+    'failed signout',
+  ])('stops tracks and sockets and finalizes the archive on %s', async (reason) => {
+    vi.stubGlobal('window', new EventTarget());
+    const persisted = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      get length() {
+        return persisted.size;
+      },
+      key: (i: number) => [...persisted.keys()][i] ?? null,
+      getItem: (key: string) => persisted.get(key) ?? null,
+      setItem: (key: string, value: string) => persisted.set(key, value),
+      removeItem: (key: string) => persisted.delete(key),
+    });
+    const stop = vi.fn();
+    const track = { stop, addEventListener: vi.fn() };
+    const locks = recordingLocks();
+    vi.stubGlobal('navigator', {
+      locks,
+      mediaDevices: {
+        getUserMedia: async () => ({ getTracks: () => [track], getAudioTracks: () => [track] }),
+      },
+    });
+    const disconnect = vi.fn();
+    class Node {
+      port = {};
+      gain = { value: 1 };
+      connect() {
+        return this;
       }
-      const closeContext = vi.fn(async () => {});
-      vi.stubGlobal(
-        'AudioContext',
-        class {
-          currentTime = 1;
-          destination = new Node();
-          audioWorklet = { addModule: async () => {} };
-          resume = async () => {};
-          close = closeContext;
-          createGain = () => new Node();
-          createMediaStreamSource = () => new Node();
-        },
-      );
-      vi.stubGlobal('AudioWorkletNode', Node);
-      vi.stubGlobal('MediaStream', class {});
-      const closeSocket = vi.fn();
-      vi.stubGlobal(
-        'WebSocket',
-        class {
-          close = closeSocket;
-        },
-      );
-      vi.spyOn(BrowserAudioArchive.prototype, 'restore').mockResolvedValue(
-        reason === 'stale meeting' ? 8000 : 0,
-      );
-      const archiveStart = vi.spyOn(BrowserAudioArchive.prototype, 'start').mockResolvedValue();
-      const finalize = vi.spyOn(BrowserAudioArchive.prototype, 'end').mockResolvedValue();
-      vi.spyOn(meetingApi, 'get').mockResolvedValue({
-        meetingId: reason === 'new meeting' ? null : 'meeting',
-        startedAt:
-          reason === 'stale meeting'
-            ? new Date(Date.now() - IN_PROGRESS_MAX_MS - 1).toISOString()
-            : null,
-        endedAt: null,
-        participants: [],
-        recording: {
-          calendarEventId: null,
-          lastSegmentEndMs: reason === 'stale meeting' ? 12000 : 0,
-        },
-      });
-      const pushed: unknown[] = [];
-      vi.stubGlobal(
-        'fetch',
-        vi.fn(async (path: string, init: RequestInit) => {
-          if (path === '/api/stt/token')
-            return Response.json({
-              accessToken: 'grant',
-              listenUrl: 'ws://localhost/listen',
-              keyterms: [],
-            });
-          const body = JSON.parse(init.body as string);
-          pushed.push(...body.entries);
+      disconnect = disconnect;
+    }
+    const closeContext = vi.fn(async () => {});
+    vi.stubGlobal(
+      'AudioContext',
+      class {
+        currentTime = 1;
+        destination = new Node();
+        audioWorklet = { addModule: async () => {} };
+        resume = async () => {};
+        close = closeContext;
+        createGain = () => new Node();
+        createMediaStreamSource = () => new Node();
+      },
+    );
+    vi.stubGlobal('AudioWorkletNode', Node);
+    vi.stubGlobal('MediaStream', class {});
+    const closeSocket = vi.fn();
+    vi.stubGlobal(
+      'WebSocket',
+      class {
+        close = closeSocket;
+      },
+    );
+    vi.spyOn(BrowserAudioArchive.prototype, 'restore').mockResolvedValue(
+      reason === 'stale meeting' ? 8000 : 0,
+    );
+    const archiveStart = vi.spyOn(BrowserAudioArchive.prototype, 'start').mockResolvedValue();
+    const finalize = vi.spyOn(BrowserAudioArchive.prototype, 'end').mockResolvedValue();
+    vi.spyOn(meetingApi, 'get').mockResolvedValue({
+      meetingId: reason === 'new meeting' ? null : 'meeting',
+      startedAt:
+        reason === 'stale meeting'
+          ? new Date(Date.now() - IN_PROGRESS_MAX_MS - 1).toISOString()
+          : null,
+      endedAt: null,
+      participants: [],
+      recording: {
+        calendarEventId: null,
+        lastSegmentEndMs: reason === 'stale meeting' ? 12000 : 0,
+      },
+    });
+    const pushed: unknown[] = [];
+    let offline = reason === 'failed signout';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string, init: RequestInit) => {
+        if (path === '/api/stt/token')
           return Response.json({
-            results: body.entries.map((entry: { version: number }) => ({
-              version: entry.version,
-              status: 'ok',
-            })),
+            accessToken: 'grant',
+            listenUrl: 'ws://localhost/listen',
+            keyterms: [],
           });
+        const body = JSON.parse(init.body as string);
+        pushed.push(...body.entries);
+        if (offline) throw new Error('offline');
+        return Response.json({
+          results: body.entries.map((entry: { version: number }) => ({
+            version: entry.version,
+            status: 'ok',
+          })),
+        });
+      }),
+    );
+    const recording = new BrowserRecording();
+    await recording.start('document', false, 'alice');
+    expect(recording.snapshot().status).toBe('recording');
+    expect(archiveStart).toHaveBeenCalledWith(
+      reason === 'stale meeting' ? 12000 : 0,
+      expect.any(Array),
+    );
+    expect(recording.snapshot().elapsed).toBe(reason === 'stale meeting' ? 12 : 0);
+    expect(locks.held).toBe(true);
+    expect(locks.request).toHaveBeenCalledWith(
+      `oat-recording:${recording.snapshot().meetingId}`,
+      { ifAvailable: true },
+      expect.any(Function),
+    );
+    await recording.sessionChanged('alice');
+    expect(stop).not.toHaveBeenCalled();
+    if (reason === 'account change') await recording.sessionChanged('bob');
+    else await recording.endSession();
+    expect(locks.held).toBe(false);
+    expect(stop).toHaveBeenCalledOnce();
+    expect(closeSocket).toHaveBeenCalledOnce();
+    expect(closeContext).toHaveBeenCalledOnce();
+    expect(disconnect).toHaveBeenCalled();
+    expect(finalize).toHaveBeenCalledWith(reason === 'stale meeting' ? 12000 : 0, true);
+    expect(recording.snapshot()).toMatchObject({
+      status: 'idle',
+      documentId: null,
+      segments: [],
+    });
+    if (reason === 'sign out' || reason === 'shell unmount')
+      expect(pushed).toContainEqual(
+        expect.objectContaining({
+          table: 'meeting',
+          row: expect.objectContaining({ endedAt: expect.any(String) }),
         }),
       );
-      const recording = new BrowserRecording();
-      await recording.start('document', false, 'alice');
-      expect(recording.snapshot().status).toBe('recording');
-      expect(archiveStart).toHaveBeenCalledWith(
-        reason === 'stale meeting' ? 12000 : 0,
-        expect.any(Array),
-      );
-      expect(recording.snapshot().elapsed).toBe(reason === 'stale meeting' ? 12 : 0);
-      expect(locks.held).toBe(true);
-      expect(locks.request).toHaveBeenCalledWith(
-        `oat-recording:${recording.snapshot().meetingId}`,
-        { ifAvailable: true },
-        expect.any(Function),
-      );
+    if (reason === 'failed signout') {
+      expect(
+        [...persisted.values()].some((value) =>
+          JSON.parse(value).some((entry: { row?: { endedAt?: string } }) => entry.row?.endedAt),
+        ),
+      ).toBe(true);
+      offline = false;
+      await recording.sessionChanged('bob');
+      expect(persisted.size).toBe(1);
       await recording.sessionChanged('alice');
-      expect(stop).not.toHaveBeenCalled();
-      if (reason === 'account change') await recording.sessionChanged('bob');
-      else await recording.endSession();
-      expect(locks.held).toBe(false);
-      expect(stop).toHaveBeenCalledOnce();
-      expect(closeSocket).toHaveBeenCalledOnce();
-      expect(closeContext).toHaveBeenCalledOnce();
-      expect(disconnect).toHaveBeenCalled();
-      expect(finalize).toHaveBeenCalledWith(reason === 'stale meeting' ? 12000 : 0, true);
-      expect(recording.snapshot()).toMatchObject({
-        status: 'idle',
-        documentId: null,
-        segments: [],
-      });
-      if (reason === 'sign out' || reason === 'shell unmount')
-        expect(pushed).toContainEqual(
-          expect.objectContaining({
-            table: 'meeting',
-            row: expect.objectContaining({ endedAt: expect.any(String) }),
-          }),
-        );
-    },
-  );
+      expect(persisted.size).toBe(0);
+    }
+  });
   it.each(['tab', 'device'])(
     'refuses a live recording on another %s and releases the microphone and any acquired lock',
     async (where) => {

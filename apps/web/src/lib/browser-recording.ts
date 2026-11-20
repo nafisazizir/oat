@@ -5,7 +5,12 @@ import { BrowserSttStream, type SttSegment, type AudioFrame } from '@oat/stt/bro
 
 import { meetingApi } from './meeting';
 import { pcmWorkletModule } from './recording-pcm';
-import { RecordingQueue, hasSyncBacklog } from './recording-queue';
+import {
+  RecordingQueue,
+  hasSyncBacklog,
+  savePendingRecording,
+  retryPendingRecordings,
+} from './recording-queue';
 import { AudioStore, BrowserAudioArchive } from './audio-store';
 
 export interface RecordingState {
@@ -97,6 +102,8 @@ export class BrowserRecording {
     await Promise.all(this.#locks.splice(0));
   }
   #userId: string | null = null;
+  #sessionUserId: string | null = null;
+  #recovering: Promise<void> | undefined;
   #cancelled = false;
   #starting: Promise<void> | undefined;
   #ending: Promise<void> | undefined;
@@ -151,6 +158,7 @@ export class BrowserRecording {
     if (this.#starting || this.#ending || active(this.#state) || this.#queue.pending)
       return Promise.resolve();
     this.#userId = userId;
+    this.#sessionUserId = userId;
     this.#cancelled = false;
     this.#starting = this.#start(documentId, tab, userId).finally(() => {
       this.#starting = undefined;
@@ -402,10 +410,29 @@ export class BrowserRecording {
     await this.#dropLock();
     this.#set({ status: 'ended' });
   }
-  sessionChanged(userId: string | null) {
-    return this.#userId !== null && this.#userId !== userId
-      ? this.endSession(false)
-      : Promise.resolve();
+  async sessionChanged(userId: string | null) {
+    this.#sessionUserId = userId;
+    if (this.#userId !== null && this.#userId !== userId) await this.endSession(false);
+    await this.#recovering;
+    if (!userId || this.#sessionUserId !== userId) return;
+    this.#recovering = retryPendingRecordings(userId, (entries) => {
+      if (this.#sessionUserId !== userId)
+        throw new Error('Account changed before transcript recovery.');
+      return recordingPost<SyncPushResponse>('/api/sync/push', {
+        entries,
+        device: { name: 'Browser' },
+      });
+    })
+      .catch(() => {
+        this.#set({
+          syncError:
+            'Saved transcript could not be recovered. It remains on this browser for your next sign-in.',
+        });
+      })
+      .finally(() => {
+        this.#recovering = undefined;
+      });
+    await this.#recovering;
   }
   endSession(flush = true): Promise<void> {
     if (this.#ending) return this.#ending;
@@ -413,7 +440,6 @@ export class BrowserRecording {
     const endMs = this.#clockMs();
     this.#release();
     this.#streams.forEach((stream) => stream.close());
-    if (!flush) this.#queue.clear();
     clearInterval(this.#timer);
     window.removeEventListener('beforeunload', this.#warn);
     this.#ending = (async () => {
@@ -423,13 +449,15 @@ export class BrowserRecording {
       await this.#archive?.end(endMs, true);
       this.#archive = undefined;
       this.#streams = [];
-      if (flush && this.#meeting && active(this.#state))
+      if (this.#meeting && active(this.#state))
         this.#queue.enqueue({
           op: 'upsert',
           table: 'meeting',
           row: { ...this.#meeting, endedAt: new Date().toISOString() },
         });
       if (flush) await this.#queue.flush();
+      if (this.#userId && this.#queue.pending)
+        savePendingRecording(this.#userId, this.#queue.entries);
       this.#queue.clear();
       await this.#dropLock();
       this.#meeting = undefined;

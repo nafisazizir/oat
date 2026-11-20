@@ -2,7 +2,12 @@ import type { SyncPushEntry } from '@oat/core/sync';
 import { describe, expect, it, vi } from 'vitest';
 
 import { PcmConverter } from './recording-pcm';
-import { RecordingQueue, hasSyncBacklog } from './recording-queue';
+import {
+  RecordingQueue,
+  hasSyncBacklog,
+  savePendingRecording,
+  retryPendingRecordings,
+} from './recording-queue';
 
 describe('browser PCM conversion', () => {
   it('downmixes, clips and resamples continuously across arbitrary worklet boundaries', () => {
@@ -24,6 +29,41 @@ describe('browser PCM conversion', () => {
 });
 
 describe('recording sync queue', () => {
+  it('recovers only the matching account, retaining failed and partial acknowledgements', async () => {
+    const files = new Map<string, string>();
+    const storage = {
+      get length() {
+        return files.size;
+      },
+      key: (i: number) => [...files.keys()][i] ?? null,
+      getItem: (key: string) => files.get(key) ?? null,
+      setItem: (key: string, value: string) => files.set(key, value),
+      removeItem: (key: string) => files.delete(key),
+    } as Storage;
+    const entries: SyncPushEntry[] = [1, 2].map((version) => ({
+      op: 'delete',
+      table: 'transcript_segment',
+      id: `segment-${version}`,
+      version,
+    }));
+    savePendingRecording('alice', [], storage);
+    expect(files.size).toBe(0);
+    savePendingRecording('alice', entries, storage);
+    const push = vi.fn(async () => ({ results: [{ version: 1, status: 'ok' as const }] }));
+    await retryPendingRecordings('bob', push, storage);
+    expect(push).not.toHaveBeenCalled();
+    await retryPendingRecordings('alice', push, storage);
+    expect([...files.values()].map((value) => JSON.parse(value))).toEqual([[entries[1]]]);
+    push.mockRejectedValueOnce(new Error('offline'));
+    await retryPendingRecordings('alice', push, storage);
+    expect(files.size).toBe(1);
+    push.mockResolvedValueOnce({ results: [{ version: 2, status: 'ok' }] });
+    await retryPendingRecordings('alice', push, storage);
+    expect(files.size).toBe(0);
+    files.set('oat-recording-pending:alice:invalid', '{');
+    await expect(retryPendingRecordings('alice', push, storage)).rejects.toThrow();
+    expect(files.size).toBe(1);
+  });
   it('keeps healthy sync quiet and warns only after five seconds of backlog', () => {
     expect(hasSyncBacklog(null, 10000)).toBe(false);
     expect(hasSyncBacklog(1000, 6000)).toBe(false);
