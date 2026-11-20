@@ -151,16 +151,30 @@ export function RecordingFeedback({ documentId }: { documentId: string }) {
         </p>
       )}
       {(state.syncError || state.syncDelayed) && (
-        <p role="status" className="text-label-12 text-amber-900" data-testid="recording-sync">
-          {state.syncError
-            ? 'Transcript sync failed.'
-            : 'Transcript sync is taking longer than usual.'}{' '}
-          <Button variant="ghost" size="xs" onClick={() => browserRecording.retry()}>
-            Retry
-          </Button>
-        </p>
+        <SyncWarning
+          message={
+            state.syncError
+              ? 'Transcript sync failed.'
+              : 'Transcript sync is taking longer than usual.'
+          }
+        />
       )}
     </>
+  );
+}
+
+function SyncWarning({ message, recovery = false }: { message: string; recovery?: boolean }) {
+  return (
+    <p
+      role="status"
+      className="text-label-12 text-amber-900"
+      data-testid={recovery ? 'recording-recovery' : 'recording-sync'}
+    >
+      {message}{' '}
+      <Button variant="ghost" size="xs" onClick={() => browserRecording.retry()}>
+        Retry
+      </Button>
+    </p>
   );
 }
 
@@ -168,21 +182,29 @@ export function RecordingFeedback({ documentId }: { documentId: string }) {
 export function BrowserRecordingBanner() {
   const state = useBrowserRecording();
   const pathname = usePathname();
+  const recovery = state.recoveryError ? (
+    <div className="border-b border-gray-alpha-400 bg-background-100 px-4 py-2">
+      <SyncWarning message={state.recoveryError} recovery />
+    </div>
+  ) : null;
   if (
     !state.documentId ||
     pathname === `/d/${state.documentId}` ||
     (['idle', 'ended'].includes(state.status) && !state.pending)
   )
-    return null;
+    return recovery;
   return (
-    <div className="flex flex-col gap-2 border-b border-gray-alpha-400 bg-background-100 px-4 py-2">
-      <div className="flex items-center gap-3">
-        <Link href={`/d/${state.documentId}`} className="text-label-14 text-brand-900 underline">
-          Open recording note
-        </Link>
-        {!['idle', 'ended'].includes(state.status) && <LiveControls />}
+    <>
+      {recovery}
+      <div className="flex flex-col gap-2 border-b border-gray-alpha-400 bg-background-100 px-4 py-2">
+        <div className="flex items-center gap-3">
+          <Link href={`/d/${state.documentId}`} className="text-label-14 text-brand-900 underline">
+            Open recording note
+          </Link>
+          {!['idle', 'ended'].includes(state.status) && <LiveControls />}
+        </div>
+        <RecordingFeedback documentId={state.documentId} />
       </div>
-      <RecordingFeedback documentId={state.documentId} />
-    </div>
+    </>
   );
 }

@@ -53,10 +53,14 @@ describe('recording sync queue', () => {
     const push = vi.fn(async () => ({ results: [{ version: 1, status: 'ok' as const }] }));
     await retryPendingRecordings('bob', push, storage);
     expect(push).not.toHaveBeenCalled();
-    await retryPendingRecordings('alice', push, storage);
+    await expect(retryPendingRecordings('alice', push, storage)).rejects.toThrow(
+      'Saved transcript sync failed',
+    );
     expect([...files.values()].map((value) => JSON.parse(value))).toEqual([[entries[1]]]);
     push.mockRejectedValueOnce(new Error('offline'));
-    await retryPendingRecordings('alice', push, storage);
+    await expect(retryPendingRecordings('alice', push, storage)).rejects.toThrow(
+      'Saved transcript sync failed',
+    );
     expect(files.size).toBe(1);
     push.mockResolvedValueOnce({ results: [{ version: 2, status: 'ok' }] });
     await retryPendingRecordings('alice', push, storage);

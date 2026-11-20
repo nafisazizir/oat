@@ -229,11 +229,15 @@ describe('browser capture failures', () => {
           JSON.parse(value).some((entry: { row?: { endedAt?: string } }) => entry.row?.endedAt),
         ),
       ).toBe(true);
-      offline = false;
       await recording.sessionChanged('bob');
       expect(persisted.size).toBe(1);
       await recording.sessionChanged('alice');
-      expect(persisted.size).toBe(0);
+      expect(persisted.size).toBe(1);
+      expect(recording.snapshot().recoveryError).toContain('Saved transcript could not be synced');
+      offline = false;
+      recording.retry();
+      await vi.waitFor(() => expect(persisted.size).toBe(0));
+      expect(recording.snapshot().recoveryError).toBeNull();
     }
   });
   it.each(['tab', 'device'])(

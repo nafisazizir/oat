@@ -22,6 +22,7 @@ export interface RecordingState {
   notice: string | null;
   pending: number;
   syncError: string | null;
+  recoveryError: string | null;
   pendingSince: number | null;
   meetingId: string | null;
   audioNotice: string | null;
@@ -37,6 +38,7 @@ const initial: RecordingState = {
   notice: null,
   pending: 0,
   syncError: null,
+  recoveryError: null,
   pendingSince: null,
   meetingId: null,
   audioNotice: null,
@@ -103,6 +105,7 @@ export class BrowserRecording {
   }
   #userId: string | null = null;
   #sessionUserId: string | null = null;
+  #recoveryAttempted = false;
   #recovering: Promise<void> | undefined;
   #cancelled = false;
   #starting: Promise<void> | undefined;
@@ -171,7 +174,12 @@ export class BrowserRecording {
   async #start(documentId: string, tab: boolean, userId: string) {
     if (active(this.#state) || this.#queue.pending) return;
     clearInterval(this.#timer);
-    this.#state = { ...initial, documentId, status: 'starting' };
+    this.#state = {
+      ...initial,
+      recoveryError: this.#state.recoveryError,
+      documentId,
+      status: 'starting',
+    };
     this.#set({});
     this.#tab = tab;
     window.addEventListener('beforeunload', this.#warn);
@@ -411,10 +419,15 @@ export class BrowserRecording {
     this.#set({ status: 'ended' });
   }
   async sessionChanged(userId: string | null) {
+    if (this.#sessionUserId !== userId) {
+      this.#set({ recoveryError: null });
+      this.#recoveryAttempted = false;
+    }
     this.#sessionUserId = userId;
     if (this.#userId !== null && this.#userId !== userId) await this.endSession(false);
     await this.#recovering;
-    if (!userId || this.#sessionUserId !== userId) return;
+    if (!userId || this.#sessionUserId !== userId || this.#recoveryAttempted) return;
+    this.#recoveryAttempted = true;
     this.#recovering = retryPendingRecordings(userId, (entries) => {
       if (this.#sessionUserId !== userId)
         throw new Error('Account changed before transcript recovery.');
@@ -423,10 +436,14 @@ export class BrowserRecording {
         device: { name: 'Browser' },
       });
     })
+      .then(() => {
+        if (this.#sessionUserId === userId) this.#set({ recoveryError: null });
+      })
       .catch(() => {
+        if (this.#sessionUserId !== userId) return;
         this.#set({
-          syncError:
-            'Saved transcript could not be recovered. It remains on this browser for your next sign-in.',
+          recoveryError:
+            'Saved transcript could not be synced. It remains on this browser. Retry to sync it.',
         });
       })
       .finally(() => {
@@ -474,6 +491,10 @@ export class BrowserRecording {
     return this.#ending;
   }
   retry() {
+    if (this.#sessionUserId && this.#state.recoveryError) {
+      this.#recoveryAttempted = false;
+      void this.sessionChanged(this.#sessionUserId);
+    }
     if (this.#state.status === 'idle' && this.#state.documentId && this.#userId)
       void this.start(this.#state.documentId, this.#tab, this.#userId);
     else {

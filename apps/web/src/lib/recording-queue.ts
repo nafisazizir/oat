@@ -93,6 +93,7 @@ export async function retryPendingRecordings(
   const keys = Array.from({ length: storage.length }, (_, i) => storage.key(i)).filter(
     (key): key is string => key !== null && key.startsWith(outboxPrefix(userId)),
   );
+  let failed = false;
   for (const key of keys) {
     const entries: unknown = JSON.parse(storage.getItem(key) ?? '[]');
     if (!Array.isArray(entries))
@@ -100,7 +101,11 @@ export async function retryPendingRecordings(
     const queue = new RecordingQueue(push, () => {});
     queue.restore(entries as SyncPushEntry[]);
     await queue.flush();
-    if (queue.pending) storage.setItem(key, JSON.stringify(queue.entries));
-    else storage.removeItem(key);
+    if (queue.pending) {
+      storage.setItem(key, JSON.stringify(queue.entries));
+      failed = true;
+    } else storage.removeItem(key);
   }
+  if (failed)
+    throw new Error('Saved transcript sync failed. Retry when your connection is restored.');
 }
