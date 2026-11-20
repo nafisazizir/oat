@@ -129,6 +129,8 @@ describe('OPFS audio store', () => {
     expect(notice).not.toHaveBeenCalled();
     const restarted = new BrowserAudioArchive(store, 'meeting', notice);
     expect(await restarted.restore()).toBe(4000);
+    await restarted.end(0, true);
+    expect((await store.load('meeting'))?.parts[1]?.endMs).toBe(4000);
     await restarted.start(5000, streams);
     await restarted.end(7000, true);
     expect((await store.load('meeting'))?.parts).toHaveLength(3);

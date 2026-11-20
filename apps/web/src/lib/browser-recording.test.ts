@@ -196,6 +196,10 @@ describe('browser capture failures', () => {
     expect(finish.mock.invocationCallOrder[0]).toBeLessThan(
       closeSocket.mock.invocationCallOrder[0]!,
     );
+    if (reason === 'sign out' || reason === 'shell unmount')
+      expect(vi.mocked(fetch).mock.invocationCallOrder.at(-1)).toBeLessThan(
+        closeSocket.mock.invocationCallOrder[0]!,
+      );
     expect(closeContext).toHaveBeenCalledOnce();
     expect(disconnect).toHaveBeenCalled();
     expect(finalize).toHaveBeenCalledWith(reason === 'stale meeting' ? 12000 : 0, true);

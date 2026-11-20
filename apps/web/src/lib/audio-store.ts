@@ -195,7 +195,7 @@ export class BrowserAudioArchive {
         }
       }),
     );
-    const part = this.metadata.parts.at(-1);
+    const part = entries.length ? this.metadata.parts.at(-1) : undefined;
     if (part) {
       part.endMs = Math.max(part.startMs, endMs);
       part.partial = this.#failed;

@@ -31,7 +31,8 @@ describe('browser PCM conversion', () => {
 describe('recording sync queue', () => {
   it('recovers only the matching account, retaining failed and partial acknowledgements', async () => {
     const files = new Map<string, string>();
-    const storage = {
+    const storage: Storage = {
+      clear: () => files.clear(),
       get length() {
         return files.size;
       },
@@ -39,7 +40,7 @@ describe('recording sync queue', () => {
       getItem: (key: string) => files.get(key) ?? null,
       setItem: (key: string, value: string) => files.set(key, value),
       removeItem: (key: string) => files.delete(key),
-    } as Storage;
+    };
     const entries: SyncPushEntry[] = [1, 2].map((version) => ({
       op: 'delete',
       table: 'transcript_segment',
