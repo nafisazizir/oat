@@ -69,7 +69,7 @@ export function LocalSearch({
           ) : (
             hits.map((hit) => (
               <li key={`${hit.documentId}:${hit.segmentId ?? 'note'}`}>
-                <SearchResult hit={hit} {...(onOpen ? { onOpen } : {})} />
+                <SearchResult hit={hit} {...(onOpen && hit.kind === 'meeting' ? { onOpen } : {})} />
               </li>
             ))
           )}

@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@oat/ui/components/dropdown-menu';
 import { cn } from '@oat/ui/lib/utils';
+import { SidebarMenuButton } from '@oat/ui/components/sidebar';
 import { IconCheck, IconEye, IconSelector } from '@tabler/icons-react';
 import { useState } from 'react';
 
@@ -58,7 +59,12 @@ export function WorkspaceSwitcher({ view }: { view: WorkspacesView }) {
     <div className="flex flex-col gap-1.5">
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="flex w-full items-center gap-2.5 rounded-md p-1.5 text-start transition-colors outline-none hover:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50 data-popup-open:bg-gray-alpha-200"
+          render={
+            <SidebarMenuButton
+              size="lg"
+              className="data-popup-open:bg-gray-alpha-100 group-data-[collapsible=icon]:ps-1!"
+            />
+          }
           data-testid="workspace-switcher"
           data-workspace-id={active.id}
         >

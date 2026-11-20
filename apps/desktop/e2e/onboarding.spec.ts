@@ -164,7 +164,8 @@ test('fresh profile: setup → permissions → test recording → finish → fir
   await expect(page.getByTestId('meeting-start')).toBeVisible();
 
   // Settings → Setup: states at a glance; "Open setup" runs it again (all allowed: opens at the test).
-  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByTestId('user-menu').click();
+  await page.getByRole('menuitem', { name: 'Settings' }).click();
   // The fixture's grants were in memory: after the relaunch macOS (the fixture file) says "not asked" again.
   await expect(page.getByTestId('setup-microphone')).toHaveAttribute('data-state', 'ask');
   await shots('settings-setup');

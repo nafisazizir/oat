@@ -74,6 +74,7 @@ test('edit on the web → the desktop has it within seconds (SSE) and finds it l
   expect(created.status()).toBe(201);
   const doc = (await created.json()) as { id: string; version: number };
   // Let the desktop settle on the creation first (its own SSE-triggered pull).
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
   const search = page.getByLabel('Search notes and transcripts on this Mac');
   await search.fill('checklist');
   await expect(page.getByTestId('local-search-results')).toContainText('Launch checklist', {
@@ -97,6 +98,7 @@ test('edit on the web → the desktop has it within seconds (SSE) and finds it l
   await expect(page.getByTestId('search-snippet').first()).toContainText(word);
   writeEvidence('sse-latency.json', { latencyMs, measuredAt: new Date().toISOString() }, '3.5');
   await evidence(page, 'desktop-search', '3.5');
+  await page.keyboard.press('Escape');
 
   // A conflicted copy of the note (as another device's push would create it) arrives by sync…
   const [user] = await sql<{ id: string }[]>`select id from "user" where email = ${email}`;

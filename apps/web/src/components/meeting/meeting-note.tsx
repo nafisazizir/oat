@@ -15,6 +15,7 @@ import {
   MeetingTime,
   ParticipantChips,
   SidePanel,
+  TRANSCRIPT_PANEL_SIZE,
   type TranscriptItem,
   TranscriptList,
   useStoredState,
@@ -230,9 +231,9 @@ export function MeetingNote({
           closeLabel="Hide transcript"
           onClose={() => setOpen(false)}
           storageKey={WIDTH_KEY}
-          defaultWidth={360}
-          minWidth={280}
-          maxWidth={600}
+          defaultWidth={TRANSCRIPT_PANEL_SIZE.default}
+          minWidth={TRANSCRIPT_PANEL_SIZE.min}
+          maxWidth={TRANSCRIPT_PANEL_SIZE.max}
           className="sticky top-12 h-[calc(100svh-3rem)] self-start"
           data-testid="transcript-panel"
         >

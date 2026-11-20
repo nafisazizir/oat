@@ -8,6 +8,7 @@ import type { Participant, TranscriptItem } from './format.ts';
 import { ParticipantChips } from './participants.tsx';
 import { SidePanel } from './side-panel.tsx';
 import { TranscriptList } from './transcript-list.tsx';
+import { NoteColumn, TRANSCRIPT_PANEL_SIZE } from './note-column.tsx';
 
 // jsdom has no layout: give the scroller a size so the virtualizer renders rows.
 Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, value: 600 });
@@ -18,6 +19,22 @@ const lines: TranscriptItem[] = [
   { id: 's2', source: 'mic', startMs: 2000, endMs: 3000, text: 'Hi, me here' },
   { id: 's3', source: 'mic', startMs: 3500, endMs: 4000, text: 'still typing', isFinal: false },
 ];
+
+describe('shared note geometry', () => {
+  it('keeps the web measure and permits caller spacing and attributes', () => {
+    render(
+      <NoteColumn className="gap-6" data-testid="note-column">
+        Notes
+      </NoteColumn>,
+    );
+    const column = screen.getByTestId('note-column');
+    expect(column.className).toContain('max-w-content');
+    expect(column.className).toContain('sm:py-14');
+    expect(column.className).toContain('gap-6');
+    expect(column.className).not.toContain('gap-10');
+    expect(TRANSCRIPT_PANEL_SIZE).toEqual({ default: 360, min: 280, max: 600 });
+  });
+});
 
 describe('TranscriptList', () => {
   it('renders me/them lines with speaker headers, interims marked', () => {

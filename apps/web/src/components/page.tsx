@@ -1,3 +1,4 @@
+import { NoteColumn } from '@oat/meeting-ui';
 import { cn } from '@oat/ui';
 import {
   Empty,
@@ -28,15 +29,7 @@ export function BackLink({ href, children }: { href: Route; children: React.Reac
 
 /** Centered content column used by every app page (the note measure, `--content-width`). */
 export function PageContainer({ className, ...props }: React.ComponentProps<'div'>) {
-  return (
-    <div
-      className={cn(
-        'mx-auto flex w-full max-w-content flex-col gap-10 px-6 py-10 sm:px-8 sm:py-14',
-        className,
-      )}
-      {...props}
-    />
-  );
+  return <NoteColumn className={className} {...props} />;
 }
 
 export function PageHeader({

@@ -208,7 +208,8 @@ test('signs in through the browser and the oat:// deep link; the token stays in 
   // The real link, as macOS delivers it.
   await deliverDeepLink(electronApp, redirectUrl);
   await expect(page.getByTestId('signed-in-email')).toHaveText(email);
-  await page.getByRole('button', { name: 'Check connection' }).click();
+  await page.getByTestId('user-menu').click();
+  await page.getByRole('menuitem', { name: 'Check connection' }).click();
   await expect(page.getByTestId('api-me')).toHaveText(`Connected as ${email}`);
 
   // Stored with safeStorage: encrypted on disk, decryptable in main only.
@@ -238,7 +239,8 @@ test('signs in through the browser and the oat:// deep link; the token stays in 
 
   // Second window, same main-owned state.
   const widgetOpened = electronApp.waitForEvent('window');
-  await page.getByRole('button', { name: 'Show meeting widget' }).click();
+  await page.getByTestId('user-menu').click();
+  await page.getByRole('menuitem', { name: 'Show meeting widget' }).click();
   const widget = await widgetOpened;
   await expect(widget.getByTestId('widget-account')).toHaveText(email);
   await expect(widget.getByTestId('widget-recording')).toHaveText('Not recording');
@@ -255,11 +257,13 @@ test('keeps the session across restarts; sign-out revokes it', async () => {
   // Restart: signed in straight from the Keychain-encrypted file, no browser.
   const electronApp = await relaunch();
   await expect(page.getByTestId('signed-in-email')).toHaveText(user.email);
-  await page.getByRole('button', { name: 'Check connection' }).click();
+  await page.getByTestId('user-menu').click();
+  await page.getByRole('menuitem', { name: 'Check connection' }).click();
   await expect(page.getByTestId('api-me')).toHaveText(`Connected as ${user.email}`);
   expect(await openedUrls(electronApp)).toEqual([]);
 
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.getByTestId('user-menu').click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Welcome to Oat' })).toBeVisible();
   expect(await readStoredSession(electronApp)).toBeNull();
   const res = await fetch(`${webUrl}/api/auth/get-session`, {

@@ -321,7 +321,8 @@ test('in-person silence → "Meeting over?" → Keep going; the Recording settin
   await expect(bar()).toHaveAttribute('data-status', 'idle', { timeout: scaled(30_000) });
 
   // Settings → Recording: on by default; switching it off is kept (per Mac).
-  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByTestId('user-menu').click();
+  await page.getByRole('menuitem', { name: 'Settings' }).click();
   const settings = page.getByTestId('recording-settings');
   const enabled = settings.getByTestId('autostop-enabled');
   await expect(enabled).toBeChecked();
