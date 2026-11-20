@@ -1,7 +1,7 @@
 import 'server-only';
 
-import { type Db, meeting, participant } from '@oat/db';
-import { and, asc, count, eq } from 'drizzle-orm';
+import { type Db, meeting, participant, transcriptSegment } from '@oat/db';
+import { and, asc, count, eq, max } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { MeetingInfo, MeetingParticipant } from '@/lib/meeting';
@@ -56,12 +56,17 @@ export async function loadMeetingInfo(
   actor: Actor,
   documentId: string,
   /** `after`: only lines starting at or after this many ms (live polling fetches what's new). */
-  opts: { transcript?: boolean; after?: number } = {},
+  opts: { transcript?: boolean; after?: number; recording?: boolean } = {},
 ): Promise<MeetingInfo | null> {
   const doc = await getDocument(db, actor, documentId);
   if (doc.kind !== 'meeting') return null;
   const [meet] = await db
-    .select({ id: meeting.id, startedAt: meeting.startedAt, endedAt: meeting.endedAt })
+    .select({
+      id: meeting.id,
+      startedAt: meeting.startedAt,
+      endedAt: meeting.endedAt,
+      calendarEventId: meeting.calendarEventId,
+    })
     .from(meeting)
     .where(eq(meeting.documentId, doc.id));
   const participants = meet
@@ -76,11 +81,26 @@ export async function loadMeetingInfo(
         .where(eq(participant.meetingId, meet.id))
         .orderBy(asc(participant.createdAt), asc(participant.id))
     : [];
+  const [lastSegment] =
+    opts.recording && meet
+      ? await db
+          .select({ endMs: max(transcriptSegment.endMs) })
+          .from(transcriptSegment)
+          .where(eq(transcriptSegment.meetingId, meet.id))
+      : [];
   return {
     meetingId: meet?.id ?? null,
     startedAt: meet?.startedAt?.toISOString() ?? null,
     endedAt: meet?.endedAt?.toISOString() ?? null,
     participants: participants.map(toParticipant),
+    ...(opts.recording
+      ? {
+          recording: {
+            calendarEventId: meet?.calendarEventId ?? null,
+            lastSegmentEndMs: lastSegment?.endMs ?? 0,
+          },
+        }
+      : {}),
     ...(opts.transcript
       ? { transcript: meet ? await transcriptLines(db, meet.id, opts.after) : [] }
       : {}),
@@ -154,6 +174,7 @@ export function createMeetingApi(deps: ApiDeps) {
         const after = Number(url.searchParams.get('after'));
         const info = await loadMeetingInfo(db, actor, params.id, {
           transcript: url.searchParams.get('transcript') === '1',
+          recording: url.searchParams.get('recording') === '1',
           ...(Number.isInteger(after) && after > 0 ? { after } : {}),
         });
         if (!info) throw badRequest('Only meeting notes have a meeting side.');

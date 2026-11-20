@@ -246,3 +246,9 @@ has the event (no schema change). Such a never-recorded meeting of **mine** may 
 refined: no start and no transcript = nothing to continue); a teammate's never-recorded note is not (theirs to
 start) — "Start notes" makes my own. The web resolves the event server-side from the user's own
 calendar and never trusts client-sent titles/attendees; reuse requires `canReadDocument`.
+
+## D-32 · 2026-11-20 · accepted · human
+Web recording supports meetings held in a browser tab: microphone = "me", shared tab audio = "them".
+Audio stays on the recording device in browser storage (OPFS), never uploaded or synced. This extends
+D-10 without changing it; desktop remains the capture path for native call apps. Implementation is split:
+step A adds browser capture, live STT and transcript sync; step B adds the local archive and playback.

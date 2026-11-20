@@ -141,6 +141,13 @@ describe('meeting info', () => {
       endedAt: '2026-11-14T15:16:00.000Z',
       participants: [{ name: 'Ada', email: 'ada@example.com', source: 'calendar' }],
     });
+    const resume = await call<MeetingInfo>(
+      api.meeting.GET,
+      'GET',
+      `/api/documents/${recorded.id}/meeting?recording=1`,
+      { as: owner, params: { id: recorded.id } },
+    );
+    expect(resume.body.recording?.lastSegmentEndMs).toBe(5000);
     expect(res.body.transcript?.map((l) => [l.speaker, l.text])).toEqual([
       ['Me', 'One'],
       ['Them', 'Two'],

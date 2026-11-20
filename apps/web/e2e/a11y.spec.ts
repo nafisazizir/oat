@@ -74,6 +74,17 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page).toHaveURL(/\/home$/);
     const content = await seedSweepContent(page);
 
+    await expect
+      .poll(async () => {
+        const response = await page.request.get('/api/search?q=pilot');
+        expect(response.ok()).toBe(true);
+        const body = await response.json();
+        return body.notes?.items.some((hit: { snippetHtml: string }) =>
+          hit.snippetHtml?.includes('<mark>'),
+        );
+      })
+      .toBe(true);
+
     const routes: [string, (p: Page) => Promise<void>][] = [
       ['/home', (p) => expect(p.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()],
       [`/d/${content.page.id}`, (p) => expect(p.getByTestId('document-title')).toBeVisible()],
@@ -81,7 +92,7 @@ for (const theme of ['light', 'dark'] as const) {
         `/d/${content.meeting.id}`,
         (p) => expect(p.getByTestId('meeting-header').filter({ visible: true })).toBeVisible(),
       ],
-      ['/search?q=pilot', (p) => expect(p.getByText(/Lakeside/).first()).toBeVisible()],
+      ['/search?q=pilot', (p) => expect(p.locator('.line-clamp-2 > mark').first()).toBeVisible()],
       ['/assistant', (p) => expect(p.getByTestId('chat-input')).toBeVisible()],
       ['/tasks', (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible()],
       ['/templates', (p) => expect(p.getByTestId('template-card').first()).toBeVisible()],

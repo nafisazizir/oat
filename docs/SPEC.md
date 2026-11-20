@@ -15,6 +15,8 @@ integrations, look and feel) is ours to shape.
 ## 2. Users
 
 - **Me (primary):** heavy meeting load, wants zero-friction capture and notes that go where I work.
+- **Browser meetings:** record mic ("me") and optional shared-tab audio ("them") on the web (D-32).
+  Desktop remains the path for native call apps; browser audio stays device-local in OPFS, never uploaded.
 - **My team (secondary):** read shared notes, collaborate in team spaces, ask the assistant about meetings
   they weren't in.
 
@@ -23,6 +25,7 @@ integrations, look and feel) is ours to shape.
 1. **Detect** — a calendar event is starting, or a meeting app starts using the mic → prompt "Start notes?".
 2. **Capture** — record mic (= "me") and system audio (= "them") as two separate streams. No bot. Audio is
    archived in a local cache on this machine for reference (never uploaded); only the transcript syncs.
+   In the browser, the second stream is shared-tab audio, not native system capture (D-32).
 3. **Transcribe live** — streaming speech-to-text, segments shown in a transcript panel, labelled by source.
 4. **Jot** — I type rough notes in an editor during the call. My notes are the signal of what mattered.
 5. **Enhance** — after the call, the AI merges my notes + transcript + a template into structured notes.
@@ -35,6 +38,7 @@ integrations, look and feel) is ours to shape.
 | Area | Requirement |
 |---|---|
 | Capture | Mic + system audio on macOS (Apple Silicon, macOS 14.4+), start/stop/pause, survives sleep/network drops (buffers and resumes). |
+| Browser capture (D-32) | Mic + optional shared browser-tab audio; start/stop/pause, visible errors, reconnect replay and retrying transcript sync. Warn before leaving; loss of tab sharing does not stop mic capture. Device-local OPFS Opus/WebM archive per source/part; transcript-linked playback and local audio deletion. No audio storage upload or sync. |
 | Audio archive | Every recording saved locally (per meeting, mic and system as separate Opus files), playback synced to the transcript (click a segment → jump to audio), retention settings (keep forever / N days / max GB), delete per meeting, "show in Finder". Local only — never synced. |
 | Transcription | Live streaming STT, two-source labelling (me/them), stored as timestamped segments. |
 | Editor | TipTap block editor (headings, lists, checklists, quotes, code, callouts, mentions, links), slash menu, Markdown shortcuts. |

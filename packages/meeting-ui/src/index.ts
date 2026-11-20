@@ -21,6 +21,13 @@ export {
   type TranscriptItem,
 } from './format.ts';
 export { MeetingTime } from './meeting-time.tsx';
+export { PlaybackBar, playerKey, type MeetingPlayback } from './playback-bar.tsx';
+export {
+  PlaybackClock,
+  type PlaybackInfo,
+  type PlaybackPart,
+  type PlaybackSource,
+} from './playback.ts';
 export { NoteColumn, TRANSCRIPT_PANEL_SIZE } from './note-column.tsx';
 export {
   MAX_PARTICIPANT_NAME,

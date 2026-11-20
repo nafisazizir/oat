@@ -44,6 +44,14 @@ describe('oat palette', () => {
     expect(dark.get('--ds-background-100')).not.toBe(light.get('--ds-background-100'));
   });
 
+  it('keeps search highlight text AA on its amber background in both themes', () => {
+    for (const theme of [light, dark]) {
+      const fg = luminance(theme.get('--ds-gray-1000')!);
+      const bg = luminance(theme.get('--ds-amber-300')!);
+      expect((Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it('loads the oat overrides after ziiz without the legacy slot bridge', () => {
     const imports = [...styles.matchAll(/@import '([^']+)'/g)].map((m) => m[1]);
     expect(imports.slice(0, 5)).toEqual([

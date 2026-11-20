@@ -120,6 +120,7 @@ test('connect Notion → choose a database → send a note → update it → dis
 
   await page.goto(`/d/${doc.id}`);
   const send = page.getByTestId('notion-send');
+  await page.getByTestId('document-more').click();
   await expect(send).toHaveText('Send to Notion');
   await send.click();
   await expect(page.getByText('Sent to Notion', { exact: true })).toBeVisible();
@@ -180,6 +181,7 @@ test('connect Notion → choose a database → send a note → update it → dis
     ).status(),
   ).toBe(200);
   await page.reload();
+  await page.getByTestId('document-more').click();
   await expect(page.getByTestId('notion-link')).toContainText('Notion copy is older');
   await page.getByTestId('notion-send').click();
   await expect(page.getByText('Updated in Notion', { exact: true })).toBeVisible();
@@ -210,6 +212,7 @@ test('connect Notion → choose a database → send a note → update it → dis
   await card.getByRole('button', { name: 'Disconnect' }).click();
   await expect(card.getByTestId('notion-status')).toHaveText('Not connected');
   await page.goto(`/d/${doc.id}`);
+  await page.getByTestId('document-more').click();
   await expect(page.getByTestId('notion-send')).toHaveText('Send to Notion');
   await page.getByTestId('notion-send').click();
   await expect(page.getByText('Connect Notion first')).toBeVisible();

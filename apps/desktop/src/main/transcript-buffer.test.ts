@@ -1,5 +1,6 @@
 import type { TranscriptBatch, LiveSegment } from '@oat/core/bridge';
 import { describe, expect, it } from 'vitest';
+import { updateLiveTranscript } from '@oat/meeting-ui/live-transcript';
 
 import { TranscriptStore } from '../shared/transcript.ts';
 import { TranscriptBuffer } from './transcript-buffer.ts';
@@ -32,6 +33,47 @@ function setup() {
 }
 
 describe('TranscriptBuffer', () => {
+  it('matches browser live bubbles: updates one interim id, retains distinct provider finals and handles retractions', () => {
+    const { buffer } = setup();
+    buffer.reset('meeting');
+    let web: LiveSegment[] = [];
+    for (const event of [
+      seg('utterance', 'Let us', false),
+      seg('utterance', 'Let us start', false),
+      seg('utterance', 'Let us start', true),
+      seg('next', 'the', false, 1500),
+      seg('next', 'the project', false, 1500),
+      seg('next', 'the project', true, 1500),
+      seg('next', 'late interim', false, 1500),
+      seg('empty', 'provisional', false, 2500),
+      seg('empty', '', true, 2500),
+    ]) {
+      buffer.push(event);
+      web = updateLiveTranscript(web, event);
+      expect(web).toEqual(buffer.snapshot().segments);
+    }
+    expect(web.map((s) => s.text)).toEqual(['Let us start', 'the project']);
+  });
+  it('preserves the mock corpus final chunking seen by the browser rather than inventing different bubbles', () => {
+    const { buffer } = setup();
+    buffer.reset('meeting');
+    let web: LiveSegment[] = [];
+    for (const event of [
+      seg('first', 'Let us start with a quick update on', true),
+      seg('second', 'the', true, 3740),
+      seg('third', 'project.', false, 4740),
+      seg('third', 'project.', true, 4740),
+    ]) {
+      buffer.push(event);
+      web = updateLiveTranscript(web, event);
+    }
+    expect(web).toEqual(buffer.snapshot().segments);
+    expect(web.map((s) => s.text)).toEqual([
+      'Let us start with a quick update on',
+      'the',
+      'project.',
+    ]);
+  });
   it('batches segments within the window; repeated updates of an id collapse to the newest', () => {
     const { buffer, batches, timers, tick } = setup();
     buffer.reset('m1');
