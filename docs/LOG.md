@@ -182,3 +182,9 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - Merged PR #5/main (`c697c97`) into the final-pass branch; retained both LOG histories. Removed the shadcn bridge import, unused destructive slots, final playground aliases/raw typography and last Lucide dependency/catalog/lock entries. Added repo-wide source regression guards and targeted light/dark route screenshot coverage. [task](tasks/ui-final-pass.md)
 - Fast CI fully green (`ci: ok`); web, desktop and gallery production builds passed. All three built CSS outputs have zero bridge-variable references and no missing ramp variables.
 - Local compose smoke/a11y/surface Playwright checks: **17 passed (2.2m)**. Visually checked Home, a populated document and Settings in both themes; screenshots and detailed evidence in the task file. Nothing remains unmigrated in the requested scope.
+
+## 2026-11-20 — Desktop/web shell unification
+
+- Shared NoteColumn (44rem) and transcript panel dimensions (360/280/600); desktop now uses the web's ziiz sidebar structure, search dialog, compact user menu and draggable inset toolbar. Preserved recording, upcoming events, local search/conflicts and onboarding; no main-process/IPC/Swift changes. [task](tasks/unify-shell.md)
+- Fast CI green (`ci: ok`), desktop/web production builds passed; four new renderer tests and shared geometry coverage. Updated desktop E2E interactions for the dropdown/dialog arrangement.
+- Compose-backed web light capture: **2 passed (42.3s)**. Inspected built-renderer desktop light/dark and web meeting screenshots at `/home/ubuntu/shell-{desktop-light,desktop-dark,web-light}.png`; aligned columns and intact surfaces. Desktop uses stubbed IPC; native macOS chrome, real capture and desktop E2E remain unverified on Linux.

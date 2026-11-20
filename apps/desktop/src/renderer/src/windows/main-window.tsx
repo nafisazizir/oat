@@ -19,20 +19,17 @@ import { Input } from '@oat/ui/components/input';
 import { Label } from '@oat/ui/components/label';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import { Spinner } from '@oat/ui/components/spinner';
+import { cn } from '@oat/ui/lib/utils';
 import {
   IconAlertTriangle,
-  IconAppWindow,
-  IconCircleCheck,
   IconCloudCheck,
   IconCloudOff,
   IconCloudUpload,
   IconExternalLink,
   IconLoader,
-  IconLogout,
   IconRefresh,
-  IconSettings,
 } from '@tabler/icons-react';
-import { type ReactNode, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { bridge, BridgeCallError, call } from '../bridge.ts';
 import { AutoStopQuestion, AutoStopToast } from '../auto-stop/auto-stop-notice.tsx';
@@ -49,7 +46,26 @@ import { isActive } from '../recording-view.ts';
 import { syncLabel, type SyncTone } from '../sync-status.ts';
 import { defaultInputChoice, startRequest } from '../recording/recording-controls.tsx';
 import { ConflictsPanel } from '../sync/conflicts-panel.tsx';
-import { LocalSearch } from '../sync/local-search.tsx';
+import { DesktopSearch, DesktopUserMenu } from './shell-menus.tsx';
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarInset,
+  SidebarTrigger,
+} from '@oat/ui/components/sidebar';
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@oat/ui/components/breadcrumb';
+import { RecordingBar, IssueBanner } from '../recording/recording-controls.tsx';
 import { SettingsView } from '../settings/settings-view.tsx';
 import { FirstMeetingGuide } from '../onboarding/first-meeting-guide.tsx';
 import { useOnboarding } from '../onboarding/onboarding-state.ts';
@@ -82,9 +98,11 @@ export default function MainWindow() {
 
   return (
     <div className="flex h-full flex-col bg-background-100 text-gray-1000">
-      <header className="app-drag flex h-12 shrink-0 items-center justify-center border-b border-gray-alpha-400 bg-background-200">
-        <Wordmark className="text-heading-16" />
-      </header>
+      {!signedIn && (
+        <header className="app-drag flex h-12 shrink-0 items-center justify-center border-b border-gray-alpha-400 bg-background-200">
+          <Wordmark className="text-heading-16" />
+        </header>
+      )}
       {signedIn ? (
         <SignedInShell
           user={signedIn}
@@ -104,16 +122,18 @@ export default function MainWindow() {
           </div>
         </main>
       )}
-      <footer className="flex h-8 shrink-0 items-center justify-center text-label-12 text-gray-900">
-        {info && (
-          <span data-testid="app-info">
-            Oat {info.version}
-            {info.dev && ' · dev'}
-            {/* Start-up timing is a development figure, not something to show users (9.3b). */}
-            {info.coldStartMs !== null && !info.packaged && ` · ready in ${info.coldStartMs} ms`}
-          </span>
-        )}
-      </footer>
+      {!signedIn && (
+        <footer className="flex h-8 shrink-0 items-center justify-center text-label-12 text-gray-900">
+          {info && (
+            <span data-testid="app-info">
+              Oat {info.version}
+              {info.dev && ' · dev'}
+              {/* Start-up timing is a development figure, not something to show users (9.3b). */}
+              {info.coldStartMs !== null && !info.packaged && ` · ready in ${info.coldStartMs} ms`}
+            </span>
+          )}
+        </footer>
+      )}
     </div>
   );
 }
@@ -145,7 +165,7 @@ function AccountCard({
     case 'signing-in':
       return <SigningInCard allowPaste={allowPaste} />;
     case 'signed-in':
-      return <SignedInCard user={auth.user} />;
+      return null;
   }
 }
 
@@ -299,6 +319,7 @@ function SignedInShell({
   recordingStatus: MainState['recording']['status'];
 }) {
   const snapshot = useRecording();
+  const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null);
   const notes = useMeetingNotes(true);
   // 3.9: the sidebar shows one workspace's notes; new notes go there when I can create there.
   const workspaces = useWorkspaces();
@@ -351,35 +372,36 @@ function SignedInShell({
     if (recording && activeMeetingId && opened !== activeMeetingId) bumpMeetingsVersion();
   }, [recording, activeMeetingId, opened]);
 
-  if (!onboarding.state) return <main className="flex-1" data-testid="shell" aria-busy />;
+  if (!onboarding.state) return <main className="app-drag flex-1" data-testid="shell" aria-busy />;
   if (onboarding.state.needed || setupOpen) {
     const firstRun = onboarding.state.needed;
     return (
-      <OnboardingView
-        firstRun={firstRun}
-        email={user.email}
-        input={input}
-        onDone={(finished) => {
-          setSetupOpen(false);
-          setSettingsOpen(false);
-          setSelected(null);
-          // The guide card follows a finished first run; "Set up later" and re-runs go straight back.
-          if (firstRun) void onboarding.complete(finished);
-        }}
-      />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="app-drag h-12 shrink-0 border-b border-gray-alpha-400" />
+        <OnboardingView
+          firstRun={firstRun}
+          email={user.email}
+          input={input}
+          onDone={(finished) => {
+            setSetupOpen(false);
+            setSettingsOpen(false);
+            setSelected(null);
+            // The guide card follows a finished first run; "Set up later" and re-runs go straight back.
+            if (firstRun) void onboarding.complete(finished);
+          }}
+        />
+      </div>
     );
   }
 
   return (
-    <main className="flex min-h-0 flex-1" data-testid="shell">
-      <aside className="flex w-64 shrink-0 flex-col gap-3 border-e border-gray-alpha-400 bg-background-200 p-3">
-        <WorkspaceSwitcher view={workspaces} />
-        {/* 3.5: local search + conflicted copies, refreshed after every sync. */}
-        <LocalSearch refreshKey={sync.lastSyncedAt} />
-        <ConflictsPanel refreshKey={sync.lastSyncedAt} />
-        <div className="flex min-h-0 flex-1 flex-col">
-          <SignedInCard user={user} sync={sync} onOpenSettings={() => setSettingsOpen(true)}>
-            <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <SidebarProvider className="h-full min-h-0 min-w-0 flex-1" data-testid="shell">
+      <Sidebar collapsible="icon">
+        <div className="app-drag h-12 shrink-0 border-b border-gray-alpha-400" />
+        <SidebarHeader>
+          <WorkspaceSwitcher view={workspaces} />
+          <SidebarMenu>
+            <SidebarMenuItem>
               <NewMeetingButton
                 disabled={recording || !snapshot}
                 pending={starting.pending}
@@ -388,159 +410,120 @@ function SignedInShell({
                   void starting.run(() => call('recording:start', startRequest(input)));
                 }}
               />
-              {starting.error && (
-                <p role="status" className="px-2.5 text-copy-13 text-red-900">
-                  {starting.error}
-                </p>
-              )}
-              <UpcomingList
-                snapshot={calendar}
-                otherWorkspace={otherWorkspace}
-                onOpen={(documentId) => {
-                  setSelected(documentId);
-                  bumpMeetingsVersion();
-                }}
-              />
-              <MeetingList
-                notes={listed}
-                workspaceName={activeWorkspace?.name ?? null}
-                selected={selected}
-                recordingMeetingId={recording ? activeMeetingId : null}
-                onSelect={(id) => {
-                  setSelected(id);
-                  setSettingsOpen(false);
-                }}
-              />
-            </div>
-          </SignedInCard>
-        </div>
-      </aside>
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col [&>section]:min-h-0">
-        <PromptBanner prompt={prompt} recording={startRequest(input)} />
-        <AutoStopQuestion notice={autoStop} />
-        {settingsOpen ? (
-          <SettingsView
-            onClose={() => setSettingsOpen(false)}
-            onOpenSetup={() => setSetupOpen(true)}
-          />
-        ) : (
-          <MeetingView
-            documentId={selected}
-            snapshot={snapshot}
-            options={options}
-            input={input}
-            onInputChange={setChoice}
-            home={
-              onboarding.state.guide ? (
-                <FirstMeetingGuide onDismiss={() => void onboarding.dismissGuide()} />
-              ) : undefined
-            }
-          />
-        )}
-        <AutoStopToast notice={autoStop} />
-      </div>
-    </main>
-  );
-}
-
-/** Account panel in the sidebar: who is signed in, (meeting notes,) connection check, widget, sign out. */
-function SignedInCard({
-  user,
-  sync,
-  children,
-  onOpenSettings,
-}: {
-  user: DesktopUser;
-  sync?: SyncStatusSnapshot;
-  children?: ReactNode;
-  onOpenSettings?: () => void;
-}) {
-  const check = useAction();
-  const other = useAction();
-  const [me, setMe] = useState<InvokeResponse<'api:me'> | null>(null);
-  const label = user.name || user.email;
-
-  return (
-    <div className="flex h-full flex-col gap-3" data-testid="signed-in">
-      <div className="flex items-center gap-2.5 px-1 pt-1">
-        <div
-          aria-hidden
-          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-700 text-label-14 text-brand-on"
-        >
-          {label.charAt(0).toUpperCase()}
-        </div>
-        {/* The account, not a page heading (9.3b): the name when there is one, else the address. */}
-        <div className="flex min-w-0 flex-col">
-          {user.name && <p className="truncate text-label-14 text-gray-1000">{user.name}</p>}
-          <p
-            className={
-              user.name
-                ? 'truncate text-label-12 text-gray-900'
-                : 'truncate text-label-14 text-gray-1000'
-            }
-            title={user.email}
-            data-selectable
-            data-testid="signed-in-email"
-          >
-            {user.email}
-          </p>
-        </div>
-      </div>
-      {children}
-      <div className="flex flex-col gap-1">
-        <Button
-          variant="ghost"
-          className="w-full justify-start"
-          disabled={check.pending}
-          onClick={async () => setMe((await check.run(() => call('api:me'))) ?? null)}
-        >
-          {check.pending ? (
-            <Spinner data-icon="inline-start" />
-          ) : (
-            <IconRefresh data-icon="inline-start" />
+            </SidebarMenuItem>
+            <DesktopSearch
+              refreshKey={sync.lastSyncedAt}
+              onOpen={(hit) => {
+                setSelected(hit.documentId);
+                setSettingsOpen(false);
+              }}
+            />
+          </SidebarMenu>
+          {starting.error && (
+            <p role="status" className="px-2 text-copy-13 text-red-900">
+              {starting.error}
+            </p>
           )}
-          Check connection
-        </Button>
-        {me && !check.error && (
-          <p
-            role="status"
-            className="flex items-center gap-1.5 px-2.5 text-label-12 text-gray-900"
-            data-testid="api-me"
-          >
-            <IconCircleCheck className="size-3.5 shrink-0 text-green-900" />
-            <span className="truncate">Connected as {me.user.email}</span>
-          </p>
-        )}
-        <Button
-          variant="ghost"
-          className="w-full justify-start"
-          disabled={other.pending}
-          onClick={() => void other.run(() => call('window:open-widget'))}
+        </SidebarHeader>
+        <SidebarContent>
+          <div className="group-data-[collapsible=icon]:hidden">
+            <UpcomingList
+              snapshot={calendar}
+              otherWorkspace={otherWorkspace}
+              onOpen={(documentId) => {
+                setSelected(documentId);
+                setSettingsOpen(false);
+                bumpMeetingsVersion();
+              }}
+            />
+            <ConflictsPanel refreshKey={sync.lastSyncedAt} />
+          </div>
+          <MeetingList
+            notes={listed}
+            workspaceName={activeWorkspace?.name ?? null}
+            selected={selected}
+            recordingMeetingId={recording ? activeMeetingId : null}
+            onSelect={(id) => {
+              setSelected(id);
+              setSettingsOpen(false);
+            }}
+          />
+        </SidebarContent>
+        <SidebarFooter data-testid="signed-in">
+          <SyncLine status={sync} />
+          <DesktopUserMenu user={user} onOpenSettings={() => setSettingsOpen(true)} />
+        </SidebarFooter>
+      </Sidebar>
+      <SidebarInset className="min-h-0 min-w-0">
+        <header
+          className={cn(
+            'app-drag sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b border-gray-alpha-400 bg-background-100 px-3',
+            /Mac/.test(navigator.platform) &&
+              'max-md:ps-24 group-has-data-[collapsible=icon]/sidebar-wrapper:ps-12',
+          )}
         >
-          <IconAppWindow data-icon="inline-start" />
-          Show meeting widget
-        </Button>
-        {onOpenSettings && (
-          <Button variant="ghost" className="w-full justify-start" onClick={onOpenSettings}>
-            <IconSettings data-icon="inline-start" />
-            Settings
-          </Button>
-        )}
-        <p role="status" className="px-2.5 text-copy-13 text-red-900 empty:hidden">
-          {check.error ?? other.error}
-        </p>
-      </div>
-      <SyncLine status={sync} />
-      <Button
-        variant="ghost"
-        className="w-full justify-start text-gray-900"
-        disabled={other.pending}
-        onClick={() => void other.run(() => call('auth:sign-out'))}
-      >
-        <IconLogout data-icon="inline-start" />
-        Sign out
-      </Button>
-    </div>
+          <SidebarTrigger className="app-no-drag" />
+          <Breadcrumb className="min-w-0 flex-1 overflow-hidden">
+            <BreadcrumbList className="flex-nowrap">
+              <BreadcrumbItem className="shrink-0">
+                {activeWorkspace?.name ?? 'Workspace'}
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem className="min-w-0">
+                <BreadcrumbPage className="truncate">
+                  {settingsOpen
+                    ? 'Settings'
+                    : notes?.find((n) => n.documentId === selected)?.title || 'Meeting notes'}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+          <div
+            ref={setToolbar}
+            className="app-no-drag ms-auto max-w-[75%] shrink-0 overflow-x-auto"
+          />
+        </header>
+        <div className="relative flex min-h-0 flex-1 flex-col [&>section]:min-h-0">
+          <PromptBanner prompt={prompt} recording={startRequest(input)} />
+          <AutoStopQuestion notice={autoStop} />
+          {settingsOpen ? (
+            <>
+              {recording && (
+                <>
+                  <RecordingBar
+                    snapshot={snapshot}
+                    options={options}
+                    input={input}
+                    onInputChange={setChoice}
+                    controlsContainer={toolbar}
+                  />
+                  <IssueBanner snapshot={snapshot} />
+                </>
+              )}
+              <SettingsView
+                onClose={() => setSettingsOpen(false)}
+                onOpenSetup={() => setSetupOpen(true)}
+              />
+            </>
+          ) : (
+            <MeetingView
+              documentId={selected}
+              snapshot={snapshot}
+              options={options}
+              input={input}
+              onInputChange={setChoice}
+              controlsContainer={toolbar}
+              home={
+                onboarding.state.guide ? (
+                  <FirstMeetingGuide onDismiss={() => void onboarding.dismissGuide()} />
+                ) : undefined
+              }
+            />
+          )}
+          <AutoStopToast notice={autoStop} />
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 
@@ -560,14 +543,15 @@ function SyncLine({ status }: { status: SyncStatusSnapshot | undefined }) {
   return (
     <p
       role="status"
-      className="mt-auto flex items-center gap-1.5 px-2.5 text-label-12 text-gray-900"
+      className="flex min-h-6 items-center gap-1.5 px-2 text-label-12 text-gray-900"
+      aria-label={label.text}
       data-testid="sync-status"
       data-state={status.state}
       data-pending={status.pending}
       title={status.error ?? undefined}
     >
       <Icon className={`size-3.5 shrink-0 ${className}`} />
-      <span className="truncate">{label.text}</span>
+      <span className="truncate group-data-[collapsible=icon]:hidden">{label.text}</span>
     </p>
   );
 }

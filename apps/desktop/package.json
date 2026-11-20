@@ -34,6 +34,9 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
+    "jsdom": "catalog:",
     "@axe-core/playwright": "catalog:",
     "@electron/fuses": "catalog:",
     "@oat/mocks": "workspace:*",

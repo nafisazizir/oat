@@ -28,6 +28,7 @@ import {
   IconWifiOff,
 } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { formatClock } from '../../../shared/transcript.ts';
 import { BridgeCallError, call } from '../bridge.ts';
@@ -183,6 +184,7 @@ export function RecordingBar({
   meetingId = null,
   recorded = true,
   hint = null,
+  controlsContainer,
 }: {
   snapshot: RecordingSnapshot | null;
   options: InvokeResponse<'recording:options'> | null;
@@ -195,6 +197,7 @@ export function RecordingBar({
   recorded?: boolean;
   /** Why the open note can't be continued (shown under the bar while idle). */
   hint?: string | null;
+  controlsContainer?: HTMLElement | null;
 }) {
   const action = useRecordingAction();
   const status = snapshot?.status ?? 'idle';
@@ -204,105 +207,108 @@ export function RecordingBar({
     return action.run(() => call('recording:start', startRequest(input, meetingId)));
   }
 
+  const controls = (
+    <div className={cn('flex items-center gap-3', !controlsContainer && 'flex-wrap')}>
+      {status === 'recording' && (
+        <Button
+          variant="secondary"
+          disabled={action.pending}
+          onClick={() => void action.run(() => call('recording:pause'))}
+        >
+          <IconPlayerPause data-icon="inline-start" />
+          Pause
+        </Button>
+      )}
+      {status === 'paused' && (
+        <Button
+          disabled={action.pending}
+          onClick={() => void action.run(() => call('recording:resume'))}
+        >
+          <IconPlayerPlay data-icon="inline-start" />
+          Resume
+        </Button>
+      )}
+      {(status === 'idle' || status === 'error') && (
+        <Button disabled={action.pending || !snapshot} onClick={() => void start()}>
+          {action.pending ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <IconMicrophone data-icon="inline-start" />
+          )}
+          {meetingId && recorded ? 'Continue recording' : 'Start recording'}
+        </Button>
+      )}
+      {status === 'starting' && (
+        <Button disabled>
+          <Spinner data-icon="inline-start" />
+          Starting…
+        </Button>
+      )}
+      {status === 'stopping' && (
+        <Button disabled variant="secondary">
+          <Spinner data-icon="inline-start" />
+          Saving…
+        </Button>
+      )}
+      {(active || status === 'error') && (
+        <Button
+          variant="destructive"
+          disabled={action.pending}
+          onClick={() => void action.run(() => call('recording:stop'))}
+          aria-label={status === 'error' ? 'Dismiss' : 'Stop recording'}
+        >
+          <IconPlayerStopFilled data-icon="inline-start" />
+          {status === 'error' ? 'Dismiss' : 'Stop'}
+        </Button>
+      )}
+
+      <div className="flex items-center gap-3 border-s border-gray-alpha-400 ps-3">
+        <span className="flex items-center gap-2">
+          <RecordingDot status={status} />
+          <Elapsed snapshot={snapshot} />
+        </span>
+        {active && (
+          <>
+            <LevelMeter label="Me" source="mic" db={snapshot?.levels.mic?.rmsDb} />
+            <LevelMeter label="Them" source="system" db={snapshot?.levels.system?.rmsDb} />
+          </>
+        )}
+      </div>
+      <div className="ms-auto flex items-center gap-2">
+        <SttStatusPill snapshot={snapshot} />
+        {options && options.fixtures.length > 0 && (status === 'idle' || status === 'error') && (
+          <Select
+            items={[
+              { value: 'sidecar', label: 'Mic + system audio' },
+              ...options.fixtures.map((f) => ({
+                value: `${FILE_PREFIX}${f}`,
+                label: `Fixture: ${f}`,
+              })),
+            ]}
+            value={input}
+            onValueChange={(value) => {
+              if (value !== null) onInputChange(value);
+            }}
+          >
+            <SelectTrigger size="sm" aria-label="Audio input (dev)" data-testid="audio-input">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sidecar">Mic + system audio</SelectItem>
+              {options.fixtures.map((f) => (
+                <SelectItem key={f} value={`${FILE_PREFIX}${f}`}>
+                  Fixture: {f}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+    </div>
+  );
   return (
     <div className="flex flex-col gap-2" data-testid="recording-bar" data-status={status}>
-      <div className="flex flex-wrap items-center gap-3">
-        {status === 'recording' && (
-          <Button
-            variant="secondary"
-            disabled={action.pending}
-            onClick={() => void action.run(() => call('recording:pause'))}
-          >
-            <IconPlayerPause data-icon="inline-start" />
-            Pause
-          </Button>
-        )}
-        {status === 'paused' && (
-          <Button
-            disabled={action.pending}
-            onClick={() => void action.run(() => call('recording:resume'))}
-          >
-            <IconPlayerPlay data-icon="inline-start" />
-            Resume
-          </Button>
-        )}
-        {(status === 'idle' || status === 'error') && (
-          <Button disabled={action.pending || !snapshot} onClick={() => void start()}>
-            {action.pending ? (
-              <Spinner data-icon="inline-start" />
-            ) : (
-              <IconMicrophone data-icon="inline-start" />
-            )}
-            {meetingId && recorded ? 'Continue recording' : 'Start recording'}
-          </Button>
-        )}
-        {status === 'starting' && (
-          <Button disabled>
-            <Spinner data-icon="inline-start" />
-            Starting…
-          </Button>
-        )}
-        {status === 'stopping' && (
-          <Button disabled variant="secondary">
-            <Spinner data-icon="inline-start" />
-            Saving…
-          </Button>
-        )}
-        {(active || status === 'error') && (
-          <Button
-            variant="destructive"
-            disabled={action.pending}
-            onClick={() => void action.run(() => call('recording:stop'))}
-            aria-label={status === 'error' ? 'Dismiss' : 'Stop recording'}
-          >
-            <IconPlayerStopFilled data-icon="inline-start" />
-            {status === 'error' ? 'Dismiss' : 'Stop'}
-          </Button>
-        )}
-
-        <div className="flex items-center gap-3 border-s border-gray-alpha-400 ps-3">
-          <span className="flex items-center gap-2">
-            <RecordingDot status={status} />
-            <Elapsed snapshot={snapshot} />
-          </span>
-          {active && (
-            <>
-              <LevelMeter label="Me" source="mic" db={snapshot?.levels.mic?.rmsDb} />
-              <LevelMeter label="Them" source="system" db={snapshot?.levels.system?.rmsDb} />
-            </>
-          )}
-        </div>
-        <div className="ms-auto flex items-center gap-2">
-          <SttStatusPill snapshot={snapshot} />
-          {options && options.fixtures.length > 0 && (status === 'idle' || status === 'error') && (
-            <Select
-              items={[
-                { value: 'sidecar', label: 'Mic + system audio' },
-                ...options.fixtures.map((f) => ({
-                  value: `${FILE_PREFIX}${f}`,
-                  label: `Fixture: ${f}`,
-                })),
-              ]}
-              value={input}
-              onValueChange={(value) => {
-                if (value !== null) onInputChange(value);
-              }}
-            >
-              <SelectTrigger size="sm" aria-label="Audio input (dev)" data-testid="audio-input">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sidecar">Mic + system audio</SelectItem>
-                {options.fixtures.map((f) => (
-                  <SelectItem key={f} value={`${FILE_PREFIX}${f}`}>
-                    Fixture: {f}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
-      </div>
+      {controlsContainer ? createPortal(controls, controlsContainer) : controls}
       {action.error && (
         <p role="status" className="text-copy-13 text-red-900">
           {action.error}

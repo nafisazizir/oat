@@ -15,6 +15,8 @@ import {
   mergeTranscripts,
   ParticipantChips,
   SidePanel,
+  NoteColumn,
+  TRANSCRIPT_PANEL_SIZE,
   type TranscriptItem,
   useStoredState,
 } from '@oat/meeting-ui';
@@ -68,6 +70,7 @@ export function MeetingView({
   input,
   onInputChange,
   home,
+  controlsContainer,
 }: {
   documentId: string | null;
   snapshot: RecordingSnapshot | null;
@@ -76,6 +79,7 @@ export function MeetingView({
   onInputChange: (choice: string) => void;
   /** Replaces the start screen when no note is open (9.2: the first-meeting guide). */
   home?: ReactNode;
+  controlsContainer?: HTMLElement | null;
 }) {
   const { note, loaded } = useMeetingNote(documentId);
   const live = useTranscript();
@@ -141,8 +145,15 @@ export function MeetingView({
         {documentId === null ? 'Meeting notes' : note?.title || 'Untitled meeting'}
       </h1>
       <audio ref={audioRef} preload="metadata" hidden data-testid="playback-audio" />
-      <div className="flex flex-col gap-3 border-b border-gray-alpha-400 px-6 py-3">
+      <div
+        className={
+          controlsContainer
+            ? 'flex flex-col gap-3'
+            : 'flex flex-col gap-3 border-b border-gray-alpha-400 px-6 py-3'
+        }
+      >
         <RecordingBar
+          controlsContainer={controlsContainer}
           snapshot={snapshot}
           options={options}
           input={input}
@@ -207,9 +218,9 @@ export function MeetingView({
               setPanelOpen(false);
             }}
             storageKey="oat.desktop.transcript.width"
-            defaultWidth={340}
-            minWidth={260}
-            maxWidth={560}
+            defaultWidth={TRANSCRIPT_PANEL_SIZE.default}
+            minWidth={TRANSCRIPT_PANEL_SIZE.min}
+            maxWidth={TRANSCRIPT_PANEL_SIZE.max}
             data-testid="transcript-panel"
           >
             <div
@@ -248,12 +259,7 @@ export function MeetingView({
 /** Same geometry as `NoteBody` (meta row, title, first lines), so nothing moves when the note arrives. */
 function NoteSkeleton() {
   return (
-    <div
-      className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-8 py-6"
-      aria-busy
-      aria-label="Loading note"
-      data-testid="note-loading"
-    >
+    <NoteColumn className="gap-6" aria-busy aria-label="Loading note" data-testid="note-loading">
       <div className="flex flex-col gap-2.5">
         <div className="flex min-h-7 items-center gap-2">
           <Skeleton className="h-5 w-16 rounded-full" />
@@ -266,7 +272,7 @@ function NoteSkeleton() {
         <Skeleton className="h-4 w-2/3" />
         <Skeleton className="h-4 w-1/2" />
       </div>
-    </div>
+    </NoteColumn>
   );
 }
 
@@ -357,7 +363,7 @@ function NoteBody({
 
   const editable = note.editable;
   return (
-    <article className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-8 py-6" data-testid="note">
+    <NoteColumn className="gap-6" role="article" data-testid="note">
       <header className="flex flex-col gap-2.5">
         <div className="flex min-h-7 flex-wrap items-center gap-2 text-label-12 text-gray-900">
           {note.workspaceName && (
@@ -455,7 +461,7 @@ function NoteBody({
           className="min-h-64"
         />
       </div>
-    </article>
+    </NoteColumn>
   );
 }
 

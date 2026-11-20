@@ -26,6 +26,7 @@ for (const theme of ['light', 'dark'] as const) {
     for (const [name, route] of [
       ['home', '/home'],
       ['document', `/d/${content.page.id}`],
+      ['meeting', `/d/${content.meeting.id}`],
       ['settings', '/settings'],
     ] as const) {
       await page.goto(route);
@@ -34,6 +35,9 @@ for (const theme of ['light', 'dark'] as const) {
         await expect(
           page.getByTestId('note-editor').getByText('Themes', { exact: true }),
         ).toBeVisible();
+      } else if (name === 'meeting') {
+        await expect(page.getByTestId('meeting-header').filter({ visible: true })).toBeVisible();
+        await expect(page.getByTestId('transcript-panel')).toBeVisible();
       } else {
         await expect(
           page.getByRole('heading', { level: 1, name: name === 'home' ? 'Home' : 'Settings' }),

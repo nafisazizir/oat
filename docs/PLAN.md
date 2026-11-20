@@ -101,6 +101,8 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 
 ## M9 — Ship v1
 
+- [x] Human-requested: unify desktop/web shell and note layout · [task](tasks/unify-shell.md)
+
 - [x] Human-requested UI foundation: ziiz shared components and oat ramp, no app redesign · [task](tasks/ui-foundation.md)
 - [x] Human-requested ziiz final pass, part 1: Home, Sonner and gallery · [task](tasks/ui-final-pass.md)
 - [x] Human-requested ziiz final pass, part 2: remove bridge and Lucide; repo guards and visual/build checks · [task](tasks/ui-final-pass.md)

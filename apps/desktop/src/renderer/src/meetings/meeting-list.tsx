@@ -5,10 +5,16 @@
 import type { MeetingNoteSummary } from '@oat/core/bridge';
 import { shortWhen } from '@oat/meeting-ui';
 import { Button } from '@oat/ui/components/button';
-import { cn } from '@oat/ui/lib/utils';
+import {
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+} from '@oat/ui/components/sidebar';
 import { Kbd, KbdGroup } from '@oat/ui/components/kbd';
 import { Spinner } from '@oat/ui/components/spinner';
-import { IconPlus } from '@tabler/icons-react';
+import { IconEdit, IconNotes } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
 import { isNewNoteShortcut } from '../keyboard.ts';
@@ -39,14 +45,15 @@ export function NewMeetingButton({
 
   return (
     <Button
-      className="w-full justify-start"
+      className="w-full justify-start group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-2"
+      aria-label="New meeting note"
       disabled={disabled || pending}
       onClick={onClick}
       data-testid="new-meeting"
     >
-      {pending ? <Spinner data-icon="inline-start" /> : <IconPlus data-icon="inline-start" />}
-      New meeting note
-      <KbdGroup aria-hidden className="ms-auto">
+      {pending ? <Spinner data-icon="inline-start" /> : <IconEdit data-icon="inline-start" />}
+      <span className="group-data-[collapsible=icon]:hidden">New meeting note</span>
+      <KbdGroup aria-hidden className="ms-auto group-data-[collapsible=icon]:hidden">
         <Kbd className="bg-background-100/20 text-background-100">{MOD}</Kbd>
         <Kbd className="bg-background-100/20 text-background-100">N</Kbd>
       </KbdGroup>
@@ -70,8 +77,8 @@ export function MeetingList({
 }) {
   const [now] = useState(() => Date.now());
   return (
-    <nav aria-label="Meeting notes" className="flex min-h-0 flex-1 flex-col gap-1">
-      <h2 className="flex h-8 items-center px-2.5 text-label-12 text-gray-900">Meetings</h2>
+    <SidebarGroup aria-label="Meeting notes">
+      <SidebarGroupLabel>Meetings</SidebarGroupLabel>
       {notes === null ? null : notes.length === 0 ? (
         <p className="px-2.5 text-copy-13 text-gray-900" data-testid="meeting-list-empty">
           {workspaceName
@@ -79,26 +86,21 @@ export function MeetingList({
             : 'Your meeting notes appear here.'}
         </p>
       ) : (
-        <ul
-          className="-mx-1 flex min-h-0 flex-col gap-px overflow-y-auto px-1"
-          data-testid="meeting-list"
-        >
+        <SidebarMenu data-testid="meeting-list">
           {notes.map((n) => {
             const active = n.documentId === selected;
             const recording = n.meetingId !== null && n.meetingId === recordingMeetingId;
             return (
-              <li key={n.documentId}>
-                <button
-                  type="button"
+              <SidebarMenuItem key={n.documentId}>
+                <SidebarMenuButton
+                  isActive={active}
+                  tooltip={n.title || 'Untitled meeting'}
                   aria-current={active ? 'page' : undefined}
                   data-testid="meeting-list-item"
                   data-document-id={n.documentId}
                   onClick={() => onSelect(n.documentId)}
-                  className={cn(
-                    'flex h-8 w-full items-center gap-2 rounded-md px-2.5 text-start text-label-14 text-gray-1000 transition-colors outline-none hover:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50 active:bg-gray-alpha-200',
-                    active && 'bg-gray-alpha-200 hover:bg-gray-alpha-300',
-                  )}
                 >
+                  <IconNotes aria-hidden />
                   {recording && (
                     <span
                       aria-label="Recording"
@@ -109,12 +111,12 @@ export function MeetingList({
                   <span className="shrink-0 text-label-12 text-gray-900 tabular-nums">
                     {shortWhen(n.startedAt ?? n.createdAt, now)}
                   </span>
-                </button>
-              </li>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             );
           })}
-        </ul>
+        </SidebarMenu>
       )}
-    </nav>
+    </SidebarGroup>
   );
 }
