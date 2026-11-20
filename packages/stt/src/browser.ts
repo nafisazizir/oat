@@ -145,7 +145,8 @@ export class BrowserSttStream extends BaseSttStream {
       };
       socket.onerror = () => this.#lost('STT is disconnected; audio is buffered and will replay.');
       socket.onclose = () => {
-        if (this.#finishing) this.close();
+        if (this.#finishing && this.#endSent && !this.#unsent.length && !socket.bufferedAmount)
+          this.close();
         else this.#lost('STT disconnected; retrying with buffered audio.');
       };
     } catch {

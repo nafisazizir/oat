@@ -42,6 +42,46 @@ const frame = (tUs = 0) => ({
 afterEach(() => vi.useRealTimers());
 
 describe('browser STT', () => {
+  it('reconnects and drains unsent speech while finishing instead of silently resolving', async () => {
+    vi.useFakeTimers();
+    const sockets: Socket[] = [];
+    const getToken = vi.fn(async () => ({
+      listenUrl: 'ws://localhost/listen',
+      accessToken: 'token',
+      keyterms: [],
+    }));
+    const stream = new BrowserSttStream({
+      source: 'mic',
+      sampleRate: 16000,
+      getToken,
+      socket: () => {
+        const socket = new Socket();
+        sockets.push(socket);
+        return socket;
+      },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    sockets[0]!.bufferedAmount = 600000;
+    sockets[0]!.open();
+    stream.write(frame(1001));
+    let finished = false;
+    const finish = stream.finish().then(() => {
+      finished = true;
+    });
+    sockets[0]!.onclose?.();
+    expect(stream.status).toBe('reconnecting');
+    expect(finished).toBe(false);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(getToken).toHaveBeenCalledTimes(2);
+    sockets[1]!.open();
+    expect(sockets[1]!.sent.filter((data) => data instanceof Uint8Array)).toHaveLength(1);
+    expect(sockets[1]!.sent.at(-1)).toBe('{"type":"CloseStream"}');
+    sockets[1]!.result('Recovered last words', true);
+    sockets[1]!.onclose?.();
+    await finish;
+    expect(stream.committedMs).toBe(21.001);
+    expect(stream.status).toBe('closed');
+  });
   it('trims finalized fractional-ms frames in integer microseconds before reconnecting', async () => {
     vi.useFakeTimers();
     const sockets: Socket[] = [];
@@ -92,6 +132,8 @@ describe('browser STT', () => {
           return { listenUrl: 'ws://localhost/listen', accessToken: 'token', keyterms: [] };
         },
       });
+      const errors: string[] = [];
+      stream.on('error', (error) => errors.push(error.message));
       stream.write(frame(1001));
       await vi.advanceTimersByTimeAsync(0);
       if (failure === 'backpressure') socket.open();
@@ -100,6 +142,7 @@ describe('browser STT', () => {
       await vi.advanceTimersByTimeAsync(15001);
       await finish;
       expect(stream.status).toBe('closed');
+      expect(errors.some((error) => error.includes('finalization timed out'))).toBe(true);
     },
   );
   it('reuses one id across interim updates and their final, allocating a new id only after finalization', async () => {
