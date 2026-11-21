@@ -195,4 +195,98 @@ not run (all pre-existing; `workspaces.spec.ts` 4/4 pass), everything else `pass
 
 ## Review
 
+### Step A
+Verdict: **changes** (2026-11-21, reviewer; diff `task/unified-workspaces...task/unified-workspaces-a` at 36cd434).
+One regression to fix (1), one acceptance gap on the desktop (2); 3–7 are small or for the orchestrator to
+decide. Everything else in the brief's checklist held up — see "Checked and fine".
+
+Ran on this branch: `@oat/core` test (100 % coverage), `@oat/local-store` test, `@oat/auth` test + `test:int`
+(83 passed), `@oat/db` `test:int` (56 passed, incl. the 0013 migration test), `@oat/desktop` test. I did not
+re-run the full `pnpm run ci` or any e2e (verifier's job).
+
+**Must fix**
+
+1. `packages/auth/src/members.ts:250-252` (`deleteWorkspace`) — authorisation now uses a role read *before*
+   the workspace lock. `lockedActorContext` loads the actor's memberships, then `lockWorkspace` waits for the
+   mutex, then `assertCan('deleteWorkspace', own, …)` decides on the earlier read; the base branch decided on
+   `contextOf(locked)`, i.e. rows read under the lock, which is what the module comment still promises.
+   Scenario: U and O own workspace A (U also has B). O demotes U to member while U's delete is waiting on A's
+   lock → the demotion commits, then U's delete succeeds as a non-owner.
+   **Confirmed by running it**: a throwaway int test (hold `workspace` row `FOR UPDATE`, start
+   `deleteWorkspace`, demote the actor in the holding transaction, commit) ended with `deleted` and
+   `deleted_at` set; not committed. Fix direction: take the actor's role in this workspace from
+   `locked.members` (or re-read the context after `lockWorkspace`) and keep the all-memberships read only for
+   the last-workspace count; add the race as a regression test. Leaving (`removeMember`, line 217-220) uses
+   the same early context but only for "is a member at all" — target and owner count come from the locked
+   rows, so I found no wrong outcome there; worth building both the same way.
+
+2. Desktop, user with **zero** workspaces — acceptance "with none, the user is asked to create one" is only met
+   when a view-only workspace is present. `apps/desktop/src/main/workspaces.ts:36-38`
+   (`noNoteWorkspaceMessage`) answers `CONNECT_ONCE_MESSAGE` whenever `store.workspaces()` is empty, and
+   `workspaces-state.ts:87` sets `needsWorkspace` only when `active !== null`. A synced store is empty when
+   the user was removed from their only workspace or its owner deleted it (`applyPull` →
+   `#dropWorkspacesExcept`), both of which D-36 allows; nothing on the sync path calls `ensureFirstWorkspace`
+   (only `shell.ts:104` and `server.ts:397/410`), so a desktop-only user stays that way. Result: every "Start
+   notes"/record first waits the 10 s `awaitWorkspaces` timeout (`sync-service.ts:287`), then says "Oat
+   needs to connect once… Check your connection", and the sidebar shows no hint. No recording is lost (refused
+   before capture, `recording-service.ts:398`), but the user is told the wrong thing and never told to open
+   the web. **Traced, not run.** Fix direction: tell "never pulled" from "pulled, no workspace" (the pull
+   cursor / `STATE.workspaces` is set after a pull) and show the create-a-workspace wording + sidebar hint
+   without the wait; or heal server-side on pull. Add a test for the empty-after-sync store.
+
+**Should fix / decide**
+
+3. `packages/auth/src/server.ts:348-357` — "last active workspace" is only recorded on `organization/set-active`.
+   Accepting an invitation makes that workspace active in the session through Better Auth without passing
+   that path, so: user in A accepts an invite to B, works in B, signs in on another device → starts in A
+   (oldest), not B. Creating a workspace is fine (`actions/workspaces.ts:60` calls set-active). Traced, not
+   run; suspicion as to how visible it is. Either remember on accept too or note it as intended.
+4. Old-client compatibility was dropped (`packages/core/src/sync.ts`, `apps/web/src/server/sync/pull.ts:170`):
+   the task's Design notes ask for one desktop version where `kind` stays optional; the step note says
+   "skipped as agreed" but the agreement is not recorded anywhere I was given. A desktop build from `main`
+   fails to parse every pull that carries a workspace row. Fine if no such build is in use — the orchestrator
+   should confirm and amend the Design note, or the field goes back as optional-and-ignored.
+5. `apps/web/src/components/app-shell/create-workspace-dialog.tsx:20,58` still says "Create a team
+   workspace" (also `createTeamWorkspace` in `actions/workspaces.ts:49`). User-visible leftover of the two-kind
+   model; the grep in the acceptance criterion doesn't catch "team". Confirmed by reading.
+6. `apps/web/src/lib/workspace.ts:13-24` — "Only you" for `workspace`-visibility items now depends on the
+   member count. In a workspace of one, a note the user set to workspace visibility reads "Only you" and
+   becomes readable by whoever is invited next (and by auto-joiners once step B lands), with no change on the
+   note. Before, a personal workspace could never gain members. Not a permission bug (rules unchanged);
+   wording risk to settle in step B/C at the latest. Observation.
+7. `apps/desktop/src/main/workspaces.ts:36-38, 91` — a workspace row with `role: null` is no longer creatable,
+   and with only such rows the refusal says "You can only view the workspaces you're in", which is not what
+   is known. Reachable only on a store that has rows but no roles yet (upgrade from a pre-3.9 store while
+   offline). Low; traced.
+
+**Checked and fine**
+
+- Migration 0013: ids untouched, rename only where the name is still "Personal", slugs regenerated with 12
+  random hex (≤ 53 chars, pass the app's slug rule, unique in the test), constraint/index/column/enum dropped
+  in a valid order, journal idx 13 follows 12, change-log rows written for the renamed workspaces. The
+  migration int test runs from a DB at the previous schema with data and passes.
+- `user.last_active_workspace_id`: no FK by design; never used unchecked — `startingWorkspaceId` and
+  `pickActiveWorkspace` only accept it when it is among the user's live memberships, so removal from it or a
+  soft delete falls back to the oldest membership. Not client-settable (not a Better Auth field; `/update-user`
+  accepts `name` only).
+- `ensureFirstWorkspace`: check + insert under a per-user advisory lock; concurrent calls create one (int
+  test). Pending-invite path excludes expired, answered, revoked invites and deleted workspaces (int test);
+  revoked-by-authority invites are cancelled in `removeMember`/`changeMemberRole`, so they don't hold a
+  newcomer back. Any admin can park a not-yet-registered address on their invite page until that person
+  declines — inherent to "no workspace while an invite is pending"; step B's join screen replaces it.
+- Last-workspace rule: in `permissions.ts` (`isLastWorkspace`, fails closed on a one-workspace context) with
+  deny tests; enforced in `@oat/auth` for leave and delete under the user lock, with concurrency tests for two
+  leaves and two deletes. Better Auth's own `leave` / `remove-member` / `delete` / `update-member-role` stay
+  blocked (`BLOCKED_ORGANIZATION_PATHS`); there is no account-deletion path. Removing someone else from their
+  only workspace is allowed and clears their session's active workspace; the web shell and the next sign-in
+  give them a new one (desktop: see 2). A leave racing with someone else's removal/delete of the user's other
+  workspace can still end at zero — same accepted outcome.
+- Lock order is user → workspace everywhere; no cycle found.
+- Local-store migration 5: in-place `DROP COLUMN`, tested from a version-4 file built by migrations 1–4 plus
+  fixture rows (documents, outbox, cursor, search preserved). Pull scope not bumped, so no re-download.
+- Record-target fallback: active if creatable, else first creatable by name, else refusal before any audio.
+- Leftovers: the task's grep returns only migrations/snapshots, the two migration tests + fixture and
+  calendar fixtures. Clean-room and D-11: nothing new touches `research/` or an external service. Tests were
+  adapted rather than removed (auth int 83, members deny cases kept and extended).
+
 ## Evidence
