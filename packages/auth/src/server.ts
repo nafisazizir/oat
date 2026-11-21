@@ -4,7 +4,8 @@
  * `google-calendar.ts`), the organization plugin mapped onto
  * workspaces (`@oat/db` auth-mapping) with our roles, and bearer tokens for the desktop app (1.8).
  *
- * A new user who isn't invited anywhere gets a workspace of their own (D-36: one kind of workspace); every
+ * A new user with nothing to join (no invitation, no workspace open to their email domain: `joining.ts`)
+ * gets a workspace of their own (D-36: one kind of workspace); every
  * new session starts in the workspace the user last switched to, else their oldest one, unless a workspace is
  * already active. Guards on the organization plugin keep invitations within `@oat/core` rules.
  */
@@ -22,6 +23,7 @@ import { type AuthConfig, isLoopbackUrl } from './config.ts';
 import { desktopAuth } from './desktop.ts';
 import { createSmtpMailer, invitationEmail, type Mailer, magicLinkEmail } from './email.ts';
 import { GOOGLE_CALENDAR_PROVIDER_ID, GOOGLE_CALENDAR_SCOPES } from './google-calendar.ts';
+import { ensureFirstWorkspace, settlePendingRequests } from './joining.ts';
 import { magicLinkConfirmUrl } from './magic-link.ts';
 import {
   INVITE_EXPIRES_IN,
@@ -31,11 +33,7 @@ import {
 } from './members.ts';
 import { GOOGLE_PROVIDER_ID } from './providers.ts';
 import { createRateLimiter, type RateLimiter } from './rate-limit.ts';
-import {
-  ensureFirstWorkspace,
-  rememberActiveWorkspace,
-  startingWorkspaceId,
-} from './workspaces.ts';
+import { rememberActiveWorkspace, startingWorkspaceId } from './workspaces.ts';
 
 /** Magic links are single-use and expire after this many seconds. */
 export const MAGIC_LINK_EXPIRES_IN = 15 * 60;
@@ -421,7 +419,8 @@ export function createAuth({
       },
       user: {
         create: {
-          // No invitation waiting → a workspace of their own (an invited user joins that one instead).
+          // Nothing to join → a workspace of their own. Someone with an invitation waiting, or whose
+          // verified email's domain lets them into a workspace, chooses on the join screen instead.
           after: async (user) => {
             await ensureFirstWorkspace(db, user.id);
           },
@@ -431,7 +430,7 @@ export function createAuth({
         create: {
           // Every sign-in starts in the workspace the user last switched to, else their oldest one
           // (unless something already chose one). Also heals users whose after-hook failed. A user who
-          // only has a pending invitation starts without one (the invite page is where they go).
+          // has a workspace to join or an invitation to answer starts without one (the join screen).
           before: async (session) => {
             if (session.activeOrganizationId) return;
             const start =
@@ -600,6 +599,12 @@ export function createAuth({
               role: invitation.role,
             });
             if (!stillAllowed) throw forbidden('This invitation is no longer valid.');
+          },
+          // Someone who asked to join and was then invited is in: their request isn't left waiting.
+          afterAcceptInvitation: async ({ member, organization: org }) => {
+            if (isRole(member.role)) {
+              await settlePendingRequests(db, org.id, member.userId, member.role);
+            }
           },
           beforeUpdateMemberRole: async ({ newRole }) => {
             if (!isRole(newRole)) throw forbidden('Unknown role.');

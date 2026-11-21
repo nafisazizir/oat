@@ -17,17 +17,13 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { type AuthConfig, DEV_AUTH_SECRET } from './config.ts';
+import { ensureFirstWorkspace, getJoinChoices } from './joining.ts';
 import { type Auth, createAuth } from './server.ts';
 import { MAGIC_LINK_CONFIRM_PATH, magicLinkVerifyUrl } from './magic-link.ts';
 import { peekMagicLinkEmail } from './magic-link-lookup.ts';
 import { deleteWorkspace } from './members.ts';
 import { createRedisRateLimiter, type RateLimiter } from './rate-limit.ts';
-import {
-  ensureFirstWorkspace,
-  findFirstWorkspaceId,
-  listUserWorkspaces,
-  loadPermissionContext,
-} from './workspaces.ts';
+import { findFirstWorkspaceId, listUserWorkspaces, loadPermissionContext } from './workspaces.ts';
 
 const BASE = 'http://localhost:3000';
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:63790';
@@ -535,12 +531,15 @@ describe('workspaces and roles', () => {
       expect(await workspacesCreatedBy(user.id)).toEqual([]);
       const session = await auth.api.getSession({ headers: jar.headers() });
       expect(session?.session.activeOrganizationId ?? null).toBeNull();
-      // Asking again changes nothing, and says which invitation is waiting.
+      // Asking again changes nothing: there is a choice to make first (the join screen shows it).
       expect(await ensureFirstWorkspace(db, user.id)).toEqual({
         workspaceId: undefined,
         created: false,
-        pendingInviteToken: invitation.token,
+        choices: true,
       });
+      expect((await getJoinChoices(db, user.id)).invites.map((i) => i.token)).toEqual([
+        invitation.token,
+      ]);
 
       await auth.api.rejectInvitation({
         body: { invitationId: invitation.id },
@@ -605,8 +604,11 @@ describe('workspaces and roles', () => {
       const waiting = await invited(owner, first, shouty.email.toUpperCase());
       expect(await ensureFirstWorkspace(db, shouty.id)).toMatchObject({
         workspaceId: undefined,
-        pendingInviteToken: waiting.token,
+        choices: true,
       });
+      expect((await getJoinChoices(db, shouty.id)).invites.map((i) => i.token)).toEqual([
+        waiting.token,
+      ]);
     });
   });
 

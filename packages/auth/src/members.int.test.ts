@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { type AuthConfig, DEV_AUTH_SECRET } from './config.ts';
 import type { EmailMessage, Mailer } from './email.ts';
+import { ensureFirstWorkspace } from './joining.ts';
 import { magicLinkVerifyUrl } from './magic-link.ts';
 import {
   changeMemberRole,
@@ -32,12 +33,7 @@ import {
   DISABLED_AUTH_PATHS,
   INVITE_EMAIL_LIMITS,
 } from './server.ts';
-import {
-  ensureFirstWorkspace,
-  findFirstWorkspaceId,
-  listUserWorkspaces,
-  loadPermissionContext,
-} from './workspaces.ts';
+import { findFirstWorkspaceId, listUserWorkspaces, loadPermissionContext } from './workspaces.ts';
 
 const BASE = 'http://localhost:3000';
 

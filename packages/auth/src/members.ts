@@ -47,7 +47,7 @@ export function isNotFoundError(error: unknown): error is NotFoundError {
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
-interface LockedWorkspace {
+export interface LockedWorkspace {
   access: WorkspaceAccess;
   /** Every membership of the workspace, locked `FOR UPDATE`. */
   members: { workspaceId: string; userId: string; role: Role }[];
@@ -58,7 +58,7 @@ interface LockedWorkspace {
  * Locks the (live) workspace and all its memberships for the rest of `tx`. Throws {@link NotFoundError}
  * when the workspace doesn't exist, is deleted, or the actor isn't a member (so non-members can't probe).
  */
-async function lockWorkspace(
+export async function lockWorkspace(
   tx: Tx,
   workspaceId: string,
   actorId: string,
@@ -95,7 +95,8 @@ function targetOf(locked: LockedWorkspace, userId: string): MemberTarget {
   return { ...row, ownerCount: locked.ownerCount };
 }
 
-const contextOf = (locked: LockedWorkspace, actorId: string) =>
+/** The actor's context from the locked rows of this workspace alone. */
+export const contextOf = (locked: LockedWorkspace, actorId: string) =>
   createPermissionContext({ userId: actorId, memberships: locked.members });
 
 /** The actor's user lock, for leaving or deleting. Take it before {@link lockWorkspace} (user, then workspace). */

@@ -1,11 +1,11 @@
 /**
- * Workspace helpers on top of the Better Auth organization tables (`workspace`, `membership`): the first
- * workspace a new user gets (D-36: there is one kind of workspace), the user's workspace list, the active
- * workspace and the `@oat/core` permission context.
+ * Workspace helpers on top of the Better Auth organization tables (`workspace`, `membership`): creating the
+ * workspace a new user gets (D-36: there is one kind of workspace; *whether* they get one is decided in
+ * `joining.ts`), the user's workspace list, the active workspace and the `@oat/core` permission context.
  */
 import { createPermissionContext, type PermissionContext, type Role } from '@oat/core';
-import { type Db, invite, membership, user, workspace } from '@oat/db';
-import { and, asc, count, eq, gt, isNull, sql } from 'drizzle-orm';
+import { type Db, membership, user, workspace } from '@oat/db';
+import { and, asc, count, eq, isNull, sql } from 'drizzle-orm';
 
 /** Name of a first workspace when the user has no name to make one from. */
 export const FALLBACK_WORKSPACE_NAME = 'My workspace';
@@ -22,7 +22,7 @@ export function firstWorkspaceName(userName: string | null | undefined): string 
   return first ? `${first.slice(0, MAX_FIRST_NAME)}’s workspace` : FALLBACK_WORKSPACE_NAME;
 }
 
-type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 /**
  * Per-user mutex for the rest of `tx`: everything that decides on "how many workspaces does this user have"
@@ -35,14 +35,19 @@ export async function lockUser(tx: Tx, userId: string) {
     sql`select pg_advisory_xact_lock(hashtextextended(${`oat:user-workspaces:${userId}`}, 0))`,
   );
   const [row] = await tx
-    .select({ id: user.id, name: user.name, email: user.email })
+    .select({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      emailVerified: user.emailVerified,
+    })
     .from(user)
     .where(eq(user.id, userId));
   return row;
 }
 
 /** The user's memberships in live workspaces, oldest first. */
-const liveMemberships = (db: Db | Tx, userId: string) =>
+export const liveMemberships = (db: Db | Tx, userId: string) =>
   db
     .select({
       workspaceId: membership.workspaceId,
@@ -60,59 +65,22 @@ export async function findFirstWorkspaceId(db: Db, userId: string): Promise<stri
   return row?.workspaceId;
 }
 
-/** What {@link ensureFirstWorkspace} found or did. */
-export type FirstWorkspace =
-  /** The user is in a workspace: an existing one (their oldest), or the one just created for them. */
-  | { workspaceId: string; created: boolean }
-  /** No workspace yet, but an invitation is waiting for their answer: nothing was created. */
-  | { workspaceId: undefined; created: false; pendingInviteToken: string };
-
 /**
- * Makes sure a signed-in user is not left without a workspace (D-36). Does nothing when they are a member
- * of a live workspace, or when an invitation to their address is still pending (they join that workspace
- * instead; declining it, or letting it expire, gets them their own on the next call). Otherwise creates an
- * ordinary workspace named {@link firstWorkspaceName} with them as `owner`.
- *
- * Safe to call concurrently and repeatedly: the check and the insert run under {@link lockUser}, so two
- * sign-ins at once create exactly one workspace.
- *
- * Runs on our own connection, so it must only be called once the user row is committed (Better Auth runs
- * `user.create.after` hooks after the transaction).
+ * Creates an ordinary workspace named {@link firstWorkspaceName} with `me` as its `owner` (D-36). The
+ * caller holds {@link lockUser} and has decided that one is needed (`joining.ts` `ensureFirstWorkspace`).
  */
-export async function ensureFirstWorkspace(db: Db, userId: string): Promise<FirstWorkspace> {
-  return db.transaction(async (tx) => {
-    const me = await lockUser(tx, userId);
-    if (!me) throw new Error('ensureFirstWorkspace: unknown user');
-    const [existing] = await liveMemberships(tx, userId).limit(1);
-    if (existing) return { workspaceId: existing.workspaceId, created: false };
-
-    const [pending] = await tx
-      .select({ token: invite.token })
-      .from(invite)
-      .innerJoin(workspace, eq(workspace.id, invite.workspaceId))
-      .where(
-        and(
-          sql`lower(${invite.email}) = lower(${me.email})`,
-          eq(invite.status, 'pending'),
-          gt(invite.expiresAt, sql`now()`),
-          isNull(workspace.deletedAt),
-        ),
-      )
-      .orderBy(asc(invite.createdAt), asc(invite.id))
-      .limit(1);
-    if (pending) {
-      return { workspaceId: undefined, created: false, pendingInviteToken: pending.token };
-    }
-
-    const name = firstWorkspaceName(me.name);
-    const [created] = await tx
-      .insert(workspace)
-      .values({ name, slug: workspaceSlug(name), createdBy: userId })
-      .returning({ id: workspace.id });
-    if (!created) throw new Error('ensureFirstWorkspace: workspace missing after insert');
-    await tx.insert(membership).values({ workspaceId: created.id, userId, role: 'owner' });
-    return { workspaceId: created.id, created: true };
-  });
+export async function createWorkspaceFor(
+  tx: Tx,
+  me: { id: string; name: string | null },
+): Promise<string> {
+  const name = firstWorkspaceName(me.name);
+  const [created] = await tx
+    .insert(workspace)
+    .values({ name, slug: workspaceSlug(name), createdBy: me.id })
+    .returning({ id: workspace.id });
+  if (!created) throw new Error('createWorkspaceFor: workspace missing after insert');
+  await tx.insert(membership).values({ workspaceId: created.id, userId: me.id, role: 'owner' });
+  return created.id;
 }
 
 /**

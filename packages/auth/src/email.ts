@@ -196,3 +196,131 @@ export function invitationEmail(input: {
 `;
   return { to, subject, text, html };
 }
+
+/** The shared shell of the join emails: one lead paragraph, one button, the link in plain, a footer. */
+function noticeHtml(input: {
+  subject: string;
+  /** Already-escaped HTML. */
+  lead: string;
+  url: string;
+  action: string;
+  /** Plain text (escaped here). */
+  footer: string;
+}): string {
+  const href = escapeHtml(input.url);
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>${escapeHtml(input.subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f6f4ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#2b2a26;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f4ef;padding:40px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px;background:#ffffff;border:1px solid #e7e3d9;border-radius:12px;padding:32px;">
+            <tr><td style="font-size:22px;font-weight:600;padding-bottom:16px;">Oat</td></tr>
+            <tr><td style="font-size:15px;line-height:1.5;padding-bottom:24px;">${input.lead}</td></tr>
+            <tr>
+              <td style="padding-bottom:24px;">
+                <a href="${href}" style="display:inline-block;background:#3f4a36;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 20px;border-radius:8px;">${escapeHtml(input.action)}</a>
+              </td>
+            </tr>
+            <tr><td style="font-size:13px;line-height:1.5;color:#6b6759;padding-bottom:8px;">Or paste this link into your browser:</td></tr>
+            <tr><td style="font-size:13px;line-height:1.5;word-break:break-all;padding-bottom:24px;"><a href="${href}" style="color:#3f4a36;">${href}</a></td></tr>
+            <tr><td style="font-size:13px;line-height:1.5;color:#6b6759;">${escapeHtml(input.footer)}</td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+`;
+}
+
+/**
+ * Tells an owner/admin that someone asked to join their workspace (D-36). `url` is the members page. The
+ * requester's name and address and the workspace name are user-controlled: flattened, capped, made
+ * unlinkable and HTML-escaped, like the invitation's.
+ */
+export function joinRequestEmail(input: {
+  to: string;
+  url: string;
+  workspaceName: string;
+  requesterName: string;
+  requesterEmail: string;
+}): EmailMessage {
+  const { to, url } = input;
+  const workspace = unlinkable(emailSafeText(input.workspaceName, 60)) || 'your workspace';
+  const address = unlinkable(emailSafeText(input.requesterEmail, 120));
+  const name = unlinkable(emailSafeText(input.requesterName, 60)) || address;
+  const who = name === address ? address : `${name} (${address})`;
+  const subject = `${name} asked to join ${workspace} on Oat`;
+  const footer = `You’re getting this because you manage members of ${workspace}. Switch to it in Oat to see the request. Nobody joins until an owner or admin approves.`;
+  const text = [
+    'Hi,',
+    '',
+    `${who} asked to join the ${workspace} workspace on Oat.`,
+    '',
+    'Approve (and pick their role) or decline on the members page:',
+    url,
+    '',
+    footer,
+    '',
+    '— Oat',
+  ].join('\n');
+  const html = noticeHtml({
+    subject,
+    lead: `<strong>${escapeHtml(who)}</strong> asked to join the <strong>${escapeHtml(workspace)}</strong> workspace.`,
+    url,
+    action: 'Review request',
+    footer,
+  });
+  return { to, subject, text, html };
+}
+
+/** Tells a requester that an owner/admin approved (with `role`) or declined their request to join. */
+export function joinDecisionEmail(input: {
+  to: string;
+  url: string;
+  workspaceName: string;
+  approved: boolean;
+  role?: string;
+}): EmailMessage {
+  const { to, url, approved } = input;
+  const workspace = unlinkable(emailSafeText(input.workspaceName, 60)) || 'the workspace';
+  const role = ROLE_PHRASE[input.role ?? ''] ?? 'a member';
+  const subject = approved
+    ? `You’re in: ${workspace} on Oat`
+    : `Your request to join ${workspace} on Oat was declined`;
+  const lead = approved
+    ? `Your request to join the ${workspace} workspace was approved. You’re now ${role}.`
+    : `Your request to join the ${workspace} workspace was declined.`;
+  const footer = approved
+    ? `Sign in as ${to} to open it; you’ll find it in the workspace switcher.`
+    : 'You can keep using Oat in a workspace of your own. If you think this is a mistake, ask an owner or admin of that workspace to invite you.';
+  const text = [
+    'Hi,',
+    '',
+    lead,
+    '',
+    approved ? 'Open Oat:' : 'Continue in Oat:',
+    url,
+    '',
+    footer,
+    '',
+    '— Oat',
+  ].join('\n');
+  const html = noticeHtml({
+    subject,
+    lead: approved
+      ? `Your request to join the <strong>${escapeHtml(workspace)}</strong> workspace was approved. You’re now ${escapeHtml(role)}.`
+      : `Your request to join the <strong>${escapeHtml(workspace)}</strong> workspace was declined.`,
+    url,
+    action: 'Open Oat',
+    footer,
+  });
+  return { to, subject, text, html };
+}
