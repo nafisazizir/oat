@@ -79,7 +79,7 @@ beforeEach(() => {
         {
           op: 'upsert',
           table: 'workspace',
-          row: { id: 'ws', name: 'Personal', kind: 'personal', role: 'owner' },
+          row: { id: 'ws', name: 'Me', role: 'owner' },
         },
       ],
       cursor: 'c',
@@ -97,7 +97,8 @@ beforeEach(() => {
   notes = new MeetingNotes({
     store: () => store,
     userId: () => user,
-    sync: { kick: () => void kicks++, personalWorkspace: async () => workspace },
+    sync: { kick: () => void kicks++ },
+    newNoteWorkspace: async () => workspace,
     onChange: () => void changes++,
     calendarEvent: (key) => calendar.get(key) ?? null,
     newId: () => `id-${++n}`,
@@ -231,7 +232,8 @@ describe('MeetingNotes.fromEvent', () => {
     const { meetingId, documentId } = await notes.fromEvent(event());
     const persistence = new MeetingPersistence({
       store: () => store,
-      sync: { kick: () => {}, personalWorkspace: async () => 'ws' },
+      sync: { kick: () => {} },
+      newNoteWorkspace: async () => 'ws',
       userId: () => user,
     });
     await persistence.beginMeeting(meetingId, Date.parse('2026-11-16T19:02:00.000Z'));

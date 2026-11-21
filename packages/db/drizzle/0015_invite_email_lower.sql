@@ -1,0 +1,1 @@
+CREATE INDEX "invite_email_lower_idx" ON "invite" USING btree (lower("email"));

@@ -38,7 +38,7 @@ async function addUser(label: string): Promise<string> {
 async function addWorkspace(members: Array<[string, Role]>): Promise<string> {
   const [ws] = await db
     .insert(workspace)
-    .values({ name: 'Team', slug: `team-${newId()}`, kind: 'team', createdBy: members[0]![0] })
+    .values({ name: 'Team', slug: `team-${newId()}`, createdBy: members[0]![0] })
     .returning();
   await db
     .insert(membership)

@@ -17,7 +17,7 @@ beforeEach(() => {
         {
           op: 'upsert',
           table: 'workspace',
-          row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+          row: { id: 'ws', name: 'Me', role: 'owner' },
         },
       ],
       cursor: 'c',
@@ -34,7 +34,8 @@ beforeEach(() => {
     store: () => store,
     userId: () => user,
     newId: () => `doc-${++n}`,
-    sync: { kick: () => void kicks++, personalWorkspace: async () => workspace },
+    sync: { kick: () => void kicks++ },
+    newNoteWorkspace: async () => workspace,
   });
 });
 afterEach(() => store.close());
@@ -73,8 +74,24 @@ describe('MeetingPersistence', () => {
     await expect(p.beginMeeting('m1', T0)).rejects.toBeInstanceOf(PersistenceError);
     user = 'u1';
     workspace = null;
-    await expect(p.beginMeeting('m1', T0)).rejects.toThrow(/connect once/);
+    // My workspaces are on this Mac, but none takes a new note (view-only everywhere): create one (D-36).
+    await expect(p.beginMeeting('m1', T0)).rejects.toThrow(/Create a workspace of your own/);
     expect(store.documents()).toHaveLength(0);
+    expect(kicks).toBe(0);
+  });
+
+  it('refuses on a database that never synced (no workspace known yet)', async () => {
+    const empty = new LocalStore({ path: ':memory:' });
+    const fresh = new MeetingPersistence({
+      store: () => empty,
+      userId: () => 'u1',
+      sync: { kick: () => void kicks++ },
+      newNoteWorkspace: async () => null,
+    });
+    await expect(fresh.beginMeeting('m1', T0)).rejects.toThrow(/connect once/);
+    await expect(fresh.beginMeeting('m1', T0)).rejects.toBeInstanceOf(PersistenceError);
+    expect(empty.documents()).toHaveLength(0);
+    empty.close();
   });
 
   it('stores finals (rounded to ms), skips interims, deletes on retraction, kicks only on change', async () => {

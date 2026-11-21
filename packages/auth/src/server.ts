@@ -4,9 +4,10 @@
  * `google-calendar.ts`), the organization plugin mapped onto
  * workspaces (`@oat/db` auth-mapping) with our roles, and bearer tokens for the desktop app (1.8).
  *
- * Every user gets a personal workspace when they are created; every new session starts in it unless a
- * workspace is already active. Guards on the organization plugin keep personal workspaces single-member
- * and invitations within `@oat/core` rules.
+ * A new user with nothing to join (no invitation, no workspace open to their email domain: `joining.ts`)
+ * gets a workspace of their own (D-36: one kind of workspace); every
+ * new session starts in the workspace the user last switched to, else their oldest one, unless a workspace is
+ * already active. Guards on the organization plugin keep invitations within `@oat/core` rules.
  */
 import { canInvite, canManageMembers, createPermissionContext, type Role, ROLES } from '@oat/core';
 import { type Db, membership, newId, organizationOptions, schema, workspace } from '@oat/db';
@@ -22,6 +23,7 @@ import { type AuthConfig, isLoopbackUrl } from './config.ts';
 import { desktopAuth } from './desktop.ts';
 import { createSmtpMailer, invitationEmail, type Mailer, magicLinkEmail } from './email.ts';
 import { GOOGLE_CALENDAR_PROVIDER_ID, GOOGLE_CALENDAR_SCOPES } from './google-calendar.ts';
+import { ensureFirstWorkspace, recordAdmittedByInvitation } from './joining.ts';
 import { magicLinkConfirmUrl } from './magic-link.ts';
 import {
   INVITE_EXPIRES_IN,
@@ -31,11 +33,7 @@ import {
 } from './members.ts';
 import { GOOGLE_PROVIDER_ID } from './providers.ts';
 import { createRateLimiter, type RateLimiter } from './rate-limit.ts';
-import {
-  ensurePersonalWorkspace,
-  findPersonalWorkspaceId,
-  PERSONAL_SLUG_PREFIX,
-} from './workspaces.ts';
+import { rememberActiveWorkspace, startingWorkspaceId } from './workspaces.ts';
 
 /** Magic links are single-use and expire after this many seconds. */
 export const MAGIC_LINK_EXPIRES_IN = 15 * 60;
@@ -120,6 +118,13 @@ export const DISABLED_AUTH_PATHS: readonly string[] = [
   '/update-session',
   '/organization/check-slug',
 ];
+
+/** Better Auth endpoints after which the session's active workspace is a new one (see the after-hook). */
+const ACTIVATING_PATHS: ReadonlySet<string> = new Set([
+  '/organization/set-active',
+  '/organization/create',
+  '/organization/accept-invitation',
+]);
 
 /** Longest display name `/update-user` accepts (its only changeable field). */
 const MAX_USER_NAME = 100;
@@ -262,7 +267,7 @@ export function createAuth({
             typeof input.organizationSlug === 'string' ? input.organizationSlug : undefined;
           if (id === undefined && slug === undefined) return;
           const [row] = await db
-            .select({ id: workspace.id, kind: workspace.kind, deletedAt: workspace.deletedAt })
+            .select({ id: workspace.id, deletedAt: workspace.deletedAt })
             .from(workspace)
             .where(id !== undefined ? eq(workspace.id, id) : eq(workspace.slug, slug!));
           if (row && row.deletedAt !== null) {
@@ -284,7 +289,7 @@ export function createAuth({
               userId: session.user.id,
               memberships: ctxRows,
             });
-            if (!canManageMembers(permissions, { id: row.id, kind: row.kind })) {
+            if (!canManageMembers(permissions, { id: row.id })) {
               throw new APIError('FORBIDDEN', {
                 message: 'Only owners and admins see invitations.',
               });
@@ -345,6 +350,38 @@ export function createAuth({
       }),
       // `organization/list` never shows soft-deleted workspaces (our own lists skip them too).
       after: createAuthMiddleware(async (ctx) => {
+        if (ACTIVATING_PATHS.has(ctx.path)) {
+          // Remember the workspace this session just moved to for the user's next sign-in, on any device
+          // (D-36): a switch, a workspace they created, an invitation they accepted (Better Auth makes
+          // the last two active in the session itself). Only when the call succeeded: Better Auth checked
+          // membership, the before-hooks that the workspace is live.
+          const returned = ctx.context.returned as
+            | {
+                id?: unknown;
+                member?: { organizationId?: unknown } | null;
+                invitation?: { organizationId?: unknown } | null;
+              }
+            | null
+            | undefined;
+          const session = ctx.context.session ?? (await getSessionFromCtx(ctx));
+          if (!session || returned instanceof Error) return;
+          const body = ctx.body as { keepCurrentActiveOrganization?: unknown } | undefined;
+          let id: unknown;
+          if (ctx.path === '/organization/accept-invitation') {
+            id = returned?.member?.organizationId ?? returned?.invitation?.organizationId;
+            if (typeof id !== 'string') return;
+          } else if (ctx.path === '/organization/create') {
+            // A workspace created without switching to it is not where the user is.
+            if (body?.keepCurrentActiveOrganization === true || typeof returned?.id !== 'string') {
+              return;
+            }
+            id = returned.id;
+          } else {
+            id = returned?.id; // set-active: `null` clears it
+          }
+          await rememberActiveWorkspace(db, session.user.id, typeof id === 'string' ? id : null);
+          return;
+        }
         if (ctx.path !== '/organization/list') return;
         const returned = ctx.context.returned;
         if (!Array.isArray(returned) || returned.length === 0) return;
@@ -382,21 +419,25 @@ export function createAuth({
       },
       user: {
         create: {
+          // Nothing to join → a workspace of their own. Someone with an invitation waiting, or whose
+          // verified email's domain lets them into a workspace, chooses on the join screen instead.
           after: async (user) => {
-            await ensurePersonalWorkspace(db, user.id);
+            await ensureFirstWorkspace(db, user.id);
           },
         },
       },
       session: {
         create: {
-          // Every sign-in starts in the personal workspace (unless something already chose one).
-          // Also heals users created before this hook existed or whose after-hook failed.
+          // Every sign-in starts in the workspace the user last switched to, else their oldest one
+          // (unless something already chose one). Also heals users whose after-hook failed. A user who
+          // has a workspace to join or an invitation to answer starts without one (the join screen).
           before: async (session) => {
             if (session.activeOrganizationId) return;
-            const personal =
-              (await findPersonalWorkspaceId(db, session.userId)) ??
-              (await ensurePersonalWorkspace(db, session.userId));
-            return { data: { ...session, activeOrganizationId: personal } };
+            const start =
+              (await startingWorkspaceId(db, session.userId)) ??
+              (await ensureFirstWorkspace(db, session.userId)).workspaceId;
+            if (!start) return;
+            return { data: { ...session, activeOrganizationId: start } };
           },
         },
       },
@@ -479,25 +520,20 @@ export function createAuth({
             }),
           );
         },
-        // Cap on team workspaces a user creates (`AUTH_MAX_TEAM_WORKSPACES`). `true` = limit reached.
+        // Cap on workspaces a user creates themselves (`AUTH_MAX_TEAM_WORKSPACES`), on top of the one
+        // made for them at sign-up. `true` = limit reached.
         organizationLimit: async (user) => {
           const [row] = await db
             .select({ n: count() })
             .from(workspace)
-            .where(and(eq(workspace.createdBy, user.id), eq(workspace.kind, 'team')));
-          return (row?.n ?? 0) >= config.maxTeamWorkspaces;
+            .where(eq(workspace.createdBy, user.id));
+          return (row?.n ?? 0) > config.maxTeamWorkspaces;
         },
         organizationHooks: {
-          // Workspaces created through the API are always team workspaces (`kind` isn't accepted from
-          // the body); personal ones are only made by `ensurePersonalWorkspace`.
           beforeCreateOrganization: async ({ organization: org, user }) => {
-            if (typeof org.slug === 'string' && org.slug.startsWith(PERSONAL_SLUG_PREFIX)) {
-              throw forbidden('That workspace address is reserved.');
-            }
-            return { data: { ...org, kind: 'team', createdBy: user.id } };
+            return { data: { ...org, createdBy: user.id } };
           },
-          // Only name/slug/logo/metadata change; a personal workspace's slug never changes; team
-          // workspaces can't take a reserved `personal-` slug.
+          // Only name/slug/logo change.
           beforeUpdateOrganization: async ({ organization: changes, member }) => {
             for (const key of Object.keys(changes)) {
               if (!UPDATABLE_WORKSPACE_FIELDS.has(key)) {
@@ -505,11 +541,7 @@ export function createAuth({
               }
             }
             const [current] = await db
-              .select({
-                kind: workspace.kind,
-                slug: workspace.slug,
-                deletedAt: workspace.deletedAt,
-              })
+              .select({ slug: workspace.slug, deletedAt: workspace.deletedAt })
               .from(workspace)
               .where(eq(workspace.id, member.organizationId));
             if (!current || current.deletedAt !== null) throw forbidden('Unknown workspace.');
@@ -537,12 +569,6 @@ export function createAuth({
                   message: 'That workspace address isn’t valid.',
                 });
               }
-              if (current.kind === 'personal') {
-                throw forbidden('A personal workspace’s address can’t be changed.');
-              }
-              if (changes.slug.startsWith(PERSONAL_SLUG_PREFIX)) {
-                throw forbidden('That workspace address is reserved.');
-              }
             }
           },
           beforeCreateInvitation: async ({ invitation, inviter, organization: org }) => {
@@ -557,15 +583,11 @@ export function createAuth({
               .from(membership)
               .where(and(eq(membership.workspaceId, org.id), eq(membership.userId, inviter.id)));
             const ctx = createPermissionContext({ userId: inviter.id, memberships: rows });
-            if (!canInvite(ctx, { id: org.id, kind: org.kind }, invitation.role)) {
+            if (!canInvite(ctx, { id: org.id }, invitation.role)) {
               throw forbidden('You can’t invite people with that role to this workspace.');
             }
           },
-          beforeAddMember: async ({ organization: org }) => {
-            if (org.kind === 'personal') throw forbidden('Personal workspaces have one member.');
-          },
           beforeAcceptInvitation: async ({ organization: org, invitation }) => {
-            if (org.kind === 'personal') throw forbidden('Personal workspaces have one member.');
             if (!(await isLiveWorkspace(db, org.id))) {
               throw forbidden('This workspace was deleted.');
             }
@@ -578,12 +600,15 @@ export function createAuth({
             });
             if (!stillAllowed) throw forbidden('This invitation is no longer valid.');
           },
-          beforeUpdateMemberRole: async ({ organization: org, newRole }) => {
-            if (org.kind === 'personal') throw forbidden('Personal workspaces have one member.');
-            if (!isRole(newRole)) throw forbidden('Unknown role.');
+          // Someone who asked to join and was then invited is in: their request isn't left waiting, and
+          // an earlier "no" (declined, or removed) no longer stands — the invitation is the way back.
+          afterAcceptInvitation: async ({ member, organization: org }) => {
+            if (isRole(member.role)) {
+              await recordAdmittedByInvitation(db, org.id, member.userId, member.role);
+            }
           },
-          beforeRemoveMember: async ({ organization: org }) => {
-            if (org.kind === 'personal') throw forbidden('Personal workspaces have one member.');
+          beforeUpdateMemberRole: async ({ newRole }) => {
+            if (!isRole(newRole)) throw forbidden('Unknown role.');
           },
         },
       }),

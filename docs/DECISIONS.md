@@ -275,3 +275,28 @@ step. Dialogs retain the ziiz modal material, share a plain Inter heading hierar
 cancel actions. Sharing remains immediate-save with Done, not a misleading cancel/undo affordance.
 Passwordless signup is still first sign-in; no password/reset routes or web onboarding wizard are
 invented. Security warnings and permission guidance take precedence over shortening helper copy.
+
+## D-36 · 2026-11-21 · accepted · human
+One kind of workspace; no personal workspace (supersedes the "personal + team workspaces" part of D-2's scope
+and SPEC §4/§5/§6 wording). The human found two ways to be private (a personal workspace *and* `private`
+visibility inside a workspace) confusing. Privacy is now only per item: every workspace has **Private** (my
+`private` notes and folders, D-18 unchanged) and **Shared** (`workspace` / `link`), like Notion.
+- **Sign-up:** after the first verified sign-in a user either joins an existing workspace or gets one created.
+  With no invite and no joinable workspace, a workspace named "<First name>'s workspace" is created silently
+  (no form); it is an ordinary workspace — they can rename it, invite people, or delete it later.
+- **Finding a workspace by email domain:** a workspace may list allowed email domains. Only verified emails
+  match; public mailbox domains (gmail.com, outlook.com, …, a list in `@oat/core`) can never be listed; an
+  owner/admin may only add the domain of their own verified email.
+- **Join policy** (per workspace, owner/admin setting): `invite_only` (default) · `request` (matching-domain
+  users ask; owner/admin approves and picks the role) · `auto_join` (matching-domain users join as `member`).
+- **Leaving / removal (human chose "company owns it" + export):** a removed or departing member loses access to
+  everything in that workspace, including their private notes (as today). They can export their own notes
+  (Markdown) before leaving; the leave dialog offers it. Admins still cannot read other members' private notes.
+  What happens to orphaned private notes afterwards (retention/purge) is unchanged and stays a later task.
+- **Agent refinements (reversible):** while a user has one workspace the workspace menu shows no workspace list or
+  selector arrows (the menu itself stays, so settings, invite, create and join remain reachable); the last workspace
+  a user belongs to can't be left or deleted without first creating/joining another (no account is ever
+  workspace-less); where the desktop used to fall back to Personal (recording while the active workspace is
+  view-only), it falls back to the first workspace the user can create in, else asks them to create one.
+- **Migration:** existing `personal` rows become ordinary workspaces in place (same id, so no document moves),
+  renamed from "Personal" to "<First name>'s workspace"; `kind` and its constraints are dropped.

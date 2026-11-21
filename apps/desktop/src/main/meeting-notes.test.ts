@@ -38,7 +38,7 @@ beforeEach(() => {
         {
           op: 'upsert',
           table: 'workspace',
-          row: { id: 'ws', name: 'Team', kind: 'team', role: 'member' },
+          row: { id: 'ws', name: 'Team', role: 'member' },
         },
         // A teammate's note shared with the workspace, a private one (can't be here normally, but the
         // rule must hold), a trashed one, and a page.
@@ -107,13 +107,24 @@ describe('MeetingNotes', () => {
     expect(notes.list().map((n) => [n.documentId, n.meetingId, n.title])).toEqual([
       ['d1', 'm1', 'Standup'],
       ['d-shared', null, 'Theirs'],
-      ['d-private', null, 'Theirs'],
     ]);
     user = null;
     expect(notes.list()).toEqual([]);
     user = 'u1';
     open = false;
     expect(notes.list()).toEqual([]);
+  });
+
+  it('says whose each note is and never lists someone else’s private note (D-36)', () => {
+    const list = notes.list();
+    // What the sidebar splits on: mine and private → Private; a teammate's shared note → Shared.
+    expect(list.map((n) => [n.documentId, n.ownerId, n.visibility])).toEqual([
+      ['d1', 'u1', 'private'],
+      ['d-shared', 'u2', 'workspace'],
+    ]);
+    // `d-private` is a teammate's private note that should never have been synced here: not listed.
+    expect(store.meetingNotes().some((n) => n.documentId === 'd-private')).toBe(true);
+    expect(list.some((n) => n.documentId === 'd-private')).toBe(false);
   });
 
   it('opens a note by document or by meeting id, with workspace and edit rights', async () => {

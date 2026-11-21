@@ -37,7 +37,7 @@ import { ApiError } from '../api/errors';
  *   Web tabs close theirs while hidden.
  * - Heartbeat comment every 15 s; the stream ends after `maxMs` (the platform's function limit), and
  *   `retry: 2000` makes EventSource reconnect with `Last-Event-ID`. Polling is per connection, every
- *   `pollMs` (one indexed query + one small join when something changed): fine for personal-scale fan-out;
+ *   `pollMs` (one indexed query + one small join when something changed): fine for small-team fan-out;
  *   a shared poller / LISTEN can replace it.
  */
 

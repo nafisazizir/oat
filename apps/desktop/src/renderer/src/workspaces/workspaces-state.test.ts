@@ -3,33 +3,70 @@ import { describe, expect, it } from 'vitest';
 
 import { activeAndFallback, roleLabel, undoSwitch, withActive } from './workspaces-state.ts';
 
-const ws = (id: string, kind: 'personal' | 'team', role: DesktopWorkspace['role']) => ({
+const ws = (id: string, role: DesktopWorkspace['role']) => ({
   id,
   name: id,
-  kind,
   role,
-  canCreate: role !== 'viewer',
+  canCreate: role !== null && role !== 'viewer',
 });
-const all = [
-  ws('me', 'personal', 'owner'),
-  ws('team', 'team', 'member'),
-  ws('board', 'team', 'viewer'),
-];
+// As main lists them: by name.
+const all = [ws('board', 'viewer'), ws('mine', 'owner'), ws('team', 'member')];
+const viewOnly = [ws('board', 'viewer'), ws('council', 'viewer')];
 
 describe('workspace switcher state', () => {
   it('names the fallback only when new notes can’t go to the active workspace', () => {
-    expect(activeAndFallback(null)).toEqual({ active: null, fallback: null });
+    expect(activeAndFallback(null)).toEqual({
+      active: null,
+      fallback: null,
+      needsWorkspace: false,
+    });
     expect(
       activeAndFallback({ workspaces: all, activeId: 'team', targetId: 'team' }),
-    ).toMatchObject({ active: { id: 'team' }, fallback: null });
-    expect(activeAndFallback({ workspaces: all, activeId: 'board', targetId: 'me' })).toMatchObject(
-      { active: { id: 'board' }, fallback: { id: 'me' } },
-    );
+    ).toMatchObject({ active: { id: 'team' }, fallback: null, needsWorkspace: false });
+    expect(
+      activeAndFallback({ workspaces: all, activeId: 'board', targetId: 'mine' }),
+    ).toMatchObject({ active: { id: 'board' }, fallback: { id: 'mine' }, needsWorkspace: false });
   });
 
-  it('switches optimistically: new notes follow when I can add to the workspace, else go to personal', () => {
+  it('asks for a workspace when I can only view the ones I am in (no target at all)', () => {
+    expect(
+      activeAndFallback({ workspaces: viewOnly, activeId: 'board', targetId: null }),
+    ).toMatchObject({ active: { id: 'board' }, fallback: null, needsWorkspace: true });
+    // Nothing known yet (first launch, before sync): nothing to say.
+    expect(activeAndFallback({ workspaces: [], activeId: null, targetId: null })).toEqual({
+      active: null,
+      fallback: null,
+      needsWorkspace: false,
+    });
+    expect(
+      activeAndFallback({ workspaces: [], activeId: null, targetId: null, synced: false }),
+    ).toMatchObject({ needsWorkspace: false });
+  });
+
+  it('asks for a workspace when sync says I am in none (removed from my only one, or it was deleted)', () => {
+    expect(
+      activeAndFallback({ workspaces: [], activeId: null, targetId: null, synced: true }),
+    ).toEqual({ active: null, fallback: null, needsWorkspace: true });
+  });
+
+  it('does not call a workspace view-only while my role there is not known yet', () => {
+    const unknown = [ws('old', null)];
+    expect(
+      activeAndFallback({ workspaces: unknown, activeId: 'old', targetId: null, synced: true }),
+    ).toMatchObject({ active: { id: 'old' }, fallback: null, needsWorkspace: false });
+    // One known view-only row next to an unknown one: still not known.
+    expect(
+      activeAndFallback({
+        workspaces: [ws('board', 'viewer'), ws('old', null)],
+        activeId: 'board',
+        targetId: null,
+      }),
+    ).toMatchObject({ needsWorkspace: false });
+  });
+
+  it('switches optimistically: new notes follow when I can add to the workspace, else go to the first one where I can', () => {
     expect(withActive(null, 'team')).toBeNull();
-    const snapshot = { workspaces: all, activeId: 'me', targetId: 'me' };
+    const snapshot = { workspaces: all, activeId: 'mine', targetId: 'mine' };
     expect(withActive(snapshot, 'team')).toEqual({
       workspaces: all,
       activeId: 'team',
@@ -38,19 +75,24 @@ describe('workspace switcher state', () => {
     expect(withActive(snapshot, 'board')).toEqual({
       workspaces: all,
       activeId: 'board',
-      targetId: 'me',
+      targetId: 'mine',
     });
-    expect(snapshot.activeId).toBe('me');
+    expect(snapshot.activeId).toBe('mine');
+    // Nowhere to create: no target (never a stale one from before the switch).
+    expect(
+      withActive({ workspaces: viewOnly, activeId: 'board', targetId: null }, 'council'),
+    ).toEqual({ workspaces: viewOnly, activeId: 'council', targetId: null });
   });
 
-  it('labels personal and team roles', () => {
-    expect(all.map(roleLabel)).toEqual(['Personal space', 'Member', 'View only']);
-    expect(roleLabel(ws('x', 'team', null))).toBe('Team');
+  it('labels a workspace by my role in it (every workspace is the same kind)', () => {
+    expect(all.map(roleLabel)).toEqual(['View only', 'Owner', 'Member']);
+    expect(roleLabel(ws('x', 'admin'))).toBe('Admin');
+    expect(roleLabel(ws('x', null))).toBe('Workspace');
   });
 });
 
 describe('undoSwitch', () => {
-  const workspaces = [ws('p', 'personal', 'owner'), ws('t', 'team', 'member')];
+  const workspaces = [ws('p', 'owner'), ws('t', 'member')];
   const before = { workspaces, activeId: 'p', targetId: 'p' };
 
   it('restores the snapshot from before a rejected switch', () => {

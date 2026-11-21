@@ -63,7 +63,7 @@ export async function workspaceForCreate(
 ): Promise<WorkspaceAccess> {
   requireMember(actor, workspaceId);
   const [row] = await db
-    .select({ id: workspace.id, kind: workspace.kind })
+    .select({ id: workspace.id })
     .from(workspace)
     .where(eq(workspace.id, workspaceId));
   if (!row) throw notFound('Workspace');

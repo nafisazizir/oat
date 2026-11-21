@@ -131,16 +131,25 @@ function DeleteWorkspaceDialog({
   );
 }
 
-/** Leave (anyone but the last owner) and delete (owners) for a team workspace. */
+const LAST_WORKSPACE = 'This is your only workspace. Create or join another one first.';
+
+/**
+ * Leave (anyone but the last owner) and delete (owners) — neither for the viewer's last workspace (D-36),
+ * which the rows say instead of only disabling their buttons.
+ */
 export function WorkspaceDangerZone({
   workspace,
   canLeave,
   canDelete,
+  isOwner,
+  lastWorkspace,
   restoreDays,
 }: {
   workspace: { id: string; name: string };
   canLeave: boolean;
   canDelete: boolean;
+  isOwner: boolean;
+  lastWorkspace: boolean;
   restoreDays: number;
 }) {
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -154,7 +163,9 @@ export function WorkspaceDangerZone({
           description={
             canLeave
               ? 'You’ll lose access to its shared notes.'
-              : 'You’re the only owner. Make someone else an owner before you leave.'
+              : lastWorkspace
+                ? LAST_WORKSPACE
+                : 'You’re the only owner. Make someone else an owner before you leave.'
           }
         >
           <Button
@@ -166,14 +177,20 @@ export function WorkspaceDangerZone({
             Leave workspace
           </Button>
         </Row>
-        {canDelete && (
+        {(canDelete || isOwner) && (
           <Row
             title="Delete workspace"
-            description={`Removes it for everyone. Restorable for ${restoreDays} days.`}
+            description={
+              canDelete
+                ? `Removes it for everyone. Restorable for ${restoreDays} days.`
+                : LAST_WORKSPACE
+            }
           >
             <Button
               variant="ghost"
               className="text-red-900 hover:bg-red-100 hover:text-red-1000"
+              disabled={!canDelete}
+              data-testid="delete-workspace"
               onClick={() => setDeleteOpen(true)}
             >
               Delete workspace

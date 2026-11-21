@@ -21,7 +21,7 @@ const caller = cache(async () => {
 
 /** `/templates`: built-ins + the active workspace's custom templates. */
 export async function loadTemplateList(): Promise<
-  TemplateList & { workspace: { id: string; name: string; kind: 'personal' | 'team' } }
+  TemplateList & { workspace: { id: string; name: string } }
 > {
   const { db, ctx, workspace } = await caller();
   return { ...(await listTemplates(db, ctx, workspace.id)), workspace };
@@ -31,9 +31,7 @@ export async function loadTemplateList(): Promise<
 export const loadTemplate = cache(
   async (
     id: string,
-  ): Promise<
-    (TemplateDetail & { workspace: { id: string; name: string; kind: 'personal' | 'team' } }) | null
-  > => {
+  ): Promise<(TemplateDetail & { workspace: { id: string; name: string } }) | null> => {
     const { db, ctx, workspace } = await caller();
     try {
       return { ...(await getTemplate(db, ctx, id, { workspaceId: workspace.id })), workspace };

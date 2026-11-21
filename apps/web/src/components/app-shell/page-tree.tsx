@@ -20,6 +20,7 @@ import {
   SidebarMenuItem,
 } from '@oat/ui/components/sidebar';
 import { Spinner } from '@oat/ui/components/spinner';
+import { SECTION_INFO } from '@oat/core/sections';
 import {
   IconChevronRight,
   IconDots,
@@ -29,7 +30,6 @@ import {
   IconFolderOpen,
   IconFolderPlus,
   IconFolderSymlink,
-  IconLock,
   IconNotes,
   IconPencil,
   IconPlus,
@@ -47,7 +47,7 @@ import {
   childrenOf,
   type DocumentNode,
   findDocument,
-  rootsOf,
+  sectionOf,
   titleOf,
 } from '@/lib/tree';
 
@@ -119,17 +119,22 @@ function activeAncestorsOf(documents: readonly DocumentNode[], pathname: string)
 }
 
 /**
- * One sidebar section ("Shared" or "Private") of the page tree: its root items and, recursively, the
- * contents of expanded folders. Rows can be dragged onto folders (or onto the section label, for the
- * top level); every row has a "…" menu with Rename, Move to…, New page/folder inside and Delete.
+ * One sidebar section of the page tree (D-36): "Private" — what is mine and private, folders and their
+ * contents included — or "Shared" — everything else I can read. Which section an item is in follows its
+ * visibility (`@oat/core` `sidebarSection`), so it changes section as soon as that changes. Shows its top
+ * level and, recursively, the contents of expanded folders. Rows can be dragged onto folders (or onto the
+ * section label, for the top level); every row has a "…" menu with Rename, Move to…, New page/folder
+ * inside and Delete.
  */
-export function TreeSection({ area, label }: { area: Area; label: string }) {
+export function TreeSection({ area }: { area: Area }) {
   const pathname = usePathname();
-  const { documents } = useShellData();
+  const { documents, user } = useShellData();
   const actions = useTreeActions();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
-  const roots = rootsOf(documents, area);
-  const rows = visibleRows(documents, roots, collapsed, activeAncestorsOf(documents, pathname));
+  const { label, empty } = SECTION_INFO[area];
+  // Only this section's items: a shared folder never lists my private page (it is under Private).
+  const { items, roots } = sectionOf(documents, area, user.id);
+  const rows = visibleRows(items, roots, collapsed, activeAncestorsOf(items, pathname));
 
   const toggle = (id: string) =>
     setCollapsed((prev) => {
@@ -142,9 +147,10 @@ export function TreeSection({ area, label }: { area: Area; label: string }) {
   const rootDrop = useDrop((id) => {
     const node = findDocument(documents, id);
     if (!node) return;
-    if (areaOf(node) !== area) {
-      toast(area === 'shared' ? 'Private pages stay in Private' : 'Shared pages stay in Shared', {
-        description: 'Changing who can see a page arrives with sharing.',
+    if (areaOf(node, user.id) !== area) {
+      // Dropping is for arranging, never for changing who can see something.
+      toast(area === 'shared' ? 'This is private' : 'This is shared', {
+        description: 'To change who can see it, open it and use Share.',
       });
       return;
     }
@@ -181,15 +187,17 @@ export function TreeSection({ area, label }: { area: Area; label: string }) {
       <SidebarGroupContent>
         <SidebarMenu data-testid={area === 'private' ? 'page-tree' : 'shared-tree'}>
           {rows.length === 0 && (
-            <li className="px-2 py-1.5 text-copy-13 text-gray-900 group-data-[collapsible=icon]:hidden">
-              {area === 'private' ? 'Pages only you can see.' : 'Pages your workspace can see.'}
+            <li
+              className="px-2 py-1 text-copy-13 text-gray-900 group-data-[collapsible=icon]:hidden"
+              data-testid={`tree-empty-${area}`}
+            >
+              {empty}
             </li>
           )}
           {rows.map((row) => (
             <TreeRow
               key={row.node.id}
               row={row}
-              area={area}
               active={pathname === `/d/${row.node.id}`}
               onToggle={() => toggle(row.node.id)}
             />
@@ -207,17 +215,7 @@ function NodeIcon({ node, open }: { node: DocumentNode; open: boolean }) {
   return <IconFileText />;
 }
 
-function TreeRow({
-  row,
-  area,
-  active,
-  onToggle,
-}: {
-  row: Row;
-  area: Area;
-  active: boolean;
-  onToggle: () => void;
-}) {
+function TreeRow({ row, active, onToggle }: { row: Row; active: boolean; onToggle: () => void }) {
   const { node, depth, hasChildren, open } = row;
   const { documents } = useShellData();
   const actions = useTreeActions();
@@ -228,8 +226,6 @@ function TreeRow({
     const dragged = findDocument(documents, id);
     if (dragged && dragged.id !== node.id) void actions.move(dragged, node.id);
   }, isFolder && node.access.edit);
-  // A private item inside a shared folder: marked, since the rest of the workspace can't see it.
-  const lockedInShared = area === 'shared' && node.visibility === 'private';
   const indent = { paddingInlineStart: `calc(0.5rem + ${depth} * 0.875rem)` };
   const pending = isPendingId(node.id);
 
@@ -260,7 +256,6 @@ function TreeRow({
         >
           <NodeIcon node={node} open={open} />
           <span className={cn(!node.title.trim() && 'text-gray-900')}>{title}</span>
-          {lockedInShared && <IconLock className="ms-auto text-gray-900" aria-label="Only you" />}
         </SidebarMenuButton>
       )}
       {isFolder && hasChildren && !renaming && (

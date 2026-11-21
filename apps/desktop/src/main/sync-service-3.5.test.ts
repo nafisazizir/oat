@@ -102,7 +102,7 @@ describe('SyncService (3.5)', () => {
                     {
                       op: 'upsert',
                       table: 'workspace',
-                      row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+                      row: { id: 'ws', name: 'Me', role: 'owner' },
                     },
                     ...docs.map((row) => ({
                       op: 'upsert' as const,
@@ -176,7 +176,7 @@ describe('SyncService (3.5)', () => {
             {
               op: 'upsert',
               table: 'workspace',
-              row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+              row: { id: 'ws', name: 'Me', role: 'owner' },
             },
             { op: 'upsert', table: 'document', row: server },
           ],

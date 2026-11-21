@@ -5,7 +5,7 @@
  * `agents/src/post-meeting/post-meeting.int.test.ts`), the agents being down ("waiting" + the backstop sweep),
  * retry, and the per-user settings. Deny cases carry `denies(...)` markers (5.5).
  */
-import { findPersonalWorkspaceId } from '@oat/auth';
+import { findFirstWorkspaceId } from '@oat/auth';
 import type { SyncPushEntry, SyncPushResponse } from '@oat/core';
 import { integration, pipelineRun } from '@oat/db';
 import { loadActor } from '@oat/services/actor';
@@ -37,7 +37,7 @@ let editor: TestUser;
 let viewer: TestUser;
 let outsider: TestUser;
 let team: string;
-let ownerPersonal: string;
+let ownerOwnWs: string;
 
 /** The agents, as the web app sees them: up (records jobs, answers a run id) or down. */
 const agents = {
@@ -80,7 +80,7 @@ beforeAll(async () => {
     [editor, 'member'],
     [viewer, 'viewer'],
   ]);
-  ownerPersonal = (await findPersonalWorkspaceId(h.db, owner.id))!;
+  ownerOwnWs = (await findFirstWorkspaceId(h.db, owner.id))!;
 }, 60_000);
 
 afterAll(async () => {
@@ -177,7 +177,7 @@ const postRun = (as: TestUser | null, documentId: string, origin?: string | null
 
 describe('trigger: a sync push that ends a meeting', () => {
   it('starts one run when the meeting ends, hands it over once, and never again', async () => {
-    const m = await recording(owner, ownerPersonal);
+    const m = await recording(owner, ownerOwnWs);
     expect(triggered).toHaveLength(0); // still recording
     expect(await runOf(m.meetingId)).toBeUndefined();
 
@@ -187,7 +187,7 @@ describe('trigger: a sync push that ends a meeting', () => {
       status: 'queued',
       attempt: 1,
       documentId: m.documentId,
-      workspaceId: ownerPersonal,
+      workspaceId: ownerOwnWs,
       requestedBy: owner.id,
       workflowRunId: expect.stringMatching(/^wrun_/),
     });
@@ -196,7 +196,7 @@ describe('trigger: a sync push that ends a meeting', () => {
         pipelineRunId: run!.id,
         attempt: 1,
         meetingId: m.meetingId,
-        workspaceId: ownerPersonal,
+        workspaceId: ownerOwnWs,
       },
     ]);
 
@@ -258,7 +258,7 @@ describe('authorization', () => {
   });
 
   it('a meeting that hasn’t ended can’t be started', async () => {
-    const m = await recording(owner, ownerPersonal);
+    const m = await recording(owner, ownerOwnWs);
     const res = await postRun(owner, m.documentId);
     expect(res.status).toBe(409);
     expect(res.error?.code).toBe('meeting_not_ended');
@@ -268,7 +268,7 @@ describe('authorization', () => {
 describe('agents down, refused, retry', () => {
   it('waits while the agents are down; the sweep (or a status read) hands it over later', async () => {
     agents.up = false;
-    const m = await recording(owner, ownerPersonal);
+    const m = await recording(owner, ownerOwnWs);
     await end(owner, m);
     const waiting = await runOf(m.meetingId);
     expect(waiting).toMatchObject({ status: 'waiting', dispatchAttempts: 1, workflowRunId: null });
@@ -298,7 +298,7 @@ describe('agents down, refused, retry', () => {
 
   it('a status read hands over a due waiting run (the meeting header recovers by itself)', async () => {
     agents.up = false;
-    const m = await recording(owner, ownerPersonal);
+    const m = await recording(owner, ownerOwnWs);
     await end(owner, m);
     agents.up = true;
     await h.db
@@ -311,7 +311,7 @@ describe('agents down, refused, retry', () => {
 
   it('a job the agents refuse fails the run; retry runs the next attempt', async () => {
     agents.refuse = true;
-    const m = await recording(owner, ownerPersonal);
+    const m = await recording(owner, ownerOwnWs);
     await end(owner, m);
     const failed = await getRun(owner, m.documentId);
     expect(failed.body.run).toMatchObject({ status: 'failed', attempt: 1 });
@@ -338,7 +338,7 @@ describe('agents down, refused, retry', () => {
   });
 
   it('with no agents configured the run waits (never fails)', async () => {
-    const m = await recording(owner, ownerPersonal);
+    const m = await recording(owner, ownerOwnWs);
     await h.db.execute(sql`update meeting set ended_at = now() where id = ${m.meetingId}`);
     const run = await requestPostMeeting(
       { db: h.db, dispatcher: null },
@@ -365,7 +365,7 @@ describe('resumed meetings, stuck and final failures, ended before 8.3', () => {
     );
 
   it('a meeting resumed and ended again runs again (next attempt); a live run is re-run when it finishes', async () => {
-    const m = await recording(owner, ownerPersonal);
+    const m = await recording(owner, ownerOwnWs);
     await end(owner, m);
     const first = (await runOf(m.meetingId))!;
     expect(first).toMatchObject({ attempt: 1, status: 'queued' });
@@ -413,7 +413,7 @@ describe('resumed meetings, stuck and final failures, ended before 8.3', () => {
 
   it('retry on a waiting run never skips the backoff or a hand-over in flight', async () => {
     agents.up = false;
-    const m = await recording(owner, ownerPersonal);
+    const m = await recording(owner, ownerOwnWs);
     await end(owner, m);
     agents.up = true;
     expect((await postRun(owner, m.documentId)).body.run?.status).toBe('waiting');
@@ -422,7 +422,7 @@ describe('resumed meetings, stuck and final failures, ended before 8.3', () => {
   });
 
   it('a failure no retry can fix offers no retry', async () => {
-    const m = await recording(owner, ownerPersonal);
+    const m = await recording(owner, ownerOwnWs);
     await end(owner, m);
     const row = (await runOf(m.meetingId))!;
     await h.db.update(pipelineRun).set({ status: 'running' }).where(eq(pipelineRun.id, row.id));

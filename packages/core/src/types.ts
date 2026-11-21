@@ -32,10 +32,18 @@ export const ROLES = ['owner', 'admin', 'member', 'viewer'] as const;
 export const RoleSchema = z.enum(ROLES);
 export type Role = z.infer<typeof RoleSchema>;
 
-/** A personal workspace has exactly one member (its owner); a team workspace has many. */
-export const WORKSPACE_KINDS = ['personal', 'team'] as const;
-export const WorkspaceKindSchema = z.enum(WORKSPACE_KINDS);
-export type WorkspaceKind = z.infer<typeof WorkspaceKindSchema>;
+/**
+ * How people who weren't invited get into a workspace (D-36): not at all, by asking (an owner/admin
+ * approves), or straight in as a member. The last two only ever apply to verified emails on one of the
+ * workspace's allowed domains.
+ */
+export const JOIN_POLICIES = ['invite_only', 'request', 'auto_join'] as const;
+export const JoinPolicySchema = z.enum(JOIN_POLICIES);
+export type JoinPolicy = z.infer<typeof JoinPolicySchema>;
+
+export const JOIN_REQUEST_STATUSES = ['pending', 'approved', 'declined'] as const;
+export const JoinRequestStatusSchema = z.enum(JOIN_REQUEST_STATUSES);
+export type JoinRequestStatus = z.infer<typeof JoinRequestStatusSchema>;
 
 export const FOLDER_VISIBILITIES = ['private', 'workspace'] as const;
 export const FolderVisibilitySchema = z.enum(FOLDER_VISIBILITIES);
@@ -83,7 +91,6 @@ export type User = z.infer<typeof UserSchema>;
 export const WorkspaceSchema = z.object({
   id: IdSchema,
   name: z.string().min(1),
-  kind: WorkspaceKindSchema,
   createdBy: IdSchema,
   createdAt: timestamp,
 });

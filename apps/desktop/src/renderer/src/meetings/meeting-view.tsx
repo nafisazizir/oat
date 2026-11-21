@@ -7,6 +7,7 @@
  * seeks there and the line under the playhead is highlighted (`audio-player.tsx`).
  */
 import type { InvokeResponse, MeetingNote, RecordingSnapshot } from '@oat/core/bridge';
+import { visibilityBadge } from '@oat/core/sections';
 import { sameDocumentContent } from '@oat/core/sync';
 import { OatEditor } from '@oat/editor/react';
 import {
@@ -402,9 +403,8 @@ function NoteBody({
           )}
           <Badge variant="secondary" className="gap-1">
             {note.visibility === 'private' ? <IconLock /> : <IconUsers />}
-            {note.visibility === 'private'
-              ? 'Private'
-              : `Shared with ${note.workspaceName ?? 'the workspace'}`}
+            {/* What the note's visibility is (D-36), in the web's words. */}
+            {visibilityBadge(note.visibility, note.workspaceName ?? '')}
           </Badge>
           {!editable && (
             <Badge variant="outline" className="gap-1">

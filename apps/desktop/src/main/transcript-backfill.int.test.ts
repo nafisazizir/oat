@@ -87,7 +87,7 @@ describe('STT down for 3 minutes (fast FileSource ↔ Deepgram mock)', () => {
           {
             op: 'upsert',
             table: 'workspace',
-            row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+            row: { id: 'ws', name: 'Me', role: 'owner' },
           },
         ],
         cursor: 'c',
@@ -118,7 +118,8 @@ describe('STT down for 3 minutes (fast FileSource ↔ Deepgram mock)', () => {
         store: () => store,
         userId: () => 'u1',
         workspaceTimeoutMs: 10,
-        sync: { kick: () => {}, personalWorkspace: async () => 'ws' },
+        sync: { kick: () => {} },
+        newNoteWorkspace: async () => 'ws',
       }),
       createSource: () => new FileSource({ input: { stereo: wavPath }, speed: SPEED }),
       createStt: async () => provider(),

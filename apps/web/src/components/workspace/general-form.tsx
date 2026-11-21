@@ -72,12 +72,11 @@ export function WorkspaceGeneralForm({
                     size="lg"
                     className="gap-2 ps-1.5"
                     disabled={!canEdit || pending}
-                    aria-label="Choose workspace icon"
                     data-testid="workspace-icon-button"
                   />
                 }
               >
-                <WorkspaceAvatar workspace={{ name: name || workspace.name, kind: 'team', icon }} />
+                <WorkspaceAvatar workspace={{ name: name || workspace.name, icon }} />
                 {icon ? 'Change icon' : 'Add icon'}
               </PopoverTrigger>
               <PopoverContent align="start" className="w-auto">

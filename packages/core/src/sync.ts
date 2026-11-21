@@ -26,7 +26,6 @@ import {
   ParticipantSourceSchema,
   RoleSchema,
   TranscriptSourceSchema,
-  WorkspaceKindSchema,
 } from './types.ts';
 
 /** Tables a client may push, in the order the server applies them (parents first). */
@@ -65,7 +64,6 @@ const Content = z.looseObject({ type: z.literal('doc') });
 export const syncWorkspaceRowSchema = z.object({
   id: Id,
   name: z.string(),
-  kind: WorkspaceKindSchema,
   /**
    * 3.9: the pulling user's role in this workspace (the desktop decides where new notes may go; the server
    * still checks every push). A change of the user's membership re-sends the row. `null` = not known (a row

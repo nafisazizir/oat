@@ -31,7 +31,7 @@ export default async function NewTemplatePage() {
       <div className="flex items-center gap-2 text-label-13 text-gray-900">
         <BackLink href="/templates">Templates</BackLink>
         <span aria-hidden>·</span>
-        <span>{workspace.kind === 'personal' ? 'New template' : `New in ${workspace.name}`}</span>
+        <span>New in {workspace.name}</span>
       </div>
       {canCreate ? (
         <TemplateEditor mode="create" workspaceId={workspace.id} initial={BLANK} />

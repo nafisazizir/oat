@@ -132,7 +132,7 @@ describe('LocalStore: backfilled segments (2.7)', () => {
           {
             op: 'upsert',
             table: 'workspace',
-            row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+            row: { id: 'ws', name: 'Me', role: 'owner' },
           },
         ],
         cursor: 'c1',

@@ -155,7 +155,8 @@ test('share via link → a stranger reads it, can’t edit; link off → 404; ba
   await evidence(page, 'share-dialog-link');
   await page.keyboard.press('Escape');
   // The page reflects the change, and the editor keeps saving (sharing doesn't touch the content version).
-  await expect(page.getByTestId('visibility-badge')).toHaveText('Only you + link');
+  // What the note's visibility is — not "Only you", although nobody else is in the workspace yet (D-36).
+  await expect(page.getByTestId('visibility-badge')).toHaveText('Everyone in My workspace + link');
   const title = page.getByTestId('document-title');
   await title.fill('Quarterly plan v2');
   await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', 'saved');

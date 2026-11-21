@@ -90,15 +90,15 @@ describe('grouped desktop settings', () => {
     expect(close).toHaveBeenCalledTimes(2);
   });
 
-  it('offers Members only for a team workspace', async () => {
+  it('offers General and Members for every workspace (D-36: one kind)', async () => {
     render(<SettingsView onClose={vi.fn()} onOpenSetup={vi.fn()} />);
     await screen.findByTestId('autostop-enabled');
     expect(screen.getByRole('button', { name: 'General (opens in browser)' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Members (opens in browser)' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Members (opens in browser)' })).toBeTruthy();
   });
 
   it('deep-links web-managed account/workspace settings and reports an open failure', async () => {
-    render(<SettingsView teamWorkspace onClose={vi.fn()} onOpenSetup={vi.fn()} />);
+    render(<SettingsView onClose={vi.fn()} onOpenSetup={vi.fn()} />);
     await screen.findByTestId('autostop-enabled');
     for (const [label, section] of [
       ['Profile', 'profile'],

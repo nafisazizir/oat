@@ -4,7 +4,7 @@
  * choose a target, push, re-push replaces the content of the same page, token revoked → reconnect error,
  * disconnect, and the deny cases (anonymous, cross-site, non-member, unreadable note, rate limit, busy).
  */
-import { createMemoryRateLimiter, findPersonalWorkspaceId, type RateLimiter } from '@oat/auth';
+import { createMemoryRateLimiter, findFirstWorkspaceId, type RateLimiter } from '@oat/auth';
 import { documentExport, integration, meeting, membership, participant } from '@oat/db';
 import { NOTION_MOCK_IDS, notionProvider, type RunningMocks, startMocks } from '@oat/mocks';
 import { and, eq } from 'drizzle-orm';
@@ -43,7 +43,7 @@ let member: TestUser;
 let viewer: TestUser;
 let outsider: TestUser;
 let team: string;
-let ownerPersonal: string;
+let ownerOwnWs: string;
 
 beforeAll(async () => {
   [h, mocks] = await Promise.all([
@@ -83,7 +83,7 @@ beforeAll(async () => {
     [member, 'member'],
     [viewer, 'viewer'],
   ]);
-  ownerPersonal = (await findPersonalWorkspaceId(h.db, owner.id))!;
+  ownerOwnWs = (await findFirstWorkspaceId(h.db, owner.id))!;
 }, 60_000);
 
 afterAll(async () => {
@@ -195,7 +195,7 @@ async function integrationRow(userId: string, workspaceId: string) {
 
 describe('connect (OAuth)', () => {
   it('redirects to Notion with a signed state, stores the encrypted token on return', async () => {
-    const { res, location, stateCookie } = await startConnect(owner, ownerPersonal);
+    const { res, location, stateCookie } = await startConnect(owner, ownerOwnWs);
     expect(res.status).toBe(303);
     const authorize = new URL(location!);
     expect(`${authorize.origin}${authorize.pathname}`).toBe(
@@ -213,12 +213,12 @@ describe('connect (OAuth)', () => {
     expect(cookie).toMatch(/Path=\/api\/integrations\/notion/);
     expect(stateCookie).toContain(authorize.searchParams.get('state')!);
 
-    const done = await connect(owner, ownerPersonal);
+    const done = await connect(owner, ownerOwnWs);
     expect(done.status).toBe(303);
     expect(done.location.pathname).toBe('/settings/integrations');
     expect(done.location.searchParams.get('connected')).toBe('notion');
 
-    const row = await integrationRow(owner.id, ownerPersonal);
+    const row = await integrationRow(owner.id, ownerOwnWs);
     expect(row?.secretEncrypted).toBeTruthy();
     expect(row!.secretEncrypted).not.toContain('ntn_mock_');
     expect(row!.settingsJson).toMatchObject({
@@ -226,10 +226,10 @@ describe('connect (OAuth)', () => {
       notionWorkspaceName: 'Oat Mock Notion',
       botId: NOTION_MOCK_IDS.bot,
     });
-    const info = await connection(owner, ownerPersonal);
+    const info = await connection(owner, ownerOwnWs);
     expect(info.status).toBe(200);
     expect(info.body).toMatchObject({
-      workspaceId: ownerPersonal,
+      workspaceId: ownerOwnWs,
       notionWorkspaceName: 'Oat Mock Notion',
       needsReconnect: false,
       target: null,
@@ -308,7 +308,7 @@ describe('connect (OAuth)', () => {
 
 describe('target', () => {
   it('searches pages and databases (no database rows) and stores the chosen target', async () => {
-    const all = await targets(owner, ownerPersonal);
+    const all = await targets(owner, ownerOwnWs);
     expect(all.status).toBe(200);
     expect(all.body.map((t) => [t.type, t.title])).toEqual(
       expect.arrayContaining([
@@ -318,11 +318,11 @@ describe('target', () => {
         ['database', 'Reading list'],
       ]),
     );
-    const meet = await targets(owner, ownerPersonal, 'meet');
+    const meet = await targets(owner, ownerOwnWs, 'meet');
     expect(meet.body.map((t) => t.title).sort()).toEqual(['Meeting notes', 'Meetings']);
 
     const set = await setTarget(owner, {
-      workspaceId: ownerPersonal,
+      workspaceId: ownerOwnWs,
       type: 'page',
       id: NOTION_MOCK_IDS.meetingNotes,
     });
@@ -337,7 +337,7 @@ describe('target', () => {
     expect(
       (
         await setTarget(owner, {
-          workspaceId: ownerPersonal,
+          workspaceId: ownerOwnWs,
           type: 'database',
           id: NOTION_MOCK_IDS.teamHome,
         })
@@ -346,31 +346,31 @@ describe('target', () => {
     expect(
       (
         await setTarget(owner, {
-          workspaceId: ownerPersonal,
+          workspaceId: ownerOwnWs,
           type: 'page',
           id: '00000000-0000-4000-8000-000000000000',
         })
       ).status,
     ).toBe(400);
     expect(
-      (await setTarget(owner, { workspaceId: ownerPersonal, type: 'page', id: 'x' })).status,
+      (await setTarget(owner, { workspaceId: ownerOwnWs, type: 'page', id: 'x' })).status,
     ).toBe(400);
     expect(
       (
         await setTarget(
           owner,
-          { workspaceId: ownerPersonal, type: 'page', id: NOTION_MOCK_IDS.scratchpad },
+          { workspaceId: ownerOwnWs, type: 'page', id: NOTION_MOCK_IDS.scratchpad },
           { origin: 'https://evil.example' },
         )
       ).status,
     ).toBe(403);
-    expect((await connection(owner, ownerPersonal)).body?.target?.id).toBe(
+    expect((await connection(owner, ownerOwnWs)).body?.target?.id).toBe(
       NOTION_MOCK_IDS.meetingNotes,
     );
   });
 
   it('needs a connection and a session', async () => {
-    expect((await targets(null, ownerPersonal)).status).toBe(401);
+    expect((await targets(null, ownerOwnWs)).status).toBe(401);
     const none = await targets(viewer, team);
     expect(none.status).toBe(409);
     expect(none.error?.code).toBe('notion_not_connected');
@@ -380,7 +380,7 @@ describe('target', () => {
 describe('send to Notion', () => {
   it('creates the page, then re-sending replaces its content (same page)', async () => {
     const doc = await createDoc(owner, {
-      workspaceId: ownerPersonal,
+      workspaceId: ownerOwnWs,
       title: 'Kickoff notes',
       contentJson: paragraphs('First version', 'Second paragraph'),
     });
@@ -440,12 +440,12 @@ describe('send to Notion', () => {
 
   it('fills database properties from the meeting (date, attendees, Oat link)', async () => {
     await setTarget(owner, {
-      workspaceId: ownerPersonal,
+      workspaceId: ownerOwnWs,
       type: 'database',
       id: NOTION_MOCK_IDS.meetingsDb,
     });
     const doc = await createDoc(owner, {
-      workspaceId: ownerPersonal,
+      workspaceId: ownerOwnWs,
       kind: 'meeting',
       title: 'Design review',
       contentJson: paragraphs('Decisions'),
@@ -533,7 +533,7 @@ describe('send to Notion', () => {
 
   it('refuses trashed notes, concurrent sends and bad input', async () => {
     const doc = await createDoc(owner, {
-      workspaceId: ownerPersonal,
+      workspaceId: ownerOwnWs,
       title: 'Edge',
       contentJson: paragraphs('x'),
     });
@@ -541,7 +541,7 @@ describe('send to Notion', () => {
     expect((await send(owner, doc.id, { body: { extra: 1 } })).status).toBe(400);
 
     // Another send holds the lease.
-    const row = await integrationRow(owner.id, ownerPersonal);
+    const row = await integrationRow(owner.id, ownerOwnWs);
     await h.db.insert(documentExport).values({
       documentId: doc.id,
       integrationId: row!.id,
@@ -567,7 +567,7 @@ describe('send to Notion', () => {
 
   it('rate limits sends per user (429 + Retry-After)', async () => {
     const doc = await createDoc(owner, {
-      workspaceId: ownerPersonal,
+      workspaceId: ownerOwnWs,
       title: 'Rate',
       contentJson: paragraphs('x'),
     });
@@ -588,7 +588,7 @@ describe('send to Notion', () => {
 describe('revoked token and disconnect', () => {
   it('a token revoked in Notion gives a clear reconnect error; reconnecting fixes it', async () => {
     const user = await h.signUp('n-revoke');
-    const ws = (await findPersonalWorkspaceId(h.db, user.id))!;
+    const ws = (await findFirstWorkspaceId(h.db, user.id))!;
     await connect(user, ws);
     await setTarget(user, { workspaceId: ws, type: 'page', id: NOTION_MOCK_IDS.scratchpad });
     const doc = await createDoc(user, {
@@ -631,7 +631,7 @@ describe('revoked token and disconnect', () => {
 
   it('disconnect revokes the token at Notion and removes the connection and its exports', async () => {
     const user = await h.signUp('n-disconnect');
-    const ws = (await findPersonalWorkspaceId(h.db, user.id))!;
+    const ws = (await findFirstWorkspaceId(h.db, user.id))!;
     await connect(user, ws);
     await setTarget(user, { workspaceId: ws, type: 'page', id: NOTION_MOCK_IDS.scratchpad });
     const doc = await createDoc(user, {
@@ -701,7 +701,7 @@ describe('revoked token and disconnect', () => {
 describe('re-push safety', () => {
   async function connectedUser(label: string) {
     const user = await h.signUp(label);
-    const ws = (await findPersonalWorkspaceId(h.db, user.id))!;
+    const ws = (await findFirstWorkspaceId(h.db, user.id))!;
     await connect(user, ws);
     await setTarget(user, { workspaceId: ws, type: 'page', id: NOTION_MOCK_IDS.scratchpad });
     return { user, ws };

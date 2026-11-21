@@ -38,8 +38,8 @@ vi.mock('./meetings-state.ts', () => ({
 const note = {
   documentId: 'doc',
   meetingId: 'meeting',
-  workspaceId: 'personal',
-  workspaceName: 'Personal',
+  workspaceId: 'own',
+  workspaceName: 'Ada’s workspace',
   title: 'Weekly sync',
   contentJson: { type: 'doc', content: [] },
   visibility: 'private',

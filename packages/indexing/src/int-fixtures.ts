@@ -56,9 +56,7 @@ export async function makeWorkspace(
   members: [userId: string, role: Role][] = [],
 ): Promise<string> {
   const id = newId();
-  await db
-    .insert(s.workspace)
-    .values({ id, name: 'W', slug: `w-${id}`, createdBy: owner, kind: 'team' });
+  await db.insert(s.workspace).values({ id, name: 'W', slug: `w-${id}`, createdBy: owner });
   await db
     .insert(s.membership)
     .values([

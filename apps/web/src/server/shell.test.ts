@@ -9,21 +9,22 @@ import { buildShellData } from './shell';
 const workspaces: UserWorkspace[] = [
   {
     id: 'p1',
-    name: 'Personal',
-    slug: 'personal-u1',
-    kind: 'personal',
+    name: 'Ada’s workspace',
+    slug: 'ada-s-workspace-1',
     logo: null,
     role: 'owner',
     memberCount: 1,
+    joinedAt: new Date('2026-11-02T00:00:00Z'),
   },
   {
     id: 't1',
     name: 'Acme',
     slug: 'acme-1',
-    kind: 'team',
     logo: '🌾',
     role: 'member',
     memberCount: 6,
+    // Joined first, although it is listed second.
+    joinedAt: new Date('2026-11-01T00:00:00Z'),
   },
 ];
 const user = { id: 'u1', name: '', email: 'ada@example.test', image: null };
@@ -68,7 +69,6 @@ describe('buildShellData (session + memberships + tree → shell)', () => {
     expect(data.workspace).toEqual({
       id: 't1',
       name: 'Acme',
-      kind: 'team',
       members: 6,
       icon: '🌾',
       role: 'member',
@@ -79,11 +79,30 @@ describe('buildShellData (session + memberships + tree → shell)', () => {
     expect(data.trash).toEqual([]);
   });
 
-  it('falls back to the personal workspace for a stale or missing active id', () => {
+  it('a stale or missing active id falls back to the last active workspace, else the oldest membership', () => {
     for (const activeWorkspaceId of ['gone', null, undefined]) {
       const data = buildShellData({ user, workspaces, activeWorkspaceId });
-      expect(data.workspace.id).toBe('p1');
+      expect(data.workspace.id).toBe('t1');
+      const remembered = buildShellData({
+        user,
+        workspaces,
+        activeWorkspaceId,
+        lastActiveWorkspaceId: 'p1',
+      });
+      expect(remembered.workspace.id).toBe('p1');
+      const stale = buildShellData({
+        user,
+        workspaces,
+        activeWorkspaceId,
+        lastActiveWorkspaceId: 'gone-too',
+      });
+      expect(stale.workspace.id).toBe('t1');
     }
+    // The session's own choice wins over what was remembered.
+    expect(
+      buildShellData({ user, workspaces, activeWorkspaceId: 't1', lastActiveWorkspaceId: 'p1' })
+        .workspace.id,
+    ).toBe('t1');
   });
 
   it('refuses a user without workspaces (the loader heals that case first)', () => {
@@ -105,8 +124,8 @@ describe('buildShellData (session + memberships + tree → shell)', () => {
       ],
       trash: [doc('d4', 'Old', null, { deletedAt: at })],
     });
-    expect(rootsOf(data.documents, 'private').map((d) => d.id)).toEqual(['f1', 'd1']);
-    expect(rootsOf(data.documents, 'shared').map((d) => d.id)).toEqual(['d3']);
+    expect(rootsOf(data.documents, 'private', user.id).map((d) => d.id)).toEqual(['f1', 'd1']);
+    expect(rootsOf(data.documents, 'shared', user.id).map((d) => d.id)).toEqual(['d3']);
     const [reading] = childrenOf(data.documents, 'f1');
     expect(reading).toMatchObject({ id: 'd2', kind: 'meeting', parentId: 'f1', version: 3 });
     expect(data.trash.map((d) => d.id)).toEqual(['d4']);

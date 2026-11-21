@@ -1,7 +1,9 @@
 import 'server-only';
 
 import {
-  ensurePersonalWorkspace,
+  ensureFirstWorkspace,
+  hasAnyJoinChoice,
+  lastActiveWorkspaceId,
   listUserWorkspaces,
   pickActiveWorkspace,
   type UserWorkspace,
@@ -9,6 +11,7 @@ import {
 import { type CalendarEvent, createPermissionContext } from '@oat/core';
 import { meeting } from '@oat/db';
 import { eq } from 'drizzle-orm';
+import { redirect } from 'next/navigation';
 import { cache } from 'react';
 
 import type { DocumentDetail, DocumentSummary, FolderSummary } from '@/lib/api-types';
@@ -45,7 +48,6 @@ import { loadTranscript } from './transcript';
 const toWorkspace = (w: UserWorkspace): Workspace => ({
   id: w.id,
   name: w.name,
-  kind: w.kind,
   members: w.memberCount,
   icon: workspaceIcon(w.logo),
   role: w.role,
@@ -56,11 +58,18 @@ export function buildShellData(input: {
   user: { id: string; name?: string | null; email: string; image?: string | null };
   workspaces: readonly UserWorkspace[];
   activeWorkspaceId: string | null | undefined;
+  /** The workspace the user last switched to (used when the session's one is gone or unset). */
+  lastActiveWorkspaceId?: string | null;
   folders?: readonly FolderSummary[];
   documents?: readonly DocumentSummary[];
   trash?: readonly DocumentSummary[];
+  canJoin?: boolean;
 }): ShellData {
-  const active = pickActiveWorkspace(input.workspaces, input.activeWorkspaceId);
+  const active = pickActiveWorkspace(
+    input.workspaces,
+    input.activeWorkspaceId,
+    input.lastActiveWorkspaceId,
+  );
   if (!active) throw new Error('signed-in user has no workspace');
   const user: ShellUser = {
     id: input.user.id,
@@ -77,20 +86,26 @@ export function buildShellData(input: {
       ...(input.documents ?? []).map(documentNode),
     ],
     trash: (input.trash ?? []).map(documentNode),
+    canJoin: input.canJoin ?? false,
   };
 }
 
 /**
  * The signed-in user, their workspaces (the active one resolved from the session) and their
  * permission context. Redirects to `/sign-in` without a session. Deduped per request.
+ *
+ * A user without a workspace (D-36) — new, removed from their only one, or its owner deleted it — gets one
+ * of their own here; unless they have a choice to make first (an invitation to answer, or a workspace their
+ * email domain lets them join or ask to join), in which case they are sent to the join screen (`/join`),
+ * where "Create my own workspace" is the alternative.
  */
 const getContext = cache(async () => {
   const { user, session } = await requireSession();
   const db = getDb();
   let workspaces = await listUserWorkspaces(db, user.id);
   if (workspaces.length === 0) {
-    // Normally created on sign-up; heal a user whose workspace creation failed.
-    await ensurePersonalWorkspace(db, user.id);
+    const first = await ensureFirstWorkspace(db, user.id);
+    if (first.workspaceId === undefined) redirect('/join');
     workspaces = await listUserWorkspaces(db, user.id);
   }
   // The workspace list already carries the user's roles: no second membership query.
@@ -101,7 +116,14 @@ const getContext = cache(async () => {
       memberships: workspaces.map((w) => ({ workspaceId: w.id, userId: user.id, role: w.role })),
     }),
   };
-  const active = pickActiveWorkspace(workspaces, session.activeOrganizationId);
+  // The session's workspace is gone (left, removed, deleted) or was never set: the one last switched to,
+  // else the oldest membership — the same rule a new session starts with.
+  const sessionActive = workspaces.some((w) => w.id === session.activeOrganizationId);
+  const active = pickActiveWorkspace(
+    workspaces,
+    session.activeOrganizationId,
+    sessionActive ? null : await lastActiveWorkspaceId(db, user.id),
+  );
   if (!active) throw new Error('signed-in user has no workspace');
   return { db, user, session, workspaces, actor, active };
 });
@@ -109,10 +131,12 @@ const getContext = cache(async () => {
 /** User, workspaces and the active workspace's tree + trash for the signed-in frame. */
 export const getShellData = cache(async (): Promise<ShellData> => {
   const { db, user, workspaces, actor, active } = await getContext();
-  const [folders, documents, trash] = await Promise.all([
+  const [folders, documents, trash, canJoin] = await Promise.all([
     listFolders(db, actor, active.id),
     listDocuments(db, actor, active.id),
     listDocuments(db, actor, active.id, { trash: true }),
+    // Yes or no only, with the context already loaded (never a workspace the user is in).
+    hasAnyJoinChoice(db, user.id, actor.ctx),
   ]);
   return buildShellData({
     user,
@@ -121,6 +145,7 @@ export const getShellData = cache(async (): Promise<ShellData> => {
     folders,
     documents,
     trash,
+    canJoin,
   });
 });
 

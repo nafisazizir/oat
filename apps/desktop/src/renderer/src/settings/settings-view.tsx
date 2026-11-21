@@ -23,11 +23,9 @@ import { StorageSettings } from './storage-settings.tsx';
 export function SettingsView({
   onClose,
   onOpenSetup,
-  teamWorkspace = false,
 }: {
   onClose: () => void;
   onOpenSetup: () => void;
-  teamWorkspace?: boolean;
 }) {
   const [section, setSection] = useState<'preferences' | 'recording' | 'storage'>('preferences');
   const action = useRecordingAction();
@@ -52,10 +50,11 @@ export function SettingsView({
                 className="justify-start"
                 onClick={onClose}
                 data-testid="settings-close"
-                aria-label="Back to notes"
               >
                 <IconArrowLeft data-icon="inline-start" />
-                Back<Kbd className="ms-auto">Esc</Kbd>
+                {/* Named by what it shows ("Back …"), with where it goes for screen readers. */}
+                Back<span className="sr-only"> to notes</span>
+                <Kbd className="ms-auto">Esc</Kbd>
               </Button>
               <SettingsNavGroup label="Account">
                 <button
@@ -102,10 +101,7 @@ export function SettingsView({
                 </button>
               </SettingsNavGroup>
               <SettingsNavGroup label="Workspace">
-                {(teamWorkspace
-                  ? (['workspace', 'members'] as const)
-                  : (['workspace'] as const)
-                ).map((id) => (
+                {(['workspace', 'members'] as const).map((id) => (
                   <button
                     key={id}
                     type="button"

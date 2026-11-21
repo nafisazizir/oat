@@ -37,7 +37,7 @@ export default async function SignInPage({
         </AuthContent>
       </AuthPanel>
       <p className="text-center text-copy-13 text-gray-900">
-        New here? Signing in creates your personal workspace.
+        New here? Signing in creates your account.
       </p>
     </div>
   );

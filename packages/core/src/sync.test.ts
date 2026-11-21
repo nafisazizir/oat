@@ -101,7 +101,7 @@ describe('sync protocol', () => {
         table: 'transcript_segment',
         row: { ...segment, isFinal: false },
       },
-      { version: 1, op: 'upsert', table: 'workspace', row: { id: 'w', name: 'x', kind: 'team' } },
+      { version: 1, op: 'upsert', table: 'workspace', row: { id: 'w', name: 'x' } },
       { version: 1, op: 'delete', table: 'workspace', id: 'w' },
       {
         version: 1,

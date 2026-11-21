@@ -43,9 +43,9 @@ type Option = { value: DocumentVisibility; label: string; detail: string };
 function options(s: DocumentSharing, isOwner: boolean): Option[] {
   const ws = s.workspace;
   const everyone =
-    ws.kind === 'personal'
-      ? 'Only you, in your personal workspace'
-      : `Everyone in ${ws.name} (${ws.memberCount} ${ws.memberCount === 1 ? 'member' : 'members'})`;
+    ws.memberCount <= 1
+      ? `Everyone in ${ws.name} (only you, so far)`
+      : `Everyone in ${ws.name} (${ws.memberCount} members)`;
   return [
     { value: 'private', label: 'Private', detail: isOwner ? 'Only you' : `Only ${s.owner.name}` },
     { value: 'workspace', label: 'Workspace', detail: everyone },
@@ -60,7 +60,7 @@ function options(s: DocumentSharing, isOwner: boolean): Option[] {
 /** One sentence: who can open this document right now. */
 export function accessSummary(s: DocumentSharing, isOwner: boolean): string {
   const owner = isOwner ? 'you' : s.owner.name;
-  const ws = s.workspace.kind === 'personal' ? 'your personal workspace' : s.workspace.name;
+  const ws = s.workspace.name;
   switch (s.visibility) {
     case 'private':
       return isOwner ? 'Only you can open this.' : `Only ${owner} can open this.`;

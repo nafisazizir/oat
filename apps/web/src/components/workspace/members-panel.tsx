@@ -32,20 +32,30 @@ import {
 import { Spinner } from '@oat/ui/components/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import { IconMail, IconUserMinus, IconUserPlus } from '@tabler/icons-react';
+import type { Role } from '@oat/core';
 import { useOptimistic, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
 import { applyMembersAction, type MembersAction, runOptimistic } from '@/lib/members-optimistic';
 import { expiresIn, isRole, ROLE_INFO, ROLES_DESC } from '@/lib/workspace';
+import { approveJoinRequest, declineJoinRequest } from '@/server/actions/joining';
 import { changeRole, removeMember, resendInvite, revokeInvite } from '@/server/actions/members';
-import type { InviteView, MemberView, WorkspaceSettings } from '@/server/workspace-settings';
+import type {
+  InviteView,
+  JoinRequestView,
+  MemberView,
+  WorkspaceSettings,
+} from '@/server/workspace-settings';
 
 import { InviteDialog } from './invite-dialog';
 
 type Apply = (action: MembersAction) => void;
 
-/** Rows share one column grid so roles and actions line up down the list. */
-const ROW = 'px-0 py-3 not-last:border-b not-last:border-gray-alpha-300 rounded-none';
+/**
+ * Rows share one column grid so roles and actions line up down the list. Only the bottom edge is drawn
+ * (`Item` has a border on all four sides, transparent by default).
+ */
+const ROW = 'px-0 py-3 not-last:border-b not-last:border-b-gray-alpha-300 rounded-none';
 
 function RoleControl({
   workspaceId,
@@ -255,19 +265,114 @@ function InviteRow({ invite, apply }: { invite: InviteView; apply: Apply }) {
   );
 }
 
+/** Someone asking to join (D-36): pick the role they get and approve, or decline. */
+function JoinRequestRow({ request, roles }: { request: JoinRequestView; roles: Role[] }) {
+  const [role, setRole] = useState<Role>(
+    roles.includes('member') ? 'member' : (roles.at(-1) ?? 'viewer'),
+  );
+  const [deciding, startDecision] = useTransition();
+  const [choice, setChoice] = useState<'approve' | 'decline' | null>(null);
+  const options = ROLES_DESC.filter((r) => roles.includes(r));
+
+  const decide = (which: 'approve' | 'decline') => {
+    setChoice(which);
+    startDecision(async () => {
+      const result =
+        which === 'approve'
+          ? await approveJoinRequest({ requestId: request.id, role })
+          : await declineJoinRequest(request.id);
+      if (!result.ok) {
+        toast.error(
+          which === 'approve' ? `Couldn’t approve ${request.name}` : 'Couldn’t decline the request',
+          { description: result.error },
+        );
+      } else if (which === 'approve') {
+        toast.success(`${request.name} joined as ${ROLE_INFO[role].label.toLowerCase()}`);
+      } else {
+        toast.success(`Request from ${request.name} declined`);
+      }
+    });
+  };
+
+  return (
+    <Item role="listitem" className={ROW} data-testid="join-request-row">
+      <ItemMedia>
+        <Avatar>
+          {request.image && <AvatarImage src={request.image} alt="" />}
+          <AvatarFallback>{request.name.charAt(0).toUpperCase()}</AvatarFallback>
+        </Avatar>
+      </ItemMedia>
+      <ItemContent className="min-w-0 gap-0">
+        <ItemTitle className="w-full min-w-0 text-label-14">
+          <span className="truncate">{request.name}</span>
+        </ItemTitle>
+        <ItemDescription className="truncate text-copy-13">{request.email}</ItemDescription>
+      </ItemContent>
+      <ItemActions className="gap-1">
+        <Select
+          size="sm"
+          items={options.map((value) => ({ value, label: ROLE_INFO[value].label }))}
+          value={role}
+          disabled={deciding}
+          onValueChange={(value) => {
+            if (isRole(value)) setRole(value);
+          }}
+        >
+          <SelectTrigger
+            aria-label={`Role for ${request.name}`}
+            data-testid="join-request-role"
+            className="min-w-28"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end" alignItemWithTrigger={false}>
+            {options.map((option) => (
+              <SelectItem key={option} value={option}>
+                {ROLE_INFO[option].label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={deciding}
+          aria-label={`Decline ${request.name}`}
+          onClick={() => decide('decline')}
+        >
+          {deciding && choice === 'decline' && <Spinner data-icon="inline-start" />}
+          Decline
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={deciding}
+          aria-label={`Approve ${request.name}`}
+          onClick={() => decide('approve')}
+        >
+          {deciding && choice === 'approve' && <Spinner data-icon="inline-start" />}
+          Approve
+        </Button>
+      </ItemActions>
+    </Item>
+  );
+}
+
 function Section({
   title,
   action,
   children,
   primary = false,
+  testId,
 }: {
   primary?: boolean;
   title: string;
   action?: React.ReactNode;
   children: React.ReactNode;
+  testId?: string;
 }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-3" data-testid={testId}>
       <div className="flex min-h-9 items-center justify-between gap-4">
         {primary ? (
           <h1 className="text-heading-24 text-gray-1000">{title}</h1>
@@ -281,7 +386,10 @@ function Section({
   );
 }
 
-/** The members page: who's in, their roles, and pending invitations. Mutations apply optimistically. */
+/**
+ * The members page: who's in, their roles, requests to join and pending invitations. Member and invite
+ * mutations apply optimistically; a decision on a request shows once the server has made it.
+ */
 export function MembersPanel({ settings }: { settings: WorkspaceSettings }) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const { workspace, inviteRoles } = settings;
@@ -310,6 +418,16 @@ export function MembersPanel({ settings }: { settings: WorkspaceSettings }) {
           ))}
         </ItemGroup>
       </Section>
+
+      {settings.joinRequests.length > 0 && (
+        <Section title="Requests to join" testId="join-requests">
+          <ItemGroup className="gap-0" data-testid="join-request-list">
+            {settings.joinRequests.map((request) => (
+              <JoinRequestRow key={request.id} request={request} roles={settings.approveRoles} />
+            ))}
+          </ItemGroup>
+        </Section>
+      )}
 
       {settings.canManage && invites.length > 0 && (
         <Section title="Pending invites">

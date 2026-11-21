@@ -79,7 +79,7 @@ async function toSharing(db: Queryable, actor: Actor, row: DocumentRow): Promise
       .from(user)
       .where(eq(user.id, row.ownerId)),
     db
-      .select({ id: workspace.id, name: workspace.name, kind: workspace.kind })
+      .select({ id: workspace.id, name: workspace.name })
       .from(workspace)
       .where(eq(workspace.id, row.workspaceId)),
     db.select({ n: count() }).from(membership).where(eq(membership.workspaceId, row.workspaceId)),
@@ -97,7 +97,6 @@ async function toSharing(db: Queryable, actor: Actor, row: DocumentRow): Promise
     workspace: {
       id: row.workspaceId,
       name: ws?.name ?? '',
-      kind: ws?.kind ?? 'personal',
       memberCount: Number(members?.n ?? 0),
     },
   };

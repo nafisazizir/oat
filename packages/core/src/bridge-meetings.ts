@@ -7,7 +7,7 @@
 import { z } from 'zod';
 
 import { noteCalendarEventSchema } from './bridge-calendar.ts';
-import { RoleSchema, WorkspaceKindSchema } from './types.ts';
+import { RoleSchema } from './types.ts';
 
 const documentId = z.string().min(1).max(100);
 /** Same rule as `meetingIdSchema` in bridge.ts (audio archive folder names). */
@@ -22,6 +22,8 @@ export const meetingNoteSummarySchema = z.object({
   documentId,
   meetingId: z.string().nullable(),
   workspaceId: z.string(),
+  /** Who the note belongs to: with `visibility` it decides Private or Shared in the sidebar (D-36). */
+  ownerId: z.string(),
   title: z.string(),
   visibility: z.enum(['private', 'workspace', 'link']),
   /** Recording start (null: a note made on the web, never recorded). */
@@ -85,7 +87,6 @@ export type StoredSegment = z.infer<typeof storedSegmentSchema>;
 export const desktopWorkspaceSchema = z.object({
   id: z.string(),
   name: z.string(),
-  kind: WorkspaceKindSchema,
   /** My role there; `null` until sync has said. */
   role: RoleSchema.nullable(),
   /** New notes may be made here (`canCreateInWorkspace`: not as a viewer). The server checks again. */
@@ -94,14 +95,19 @@ export const desktopWorkspaceSchema = z.object({
 export type DesktopWorkspace = z.infer<typeof desktopWorkspaceSchema>;
 
 /**
- * The sidebar's workspace switcher (3.9): my workspaces (personal first), the active one (remembered per
- * account on this Mac) and where new meeting notes go — the active workspace when I can create there, else my
- * personal one (the sidebar then says so).
+ * The sidebar's workspace switcher (3.9): my workspaces (by name), the active one (remembered per account on
+ * this Mac) and where new meeting notes go — the active workspace when I can create there, else the first
+ * workspace I can create in (the sidebar then says so), else `null`: I have to create a workspace first (D-36).
  */
 export const workspacesSnapshotSchema = z.object({
   workspaces: z.array(desktopWorkspaceSchema).max(500),
   activeId: z.string().nullable(),
   targetId: z.string().nullable(),
+  /**
+   * A pull from the server has completed on this Mac: an empty `workspaces` then means I am in no workspace
+   * (removed from my only one, or it was deleted), not that nothing is known yet.
+   */
+  synced: z.boolean().optional(),
 });
 export type WorkspacesSnapshot = z.infer<typeof workspacesSnapshotSchema>;
 

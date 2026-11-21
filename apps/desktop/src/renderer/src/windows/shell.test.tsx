@@ -69,7 +69,7 @@ vi.mock('../onboarding/onboarding-state.ts', () => ({
 vi.mock('../workspaces/workspaces-state.ts', () => ({
   useWorkspaces: () => ({
     active: model.workspacesReady
-      ? { id: 'workspace', name: 'Personal', kind: 'personal', role: 'owner' }
+      ? { id: 'workspace', name: 'Ada’s workspace', role: 'owner' }
       : null,
     snapshot: model.workspacesReady ? { workspaces: [] } : null,
     fallback: null,

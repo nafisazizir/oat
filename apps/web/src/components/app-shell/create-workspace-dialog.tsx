@@ -15,9 +15,9 @@ import { Spinner } from '@oat/ui/components/spinner';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
-import { createTeamWorkspace } from '@/server/actions/workspaces';
+import { createWorkspace } from '@/server/actions/workspaces';
 
-/** Minimal "new team workspace" dialog: a name, then switch to it. Settings and invites come in 5.x. */
+/** Minimal "new workspace" dialog: a name, then switch to it. */
 export function CreateWorkspaceDialog({
   open,
   onOpenChange,
@@ -43,7 +43,7 @@ export function CreateWorkspaceDialog({
             event.preventDefault();
             const name = String(new FormData(event.currentTarget).get('name') ?? '');
             startTransition(async () => {
-              const result = await createTeamWorkspace(name);
+              const result = await createWorkspace(name);
               if (!result.ok) {
                 setError(result.error);
                 return;
@@ -55,8 +55,10 @@ export function CreateWorkspaceDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>Create a team workspace</DialogTitle>
-            <DialogDescription>Give your team’s notes a shared space.</DialogDescription>
+            <DialogTitle>Create a workspace</DialogTitle>
+            <DialogDescription>
+              A separate space for notes, on your own or with others.
+            </DialogDescription>
           </DialogHeader>
           <Field data-invalid={error ? true : undefined}>
             <FieldLabel htmlFor="workspace-name">Name</FieldLabel>

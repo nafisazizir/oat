@@ -3,7 +3,7 @@
  * including the deny cases (anonymous, non-member, viewer write, another member's private document → 404,
  * cross-workspace move), optimistic concurrency (409 on a stale version) and the CSRF guard.
  */
-import { findPersonalWorkspaceId } from '@oat/auth';
+import { findFirstWorkspaceId } from '@oat/auth';
 import { document } from '@oat/db';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -26,7 +26,7 @@ let member: TestUser;
 let viewer: TestUser;
 let outsider: TestUser; // not in the team workspace
 let team: string;
-let ownerPersonal: string;
+let ownerOwnWs: string;
 
 beforeAll(async () => {
   h = await createHarness();
@@ -42,7 +42,7 @@ beforeAll(async () => {
     [member, 'member'],
     [viewer, 'viewer'],
   ]);
-  ownerPersonal = (await findPersonalWorkspaceId(h.db, owner.id))!;
+  ownerOwnWs = (await findFirstWorkspaceId(h.db, owner.id))!;
 }, 60_000);
 
 afterAll(async () => {
@@ -123,19 +123,19 @@ describe('authentication and CSRF', () => {
   });
 
   it('refuses cookie writes from another origin or without an Origin', async () => {
-    const body = { workspaceId: ownerPersonal, title: 'csrf' };
+    const body = { workspaceId: ownerOwnWs, title: 'csrf' };
     const evil = await create(owner, body, { origin: 'https://evil.example' });
     expect(evil.status).toBe(403);
     expect(evil.error?.code).toBe('cross_site');
     expect((await create(owner, body, { origin: null })).status).toBe(403);
     // Reads are not affected.
-    expect((await list(owner, ownerPersonal)).status).toBe(200);
+    expect((await list(owner, ownerOwnWs)).status).toBe(200);
   });
 
   it('a bearer header doesn’t exempt a cookie request from the Origin check', async () => {
     const res = await call(docs().POST, 'POST', '/api/documents', {
       as: owner,
-      body: { workspaceId: ownerPersonal },
+      body: { workspaceId: ownerOwnWs },
       origin: 'https://evil.example',
       extraHeaders: { authorization: 'Bearer forged' },
     });
@@ -146,7 +146,7 @@ describe('authentication and CSRF', () => {
     expect(owner.bearer).not.toBe('');
     const res = await create(
       owner,
-      { workspaceId: ownerPersonal, title: 'via bearer' },
+      { workspaceId: ownerOwnWs, title: 'via bearer' },
       {
         bearer: true,
         origin: null,
@@ -159,7 +159,7 @@ describe('authentication and CSRF', () => {
 
 describe('create + read', () => {
   it('creates an empty private page with derived Markdown and version 0', async () => {
-    const d = await created(owner, { workspaceId: ownerPersonal, title: '  Hello \n world ' });
+    const d = await created(owner, { workspaceId: ownerOwnWs, title: '  Hello \n world ' });
     expect(d).toMatchObject({
       title: 'Hello world',
       kind: 'page',
@@ -177,7 +177,7 @@ describe('create + read', () => {
 
   it('validates content, assigns block ids and stores content_md', async () => {
     const d = await created(owner, {
-      workspaceId: ownerPersonal,
+      workspaceId: ownerOwnWs,
       kind: 'meeting',
       contentJson: paragraph('Ship **it**'),
     });
@@ -188,14 +188,14 @@ describe('create + read', () => {
     expect(row!.contentMd).toContain('Ship');
 
     const unknownNode = await create(owner, {
-      workspaceId: ownerPersonal,
+      workspaceId: ownerOwnWs,
       contentJson: { type: 'doc', content: [{ type: 'iframe' }] },
     });
     expect(unknownNode.status).toBe(400);
     expect(unknownNode.error?.code).toBe('invalid_content');
 
     const badLink = await create(owner, {
-      workspaceId: ownerPersonal,
+      workspaceId: ownerOwnWs,
       contentJson: {
         type: 'doc',
         content: [
@@ -220,9 +220,9 @@ describe('create + read', () => {
     expect(raw.status).toBe(400);
     const notJson = await create(owner, {}, { raw: { body: '{', type: 'application/json' } });
     expect(notJson.status).toBe(400);
-    const extra = await create(owner, { workspaceId: ownerPersonal, ownerId: member.id });
+    const extra = await create(owner, { workspaceId: ownerOwnWs, ownerId: member.id });
     expect(extra.status).toBe(400);
-    const linkOnCreate = await create(owner, { workspaceId: ownerPersonal, visibility: 'link' });
+    const linkOnCreate = await create(owner, { workspaceId: ownerOwnWs, visibility: 'link' });
     expect(linkOnCreate.status).toBe(400);
     const noWorkspace = await call(docs().GET, 'GET', '/api/documents', { as: owner });
     expect(noWorkspace.status).toBe(400);
@@ -277,7 +277,7 @@ describe('create + read', () => {
 
 describe('update + optimistic concurrency (D-19)', () => {
   it('bumps the version on every accepted write and refuses a stale base with 409 + server copy', async () => {
-    const d = await created(owner, { workspaceId: ownerPersonal });
+    const d = await created(owner, { workspaceId: ownerOwnWs });
     const first = await patch(owner, d.id, { baseVersion: 0, contentJson: paragraph('one') });
     expect(first.status).toBe(200);
     expect(first.body.version).toBe(1);
@@ -295,7 +295,7 @@ describe('update + optimistic concurrency (D-19)', () => {
   });
 
   it('two racing writers on the same base: exactly one wins', async () => {
-    const d = await created(owner, { workspaceId: ownerPersonal });
+    const d = await created(owner, { workspaceId: ownerOwnWs });
     const results = await Promise.all(
       ['a', 'b', 'c'].map((t) => patch(owner, d.id, { baseVersion: 0, title: t })),
     );
@@ -303,7 +303,7 @@ describe('update + optimistic concurrency (D-19)', () => {
   });
 
   it('rejects an empty update and invalid content', async () => {
-    const d = await created(owner, { workspaceId: ownerPersonal });
+    const d = await created(owner, { workspaceId: ownerOwnWs });
     expect((await patch(owner, d.id, { baseVersion: 0 })).status).toBe(400);
     const bad = await patch(owner, d.id, {
       baseVersion: 0,
@@ -348,16 +348,16 @@ describe('move (D-18)', () => {
   });
 
   it('refuses cross-workspace moves (the other workspace’s folder is “not found”)', async () => {
-    const personalDoc = await created(owner, { workspaceId: ownerPersonal });
+    const ownDoc = await created(owner, { workspaceId: ownerOwnWs });
     const teamFolder = await folderOf(owner, {
       workspaceId: team,
       name: 'Team folder',
       visibility: 'workspace',
     });
-    const res = await move(owner, personalDoc.id, { folderId: teamFolder.id });
+    const res = await move(owner, ownDoc.id, { folderId: teamFolder.id });
     expect(res.status).toBe(404);
-    const [row] = await h.db.select().from(document).where(eq(document.id, personalDoc.id));
-    expect(row!.workspaceId).toBe(ownerPersonal);
+    const [row] = await h.db.select().from(document).where(eq(document.id, ownDoc.id));
+    expect(row!.workspaceId).toBe(ownerOwnWs);
   });
 
   it('viewers can’t move; members move shared documents between shared folders', async () => {
@@ -389,21 +389,21 @@ describe('move (D-18)', () => {
       404,
     );
     // A folder from another workspace is refused like an unknown one.
-    const res = await create(owner, { workspaceId: ownerPersonal, folderId: sharedFolder.id });
+    const res = await create(owner, { workspaceId: ownerOwnWs, folderId: sharedFolder.id });
     expect(res.status).toBe(404);
   });
 });
 
 describe('trash, restore, permanent delete', () => {
   it('owner trashes, restores and permanently deletes; lists reflect it', async () => {
-    const d = await created(owner, { workspaceId: ownerPersonal, title: 'To trash' });
+    const d = await created(owner, { workspaceId: ownerOwnWs, title: 'To trash' });
     expect((await trash(owner, d.id, true)).error?.code).toBe('not_in_trash');
 
     const trashed = await trash(owner, d.id);
     expect(trashed.status).toBe(200);
     expect(trashed.body.deletedAt).not.toBeNull();
-    expect((await list(owner, ownerPersonal)).body.map((x) => x.id)).not.toContain(d.id);
-    expect((await list(owner, ownerPersonal, true)).body.map((x) => x.id)).toContain(d.id);
+    expect((await list(owner, ownerOwnWs)).body.map((x) => x.id)).not.toContain(d.id);
+    expect((await list(owner, ownerOwnWs, true)).body.map((x) => x.id)).toContain(d.id);
     // Readable in the trash, but not editable.
     expect((await get(owner, d.id)).status).toBe(200);
     expect(
@@ -413,7 +413,7 @@ describe('trash, restore, permanent delete', () => {
     const restored = await restore(owner, d.id);
     expect(restored.status).toBe(200);
     expect(restored.body.deletedAt).toBeNull();
-    expect((await list(owner, ownerPersonal)).body.map((x) => x.id)).toContain(d.id);
+    expect((await list(owner, ownerOwnWs)).body.map((x) => x.id)).toContain(d.id);
 
     await trash(owner, d.id);
     const gone = await trash(owner, d.id, true);

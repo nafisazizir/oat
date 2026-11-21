@@ -47,10 +47,11 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // The `(app)` route group (keep in sync with `src/app/(app)/*`), plus the public invite and share pages
-  // for their headers.
+  // The `(app)` route group (keep in sync with `src/app/(app)/*`) and the join screen (signed-in only),
+  // plus the public invite and share pages for their headers.
   matcher: [
     '/home',
+    '/join',
     '/assistant',
     '/d/:path*',
     '/search',

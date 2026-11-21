@@ -1,8 +1,8 @@
 /**
- * Team workspaces (5.1/5.2) against a throwaway Postgres database: invitations through Better Auth with
+ * Workspace members (5.1/5.2; one kind of workspace since D-36) against a throwaway Postgres database: invitations through Better Auth with
  * our hooks and email, accepting by the invited (verified) address only, and the member actions in
  * `members.ts` (role change, remove, leave, soft delete) with every deny case and the last-owner rule
- * under concurrency. Mail is captured in memory here; the web e2e covers the Mailpit round trip.
+ * under concurrency, plus the last-workspace rule (D-36). Mail is captured in memory here; the web e2e covers the Mailpit round trip.
  */
 import { ForbiddenError, roleIn, type Role } from '@oat/core';
 import { createDb, type Db, migrate, schema } from '@oat/db';
@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { type AuthConfig, DEV_AUTH_SECRET } from './config.ts';
 import type { EmailMessage, Mailer } from './email.ts';
+import { ensureFirstWorkspace } from './joining.ts';
 import { magicLinkVerifyUrl } from './magic-link.ts';
 import {
   changeMemberRole,
@@ -32,7 +33,7 @@ import {
   DISABLED_AUTH_PATHS,
   INVITE_EMAIL_LIMITS,
 } from './server.ts';
-import { listUserWorkspaces, loadPermissionContext } from './workspaces.ts';
+import { findFirstWorkspaceId, listUserWorkspaces, loadPermissionContext } from './workspaces.ts';
 
 const BASE = 'http://localhost:3000';
 
@@ -417,7 +418,7 @@ describe('changing roles', () => {
     expect(await roleOf(ws, owner.id)).toBe('admin');
   });
 
-  it('non-members get not-found; personal workspaces have no roles to change', async () => {
+  it('non-members get not-found; the only owner of a workspace of one can’t demote themselves', async () => {
     const { ws, member } = await team();
     const stranger = await person('stranger');
     await expect(
@@ -428,11 +429,11 @@ describe('changing roles', () => {
         role: 'viewer',
       }),
     ).rejects.toThrow(NotFoundError);
-    const personal = (await listUserWorkspaces(db, stranger.id))[0]!;
+    const own = (await listUserWorkspaces(db, stranger.id))[0]!;
     await expect(
       changeMemberRole(db, {
         actorId: stranger.id,
-        workspaceId: personal.id,
+        workspaceId: own.id,
         userId: stranger.id,
         role: 'admin',
       }),
@@ -450,7 +451,10 @@ describe('removing and leaving', () => {
     expect((await listMembers(db, ws)).map((m) => m.userId)).toEqual([owner.id]);
     const [s] = await db.select().from(schema.session).where(eq(schema.session.userId, member.id));
     expect(s!.activeWorkspaceId).toBeNull();
-    expect((await listUserWorkspaces(db, member.id)).map((w) => w.kind)).toEqual(['personal']);
+    // Back to the workspace they had before joining.
+    expect((await listUserWorkspaces(db, member.id)).map((w) => w.id)).toEqual([
+      await findFirstWorkspaceId(db, member.id),
+    ]);
   });
 
   it('deny: admin removes owner or admin, member/viewer remove others, last owner removed', async () => {
@@ -484,12 +488,64 @@ describe('removing and leaving', () => {
     expect(await roleOf(ws, owner.id)).toBe('owner');
   });
 
-  it('nobody leaves or is removed from a personal workspace', async () => {
+  // D-36: no account is left without a workspace by its own action.
+  it('nobody leaves their last workspace; with a second one they can', async () => {
+    const { ws, owner, member } = await team();
+    // A member whose only workspace is the team (as someone who signed up through an invitation).
+    const own = (await findFirstWorkspaceId(db, member.id))!;
+    await db.delete(schema.membership).where(eq(schema.membership.workspaceId, own));
+    expect((await listUserWorkspaces(db, member.id)).map((w) => w.id)).toEqual([ws]);
+
+    await expect(leaveWorkspace(db, { actorId: member.id, workspaceId: ws })).rejects.toThrow(
+      ForbiddenError,
+    );
+    expect(await roleOf(ws, member.id)).toBe('member');
+    // A soft-deleted workspace doesn't count as somewhere else to be.
+    const dead = await teamOf(owner, 'Dead');
+    await addMember(dead, member, 'member');
+    await deleteWorkspace(db, { actorId: owner.id, workspaceId: dead });
+    await expect(leaveWorkspace(db, { actorId: member.id, workspaceId: ws })).rejects.toThrow(
+      ForbiddenError,
+    );
+
+    // Being removed by someone else is not leaving: allowed, and the next visit gives them a workspace.
+    await removeMember(db, { actorId: owner.id, workspaceId: ws, userId: member.id });
+    expect(await listUserWorkspaces(db, member.id)).toEqual([]);
+    const fresh = await ensureFirstWorkspace(db, member.id);
+    expect(fresh.created).toBe(true);
+
+    // With a second workspace, leaving the first works.
+    await addMember(ws, member, 'member');
+    await leaveWorkspace(db, { actorId: member.id, workspaceId: ws });
+    expect((await listUserWorkspaces(db, member.id)).map((w) => w.id)).toEqual([fresh.workspaceId]);
+  });
+
+  it('the sole owner of a workspace of one can’t leave it (last owner, last workspace)', async () => {
     const solo = await person('solo');
-    const personal = (await listUserWorkspaces(db, solo.id))[0]!;
-    await expect(
-      leaveWorkspace(db, { actorId: solo.id, workspaceId: personal.id }),
-    ).rejects.toThrow(ForbiddenError);
+    const own = (await listUserWorkspaces(db, solo.id))[0]!;
+    await expect(leaveWorkspace(db, { actorId: solo.id, workspaceId: own.id })).rejects.toThrow(
+      ForbiddenError,
+    );
+  });
+
+  it('leaving two workspaces at the same time keeps one of them', async () => {
+    for (let round = 0; round < 5; round++) {
+      const [a, b] = await Promise.all([team(), team()]);
+      const both = await person(`both-${round}`);
+      const own = (await findFirstWorkspaceId(db, both.id))!;
+      await db.delete(schema.membership).where(eq(schema.membership.workspaceId, own));
+      await addMember(a.ws, both, 'member');
+      await addMember(b.ws, both, 'member');
+
+      const results = await Promise.allSettled([
+        leaveWorkspace(db, { actorId: both.id, workspaceId: a.ws }),
+        leaveWorkspace(db, { actorId: both.id, workspaceId: b.ws }),
+      ]);
+      expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+      const refused = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+      expect(refused.reason).toBeInstanceOf(ForbiddenError);
+      expect(await listUserWorkspaces(db, both.id)).toHaveLength(1);
+    }
   });
 
   it('Better Auth’s own member endpoints are not served (one write path, under our lock)', async () => {
@@ -630,18 +686,130 @@ describe('deleting a workspace (soft)', () => {
     expect(await roleOf(ws, joiner.id)).toBeUndefined();
   });
 
-  it('personal workspaces are never deleted (core + database check)', async () => {
+  // D-36: the workspace made at sign-up is an ordinary one, but nobody deletes their last workspace.
+  it('the last workspace can’t be deleted; with a second one it can — the first one too', async () => {
     const solo = await person('solo-del');
-    const personal = (await listUserWorkspaces(db, solo.id))[0]!;
-    await expect(
-      deleteWorkspace(db, { actorId: solo.id, workspaceId: personal.id }),
-    ).rejects.toThrow(ForbiddenError);
-    await expect(
-      db
-        .update(schema.workspace)
-        .set({ deletedAt: new Date() })
-        .where(eq(schema.workspace.id, personal.id)),
-    ).rejects.toThrow();
+    const own = (await listUserWorkspaces(db, solo.id))[0]!;
+    await expect(deleteWorkspace(db, { actorId: solo.id, workspaceId: own.id })).rejects.toThrow(
+      ForbiddenError,
+    );
+    expect((await listUserWorkspaces(db, solo.id)).map((w) => w.id)).toEqual([own.id]);
+
+    const second = await teamOf(solo, 'Second');
+    await deleteWorkspace(db, { actorId: solo.id, workspaceId: own.id });
+    expect((await listUserWorkspaces(db, solo.id)).map((w) => w.id)).toEqual([second]);
+    // …which leaves `second` as the last one.
+    await expect(deleteWorkspace(db, { actorId: solo.id, workspaceId: second })).rejects.toThrow(
+      ForbiddenError,
+    );
+  });
+
+  it('deleting two workspaces at the same time keeps one of them', async () => {
+    for (let round = 0; round < 5; round++) {
+      const solo = await person(`del-both-${round}`);
+      const own = (await findFirstWorkspaceId(db, solo.id))!;
+      const second = await teamOf(solo, 'Second');
+      const results = await Promise.allSettled([
+        deleteWorkspace(db, { actorId: solo.id, workspaceId: own }),
+        deleteWorkspace(db, { actorId: solo.id, workspaceId: second }),
+      ]);
+      expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+      expect(await listUserWorkspaces(db, solo.id)).toHaveLength(1);
+    }
+  });
+
+  // Review (step A) #1: the decision must come from rows read under the workspace lock, not before it.
+  describe('a change that commits while the action waits for the workspace lock', () => {
+    /** Runs `change` in a transaction that holds the workspace's lock while `action` is already waiting. */
+    async function whileWaiting<T>(
+      workspaceId: string,
+      action: () => Promise<T>,
+      change: (tx: Parameters<Parameters<Db['transaction']>[0]>[0]) => Promise<unknown>,
+    ): Promise<PromiseSettledResult<T>> {
+      let pending!: Promise<PromiseSettledResult<T>>;
+      await db.transaction(async (tx) => {
+        await tx
+          .select({ id: schema.workspace.id })
+          .from(schema.workspace)
+          .where(eq(schema.workspace.id, workspaceId))
+          .for('update');
+        pending = Promise.allSettled([action()]).then(([r]) => r!);
+        // Long enough for the action to take its user lock and block on the workspace row.
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await change(tx);
+      });
+      return pending;
+    }
+
+    it('an owner demoted meanwhile no longer deletes the workspace', async () => {
+      const { ws, owner, admin } = await team();
+      await db
+        .update(schema.membership)
+        .set({ role: 'owner' })
+        .where(and(eq(schema.membership.workspaceId, ws), eq(schema.membership.userId, admin.id)));
+      const result = await whileWaiting(
+        ws,
+        () => deleteWorkspace(db, { actorId: admin.id, workspaceId: ws }),
+        (tx) =>
+          tx
+            .update(schema.membership)
+            .set({ role: 'member' })
+            .where(
+              and(eq(schema.membership.workspaceId, ws), eq(schema.membership.userId, admin.id)),
+            ),
+      );
+      expect(result.status).toBe('rejected');
+      expect((result as PromiseRejectedResult).reason).toBeInstanceOf(ForbiddenError);
+      const [row] = await db.select().from(schema.workspace).where(eq(schema.workspace.id, ws));
+      expect(row!.deletedAt).toBeNull();
+      expect(await roleOf(ws, owner.id)).toBe('owner');
+    });
+
+    it('a member removed meanwhile has nothing left to delete or leave', async () => {
+      const { ws, admin, member } = await team();
+      const removed = await whileWaiting(
+        ws,
+        () => leaveWorkspace(db, { actorId: member.id, workspaceId: ws }),
+        (tx) =>
+          tx
+            .delete(schema.membership)
+            .where(
+              and(eq(schema.membership.workspaceId, ws), eq(schema.membership.userId, member.id)),
+            ),
+      );
+      expect(removed.status).toBe('rejected');
+      expect((removed as PromiseRejectedResult).reason).toBeInstanceOf(NotFoundError);
+
+      // An owner who becomes the last owner while their leave waits stays.
+      const second = await team();
+      await db
+        .update(schema.membership)
+        .set({ role: 'owner' })
+        .where(
+          and(
+            eq(schema.membership.workspaceId, second.ws),
+            eq(schema.membership.userId, second.admin.id),
+          ),
+        );
+      const stays = await whileWaiting(
+        second.ws,
+        () => leaveWorkspace(db, { actorId: second.admin.id, workspaceId: second.ws }),
+        (tx) =>
+          tx
+            .update(schema.membership)
+            .set({ role: 'member' })
+            .where(
+              and(
+                eq(schema.membership.workspaceId, second.ws),
+                eq(schema.membership.userId, second.owner.id),
+              ),
+            ),
+      );
+      expect(stays.status).toBe('rejected');
+      expect((stays as PromiseRejectedResult).reason).toBeInstanceOf(ForbiddenError);
+      expect(await roleOf(second.ws, second.admin.id)).toBe('owner');
+      expect(admin.id).not.toBe(second.admin.id);
+    });
   });
 
   it('members of other workspaces are unaffected', async () => {

@@ -9,6 +9,7 @@ import {
   canDeleteDocument,
   canDeleteFolder,
   canDeleteWorkspace,
+  isLastWorkspace,
   canEditDocument,
   canEditFolder,
   canInvite,
@@ -48,19 +49,19 @@ import {
 // -------------------------------------------------------------------------------------------------------
 // Fixtures
 //
-// Team workspace T: alice=owner, adam=admin, mia=member, vic=viewer. Olly owns another team workspace B.
-// Personal workspace P belongs to alice. Documents/folders under test live in T and are owned by mia unless
-// a case says otherwise, so "others' docs" cases are about owner/admin/viewer acting on mia's resources.
+// Workspace T: alice=owner, adam=admin, mia=member, vic=viewer. Olly owns another workspace B.
+// Alice also owns S, a workspace of her own (so T isn't her last one); adam, mia and vic belong to T only.
+// Documents/folders under test live in T and are owned by mia unless a case says otherwise, so "others' docs" cases are about owner/admin/viewer acting on mia's resources.
 // -------------------------------------------------------------------------------------------------------
 
 const T = 'ws-team';
 const B = 'ws-other';
-const P = 'ws-personal';
+const S = 'ws-solo';
 const TOKEN = 'Zx3_k9-QpL2mN8vR4tY6wA'; // 22 base64url chars (MIN_SHARE_TOKEN_LENGTH)
 
-const TEAM: WorkspaceAccess = { id: T, kind: 'team' };
-const OTHER: WorkspaceAccess = { id: B, kind: 'team' };
-const PERSONAL: WorkspaceAccess = { id: P, kind: 'personal' };
+const TEAM: WorkspaceAccess = { id: T };
+const OTHER: WorkspaceAccess = { id: B };
+const SOLO: WorkspaceAccess = { id: S };
 
 function ctx(userId: string | null, roles: Record<string, Role> = {}, shareToken?: string) {
   return createPermissionContext({
@@ -74,7 +75,13 @@ function ctx(userId: string | null, roles: Record<string, Role> = {}, shareToken
   });
 }
 
-const alice = ctx('alice', { [T]: 'owner', [P]: 'owner' });
+const alice = ctx('alice', { [T]: 'owner', [S]: 'owner' });
+/** The same people, also members of B: T is not their last workspace, so they may leave it. */
+const adamInTwo = ctx('adam', { [T]: 'admin', [B]: 'member' });
+const miaInTwo = ctx('mia', { [T]: 'member', [B]: 'viewer' });
+const vicInTwo = ctx('vic', { [T]: 'viewer', [B]: 'viewer' });
+/** Owns T and nothing else. */
+const aliceOnlyT = ctx('alice', { [T]: 'owner' });
 const adam = ctx('adam', { [T]: 'admin' });
 const mia = ctx('mia', { [T]: 'member' });
 const vic = ctx('vic', { [T]: 'viewer' });
@@ -337,7 +344,7 @@ const DENIED = { allowed: false };
 const adamPrivFolder = folder({ ownerId: 'adam', visibility: 'private' });
 const miaPrivFolder2 = folder({ ownerId: 'mia', visibility: 'private' });
 const otherWsFolder = folder({ workspaceId: B, ownerId: 'olly' });
-const alicePersonalFolder = folder({ workspaceId: P, ownerId: 'alice', visibility: 'private' });
+const aliceSoloFolder = folder({ workspaceId: S, ownerId: 'alice', visibility: 'private' });
 const aliceTeamDoc = doc({ ownerId: 'alice' });
 const max = ctx('max', { [T]: 'member' });
 
@@ -378,7 +385,7 @@ describe('decideMoveDocument / canMoveDocument', () => {
       'no cross-workspace move even as member of both',
       alice,
       aliceTeamDoc,
-      alicePersonalFolder,
+      aliceSoloFolder,
       DENIED,
     ],
     ['trashed doc cannot be moved', mia, trashedWs, null, DENIED],
@@ -603,7 +610,7 @@ describe('canCreateInWorkspace', () => {
     ['owner creates', alice, TEAM, true],
     ['admin creates', adam, TEAM, true],
     ['member creates', mia, TEAM, true],
-    ['owner creates in personal workspace', alice, PERSONAL, true],
+    ['owner creates in a workspace of one', alice, SOLO, true],
     ['viewer cannot create', vic, TEAM, false],
     ['non-member cannot create', olly, TEAM, false],
     ['member of T cannot create in B', alice, OTHER, false],
@@ -620,7 +627,7 @@ describe('canManageMembers', () => {
     ['admin manages team members', adam, TEAM, true],
     ['member cannot manage members', mia, TEAM, false],
     ['viewer cannot manage members', vic, TEAM, false],
-    ['personal workspace has no member management', alice, PERSONAL, false],
+    ['owner manages members of a workspace of one (D-36)', alice, SOLO, true],
     ['owner of B cannot manage T', olly, TEAM, false],
     ['anonymous cannot manage members', anon, TEAM, false],
   ])('%s', (_label, c, w, expected) => {
@@ -644,8 +651,8 @@ describe('canInvite', () => {
     expect(canInvite(ctx('actor', { [T]: actor }), TEAM, invited)).toBe(expected);
   });
 
-  it.each(ROLES)('nobody can invite into a personal workspace (%s)', (invited) => {
-    expect(canInvite(alice, PERSONAL, invited)).toBe(false);
+  it.each(ROLES)('the owner of a workspace of one can invite anyone (%s, D-36)', (invited) => {
+    expect(canInvite(alice, SOLO, invited)).toBe(true);
   });
 
   it('denies anonymous and non-members', () => {
@@ -693,10 +700,10 @@ describe('canChangeRole', () => {
     ['member cannot change roles', mia, TEAM, member('vic', 'viewer'), 'member', false],
     ['viewer cannot change roles', vic, TEAM, member('vic', 'viewer'), 'member', false],
     [
-      'personal workspace roles are fixed',
+      'the only owner of a workspace of one cannot demote themselves',
       alice,
-      PERSONAL,
-      member('alice', 'owner', 1, P),
+      SOLO,
+      member('alice', 'owner', 1, S),
       'admin',
       false,
     ],
@@ -730,20 +737,46 @@ describe('canRemoveMember', () => {
     ['admin removes viewer', adam, TEAM, member('vic', 'viewer'), true],
     ['admin cannot remove another admin', adam, TEAM, member('ada', 'admin'), false],
     ['owner removes an admin', alice, TEAM, member('adam', 'admin'), true],
-    ['admin can leave', adam, TEAM, member('adam', 'admin'), true],
+    ['admin can leave', adamInTwo, TEAM, member('adam', 'admin'), true],
     ['admin cannot remove an owner', adam, TEAM, member('alice', 'owner', 2), false],
     ['member cannot remove others', mia, TEAM, member('vic', 'viewer'), false],
     ['viewer cannot remove others', vic, TEAM, member('mia', 'member'), false],
-    ['viewer can leave', vic, TEAM, member('vic', 'viewer'), true],
-    ['member can leave', mia, TEAM, member('mia', 'member'), true],
+    ['viewer can leave', vicInTwo, TEAM, member('vic', 'viewer'), true],
+    ['member can leave', miaInTwo, TEAM, member('mia', 'member'), true],
     ['owner can leave when another owner exists', alice, TEAM, member('alice', 'owner', 2), true],
     ['last owner cannot leave', alice, TEAM, member('alice', 'owner', 1), false],
-    ['nobody leaves a personal workspace', alice, PERSONAL, member('alice', 'owner', 1, P), false],
+    // D-36: nobody leaves their last workspace, whatever their role.
+    ['admin cannot leave their only workspace', adam, TEAM, member('adam', 'admin'), false],
+    ['member cannot leave their only workspace', mia, TEAM, member('mia', 'member'), false],
+    ['viewer cannot leave their only workspace', vic, TEAM, member('vic', 'viewer'), false],
     [
-      'nobody is removed from a personal workspace',
+      'owner cannot leave their only workspace, even with another owner',
+      aliceOnlyT,
+      TEAM,
+      member('alice', 'owner', 2),
+      false,
+    ],
+    // …but removing someone else is not leaving: the actor's own count doesn't matter, nor the target's.
+    [
+      'owner with one workspace still removes a member',
+      aliceOnlyT,
+      TEAM,
+      member('mia', 'member'),
+      true,
+    ],
+    ['admin with one workspace still removes a viewer', adam, TEAM, member('vic', 'viewer'), true],
+    [
+      'the owner of a workspace of one removes a member',
       alice,
-      PERSONAL,
-      member('mia', 'member', 1, P),
+      SOLO,
+      member('mia', 'member', 1, S),
+      true,
+    ],
+    [
+      'the only owner of a workspace of one cannot leave it',
+      alice,
+      SOLO,
+      member('alice', 'owner', 1, S),
       false,
     ],
     [
@@ -763,11 +796,14 @@ describe('canRemoveMember', () => {
 
 describe('canDeleteWorkspace', () => {
   it.each<Case<WorkspaceAccess>>([
-    ['owner deletes team workspace', alice, TEAM, true],
+    ['owner deletes a workspace when they have another', alice, TEAM, true],
+    ['owner deletes a workspace of one when they have another (D-36)', alice, SOLO, true],
+    ['owner cannot delete their only workspace', aliceOnlyT, TEAM, false],
+    ['owner of B (their only workspace) cannot delete it', olly, OTHER, false],
+    ['admin with two workspaces cannot delete', adamInTwo, TEAM, false],
     ['admin cannot delete', adam, TEAM, false],
     ['member cannot delete', mia, TEAM, false],
     ['viewer cannot delete', vic, TEAM, false],
-    ['personal workspace cannot be deleted', alice, PERSONAL, false],
     ['owner of B cannot delete T', olly, TEAM, false],
     ['anonymous cannot delete', anon, TEAM, false],
     ['anonymous context with spoofed memberships cannot delete', anonSpoofed, TEAM, false],
@@ -805,6 +841,26 @@ describe('createPermissionContext', () => {
 
   it('defaults to no memberships', () => {
     expect(createPermissionContext({ userId: 'mia' }).memberships.size).toBe(0);
+  });
+});
+
+describe('isLastWorkspace', () => {
+  it('is true only for a member whose single membership is that workspace', () => {
+    expect(isLastWorkspace(mia, T)).toBe(true);
+    expect(isLastWorkspace(alice, T)).toBe(false);
+    expect(isLastWorkspace(miaInTwo, T)).toBe(false);
+    // Not a member there (or anonymous): there is nothing to leave.
+    expect(isLastWorkspace(olly, T)).toBe(false);
+    expect(isLastWorkspace(anon, T)).toBe(false);
+  });
+
+  it('assertCan refuses leaving and deleting the last workspace', () => {
+    expect(() => assertCan('removeMember', mia, TEAM, member('mia', 'member'))).toThrow(
+      ForbiddenError,
+    );
+    expect(() => assertCan('deleteWorkspace', aliceOnlyT, TEAM)).toThrow(ForbiddenError);
+    expect(() => assertCan('removeMember', miaInTwo, TEAM, member('mia', 'member'))).not.toThrow();
+    expect(() => assertCan('deleteWorkspace', alice, TEAM)).not.toThrow();
   });
 });
 
@@ -858,6 +914,18 @@ describe('assertCan', () => {
       moveDocument: [wsDoc, null],
       moveFolder: [wsFolder, null, []],
       setFolderVisibility: [wsFolder, 'private', []],
+      addDomain: [TEAM, { email: 'a@acme.test', emailVerified: true }, 'acme.test'],
+      autoJoin: [
+        { id: T, joinPolicy: 'auto_join', domains: ['acme.test'], deletedAt: null },
+        { email: 'a@acme.test', emailVerified: true },
+        null,
+      ],
+      requestToJoin: [
+        { id: T, joinPolicy: 'request', domains: ['acme.test'], deletedAt: null },
+        { email: 'a@acme.test', emailVerified: true },
+        null,
+      ],
+      decideJoinRequest: [TEAM, { workspaceId: T, status: 'pending' }],
     };
     const resource = action.endsWith('Folder')
       ? wsFolder

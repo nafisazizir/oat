@@ -22,17 +22,18 @@ import { sameDocumentContent } from '@oat/core/sync';
 import { type LocalDocument, type LocalMeeting, type LocalStore, uuidv7 } from '@oat/local-store';
 
 import { meetingTitle } from './meeting-persistence.ts';
+import { noNoteWorkspaceMessage } from './workspaces.ts';
 
 export interface MeetingNotesOptions {
   /** The signed-in user's local database (`null` while it isn't open). */
   store: () => LocalStore | null;
   /** The signed-in user (`null` when signed out). */
   userId: () => string | null;
-  sync: { kick(): void; personalWorkspace?(timeoutMs?: number): Promise<string | null> };
+  sync: { kick(): void };
   onChange: () => void;
   /** Whether this Mac has audio of the meeting (its parts are in the audio index). Default: no. */
   hasAudio?: (meetingId: string) => Promise<boolean>;
-  /** 3.9: where a new note goes (`Workspaces.newNoteWorkspace`). Default: the personal workspace. */
+  /** 3.9: where a new note goes (`Workspaces.newNoteWorkspace`). Without it, or `null`: nowhere. */
   newNoteWorkspace?: (timeoutMs?: number) => Promise<string | null>;
   /** The calendar event a note was made from, by the key it carries (7.3), while the calendar has it. */
   calendarEvent?: (key: string) => CalendarEvent | null;
@@ -102,17 +103,26 @@ export class MeetingNotes {
 
   list(): MeetingNoteSummary[] {
     const store = this.#o.store();
-    if (!store || !this.#o.userId()) return [];
-    return store.meetingNotes().map((n) => ({
-      documentId: n.documentId,
-      meetingId: n.meetingId,
-      workspaceId: n.workspaceId,
-      title: n.title,
-      visibility: n.visibility,
-      startedAt: n.startedAt,
-      endedAt: n.endedAt,
-      createdAt: n.createdAt,
-    }));
+    const userId = this.#o.userId();
+    if (!store || !userId) return [];
+    return (
+      store
+        .meetingNotes()
+        // Sync never sends another member's private note (D-22); should one be in the local database
+        // all the same, it is not listed — Private is only ever my own (D-36).
+        .filter((n) => n.visibility !== 'private' || n.ownerId === userId)
+        .map((n) => ({
+          documentId: n.documentId,
+          meetingId: n.meetingId,
+          workspaceId: n.workspaceId,
+          ownerId: n.ownerId,
+          title: n.title,
+          visibility: n.visibility,
+          startedAt: n.startedAt,
+          endedAt: n.endedAt,
+          createdAt: n.createdAt,
+        }))
+    );
   }
 
   async get(by: { documentId: string } | { meetingId: string }): Promise<MeetingNote | null> {
@@ -182,7 +192,7 @@ export class MeetingNotes {
 
   /**
    * "Start notes" on an event (7.3): the note already made for this meeting, else a new private note in the
-   * workspace new notes go to (3.9: the active one when I can create there, else personal) with the event's title, its key (`meeting.calendar_event_id`) and its attendees
+   * workspace new notes go to (3.9: the active one when I can create there, else the first one where I can) with the event's title, its key (`meeting.calendar_event_id`) and its attendees
    * (source `calendar`). Not started (no start time) until a recording starts. Concurrent calls for one event
    * share one creation.
    */
@@ -209,14 +219,10 @@ export class MeetingNotes {
       return { documentId: existing, meetingId: meeting!.id, created: false };
     }
     const userId = this.#o.userId();
-    const workspaceId =
-      (await (this.#o.newNoteWorkspace?.() ?? this.#o.sync.personalWorkspace?.())) ?? null;
+    const workspaceId = (await this.#o.newNoteWorkspace?.()) ?? null;
     const store = this.#store();
     if (!userId || !workspaceId) {
-      throw new MeetingNotesError(
-        'unavailable',
-        'Oat needs to connect once to set up your notes on this Mac. Check your connection and try again.',
-      );
+      throw new MeetingNotesError('unavailable', noNoteWorkspaceMessage(userId ? store : null));
     }
     const newId = this.#o.newId ?? uuidv7;
     const meetingId = newId();

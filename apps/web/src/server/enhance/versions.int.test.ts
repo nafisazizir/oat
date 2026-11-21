@@ -138,7 +138,7 @@ beforeAll(async () => {
   users.outsider = await addUser('outsider');
   const [ws] = await db
     .insert(workspace)
-    .values({ name: 'Team', slug: `team-${newId()}`, kind: 'team', createdBy: users.owner })
+    .values({ name: 'Team', slug: `team-${newId()}`, createdBy: users.owner })
     .returning();
   teamId = ws!.id;
   await db.insert(membership).values([

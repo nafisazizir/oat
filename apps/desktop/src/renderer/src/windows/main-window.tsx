@@ -418,7 +418,7 @@ function SignedInShell({
           </div>
           <MeetingList
             notes={listed}
-            workspaceName={activeWorkspace?.name ?? null}
+            userId={user.id}
             selected={selected}
             recordingMeetingId={recording ? activeMeetingId : null}
             onSelect={(id) => {
@@ -497,7 +497,6 @@ function SignedInShell({
                 </>
               )}
               <SettingsView
-                teamWorkspace={workspaces.active?.kind === 'team'}
                 onClose={() => setSettingsOpen(false)}
                 onOpenSetup={() => setSetupOpen(true)}
               />

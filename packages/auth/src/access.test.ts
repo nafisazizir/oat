@@ -16,10 +16,12 @@ import { describe, expect, it } from 'vitest';
 import { roles, statements } from './access.ts';
 
 /**
- * Better Auth's role statements must agree with `@oat/core` for a team workspace, so the two can't
- * drift. Documents here are workspace-visible and owned by someone else (the per-role case).
+ * Better Auth's role statements must agree with `@oat/core` for a workspace, so the two can't drift.
+ * Documents here are workspace-visible and owned by someone else (the per-role case). The actor also
+ * belongs to a second workspace: "never your last workspace" (D-36) depends on how many they have, which a
+ * role statement can't say — `members.ts` enforces it.
  */
-const team = { id: 'ws-team', kind: 'team' as const };
+const team = { id: 'ws-team' };
 const someoneElsesDoc: DocumentAccess = {
   workspaceId: team.id,
   ownerId: 'other-user',
@@ -31,7 +33,10 @@ const someoneElsesDoc: DocumentAccess = {
 function ctxFor(role: Role) {
   return createPermissionContext({
     userId: 'actor',
-    memberships: [{ workspaceId: team.id, userId: 'actor', role }],
+    memberships: [
+      { workspaceId: team.id, userId: 'actor', role },
+      { workspaceId: 'ws-elsewhere', userId: 'actor', role: 'viewer' },
+    ],
   });
 }
 

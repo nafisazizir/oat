@@ -65,7 +65,7 @@ test.describe('hardening', () => {
 });
 
 test.describe('magic link', () => {
-  test('signs up, lands on the requested page with the personal workspace', async ({
+  test('signs up, lands on the requested page in a workspace of their own', async ({
     page,
     baseURL,
   }) => {
@@ -104,7 +104,9 @@ test.describe('magic link', () => {
     await page.waitForURL(/\/settings$/, { waitUntil: 'load' });
     await page.goto('/home');
     await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible();
-    await expect(page.getByTestId('workspace-switcher')).toContainText('Personal');
+    // No name yet (magic link): the workspace made for them is "My workspace", an ordinary one.
+    await expect(page.getByTestId('workspace-switcher')).toContainText('My workspace');
+    await expect(page.getByTestId('workspace-switcher')).toContainText('1 member');
     await page.getByTestId('workspace-switcher').click();
     await expect(page.getByRole('menu')).toContainText(email);
     await page.keyboard.press('Escape');
@@ -132,7 +134,7 @@ test.describe('magic link', () => {
     await evidence(page, 'sign-in-link-used');
   });
 
-  test('signing in again keeps one personal workspace', async ({ page, baseURL }) => {
+  test('signing in again keeps one workspace', async ({ page, baseURL }) => {
     const email = uniqueAddress('e2e-again');
     for (let i = 0; i < 2; i++) {
       await page.context().clearCookies();
@@ -140,9 +142,15 @@ test.describe('magic link', () => {
       await signInWithMagicLink(page, email, baseURL!);
       await expect(page).toHaveURL(/\/home$/);
     }
+    // One workspace: it is named on the menu button, and there is no list to switch in (D-36).
+    await expect(page.getByTestId('workspace-switcher')).toContainText('My workspace');
+    await expect(page.getByTestId('workspace-switcher')).toHaveAttribute(
+      'data-switchable',
+      'false',
+    );
     await page.getByTestId('workspace-switcher').click();
-    await expect(page.getByTestId('workspace-option')).toHaveCount(1);
-    await expect(page.getByTestId('workspace-option')).toContainText('Personal');
+    await expect(page.getByRole('menu')).toBeVisible();
+    await expect(page.getByTestId('workspace-option')).toHaveCount(0);
   });
 });
 
@@ -151,8 +159,12 @@ test.describe('Google (mock issuer)', () => {
     const email = uniqueAddress('e2e-google');
     await page.goto('/sign-in');
     await signInWithGoogle(page, email, 'Grace Hopper');
+    // The provider redirects back here (no `goto`): wait for /home to hydrate, or the click on the
+    // switcher below lands on a dead button (ci-flakes; seen 1 run in 2).
+    await page.waitForURL(/\/home$/);
     await expect(page).toHaveURL(/\/home$/);
-    await expect(page.getByTestId('workspace-switcher')).toContainText('Personal');
+    // Named after their first name.
+    await expect(page.getByTestId('workspace-switcher')).toContainText('Grace’s workspace');
     await page.getByTestId('workspace-switcher').click();
     await expect(page.getByRole('menu')).toContainText('Grace Hopper');
     await expect(page.getByRole('menu')).toContainText(email);
@@ -162,12 +174,13 @@ test.describe('Google (mock issuer)', () => {
 });
 
 test.describe('signed in', () => {
-  test('creates a team workspace, switches between workspaces, signs out', async ({
+  test('creates a workspace, switches between workspaces, signs out; signing in starts in the last one', async ({
     page,
     baseURL,
   }) => {
+    const email = uniqueAddress('e2e-team');
     await page.goto('/sign-in');
-    await signInWithMagicLink(page, uniqueAddress('e2e-team'), baseURL!);
+    await signInWithMagicLink(page, email, baseURL!);
     await expect(page).toHaveURL(/\/home$/);
     const switcher = page.getByTestId('workspace-switcher');
 
@@ -185,18 +198,28 @@ test.describe('signed in', () => {
     await switcher.click();
     await expect(page.getByTestId('workspace-option')).toHaveCount(2);
     await evidence(page, 'workspace-switcher');
-    await page.getByTestId('workspace-option').filter({ hasText: 'Personal' }).click();
-    await expect(switcher).toContainText('Personal');
+    await page.getByTestId('workspace-option').filter({ hasText: 'My workspace' }).click();
+    await expect(switcher).toContainText('My workspace');
     // The switcher shows the pick right away; wait for the server to store it.
     await expect(switcher).not.toHaveAttribute('aria-busy');
     // The choice is stored on the session, so it survives a reload.
     await page.reload();
-    await expect(switcher).toContainText('Personal');
+    await expect(switcher).toContainText('My workspace');
 
+    // Back to the newer workspace, then sign out.
+    await switcher.click();
+    await page.getByTestId('workspace-option').filter({ hasText: 'Acme Design' }).click();
+    await expect(switcher).toContainText('Acme Design');
+    await expect(switcher).not.toHaveAttribute('aria-busy');
     await page.getByTestId('workspace-switcher').click();
     await page.getByRole('menuitem', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/sign-in$/);
     await page.goto('/home');
     await expect(page).toHaveURL(/\/sign-in$/);
+
+    // D-36: a new session starts in the workspace last switched to — not the oldest one.
+    await signInWithMagicLink(page, email, baseURL!);
+    await expect(page).toHaveURL(/\/home$/);
+    await expect(page.getByTestId('workspace-switcher')).toContainText('Acme Design');
   });
 });

@@ -4,7 +4,8 @@
  * pushes it).
  *
  * - Start: the meeting row and its `meeting` document (private, workspace root, owned by the user, in
- *   the active workspace when they may create there, else their personal one — 3.9) are created before the
+ *   the active workspace when they may create there, else the first one where they may — 3.9, D-36) are
+ *   created before the
  *   audio starts; resuming a meeting reuses them.
  * - Finals only (D-19: a final replaces its interim; interims never reach the database). An empty final is
  *   a retraction and deletes the segment.
@@ -14,11 +15,12 @@ import type { LiveSegment } from '@oat/core/bridge';
 import { type LocalStore, uuidv7 } from '@oat/local-store';
 
 import type { TranscriptPersistence } from './recording-service.ts';
+import { noNoteWorkspaceMessage } from './workspaces.ts';
 
 export interface MeetingPersistenceOptions {
   /** The signed-in user's local database (`null` when it isn't open). */
   store: () => LocalStore | null;
-  sync: { kick(): void; personalWorkspace(timeoutMs?: number): Promise<string | null> };
+  sync: { kick(): void };
   /** The signed-in user (`null` when signed out). */
   userId: () => string | null;
   newId?: () => string;
@@ -27,10 +29,11 @@ export interface MeetingPersistenceOptions {
   /** A meeting note was created or ended (3.4: the windows reload their list). */
   onChange?: () => void;
   /**
-   * 3.9: the workspace a new note goes to (the active one when I can create there, else personal —
-   * `Workspaces.newNoteWorkspace`). Default: the personal workspace.
+   * 3.9: the workspace a new note goes to (`Workspaces.newNoteWorkspace`: the active one when I can create
+   * there, else the first one where I can). `null` = nowhere: the start is refused before any audio is
+   * captured, with a message that says what to do (connect once, or create a workspace — D-36).
    */
-  newNoteWorkspace?: (timeoutMs?: number) => Promise<string | null>;
+  newNoteWorkspace: (timeoutMs?: number) => Promise<string | null>;
 }
 
 /** Thrown by `beginMeeting`; the message is shown to the user. */
@@ -84,15 +87,9 @@ export class MeetingPersistence implements TranscriptPersistence {
       }
       return;
     }
-    const workspaceId = await (
-      this.#o.newNoteWorkspace ?? this.#o.sync.personalWorkspace.bind(this.#o.sync)
-    )(this.#o.workspaceTimeoutMs);
+    const workspaceId = await this.#o.newNoteWorkspace(this.#o.workspaceTimeoutMs);
     const store = this.#store();
-    if (!workspaceId) {
-      throw new PersistenceError(
-        'Oat needs to connect once to set up your notes on this Mac. Check your connection and try again.',
-      );
-    }
+    if (!workspaceId) throw new PersistenceError(noNoteWorkspaceMessage(store));
     store.createMeeting({
       meetingId,
       documentId: (this.#o.newId ?? (() => uuidv7()))(),

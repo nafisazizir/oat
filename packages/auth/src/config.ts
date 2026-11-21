@@ -8,7 +8,10 @@ import { z } from 'zod';
 /** The dev secret committed in `.env.example`. Refused for a public production deployment. */
 export const DEV_AUTH_SECRET = 'oat-dev-secret-not-for-production-0123456789';
 
-/** Default cap on team workspaces one user can create (`AUTH_MAX_TEAM_WORKSPACES`). */
+/**
+ * Default cap on workspaces one user can create themselves (`AUTH_MAX_TEAM_WORKSPACES`), on top of the one
+ * made for them at sign-up.
+ */
 export const DEFAULT_MAX_TEAM_WORKSPACES = 20;
 
 export interface SmtpConfig {

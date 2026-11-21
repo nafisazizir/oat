@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CitationRegistry } from '../chat/citations.ts';
 import {
-  ALICE_PERSONAL,
+  ALICE_OWN,
   actor,
   documents,
   SHARE_TOKEN,
@@ -54,7 +54,7 @@ describe('searchMeetings', () => {
     });
     expect(docIds(out)).not.toContain('d-secret');
     expect(docIds(out)).not.toContain('d-trash');
-    expect(docIds(out)).not.toContain('d-personal');
+    expect(docIds(out)).not.toContain('d-diary');
     // The owner does see their private note.
     expect(
       docIds(await searchMeetings(toolContext(users.alice), { query: 'salary bands', limit: 12 })),
@@ -100,7 +100,7 @@ describe('searchMeetings', () => {
   it('a workspace member with no other access finds nothing in other workspaces; strangers find nothing', async () => {
     expect(docIds(await searchMeetings(toolContext(users.eve), { query: 'pricing' }))).toEqual([]);
     const linkHolder = {
-      ...toolContext(users.eve, { kind: 'workspace', workspaceId: ALICE_PERSONAL }),
+      ...toolContext(users.eve, { kind: 'workspace', workspaceId: ALICE_OWN }),
     };
     linkHolder.permissions = actor(users.eve, SHARE_TOKEN);
     expect(docIds(await searchMeetings(linkHolder, { query: 'pricing FAQ' }))).toEqual([]);
@@ -134,11 +134,11 @@ describe('getDocument', () => {
     expect(await getDocument(toolContext(users.alice), { documentId: 'd-trash' })).toMatchObject(
       notFound,
     );
-    // Alice's own personal page, but this chat is scoped to the team workspace.
-    expect(await getDocument(toolContext(users.alice), { documentId: 'd-personal' })).toMatchObject(
+    // Alice's own page in another workspace, but this chat is scoped to the team workspace.
+    expect(await getDocument(toolContext(users.alice), { documentId: 'd-diary' })).toMatchObject(
       notFound,
     );
-    const withToken = toolContext(users.eve, { kind: 'workspace', workspaceId: ALICE_PERSONAL });
+    const withToken = toolContext(users.eve, { kind: 'workspace', workspaceId: ALICE_OWN });
     withToken.permissions = actor(users.eve, SHARE_TOKEN);
     expect(await getDocument(withToken, { documentId: 'd-link' })).toMatchObject(notFound);
     const docScope = toolContext(users.alice, {

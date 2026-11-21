@@ -1,6 +1,13 @@
 import 'server-only';
 
-import { type Auth, type AuthConfig, authConfigFromEnv, createAuth } from '@oat/auth';
+import {
+  type Auth,
+  type AuthConfig,
+  authConfigFromEnv,
+  createAuth,
+  createSmtpMailer,
+  type Mailer,
+} from '@oat/auth';
 
 import { getDb } from './db';
 
@@ -11,6 +18,7 @@ import { getDb } from './db';
 const globalForAuth = globalThis as typeof globalThis & {
   __oatAuth?: Auth;
   __oatAuthConfig?: AuthConfig;
+  __oatMailer?: Mailer;
 };
 
 export function getAuthConfig(): AuthConfig {
@@ -21,4 +29,13 @@ export function getAuthConfig(): AuthConfig {
 export function getAuth(): Auth {
   globalForAuth.__oatAuth ??= createAuth({ db: getDb(), config: getAuthConfig() });
   return globalForAuth.__oatAuth;
+}
+
+/**
+ * The app's own transactional mail (join requests and decisions), over the same SMTP settings Better Auth
+ * sends sign-in links and invitations with (Mailpit in dev, D-11).
+ */
+export function getMailer(): Mailer {
+  globalForAuth.__oatMailer ??= createSmtpMailer(getAuthConfig().smtp);
+  return globalForAuth.__oatMailer;
 }

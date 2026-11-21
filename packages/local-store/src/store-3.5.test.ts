@@ -40,7 +40,7 @@ const page = (
     {
       op: 'upsert',
       table: 'workspace',
-      row: { id: 'ws', name: 'W', kind: 'team', role: 'member' },
+      row: { id: 'ws', name: 'W', role: 'member' },
     },
     ...changes,
   ],

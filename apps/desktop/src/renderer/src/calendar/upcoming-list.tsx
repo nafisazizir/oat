@@ -3,7 +3,7 @@
  * Clicking one makes its meeting note (title, attendees, the event) — or reopens the one already made — and
  * opens it; recording starts from the note (or from the "Start notes?" prompt). When no calendar can be read,
  * a "Connect" call to action; nothing ever asks for access on its own. A note made in another workspace than
- * the one the sidebar shows says which (3.9); new notes go to the active workspace (or personal, as a viewer).
+ * the one the sidebar shows says which (3.9); new notes go to the active workspace (or, as a viewer there, the first one I can add notes to).
  */
 import type { CalendarSnapshot, UpcomingEvent } from '@oat/core/bridge';
 import { Badge } from '@oat/ui/components/badge';

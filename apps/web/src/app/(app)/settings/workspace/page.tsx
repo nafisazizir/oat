@@ -4,14 +4,13 @@ import type { Metadata } from 'next';
 import { SettingsHeading } from '@/components/settings/section';
 import { WorkspaceDangerZone } from '@/components/workspace/danger-zone';
 import { WorkspaceGeneralForm } from '@/components/workspace/general-form';
+import { WorkspaceJoinSettings } from '@/components/workspace/join-settings';
 import { getWorkspaceSettings } from '@/server/workspace-settings';
 
 export const metadata: Metadata = { title: 'Workspace settings' };
 
 export default async function WorkspaceGeneralPage() {
   const settings = await getWorkspaceSettings();
-  // The layout shows the personal-workspace note instead of this page.
-  if (settings.workspace.kind === 'personal') return null;
   const { workspace } = settings;
 
   return (
@@ -24,6 +23,12 @@ export default async function WorkspaceGeneralPage() {
         canEdit={settings.canManage}
       />
 
+      {settings.joining && (
+        <div className="mt-4 border-t border-gray-alpha-300 pt-6">
+          <WorkspaceJoinSettings workspaceId={workspace.id} joining={settings.joining} />
+        </div>
+      )}
+
       <section
         aria-label="Danger zone"
         data-testid="danger-zone"
@@ -33,6 +38,8 @@ export default async function WorkspaceGeneralPage() {
           workspace={workspace}
           canLeave={settings.canLeave}
           canDelete={settings.canDelete}
+          isOwner={settings.role === 'owner'}
+          lastWorkspace={settings.lastWorkspace}
           restoreDays={WORKSPACE_RESTORE_DAYS}
         />
       </section>

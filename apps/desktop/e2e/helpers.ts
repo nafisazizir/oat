@@ -162,3 +162,48 @@ export async function signInDesktop(
     page.getByTestId('signed-in-email').or(page.getByTestId('onboarding-account')),
   ).toHaveText(email);
 }
+
+/**
+ * The calm shell (ui-calm-shell, ui-calm-note-surfaces) keeps a note's secondary surfaces behind one
+ * control each. These reach them the way a user does; none of them changes what a spec asserts.
+ */
+
+/** No note open: Home (the active workspace's notes, "Coming up" when the calendar has events). */
+export const home = (page: Page) => page.getByTestId('desktop-home');
+
+/**
+ * The open note's transcript panel, opened with its toggle in the bottom bar when it is closed (closed by
+ * default; the choice is remembered per user). The player (3.7) and the transcript notices (2.7) live in it.
+ */
+export async function openTranscript(page: Page) {
+  const toggle = page.getByTestId('transcript-toggle');
+  await expect(toggle).toBeVisible();
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  const panel = page.getByTestId('transcript-panel');
+  await expect(panel).toBeVisible();
+  return panel;
+}
+
+/**
+ * The open note's attendees (desktop and web): the chips, "Add attendee" and the remove buttons are in a
+ * popover behind the "N attendees" chip. Opens it when it is closed; `closeAttendees` puts it away again.
+ */
+export async function openAttendees(page: Page) {
+  const details = page.getByTestId('participant-details');
+  if (!(await details.isVisible())) await page.getByTestId('attendees-toggle').click();
+  await expect(details).toBeVisible();
+  return details;
+}
+
+export async function closeAttendees(page: Page) {
+  const details = page.getByTestId('participant-details');
+  if (await details.isVisible()) await page.keyboard.press('Escape');
+  await expect(details).toBeHidden();
+}
+
+/**
+ * The sidebar's sync status (2.6): an icon whose accessible name (and tooltip) is the status line — "All
+ * changes synced", "Offline — 3 changes saved on this Mac", …
+ */
+export const syncStatus = (page: Page) => page.getByTestId('sync-status');

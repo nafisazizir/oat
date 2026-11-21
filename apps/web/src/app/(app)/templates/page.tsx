@@ -47,7 +47,7 @@ function TemplateCard({ template }: { template: TemplateDto }) {
 
 export default async function TemplatesPage() {
   const { builtins, custom, canCreate, workspace } = await loadTemplateList();
-  const customHeading = workspace.kind === 'personal' ? 'Your templates' : `${workspace.name}`;
+  const customHeading = workspace.name;
 
   return (
     <PageContainer>

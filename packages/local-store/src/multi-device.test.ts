@@ -152,7 +152,7 @@ class Server {
           ? {
               op: 'upsert',
               table: 'workspace',
-              row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+              row: { id: 'ws', name: 'Me', role: 'owner' },
             }
           : { op: 'upsert', table: 'document', row: this.docs.get(id)! },
       );

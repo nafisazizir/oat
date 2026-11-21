@@ -10,10 +10,20 @@
  *    `getDb` pointed at the harness): a signed-in user without permission gets an error result and nothing
  *    changes. Each has a happy-path control so a broken setup can't pass as a refusal.
  */
-import { invite, membership, session, workspace } from '@oat/db';
+import { findFirstWorkspaceId } from '@oat/auth';
+import {
+  invite,
+  joinRequest,
+  membership,
+  session,
+  user,
+  workspace,
+  workspaceDomain,
+} from '@oat/db';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import * as joining from './actions/joining';
 import * as members from './actions/members';
 import * as workspaces from './actions/workspaces';
 import { handlers } from './api/authz-enumerate';
@@ -50,6 +60,10 @@ vi.mock('next/navigation', () => ({
 vi.mock('./auth', () => ({
   getAuth: () => env.harness!.auth,
   getAuthConfig: () => ({ baseURL: BASE, trustedOrigins: [] }),
+  getMailer: () => ({
+    send: async (message: { to: string; subject: string; text: string; html: string }) =>
+      void env.harness!.outbox.push(message),
+  }),
 }));
 vi.mock('./db', () => ({
   getDb: () => env.harness!.db,
@@ -176,7 +190,7 @@ describe('workspace actions', () => {
     expect(await workspaces.switchWorkspace(team)).toEqual({ ok: true, workspaceId: team });
   });
 
-  it('updateWorkspace: members, viewers, outsiders and personal workspaces are refused', async () => {
+  it('updateWorkspace: members, viewers and outsiders are refused; the workspace made at sign-up can be renamed', async () => {
     denies('action server/actions/members.ts#updateWorkspace');
     const rename = (workspaceId: string) =>
       members.updateWorkspace({ workspaceId, name: 'Hijacked', icon: null });
@@ -188,14 +202,16 @@ describe('workspace actions', () => {
     expect(await rename(team)).toEqual(refusedWith(NOT_FOUND));
     expect((await workspaceRow(team)).name).toBe('Team');
 
-    // Settings belong to team workspaces (core manageMembers); a personal one is refused too.
-    const [personal] = await h.db
-      .select({ id: workspace.id })
-      .from(workspace)
-      .innerJoin(membership, eq(membership.workspaceId, workspace.id))
-      .where(and(eq(membership.userId, owner.id), eq(workspace.kind, 'personal')));
+    // D-36: the workspace made for a user at sign-up is an ordinary one — its owner renames it, and
+    // nobody else does.
+    const own = (await findFirstWorkspaceId(h.db, owner.id))!;
+    as(admin);
+    expect(await rename(own)).toEqual(refusedWith(NOT_FOUND));
     as(owner);
-    expect(await rename(personal!.id)).toEqual(refusedWith(FORBIDDEN));
+    expect(
+      await members.updateWorkspace({ workspaceId: own, name: 'Owner HQ', icon: null }),
+    ).toEqual({ ok: true });
+    expect((await workspaceRow(own)).name).toBe('Owner HQ');
 
     as(admin);
     expect(await members.updateWorkspace({ workspaceId: team, name: 'Team', icon: '🌾' })).toEqual({
@@ -226,6 +242,40 @@ describe('workspace actions', () => {
     as(outsider);
     expect(await members.leaveWorkspace(team)).toEqual(refusedWith(NOT_FOUND));
     expect(await roleOf(team, owner.id)).toBe('owner');
+  });
+
+  // D-36: nobody ends up without a workspace by their own action.
+  it('leaveWorkspace and deleteWorkspace: never your only workspace, and the refusal says so', async () => {
+    denies('action server/actions/members.ts#leaveWorkspace');
+    denies('action server/actions/members.ts#deleteWorkspace');
+    const solo = await h.signUp('only-one');
+    const own = (await findFirstWorkspaceId(h.db, solo.id))!;
+    const { name } = await workspaceRow(own);
+    as(solo);
+    expect(await members.leaveWorkspace(own)).toEqual(
+      refusedWith(
+        /^This is your only workspace\. Create or join another one before you leave it\.$/,
+      ),
+    );
+    expect(await members.deleteWorkspace({ workspaceId: own, confirmName: name })).toEqual(
+      refusedWith(
+        /^This is your only workspace\. Create or join another one before you delete it\.$/,
+      ),
+    );
+    expect((await workspaceRow(own)).deletedAt).toBeNull();
+    expect(await roleOf(own, solo.id)).toBe('owner');
+
+    // A member whose only workspace is someone else's can't leave it either.
+    const guest = await h.signUp('only-guest');
+    const theirs = (await findFirstWorkspaceId(h.db, guest.id))!;
+    await h.db.insert(membership).values({ workspaceId: own, userId: guest.id, role: 'member' });
+    await h.db.delete(membership).where(eq(membership.workspaceId, theirs));
+    as(guest);
+    expect(await members.leaveWorkspace(own)).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('only workspace'),
+    });
+    expect(await roleOf(own, guest.id)).toBe('member');
   });
 });
 
@@ -330,5 +380,294 @@ describe('invitation actions', () => {
     expect(await members.declineInvite(pending.token)).toEqual({ ok: true });
     expect((await invitesTo(invitee.email))[0]!.status).toBe('rejected');
     expect(await roleOf(team, invitee.id)).toBeUndefined();
+  });
+});
+
+// D-36, step B: joining by email domain. Its own company and domain, so nobody else in this file matches.
+describe('joining actions', () => {
+  const domain = `join-${Date.now()}.test`;
+  let boss: TestUser;
+  let coAdmin: TestUser;
+  let coMember: TestUser;
+  let coViewer: TestUser;
+  let co: string;
+
+  const NOT_OPEN = /isn’t open to you/;
+  const joinSettings = async (workspaceId: string) => ({
+    policy: (await workspaceRow(workspaceId)).joinPolicy,
+    domains: (
+      await h.db
+        .select({ domain: workspaceDomain.domain })
+        .from(workspaceDomain)
+        .where(eq(workspaceDomain.workspaceId, workspaceId))
+    ).map((d) => d.domain),
+  });
+  const requestsBy = (userId: string) =>
+    h.db.select().from(joinRequest).where(eq(joinRequest.userId, userId));
+  const mailsTo = (email: string, subject: RegExp) =>
+    h.outbox.filter((m) => m.to === email && subject.test(m.subject));
+  /** Runs an action that ends in a redirect and returns where it went. */
+  const redirected = async (action: Promise<unknown>) =>
+    (await action.then(
+      () => undefined,
+      (error: unknown) => error,
+    )) as { url?: string } | undefined;
+
+  beforeAll(async () => {
+    [boss, coAdmin, coMember, coViewer] = await Promise.all([
+      h.signUp('boss', domain),
+      h.signUp('co-admin', domain),
+      h.signUp('co-member', domain),
+      h.signUp('co-viewer', domain),
+    ]);
+    co = await h.teamWorkspace(boss, [
+      [coAdmin, 'admin'],
+      [coMember, 'member'],
+      [coViewer, 'viewer'],
+    ]);
+  }, 60_000);
+
+  it('setJoinPolicy, allowMyDomain, removeAllowedDomain: only owners and admins of that workspace', async () => {
+    denies(
+      'action server/actions/joining.ts#setJoinPolicy',
+      'action server/actions/joining.ts#allowMyDomain',
+      'action server/actions/joining.ts#removeAllowedDomain',
+    );
+    as(boss);
+    expect(await joining.allowMyDomain(co)).toEqual({ ok: true });
+    expect(await joinSettings(co)).toEqual({ policy: 'invite_only', domains: [domain] });
+
+    for (const actor of [coMember, coViewer, outsider]) {
+      as(actor);
+      const expected = refusedWith(actor === outsider ? NOT_FOUND : FORBIDDEN);
+      expect(
+        await joining.setJoinPolicy({ workspaceId: co, policy: 'auto_join' }),
+        actor.email,
+      ).toEqual(expected);
+      expect(await joining.allowMyDomain(co), actor.email).toEqual({
+        ok: false,
+        error: expect.stringMatching(
+          actor === outsider ? NOT_FOUND : /your own verified work email/,
+        ),
+      });
+      expect(await joining.removeAllowedDomain({ workspaceId: co, domain }), actor.email).toEqual(
+        expected,
+      );
+    }
+    expect(await joinSettings(co)).toEqual({ policy: 'invite_only', domains: [domain] });
+
+    // An admin may: an unknown policy is still refused, a domain can be removed and added back.
+    as(coAdmin);
+    expect(
+      await joining.setJoinPolicy({ workspaceId: co, policy: 'bogus' as never }),
+    ).toMatchObject({ ok: false });
+    expect(await joining.removeAllowedDomain({ workspaceId: co, domain })).toEqual({ ok: true });
+    expect(await joining.allowMyDomain(co)).toEqual({ ok: true });
+    expect(await joinSettings(co)).toEqual({ policy: 'invite_only', domains: [domain] });
+  });
+
+  it('allowMyDomain: never a client-sent domain, never a public mailbox domain', async () => {
+    denies('action server/actions/joining.ts#allowMyDomain');
+    // There is no domain argument; smuggling one in is refused outright.
+    as(boss);
+    expect(
+      await joining.allowMyDomain({ workspaceId: co, domain: 'evil.test' } as never),
+    ).toMatchObject({ ok: false });
+    expect((await joinSettings(co)).domains).toEqual([domain]);
+
+    // An owner with a public mailbox address has no domain to add, even to their own workspace.
+    const gmailer = await h.signUp('gmailer', 'gmail.com');
+    const own = (await findFirstWorkspaceId(h.db, gmailer.id))!;
+    as(gmailer);
+    expect(await joining.allowMyDomain(own)).toEqual(refusedWith(/Public mail services/));
+    expect((await joinSettings(own)).domains).toEqual([]);
+  });
+
+  it('joinWorkspace and requestAccess: an invite-only workspace is closed; only a verified address on an allowed domain gets in', async () => {
+    denies(
+      'action server/actions/joining.ts#joinWorkspace',
+      'action server/actions/joining.ts#requestAccess',
+    );
+    // invite_only: a matching stranger can neither join nor ask (and gets their own workspace at sign-up).
+    const early = await h.signUp('early', domain);
+    expect(await findFirstWorkspaceId(h.db, early.id)).toBeDefined();
+    as(early);
+    expect(await joining.joinWorkspace(co)).toEqual(refusedWith(NOT_OPEN));
+    expect(await joining.requestAccess(co)).toEqual(refusedWith(NOT_OPEN));
+
+    // request: asking works for a matching address only; joining outright doesn't.
+    as(boss);
+    expect(await joining.setJoinPolicy({ workspaceId: co, policy: 'request' })).toEqual({
+      ok: true,
+    });
+    as(outsider); // example.test: not an allowed domain
+    expect(await joining.requestAccess(co)).toEqual(refusedWith(NOT_OPEN));
+    expect(await joining.joinWorkspace(co)).toEqual(refusedWith(NOT_OPEN));
+    as(coMember); // already in
+    expect(await joining.requestAccess(co)).toEqual(refusedWith(NOT_OPEN));
+
+    const asker = await h.signUp('asker', domain);
+    // With a workspace to ask, sign-up created none for them.
+    expect(await findFirstWorkspaceId(h.db, asker.id)).toBeUndefined();
+    await h.db.update(user).set({ emailVerified: false }).where(eq(user.id, asker.id));
+    as(asker);
+    expect(await joining.requestAccess(co)).toEqual(refusedWith(NOT_OPEN));
+    await h.db.update(user).set({ emailVerified: true }).where(eq(user.id, asker.id));
+    expect(await joining.joinWorkspace(co)).toEqual(refusedWith(NOT_OPEN));
+    expect(await requestsBy(asker.id)).toEqual([]);
+
+    expect(await joining.requestAccess(co)).toEqual({ ok: true });
+    expect(await joining.requestAccess(co)).toEqual({ ok: true }); // again: still one, no second mail
+    expect(await requestsBy(asker.id)).toEqual([
+      expect.objectContaining({ workspaceId: co, status: 'pending' }),
+    ]);
+    expect(await roleOf(co, asker.id)).toBeUndefined();
+    for (const manager of [boss, coAdmin]) {
+      expect(mailsTo(manager.email, /asked to join Team on Oat$/)).toHaveLength(1);
+    }
+    for (const other of [coMember, coViewer]) {
+      expect(mailsTo(other.email, /asked to join/)).toEqual([]);
+    }
+
+    // auto_join: a matching address joins as member and lands in the workspace.
+    as(coAdmin);
+    expect(await joining.setJoinPolicy({ workspaceId: co, policy: 'auto_join' })).toEqual({
+      ok: true,
+    });
+    as(outsider);
+    expect(await joining.joinWorkspace(co)).toEqual(refusedWith(NOT_OPEN));
+    expect(await roleOf(co, outsider.id)).toBeUndefined();
+    const joiner = await h.signUp('joiner', domain);
+    as(joiner);
+    expect(await redirected(joining.joinWorkspace(co))).toMatchObject({ url: '/home' });
+    expect(await roleOf(co, joiner.id)).toBe('member');
+    const [row] = await h.db.select().from(session).where(eq(session.userId, joiner.id));
+    expect(row!.activeWorkspaceId).toBe(co);
+
+    as(boss);
+    expect(await joining.setJoinPolicy({ workspaceId: co, policy: 'request' })).toEqual({
+      ok: true,
+    });
+  });
+
+  it('approveJoinRequest and declineJoinRequest: only owners and admins, never above their own role', async () => {
+    denies(
+      'action server/actions/joining.ts#approveJoinRequest',
+      'action server/actions/joining.ts#declineJoinRequest',
+    );
+    const first = await h.signUp('wants-in', domain);
+    const second = await h.signUp('wants-in-too', domain);
+    for (const requester of [first, second]) {
+      as(requester);
+      expect(await joining.requestAccess(co)).toEqual({ ok: true });
+    }
+    const [one] = await requestsBy(first.id);
+    const [two] = await requestsBy(second.id);
+
+    for (const actor of [coMember, coViewer, outsider, first]) {
+      as(actor);
+      const expected = refusedWith(
+        actor === coMember || actor === coViewer ? FORBIDDEN : NOT_FOUND,
+      );
+      expect(
+        await joining.approveJoinRequest({ requestId: one!.id, role: 'viewer' }),
+        actor.email,
+      ).toEqual(expected);
+      expect(await joining.declineJoinRequest(one!.id), actor.email).toEqual(expected);
+    }
+    as(coAdmin);
+    expect(await joining.approveJoinRequest({ requestId: one!.id, role: 'owner' })).toEqual(
+      refusedWith(FORBIDDEN),
+    );
+    expect(
+      await joining.approveJoinRequest({ requestId: one!.id, role: 'root' as never }),
+    ).toMatchObject({ ok: false });
+    expect(await roleOf(co, first.id)).toBeUndefined();
+    expect((await requestsBy(first.id))[0]!.status).toBe('pending');
+    expect(mailsTo(first.email, /You’re in|declined/)).toEqual([]);
+
+    expect(await joining.approveJoinRequest({ requestId: one!.id, role: 'viewer' })).toEqual({
+      ok: true,
+    });
+    expect(await roleOf(co, first.id)).toBe('viewer');
+    expect(mailsTo(first.email, /^You’re in: Team on Oat$/)).toHaveLength(1);
+    // Decided once: a second decision is refused and changes nothing.
+    as(boss);
+    expect(await joining.declineJoinRequest(one!.id)).toEqual(refusedWith(/already approved/));
+    expect(await roleOf(co, first.id)).toBe('viewer');
+
+    expect(await joining.declineJoinRequest(two!.id)).toEqual({ ok: true });
+    expect(await roleOf(co, second.id)).toBeUndefined();
+    expect(mailsTo(second.email, /was declined$/)).toHaveLength(1);
+    // A declined person can't ask again.
+    as(second);
+    expect(await joining.requestAccess(co)).toEqual(refusedWith(NOT_OPEN));
+    expect(await requestsBy(second.id)).toHaveLength(1);
+  });
+
+  it('acceptInvite: an invitation whose invitee got in by an approved request meanwhile still succeeds', async () => {
+    const both = await h.signUp('asked-and-invited', domain);
+    as(both);
+    expect(await joining.requestAccess(co)).toEqual({ ok: true });
+    as(boss);
+    expect(
+      await members.inviteMember({ workspaceId: co, email: both.email, role: 'member' }),
+    ).toEqual({ ok: true });
+    const [request] = await requestsBy(both.id);
+    expect(await joining.approveJoinRequest({ requestId: request!.id, role: 'viewer' })).toEqual({
+      ok: true,
+    });
+    const [pending] = await invitesTo(both.email);
+    as(both);
+    expect(await redirected(members.acceptInvite(pending!.token))).toMatchObject({ url: '/home' });
+    expect(await roleOf(co, both.id)).toBe('viewer');
+    expect((await invitesTo(both.email))[0]!.status).toBe('accepted');
+    const [row] = await h.db.select().from(session).where(eq(session.userId, both.id));
+    expect(row!.activeWorkspaceId).toBe(co);
+  });
+
+  it('removeMember: someone removed can’t come back through the domain, only by invitation', async () => {
+    as(boss);
+    expect(await joining.setJoinPolicy({ workspaceId: co, policy: 'auto_join' })).toEqual({
+      ok: true,
+    });
+    const back = await h.signUp('comes-back', domain);
+    as(back);
+    expect(await redirected(joining.joinWorkspace(co))).toMatchObject({ url: '/home' });
+    as(boss);
+    expect(await members.removeMember({ workspaceId: co, userId: back.id })).toEqual({ ok: true });
+    as(back);
+    expect(await joining.joinWorkspace(co)).toEqual(refusedWith(NOT_OPEN));
+    expect(await joining.requestAccess(co)).toEqual(refusedWith(NOT_OPEN));
+    expect(await roleOf(co, back.id)).toBeUndefined();
+
+    as(boss);
+    expect(
+      await members.inviteMember({ workspaceId: co, email: back.email, role: 'member' }),
+    ).toEqual({ ok: true });
+    const [invitation] = await invitesTo(back.email);
+    as(back);
+    expect(await redirected(members.acceptInvite(invitation!.token))).toMatchObject({
+      url: '/home',
+    });
+    expect(await roleOf(co, back.id)).toBe('member');
+    as(boss);
+    expect(await joining.setJoinPolicy({ workspaceId: co, policy: 'request' })).toEqual({
+      ok: true,
+    });
+  });
+
+  it('createMyWorkspace: makes one workspace for a user without one, and nothing for a user who has one', async () => {
+    const chooser = await h.signUp('chooser', domain);
+    expect(await findFirstWorkspaceId(h.db, chooser.id)).toBeUndefined();
+    as(chooser);
+    expect(await redirected(joining.createMyWorkspace())).toMatchObject({ url: '/home' });
+    const own = await findFirstWorkspaceId(h.db, chooser.id);
+    expect(own).toBeDefined();
+    expect(await roleOf(own!, chooser.id)).toBe('owner');
+    expect(await redirected(joining.createMyWorkspace())).toMatchObject({ url: '/home' });
+    const created = await h.db.select().from(workspace).where(eq(workspace.createdBy, chooser.id));
+    expect(created).toHaveLength(1);
+    expect(await roleOf(co, chooser.id)).toBeUndefined();
   });
 });

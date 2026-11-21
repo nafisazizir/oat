@@ -323,3 +323,14 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - Typography Playwright **3 passed (56.9s)** including setup/light/dark. Fast-gate command/evidence:
   `pnpm run ci --fast`, `~/shots/pr5/ci-fast-typography-fix.log`.
   [task](tasks/ui-calm-auth-dialogs.md)
+- 2026-11-21 · unified-workspaces · Human decided D-36: no personal workspace; join by invite/domain with a
+  per-workspace join policy; Private + Shared inside a workspace; leavers lose access but can export. SPEC §4–6
+  updated, task brief written (3 steps), added to PLAN M9. Nothing implemented yet.
+  [task](tasks/unified-workspaces.md)
+- 2026-11-21 · unified-workspaces · done on branch `task/unified-workspaces` (not pushed, not merged to `main`).
+  Steps A (no workspace kind), B (join by domain/policy, requests) and C (Private + Shared, export on leave),
+  each implemented, independently reviewed and verified; `task/e2e-calm-shell-specs` merged in. Final full
+  `pnpm run ci` at 12abca9: `ci: ok`, every step pass. For the human: admin (not only owner) can open a
+  workspace to a domain; lookalike workspaces are possible without DNS verification; desktop deletes unsynced
+  local notes of a workspace after leaving; Home no longer offers "connect calendar"; the menu offers "Leave"
+  to a workspace's sole owner. [task](tasks/unified-workspaces.md)

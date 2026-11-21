@@ -3,7 +3,9 @@ export const packageName = '@oat/core';
 
 export * from './constants.ts';
 export * from './types.ts';
+export * from './email-domains.ts';
 export * from './permissions.ts';
+export * from './sections.ts';
 export * from './calendar.ts';
 export * from './bridge.ts';
 export * from './sync.ts';

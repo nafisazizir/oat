@@ -44,24 +44,49 @@
  *
  * `decideMove*` return `{ allowed, setVisibility? }`; `canMove*` are their boolean forms.
  *
- * Workspaces (personal workspaces have exactly one member, their owner)
+ * Workspaces (one kind, D-36: every workspace can have members, be renamed, left and deleted)
  * | Action           | Rule                                                                                  |
  * |------------------|---------------------------------------------------------------------------------------|
  * | create in        | editor role (viewers never create).                                                   |
- * | manage members   | team workspace and owner/admin.                                                       |
+ * | manage members   | owner/admin.                                                                          |
  * | invite(role)     | manage members, and `role` ≤ actor's role (admins can't invite owners).               |
  * | change role      | manage members; target in this workspace; owners change anyone; admins change only    |
  * |                  | members/viewers and grant at most admin; never demote the last owner.                 |
- * | remove member    | team workspace; target in this workspace; never the last owner. Anyone may leave      |
- * |                  | (remove themselves); otherwise owners remove anyone, admins only members/viewers.     |
- * | delete workspace | team workspace and owner.                                                             |
+ * | remove member    | target in this workspace; never the last owner. Anyone may leave (remove themselves)  |
+ * |                  | unless it is their last workspace; otherwise owners remove anyone, admins only        |
+ * |                  | members/viewers.                                                                      |
+ * | delete workspace | owner, and not the actor's last workspace.                                            |
+ *
+ * Joining by email domain (D-36). "Matches" = the person's email is **verified**, its domain is not a public
+ * mailbox domain (`email-domains.ts`), the workspace lists that domain, and the workspace is not deleted.
+ * The email always comes from the user row, never from a request.
+ * | Action             | Rule                                                                                |
+ * |--------------------|-------------------------------------------------------------------------------------|
+ * | edit join settings | (policy, removing a domain) owner/admin.                                            |
+ * | add domain         | owner/admin, with a verified email, and only that email's own domain; never a       |
+ * |                    | public mailbox domain.                                                              |
+ * | auto-join          | policy `auto_join`; signed in, not a member, matches; no declined request (a "no",  |
+ * |                    | or having been removed, stands). Joins as `member`.                                 |
+ * | request to join    | policy `request`; signed in, not a member, matches; no pending request and no       |
+ * |                    | declined one (a "no" — or a removal, recorded as one — stands until an owner/admin  |
+ * |                    | invites them).                                                                      |
+ * | decide request     | owner/admin of the request's workspace, while it is pending; approving with a role  |
+ * |                    | ≤ their own.                                                                        |
+ * An `invite_only` workspace offers a matching stranger nothing and is never shown to them (`joinOption`).
+ *
+ * "Last workspace" (D-36: no account is ever left without one by its own action) is read from the context:
+ * `ctx.memberships` must hold **all** of the actor's memberships in live workspaces (as
+ * `createPermissionContext` is normally given). A context built from one workspace's rows alone therefore
+ * refuses leaving and deleting — it fails closed.
  */
+import { emailDomain, isPublicMailboxDomain, normalizeDomain } from './email-domains.ts';
 import type {
   DocumentVisibility,
   FolderVisibility,
+  JoinPolicy,
+  JoinRequestStatus,
   Membership,
   Role,
-  WorkspaceKind,
 } from './types.ts';
 
 // ---------------------------------------------------------------------------------------------------------
@@ -97,7 +122,28 @@ export interface FolderAccess {
 /** The fields of a workspace that permissions depend on (a full `Workspace` also fits). */
 export interface WorkspaceAccess {
   readonly id: string;
-  readonly kind: WorkspaceKind;
+}
+
+/** A user's email as the *server* knows it (the user row) — never an address taken from a request. */
+export interface EmailIdentity {
+  readonly email: string;
+  /** Only verified addresses ever match a workspace's domains. */
+  readonly emailVerified: boolean;
+}
+
+/** The fields of a workspace that decide who may find and join it by email domain (D-36). */
+export interface JoinableWorkspaceAccess extends WorkspaceAccess {
+  readonly joinPolicy: JoinPolicy;
+  /** The workspace's allowed email domains. */
+  readonly domains: readonly string[];
+  /** Soft delete: a deleted workspace is never joinable. */
+  readonly deletedAt: Date | null;
+}
+
+/** The fields of a request to join that permissions depend on. */
+export interface JoinRequestAccess {
+  readonly workspaceId: string;
+  readonly status: JoinRequestStatus;
 }
 
 /** A membership being changed or removed, plus how many owners the workspace has right now. */
@@ -382,7 +428,7 @@ export function canCreateInWorkspace(ctx: PermissionContext, workspace: Workspac
 
 /** Opening member management at all (listing invites, changing roles, removing others). */
 export function canManageMembers(ctx: PermissionContext, workspace: WorkspaceAccess): boolean {
-  return workspace.kind === 'team' && isAdmin(roleIn(ctx, workspace.id));
+  return isAdmin(roleIn(ctx, workspace.id));
 }
 
 /** Inviting someone with `role`; nobody can invite above their own role. */
@@ -404,25 +450,151 @@ export function canChangeRole(
   return !isLastOwner(target) || newRole === 'owner';
 }
 
-/** Removing a member, including leaving a workspace yourself. */
+/**
+ * Whether `workspaceId` is the only workspace the actor belongs to (per the context's memberships): it can't
+ * be left or deleted until they create or join another one (D-36).
+ */
+export function isLastWorkspace(ctx: PermissionContext, workspaceId: string): boolean {
+  return ctx.memberships.has(workspaceId) && ctx.memberships.size <= 1;
+}
+
+/** Removing a member, including leaving a workspace yourself (never your last one). */
 export function canRemoveMember(
   ctx: PermissionContext,
   workspace: WorkspaceAccess,
   target: MemberTarget,
 ): boolean {
-  if (workspace.kind !== 'team' || target.workspaceId !== workspace.id) return false;
+  if (target.workspaceId !== workspace.id) return false;
   const actor = roleIn(ctx, workspace.id);
   if (actor === undefined || isLastOwner(target)) return false;
-  if (target.userId === ctx.userId) return true;
+  if (target.userId === ctx.userId) return !isLastWorkspace(ctx, workspace.id);
   return isAdmin(actor) && manages(actor, target.role);
 }
 
+/** Deleting a workspace: its owners, and never the actor's last one. */
 export function canDeleteWorkspace(ctx: PermissionContext, workspace: WorkspaceAccess): boolean {
-  return workspace.kind === 'team' && roleIn(ctx, workspace.id) === 'owner';
+  return roleIn(ctx, workspace.id) === 'owner' && !isLastWorkspace(ctx, workspace.id);
 }
 
 const isLastOwner = (target: MemberTarget): boolean =>
   target.role === 'owner' && target.ownerCount <= 1;
+
+// ---------------------------------------------------------------------------------------------------------
+// Joining by email domain (D-36)
+// ---------------------------------------------------------------------------------------------------------
+
+/**
+ * The domain through which `person` matches `workspace`, or `null`: their email is verified, its domain is
+ * not a public mailbox domain, the workspace lists it, and the workspace is live. This is the only way a
+ * workspace is ever tied to someone who wasn't invited.
+ */
+export function matchingJoinDomain(
+  workspace: JoinableWorkspaceAccess,
+  person: EmailIdentity,
+): string | null {
+  if (workspace.deletedAt !== null || !person.emailVerified) return null;
+  const domain = emailDomain(person.email);
+  if (domain === null || isPublicMailboxDomain(domain)) return null;
+  return workspace.domains.some((listed) => normalizeDomain(listed) === domain) ? domain : null;
+}
+
+/** Changing the join policy or removing an allowed domain: the people who manage members. */
+export function canEditJoinSettings(ctx: PermissionContext, workspace: WorkspaceAccess): boolean {
+  return canManageMembers(ctx, workspace);
+}
+
+/**
+ * Listing `domain` as an allowed domain: an owner/admin, and only the domain of their own verified email —
+ * never a public mailbox domain. `actor` must be the acting user's own row (never request input).
+ */
+export function canAddDomain(
+  ctx: PermissionContext,
+  workspace: WorkspaceAccess,
+  actor: EmailIdentity,
+  domain: string,
+): boolean {
+  if (!canEditJoinSettings(ctx, workspace) || !actor.emailVerified) return false;
+  const own = emailDomain(actor.email);
+  if (own === null || isPublicMailboxDomain(own)) return false;
+  return normalizeDomain(domain) === own;
+}
+
+/** A signed-in person who isn't a member yet and matches one of the workspace's domains. */
+const matchesAsStranger = (
+  ctx: PermissionContext,
+  workspace: JoinableWorkspaceAccess,
+  person: EmailIdentity,
+): boolean =>
+  ctx.userId !== null &&
+  roleIn(ctx, workspace.id) === undefined &&
+  matchingJoinDomain(workspace, person) !== null;
+
+/**
+ * Joining straight away (as `member`): an `auto_join` workspace the person matches. `previous` is the
+ * status of their latest request to this workspace (`null` = none): `declined` — an owner/admin said no, or
+ * removed them from the workspace — blocks joining whatever the policy has become since; only an invitation
+ * brings them back. A request still `pending` doesn't stand in the way.
+ */
+export function canAutoJoin(
+  ctx: PermissionContext,
+  workspace: JoinableWorkspaceAccess,
+  person: EmailIdentity,
+  previous: JoinRequestStatus | null,
+): boolean {
+  if (previous === 'declined') return false;
+  return workspace.joinPolicy === 'auto_join' && matchesAsStranger(ctx, workspace, person);
+}
+
+/**
+ * Asking to join: a `request` workspace the person matches. `previous` is the status of their latest
+ * request to this workspace (`null` = never asked): one that is still pending or was declined blocks a new
+ * one, so nobody can ask twice at once or keep asking after a "no" (an owner/admin can still invite them).
+ */
+export function canRequestToJoin(
+  ctx: PermissionContext,
+  workspace: JoinableWorkspaceAccess,
+  person: EmailIdentity,
+  previous: JoinRequestStatus | null,
+): boolean {
+  if (previous === 'pending' || previous === 'declined') return false;
+  return workspace.joinPolicy === 'request' && matchesAsStranger(ctx, workspace, person);
+}
+
+/** What a workspace offers someone who isn't a member; `null` = it is not shown to them at all. */
+export type JoinOption = 'join' | 'request' | 'requested';
+
+/**
+ * Whether — and how — a workspace is shown to someone looking for one to join: `join` (auto-join),
+ * `request` (may ask), `requested` (their request is waiting). `null` for everything else: an
+ * `invite_only` workspace is never shown to a matching stranger, and nothing is shown to an unverified or
+ * public-mailbox address, a member, or after a declined request.
+ */
+export function joinOption(
+  ctx: PermissionContext,
+  workspace: JoinableWorkspaceAccess,
+  person: EmailIdentity,
+  previous: JoinRequestStatus | null,
+): JoinOption | null {
+  if (canAutoJoin(ctx, workspace, person, previous)) return 'join';
+  if (canRequestToJoin(ctx, workspace, person, previous)) return 'request';
+  if (previous === 'pending' && canRequestToJoin(ctx, workspace, person, null)) return 'requested';
+  return null;
+}
+
+/**
+ * Seeing and deciding a request to join: owners/admins of that workspace, while it is pending. Approving
+ * passes the `role` the new member gets, which is never above the decider's own; declining passes none.
+ */
+export function canDecideJoinRequest(
+  ctx: PermissionContext,
+  workspace: WorkspaceAccess,
+  request: JoinRequestAccess,
+  role?: Role,
+): boolean {
+  if (request.workspaceId !== workspace.id || !canManageMembers(ctx, workspace)) return false;
+  if (request.status !== 'pending') return false;
+  return role === undefined || roleAtLeast(roleIn(ctx, workspace.id) as Role, role);
+}
 
 // ---------------------------------------------------------------------------------------------------------
 // Assertions for API routes
@@ -451,6 +623,11 @@ export const permissions = Object.freeze({
   changeRole: canChangeRole,
   removeMember: canRemoveMember,
   deleteWorkspace: canDeleteWorkspace,
+  editJoinSettings: canEditJoinSettings,
+  addDomain: canAddDomain,
+  autoJoin: canAutoJoin,
+  requestToJoin: canRequestToJoin,
+  decideJoinRequest: canDecideJoinRequest,
 });
 
 export type PermissionAction = keyof typeof permissions;

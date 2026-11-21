@@ -194,6 +194,10 @@ test('connect Notion → choose a database → send a note → update it → dis
   await expect(viewer.locator('main')).not.toContainText('Ship the beta');
   await evidence(viewer, 'notion-page-updated');
   await viewer.close();
+  // Put "More actions" away (it stays open after "Update in Notion"): left open across the resize below,
+  // its popup keeps its desktop position for a moment and counts as sideways overflow (scrollWidth 1178).
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('notion-link')).toBeHidden();
 
   // Phone width: the actions get a row of their own (no sideways scrolling) and "Send to Notion" moves into
   // "More actions" (9.3b).

@@ -5,13 +5,13 @@
  * and a visibility.
  */
 import type { Role } from '@oat/core';
+import { sectionTree, sidebarSection, type SidebarSection } from '@oat/core/sections';
 
 import type { Access, DocumentSummary, FolderSummary } from './api-types';
 
 export type Workspace = {
   id: string;
   name: string;
-  kind: 'personal' | 'team';
   members: number;
   /** The signed-in user's role here (viewers can't create). */
   role: Role;
@@ -21,8 +21,11 @@ export type Workspace = {
 
 export type DocumentKind = 'page' | 'meeting' | 'folder';
 
-/** Where an item shows in the sidebar: `private` = only me, `shared` = the workspace can see it. */
-export type Area = 'private' | 'shared';
+/**
+ * Where an item shows in the sidebar (D-36; the rule is `@oat/core` `sidebarSection`, shared with the
+ * desktop): `private` = mine and private, `shared` = everything else I can read.
+ */
+export type Area = SidebarSection;
 
 export type DocumentNode = {
   id: string;
@@ -58,6 +61,11 @@ export type ShellData = {
   documents: readonly DocumentNode[];
   /** Trashed documents of the active workspace the user can read (newest first). */
   trash: readonly DocumentNode[];
+  /**
+   * Something is open to the user besides the workspaces they are in — an invitation, or a workspace on
+   * their email domain (D-36) — so the workspace menu offers "Join a workspace".
+   */
+  canJoin: boolean;
 };
 
 /** A display name: the user's name, else the part of their email before `@`. */
@@ -70,8 +78,8 @@ export function titleOf(node: Pick<DocumentNode, 'title' | 'kind'>): string {
   return node.title.trim() || (node.kind === 'folder' ? 'Untitled folder' : 'Untitled');
 }
 
-export function areaOf(node: Pick<DocumentNode, 'visibility'>): Area {
-  return node.visibility === 'private' ? 'private' : 'shared';
+export function areaOf(node: Pick<DocumentNode, 'visibility' | 'ownerId'>, userId: string): Area {
+  return sidebarSection(node, userId);
 }
 
 export function findDocument(
@@ -90,15 +98,26 @@ export function childrenOf(documents: readonly DocumentNode[], parentId: string)
 }
 
 /**
- * Top-level items of a sidebar section: items at the workspace root in that area, plus items whose
- * folder isn't visible to the user (e.g. their own private page in a folder that was made private by
- * someone else), so nothing readable is unreachable.
+ * One sidebar section: its items, and which of them are its top level (folders first) — items at the
+ * workspace root, plus items whose folder isn't shown in this section (my private page inside a shared
+ * folder is a top-level item of Private; a folder I can't see never hides something I can read).
  */
-export function rootsOf(documents: readonly DocumentNode[], area: Area): DocumentNode[] {
-  const ids = new Set(documents.map((doc) => doc.id));
-  return documents
-    .filter((doc) => (doc.parentId === null || !ids.has(doc.parentId)) && areaOf(doc) === area)
-    .toSorted(folderFirst);
+export function sectionOf(
+  documents: readonly DocumentNode[],
+  area: Area,
+  userId: string,
+): { items: DocumentNode[]; roots: DocumentNode[] } {
+  const { items, roots } = sectionTree(documents, area, userId);
+  return { items, roots: roots.toSorted(folderFirst) };
+}
+
+/** Top-level items of a sidebar section (see `sectionOf`). */
+export function rootsOf(
+  documents: readonly DocumentNode[],
+  area: Area,
+  userId: string,
+): DocumentNode[] {
+  return sectionOf(documents, area, userId).roots;
 }
 
 /** Ancestors from the root down to (excluding) `id`, for breadcrumbs. Cycle-safe. */
@@ -137,14 +156,6 @@ export function pathOf(documents: readonly DocumentNode[], id: string): string {
   const node = findDocument(documents, id);
   if (!node) return '';
   return [...ancestorsOf(documents, id), node].map(titleOf).join(' / ');
-}
-
-/** The area an item shows under: that of its top-most visible ancestor. */
-export function sectionOf(documents: readonly DocumentNode[], id: string): Area | undefined {
-  const node = findDocument(documents, id);
-  if (!node) return undefined;
-  const [root] = ancestorsOf(documents, id);
-  return areaOf(root ?? node);
 }
 
 /** API document → tree node. */

@@ -102,7 +102,7 @@ class FakeServer {
         return {
           op: 'upsert',
           table,
-          row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+          row: { id: 'ws', name: 'Me', role: 'owner' },
         };
       }
       if (table === 'document') return { op: 'upsert', table, row: this.docs.get(id)! };
@@ -173,7 +173,7 @@ const live = () => timers.filter((t) => !t.cancelled);
 async function bootstrap(e: SyncEngine) {
   e.start();
   await e.syncNow();
-  expect(store.personalWorkspaceId()).toBe('ws');
+  expect(store.firstWorkspaceId()).toBe('ws');
   store.createMeeting({
     meetingId: 'm1',
     documentId: 'd1',
@@ -424,7 +424,7 @@ describe('SyncEngine', () => {
       fault = () => faults[Math.floor(rand() * faults.length)]!;
       const e = engine({ random: rand });
       e.start();
-      while (!store.personalWorkspaceId()) await e.syncNow();
+      while (!store.firstWorkspaceId()) await e.syncNow();
       store.createMeeting({
         meetingId: 'm1',
         documentId: 'd1',

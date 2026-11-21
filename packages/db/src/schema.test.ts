@@ -4,10 +4,11 @@ import {
   DOCUMENT_KINDS,
   DOCUMENT_VISIBILITIES,
   FOLDER_VISIBILITIES,
+  JOIN_POLICIES,
+  JOIN_REQUEST_STATUSES,
   PARTICIPANT_SOURCES,
   ROLES,
   TRANSCRIPT_SOURCES,
-  WORKSPACE_KINDS,
 } from '@oat/core';
 import { getTableColumns, getTableName, is } from 'drizzle-orm';
 import { PgTable } from 'drizzle-orm/pg-core';
@@ -17,7 +18,8 @@ import * as schema from './schema/index.ts';
 /** Every pg enum whose values are owned by `@oat/core`. */
 const CORE_ENUMS = [
   [schema.roleEnum, ROLES],
-  [schema.workspaceKindEnum, WORKSPACE_KINDS],
+  [schema.joinPolicyEnum, JOIN_POLICIES],
+  [schema.joinRequestStatusEnum, JOIN_REQUEST_STATUSES],
   [schema.folderVisibilityEnum, FOLDER_VISIBILITIES],
   [schema.documentVisibilityEnum, DOCUMENT_VISIBILITIES],
   [schema.documentKindEnum, DOCUMENT_KINDS],
@@ -55,6 +57,7 @@ describe('schema', () => {
         'folder',
         'integration',
         'invite',
+        'join_request',
         'meeting',
         'membership',
         'participant',
@@ -68,6 +71,7 @@ describe('schema', () => {
         'user_profile',
         'verification',
         'workspace',
+        'workspace_domain',
       ].sort(),
     );
   });

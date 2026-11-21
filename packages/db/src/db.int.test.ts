@@ -7,7 +7,6 @@ import {
   PARTICIPANT_SOURCES,
   ROLES,
   TRANSCRIPT_SOURCES,
-  WORKSPACE_KINDS,
 } from '@oat/core';
 import { createTestDatabase, type TestDatabase } from '@oat/testkit';
 import { asc, cosineDistance, count, eq, sql } from 'drizzle-orm';
@@ -100,7 +99,6 @@ describe('migrations', () => {
     const inDb = Object.fromEntries(rows.map((r) => [r.typname, r.labels]));
     const pgEnums = [
       s.roleEnum,
-      s.workspaceKindEnum,
       s.inviteStatusEnum,
       s.folderVisibilityEnum,
       s.documentVisibilityEnum,
@@ -114,9 +112,9 @@ describe('migrations', () => {
       s.changeOpEnum,
     ];
     for (const e of pgEnums) expect(inDb[e.enumName], e.enumName).toEqual(e.enumValues);
+    expect(inDb).not.toHaveProperty('workspace_kind'); // D-36
     expect(inDb).toMatchObject({
       role: [...ROLES],
-      workspace_kind: [...WORKSPACE_KINDS],
       folder_visibility: [...FOLDER_VISIBILITIES],
       document_visibility: [...DOCUMENT_VISIBILITIES],
       document_kind: [...DOCUMENT_KINDS],
@@ -129,7 +127,7 @@ describe('migrations', () => {
 });
 
 describe('seed', () => {
-  it('reuses a demo user and personal workspace that already exist under other ids', async () => {
+  it('reuses a demo user and their first workspace that already exist under other ids', async () => {
     const fresh = await createTestDatabase();
     const other = createDb(fresh.url, { max: 2 });
     try {
@@ -140,8 +138,7 @@ describe('seed', () => {
       await other.insert(s.workspace).values({
         id: wsId,
         name: 'Mine',
-        slug: `personal-${userId}`,
-        kind: 'personal',
+        slug: `mine-${userId}`,
         createdBy: userId,
       });
       await other.insert(s.membership).values({ workspaceId: wsId, userId, role: 'owner' });
@@ -226,7 +223,8 @@ describe('tables', () => {
 
   it('applies defaults and reads back typed rows', async () => {
     const [ws] = await db.select().from(s.workspace).where(eq(s.workspace.id, ids.ws));
-    expect(ws).toMatchObject({ kind: 'team', logo: null, metadata: null });
+    expect(ws).toMatchObject({ logo: null, metadata: null });
+    expect(ws).not.toHaveProperty('kind');
     expect(ws?.createdAt).toBeInstanceOf(Date);
 
     const [doc] = await db.select().from(s.document).where(eq(s.document.id, ids.doc));

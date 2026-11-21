@@ -1,7 +1,10 @@
 /**
- * Sidebar workspace switcher (3.9), like the web app's: my personal and team workspaces as synced to this
- * Mac. The meeting list shows the active workspace's notes, and new notes go there — unless I can only view
- * it, which the hint under the switcher says (they go to my personal workspace then).
+ * Sidebar workspace menu (3.9), like the web app's: the workspace the sidebar shows, with the account
+ * actions. With two or more workspaces it is also the switcher — my workspaces as synced to this Mac; with
+ * one there is nothing to switch between, so the list (and the selector arrows) are not there (D-36). The
+ * meeting list shows the active workspace's notes, and new notes go there — unless I can only view it, which
+ * the hint under the menu says: they go to the first workspace I can add notes to, and when there is none
+ * the hint asks me to create one.
  */
 import type { DesktopWorkspace } from '@oat/core/bridge';
 import {
@@ -26,15 +29,14 @@ export function WorkspaceTile({
   workspace,
   className,
 }: {
-  workspace: Pick<DesktopWorkspace, 'name' | 'kind'>;
+  workspace: Pick<DesktopWorkspace, 'name'>;
   className?: string;
 }) {
   return (
     <span
       aria-hidden
       className={cn(
-        'flex size-8 shrink-0 items-center justify-center rounded-md text-label-13',
-        workspace.kind === 'personal' ? 'bg-brand-700 text-brand-on' : 'bg-gray-200 text-gray-1000',
+        'flex size-8 shrink-0 items-center justify-center rounded-md bg-gray-200 text-label-13 text-gray-1000',
         className,
       )}
     >
@@ -55,7 +57,8 @@ export function WorkspaceSwitcher({
   email: string;
 }) {
   const [error, setError] = useState<string | null>(null);
-  const { snapshot, active, fallback } = view;
+  const { snapshot, active, fallback, needsWorkspace } = view;
+  const canSwitch = (snapshot?.workspaces.length ?? 0) > 1;
 
   async function choose(id: string) {
     setError(null);
@@ -86,9 +89,10 @@ export function WorkspaceSwitcher({
             />
           }
           data-testid="workspace-switcher"
+          data-switchable={canSwitch}
           data-workspace-id={active?.id}
         >
-          <WorkspaceTile workspace={active ?? { name: label, kind: 'personal' }} />
+          <WorkspaceTile workspace={active ?? { name: label }} />
           <span className="sr-only" data-testid="signed-in-email">
             {email}
           </span>
@@ -100,36 +104,41 @@ export function WorkspaceSwitcher({
               {active ? roleLabel(active) : 'Account'}
             </span>
           </span>
-          <IconSelector aria-hidden className="size-4 shrink-0 text-gray-900" />
+          {canSwitch && <IconSelector aria-hidden className="size-4 shrink-0 text-gray-900" />}
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" align="start" className="w-(--anchor-width) min-w-56">
+          {canSwitch && (
+            <>
+              <DropdownMenuGroup data-testid="workspace-list">
+                <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+                {snapshot?.workspaces.map((w) => (
+                  <DropdownMenuItem
+                    key={w.id}
+                    className="gap-2 py-1.5"
+                    data-testid="workspace-option"
+                    data-workspace-id={w.id}
+                    onClick={() => {
+                      if (w.id !== active?.id) void choose(w.id);
+                    }}
+                  >
+                    <WorkspaceTile workspace={w} className="size-6" />
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate">{w.name}</span>
+                      <span className="truncate text-label-12 text-gray-900">{roleLabel(w)}</span>
+                    </span>
+                    {w.id === active?.id && <IconCheck className="ms-auto" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuGroup>
-            <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-            {snapshot?.workspaces.map((w) => (
-              <DropdownMenuItem
-                key={w.id}
-                className="gap-2 py-1.5"
-                data-testid="workspace-option"
-                data-workspace-id={w.id}
-                onClick={() => {
-                  if (w.id !== active?.id) void choose(w.id);
-                }}
-              >
-                <WorkspaceTile workspace={w} className="size-6" />
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate">{w.name}</span>
-                  <span className="truncate text-label-12 text-gray-900">{roleLabel(w)}</span>
-                </span>
-                {w.id === active?.id && <IconCheck className="ms-auto" />}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
+            {!canSwitch && <DropdownMenuLabel>Workspace</DropdownMenuLabel>}
             <DropdownMenuItem onClick={() => void openSettings('workspace')}>
               Workspace settings (web)
             </DropdownMenuItem>
-            {active?.kind === 'team' && (
+            {active && (
               <DropdownMenuItem onClick={() => void openSettings('members')}>
                 Members (web)
               </DropdownMenuItem>
@@ -138,16 +147,23 @@ export function WorkspaceSwitcher({
           {account}
         </DropdownMenuContent>
       </DropdownMenu>
-      {fallback && (
+      {(fallback || needsWorkspace) && (
         <p
           role="note"
           className="flex gap-1.5 px-1.5 text-copy-13 text-gray-900"
           data-testid="workspace-hint"
         >
           <IconEye aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-          <span>
-            You can view {active?.name} but not add notes to it. New notes go to {fallback.name}.
-          </span>
+          {active ? (
+            <span>
+              You can view {active.name} but not add notes to it.{' '}
+              {fallback
+                ? `New notes go to ${fallback.name}.`
+                : 'Create a workspace of your own on the web to take notes.'}
+            </span>
+          ) : (
+            <span>You’re not in a workspace. Create one on the web to take notes.</span>
+          )}
         </p>
       )}
       {error && (

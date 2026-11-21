@@ -1,6 +1,6 @@
 'use server';
 
-import { teamWorkspaceSlug } from '@oat/auth';
+import { workspaceSlug } from '@oat/auth';
 import { refresh } from 'next/cache';
 import { headers } from 'next/headers';
 import { z } from 'zod';
@@ -45,15 +45,15 @@ export async function switchWorkspace(workspaceId: string): Promise<ActionResult
   return { ok: true, workspaceId: id.data };
 }
 
-/** Creates a team workspace owned by the current user and switches to it. */
-export async function createTeamWorkspace(name: string): Promise<ActionResult> {
+/** Creates a workspace owned by the current user and switches to it. */
+export async function createWorkspace(name: string): Promise<ActionResult> {
   await requireSession();
   const parsed = WorkspaceName.safeParse(name);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
   const requestHeaders = await headers();
   try {
     const org = await getAuth().api.createOrganization({
-      body: { name: parsed.data, slug: teamWorkspaceSlug(parsed.data) },
+      body: { name: parsed.data, slug: workspaceSlug(parsed.data) },
       headers: requestHeaders,
     });
     if (!org) return { ok: false, error: 'Couldn’t create the workspace.' };
