@@ -3,7 +3,7 @@
 import { Button } from '@oat/ui/components/button';
 import { IconFilePlus } from '@tabler/icons-react';
 
-import { useTreeActions } from '@oat/workspace-ui/tree-actions';
+import { useTreeActions } from './tree-actions';
 
 /** Folder page header action: a new page inside this folder. */
 export function FolderActions({ folderId }: { folderId: string }) {

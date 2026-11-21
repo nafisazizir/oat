@@ -30,13 +30,13 @@ import { RadioGroup, RadioGroupItem } from '@oat/ui/components/radio-group';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import { Switch } from '@oat/ui/components/switch';
 import { IconCheck, IconCopy, IconInfoCircle, IconRefresh, IconShare } from '@tabler/icons-react';
-import { useRouter } from 'next/navigation';
+import { useWorkspaceHost } from './host';
+import { OatApiError } from '@oat/client';
 import { useCallback, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { useShellData } from '@oat/workspace-ui/shell-data';
-import { isApiError, sharingApi } from '@/lib/api-client';
-import type { DocumentSharing, UpdateSharingInput } from '@/lib/api-types';
+import { useShellData } from './shell-data';
+import type { DocumentSharing, UpdateSharingInput } from '@oat/services/dto/api-types';
 
 type Option = { value: DocumentVisibility; label: string; detail: string };
 
@@ -79,7 +79,7 @@ export function accessSummary(s: DocumentSharing, isOwner: boolean): string {
  * a toast. Sharing doesn't bump the content version, so the open editor's autosave is unaffected.
  */
 export function ShareDialog({ documentId }: { documentId: string }) {
-  const router = useRouter();
+  const host = useWorkspaceHost();
   const currentUserId = useShellData().user.id;
   const [open, setOpen] = useState(false);
   const [sharing, setSharing] = useState<DocumentSharing | null>(null);
@@ -97,13 +97,13 @@ export function ShareDialog({ documentId }: { documentId: string }) {
   const send = useCallback(
     (input: UpdateSharingInput) => {
       const next = queue.current.then(
-        () => sharingApi.update(documentId, input),
-        () => sharingApi.update(documentId, input),
+        () => host.client.documents.updateSharing(documentId, input),
+        () => host.client.documents.updateSharing(documentId, input),
       );
       queue.current = next.catch(() => undefined);
       return next;
     },
-    [documentId],
+    [documentId, host.client],
   );
 
   /** Fresh settings every time the dialog opens (someone else may have changed them). */
@@ -111,8 +111,8 @@ export function ShareDialog({ documentId }: { documentId: string }) {
     setOpen(next);
     if (!next) return;
     setLoadError(null);
-    sharingApi
-      .get(documentId)
+    host.client.documents
+      .sharing(documentId)
       .then(setSharing, (error: unknown) =>
         setLoadError(error instanceof Error ? error.message : 'Couldn’t load sharing settings.'),
       );
@@ -128,13 +128,15 @@ export function ShareDialog({ documentId }: { documentId: string }) {
       try {
         const next = await send(input);
         if (seq === latest.current) setSharing(next);
-        router.refresh();
+        host.refresh();
       } catch (error) {
         if (seq === latest.current) setSharing(previous);
-        toast.error(isApiError(error) ? error.message : 'Couldn’t update sharing. Try again.');
+        toast.error(
+          error instanceof OatApiError ? error.message : 'Couldn’t update sharing. Try again.',
+        );
       }
     },
-    [router, send, sharing],
+    [host, send, sharing],
   );
 
   async function rotate() {
@@ -145,7 +147,9 @@ export function ShareDialog({ documentId }: { documentId: string }) {
       if (seq === latest.current) setSharing(next);
       toast.success('New link created. The old link no longer works.');
     } catch (error) {
-      toast.error(isApiError(error) ? error.message : 'Couldn’t reset the link. Try again.');
+      toast.error(
+        error instanceof OatApiError ? error.message : 'Couldn’t reset the link. Try again.',
+      );
     } finally {
       setRotating(false);
     }

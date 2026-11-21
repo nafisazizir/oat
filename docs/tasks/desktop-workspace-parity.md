@@ -142,3 +142,66 @@ ci: ok
 - No commits or pushes. UI is visually unverified; web e2e/axe were not run in this handoff. Desktop
   integration, documents/sharing and templates remain later steps. ZIP export still requires a transport
   that supports binary Responses (the existing desktop bridge does not).
+
+### Step 2 — shared document surfaces
+
+- Committed step 1 locally as `8b08aee` (`feat(workspace-ui): shared sidebar, tree and workspace switcher`);
+  not pushed.
+- Moved sharing and autosave into the package using the host client; retained serialized optimistic
+  sharing writes/rollback and versioned autosave/rebase/conflict/retry behavior. `PageEditor` renders
+  the shared title, real editor, visibility/date, actions and trash banner without web extras. Its
+  context/surface slots retain web's enhancement/history, preview, pipeline, Notion, assistant,
+  task-assignee and TopBarActions behavior. Web supplies its keepalive save and hard-reload overrides.
+- Moved folder header/actions/contents into `FolderView`, with host links and `ShellFolderView` for
+  shell-derived children. Page primitives live in the package; web retains BackLink and re-exports
+  them. Removed the old share, autosave and folder-action implementations.
+- Fake-client tests exercise title/body saves with baseVersion (using the real editor), rebase,
+  conflicts/reload, failed saves/retry, readonly/empty/trash states, keepalive override, sharing
+  changes/errors/rollback, and normal/empty/shell-derived folder lists.
+- Shared package: 5 test files / 46 tests passed, including 14 new document-surface tests. Platform
+  import and ziiz vocabulary scans passed; moved document/folder data-testid attributes are unchanged.
+- Initial `pnpm run ci --fast`:
+
+```text
+━━ ci summary (--fast)
+step        status     time  note
+format      pass      13.4s
+actionlint  pass       0.3s
+typecheck   pass       6.8s
+lint        pass       7.3s
+test        pass       5.3s
+total                 33.1s
+
+ci: ok
+```
+
+- Final diff review added conflict-toast dismissal after native reload plus reload-error/trash tests.
+  Re-ran affected gates (actionlint inputs unchanged):
+
+```text
+━━ ci summary (--only format,typecheck,lint,test)
+step       status     time  note
+format     pass      14.0s
+typecheck  pass       7.5s
+lint       pass       3.5s
+test       pass       6.5s
+total                31.6s
+
+ci: ok
+```
+
+- Final `pnpm --filter @oat/web build`:
+
+```text
+✓ Compiled successfully in 1648ms
+  Finished TypeScript in 7.2s ...
+✓ Generating static pages using 7 workers (50/50) in 476ms
+```
+
+- Logs: `/home/ubuntu/oat-workspace-step2-ci.log`,
+  `/home/ubuntu/oat-workspace-step2-ci-final.log`,
+  `/home/ubuntu/oat-workspace-step2-build-final.log`.
+- No known web behavior loss. UI remains visually unverified; web e2e/axe have not run in this step.
+  Desktop integration remains later work, including a public web origin for copied share links
+  (the extracted dialog retains web's current-origin URL construction). Step 2 is committed locally
+  with `feat(workspace-ui): shared page editor, share dialog and folder view`; nothing pushed.

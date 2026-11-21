@@ -12,7 +12,11 @@
     "./tree-actions": "./src/tree-actions.tsx",
     "./leave-workspace-dialog": "./src/leave-workspace-dialog.tsx",
     "./*": "./src/*.ts",
-    "./*.test": null
+    "./*.test": null,
+    "./page-editor": "./src/page-editor.tsx",
+    "./share-dialog": "./src/share-dialog.tsx",
+    "./folder-view": "./src/folder-view.tsx",
+    "./page": "./src/page.tsx"
   },
   "scripts": {
     "typecheck": "tsc",
@@ -30,7 +34,9 @@
     "@oat/services": "workspace:*",
     "@oat/client": "workspace:*",
     "@tabler/icons-react": "catalog:",
-    "sonner": "catalog:"
+    "sonner": "catalog:",
+    "@oat/editor": "workspace:*",
+    "@oat/meeting-ui": "workspace:*"
   },
   "devDependencies": {
     "@testing-library/dom": "catalog:",

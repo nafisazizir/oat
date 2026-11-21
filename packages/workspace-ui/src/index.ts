@@ -9,3 +9,14 @@ export { TrashDialog } from './trash-dialog';
 export { CreateWorkspaceDialog } from './create-workspace-dialog';
 export { LeaveWorkspaceDialog } from './leave-workspace-dialog';
 export { WorkspaceAvatar } from './workspace-avatar';
+export {
+  PageEditor,
+  PageEditorSurface,
+  MoreActions,
+  usePageEditor,
+  type PageEditorProps,
+} from './page-editor';
+export { ShareDialog, accessSummary } from './share-dialog';
+export { FolderView, ShellFolderView } from './folder-view';
+export { PageContainer, PageHeader, SectionHeading, EmptyState, type PageIcon } from './page';
+export { useAutosave, type SaveDocument, type SaveState } from './use-autosave';

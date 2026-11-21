@@ -13,4 +13,9 @@ if (typeof window !== 'undefined') {
   }
   globalThis.ResizeObserver ??= ResizeObserverStub;
   Element.prototype.scrollIntoView ??= function scrollIntoView() {};
+
+  const emptyRects = () => Object.assign([], { item: () => null }) as unknown as DOMRectList;
+  Range.prototype.getClientRects ??= emptyRects;
+  Range.prototype.getBoundingClientRect ??= () => new DOMRect();
+  document.elementFromPoint ??= () => null;
 }

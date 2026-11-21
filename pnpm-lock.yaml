@@ -1378,6 +1378,12 @@ importers:
       '@oat/core':
         specifier: workspace:*
         version: link:../core
+      '@oat/editor':
+        specifier: workspace:*
+        version: link:../editor
+      '@oat/meeting-ui':
+        specifier: workspace:*
+        version: link:../meeting-ui
       '@oat/services':
         specifier: workspace:*
         version: link:../services

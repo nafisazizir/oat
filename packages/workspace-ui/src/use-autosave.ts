@@ -1,17 +1,30 @@
 'use client';
 
 import type { JSONContent } from '@oat/editor';
+import { OatApiError } from '@oat/client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   announceDocumentChange,
   DOCUMENT_CHANGED_EVENT,
   type DocumentChangedDetail,
-  documentsApi,
-  isApiError,
-} from '@/lib/api-client';
-import type { DocumentDetail } from '@/lib/api-types';
-import { canRebase } from '@/lib/json-equal';
+} from './document-events';
+import type {
+  ApiErrorBody,
+  DocumentDetail,
+  UpdateDocumentInput,
+} from '@oat/services/dto/api-types';
+import { canRebase } from '@oat/services/json-equal';
+import { useWorkspaceHost } from './host';
+
+const isApiError = (error: unknown, code?: string): error is OatApiError =>
+  error instanceof OatApiError && (code === undefined || error.code === code);
+
+export type SaveDocument = (
+  id: string,
+  input: UpdateDocumentInput,
+  options?: { keepalive?: boolean },
+) => Promise<DocumentDetail>;
 
 /** Wait this long after the last keystroke… */
 export const SAVE_DEBOUNCE_MS = 400;
@@ -52,6 +65,7 @@ export function useAutosave({
   enabled,
   onSaved,
   onExternalChange,
+  save,
 }: {
   id: string;
   version: number;
@@ -61,7 +75,9 @@ export function useAutosave({
   onSaved?: (doc: DocumentDetail, patch: Patch) => void;
   /** Same-tab change from elsewhere in the app (e.g. a sidebar rename) — already applied server-side. */
   onExternalChange?: (change: DocumentChangedDetail) => void;
+  save?: SaveDocument;
 }) {
+  const { client } = useWorkspaceHost();
   const [state, setState] = useState<SaveState>('idle');
   const [error, setError] = useState<string | null>(null);
   const versionRef = useRef(version);
@@ -94,7 +110,9 @@ export function useAutosave({
       /** Send what's pending right away (edits typed meanwhile, or a rebased patch). */
       let sendNext = false;
       try {
-        const doc = await documentsApi.update(id, body, keepalive ? { keepalive: true } : {});
+        const doc = save
+          ? await save(id, body, keepalive ? { keepalive: true } : {})
+          : await client.documents.update(id, body);
         versionRef.current = doc.version;
         base.current = { title: doc.title, contentJson: doc.contentJson };
         rebases.current = 0;
@@ -106,7 +124,9 @@ export function useAutosave({
         else setState('saved');
       } catch (err) {
         keepUnsaved(pending, patch);
-        const server = isApiError(err, 'stale_version') ? err.body?.document : undefined;
+        const server = isApiError(err, 'stale_version')
+          ? (err.details as ApiErrorBody | undefined)?.document
+          : undefined;
         if (server && rebases.current < MAX_REBASES && canRebase(patch, base.current, server)) {
           rebases.current += 1;
           versionRef.current = server.version;
@@ -119,7 +139,7 @@ export function useAutosave({
           // Keep the edits and retry transient failures while the editor is open.
           setState('error');
           setError(err instanceof Error ? err.message : 'Couldn’t save.');
-          const transient = isApiError(err, 'network') || (isApiError(err) && err.status >= 500);
+          const transient = isApiError(err) && (err.status === 0 || err.status >= 500);
           if (transient && !unmounted.current) {
             timer.current = setTimeout(() => void again.current(), RETRY_MS);
           }
@@ -129,7 +149,7 @@ export function useAutosave({
       }
       if (sendNext) void again.current();
     },
-    [id],
+    [id, client, save],
   );
 
   useEffect(() => {
@@ -230,5 +250,17 @@ export function useAutosave({
   /** The version the next save is based on (e.g. a restore's `baseVersion`). */
   const currentVersion = useCallback(() => versionRef.current, []);
 
-  return { state, error, queue, retry, flush, discard, settle, adopt, currentVersion };
+  const reset = useCallback((doc: DocumentDetail) => {
+    clearTimeout(timer.current);
+    pending.current = null;
+    stopped.current = false;
+    rebases.current = 0;
+    firstDirtyAt.current = null;
+    versionRef.current = doc.version;
+    base.current = { title: doc.title, contentJson: doc.contentJson };
+    setState('idle');
+    setError(null);
+  }, []);
+
+  return { state, error, queue, retry, flush, discard, settle, adopt, currentVersion, reset };
 }
