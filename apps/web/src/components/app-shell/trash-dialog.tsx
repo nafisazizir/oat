@@ -8,13 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@oat/ui/components/dialog';
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@oat/ui/components/empty';
+import { Empty, EmptyHeader, EmptyTitle } from '@oat/ui/components/empty';
 import {
   Item,
   ItemActions,
@@ -57,13 +51,7 @@ export function TrashDialog({
         {trash.length === 0 ? (
           <Empty className="p-8">
             <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <IconTrash />
-              </EmptyMedia>
               <EmptyTitle className="text-heading-16">The trash is empty</EmptyTitle>
-              <EmptyDescription>
-                Pages you delete stay here until you restore them.
-              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (

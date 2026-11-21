@@ -514,7 +514,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDuplicate(false)}>
+            <Button variant="ghost" onClick={() => setConfirmDuplicate(false)}>
               Cancel
             </Button>
             <Button onClick={() => duplicate(true)}>Duplicate saved version</Button>

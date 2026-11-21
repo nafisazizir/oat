@@ -1,5 +1,11 @@
 import { DESKTOP_SIGN_IN_PATH, isDesktopAuthValue } from '@oat/auth/desktop-link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@oat/ui/components/card';
+import {
+  AuthPanel,
+  AuthContent,
+  AuthDescription,
+  AuthHeader,
+  AuthTitle,
+} from '@oat/ui/components/auth-layout';
 import type { Metadata, Route } from 'next';
 import { redirect } from 'next/navigation';
 
@@ -32,17 +38,14 @@ export default async function DesktopSignInPage({
 
   if (!isDesktopAuthValue(state) || !isDesktopAuthValue(challenge)) {
     return (
-      <Card>
-        <CardHeader className="text-center">
-          <CardTitle className="text-heading-24">
+      <AuthPanel>
+        <AuthHeader>
+          <AuthTitle>
             <h1>This link is incomplete</h1>
-          </CardTitle>
-          <CardDescription>
-            Open the Oat app and choose “Sign in” again. It opens this page with everything it
-            needs.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+          </AuthTitle>
+          <AuthDescription>Open Oat and choose “Sign in” again.</AuthDescription>
+        </AuthHeader>
+      </AuthPanel>
     );
   }
 
@@ -51,27 +54,16 @@ export default async function DesktopSignInPage({
   if (!session) redirect(signInPath(here) as Route);
 
   return (
-    <Card>
-      <CardHeader className="text-center">
-        <CardTitle className="text-heading-24">
-          <h1>Sign in to the Oat app</h1>
-        </CardTitle>
-        <CardDescription>
-          You’re signed in as
-          <span className="my-1 block break-all text-gray-1000" data-testid="desktop-email">
-            {session.user.email}
-          </span>
-          The Oat app on this computer will use this account.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <AuthPanel>
+      <AuthContent>
         <DesktopHandoff
+          email={session.user.email}
           state={state}
           challenge={challenge}
           returnTo={here}
           devFallback={desktopDevHandoff(serverEnv())}
         />
-      </CardContent>
-    </Card>
+      </AuthContent>
+    </AuthPanel>
   );
 }

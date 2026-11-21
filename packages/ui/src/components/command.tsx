@@ -84,7 +84,7 @@ function CommandInput({
           {...props}
         />
         <InputGroupAddon>
-          <IconSearch className="size-4 shrink-0 opacity-50" />
+          <IconSearch className="size-4 shrink-0 text-gray-900" />
         </InputGroupAddon>
       </InputGroup>
     </div>
@@ -140,6 +140,7 @@ function CommandSeparator({
   return (
     <CommandPrimitive.Separator
       data-slot="command-separator"
+      aria-hidden="true"
       className={cn('-mx-1 h-px w-auto bg-gray-alpha-400', className)}
       {...props}
     />

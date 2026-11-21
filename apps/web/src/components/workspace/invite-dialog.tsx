@@ -60,7 +60,7 @@ export function InviteDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent data-testid="invite-dialog">
+      <DialogContent data-testid="invite-dialog" className="sm:max-w-[22.5rem]">
         <form
           className="contents"
           onSubmit={(event) => {
@@ -80,9 +80,7 @@ export function InviteDialog({
         >
           <DialogHeader>
             <DialogTitle>Invite people to {workspace.name}</DialogTitle>
-            <DialogDescription>
-              They’ll get an email with a link. It works for 7 days, for that address only.
-            </DialogDescription>
+            <DialogDescription>Email a private invitation, valid for 7 days.</DialogDescription>
           </DialogHeader>
           <FieldGroup className="gap-5">
             <Field data-invalid={error ? true : undefined}>
@@ -128,7 +126,7 @@ export function InviteDialog({
             </Field>
           </FieldGroup>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>

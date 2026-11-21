@@ -1,6 +1,7 @@
 'use client';
 
 import { DESKTOP_CODE_ENDPOINT } from '@oat/auth/desktop-link';
+import { AuthHeader, AuthTitle, AuthDescription } from '@oat/ui/components/auth-layout';
 import { Button } from '@oat/ui/components/button';
 import { Alert, AlertDescription } from '@oat/ui/components/alert';
 import {
@@ -8,7 +9,6 @@ import {
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
-  EmptyMedia,
   EmptyTitle,
 } from '@oat/ui/components/empty';
 import { Spinner } from '@oat/ui/components/spinner';
@@ -36,11 +36,13 @@ export const HANDOFF_WARNING =
  * never does, because a copyable code is something a phisher can ask for.
  */
 export function DesktopHandoff({
+  email,
   state,
   challenge,
   returnTo,
   devFallback,
 }: {
+  email: string;
   state: string;
   challenge: string;
   /** This page's path, to come back to after switching account. */
@@ -83,11 +85,8 @@ export function DesktopHandoff({
     return (
       <Empty className="gap-5 p-0" data-testid="desktop-opened">
         <EmptyHeader>
-          <EmptyMedia variant="icon" className="bg-brand-100 text-brand-900">
-            <IconDeviceDesktop />
-          </EmptyMedia>
-          <EmptyTitle className="text-heading-16">
-            <h2>Back to the app</h2>
+          <EmptyTitle className="text-heading-24">
+            <h1>Back to the app</h1>
           </EmptyTitle>
           <EmptyDescription role="status">
             Oat should open and finish signing in. You can close this tab.
@@ -96,12 +95,7 @@ export function DesktopHandoff({
         <EmptyContent className="gap-1 text-copy-13 text-gray-900">
           <span>Didn’t open? Make sure Oat is running, then</span>
           <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              type="button"
-              onClick={() => (window.location.href = ui.url)}
-            >
+            <Button size="sm" type="button" onClick={() => (window.location.href = ui.url)}>
               Open Oat again
             </Button>
             {devFallback && (
@@ -132,7 +126,19 @@ export function DesktopHandoff({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-6">
+      <AuthHeader>
+        <AuthTitle>
+          <h1>Sign in to the Oat app</h1>
+        </AuthTitle>
+        <AuthDescription>
+          Continue as{' '}
+          <span className="break-all text-gray-1000" data-testid="desktop-email">
+            {email}
+          </span>
+          .
+        </AuthDescription>
+      </AuthHeader>
       <Alert className="border-amber-400 bg-amber-100" data-testid="desktop-warning">
         <IconShieldExclamation className="text-amber-900" aria-hidden />
         <AlertDescription className="text-gray-1000">{HANDOFF_WARNING}</AlertDescription>

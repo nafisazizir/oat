@@ -1,5 +1,7 @@
 # Oat — Plan & Task Board
 
+- [x] Human-requested UI redesign PR 5: calm auth, setup and dialogs · [task](tasks/ui-calm-auth-dialogs.md)
+
 Rules: tasks are picked top-down when deps are done (see `.agent/FACTORY.md` §2). Each task gets a file in
 `docs/tasks/` when started. Tick `[x]` only after verification evidence is recorded. 🧑 = needs a human
 checkpoint at some point in the task. Dev is containerised and offline (D-11): a 🧑 on a task now means only

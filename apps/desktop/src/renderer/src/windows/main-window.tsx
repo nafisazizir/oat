@@ -8,13 +8,13 @@ import type {
 } from '@oat/core/bridge';
 import { Button } from '@oat/ui/components/button';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@oat/ui/components/card';
+  AuthPanel,
+  AuthContent,
+  AuthDescription,
+  AuthFooter,
+  AuthHeader,
+  AuthTitle,
+} from '@oat/ui/components/auth-layout';
 import { Input } from '@oat/ui/components/input';
 import { Label } from '@oat/ui/components/label';
 import { Skeleton } from '@oat/ui/components/skeleton';
@@ -94,11 +94,7 @@ export default function MainWindow() {
 
   return (
     <div className="flex h-full flex-col bg-background-100 text-gray-1000">
-      {!signedIn && (
-        <header className="app-drag flex h-12 shrink-0 items-center justify-center border-b border-gray-alpha-400 bg-background-200">
-          <Wordmark className="text-heading-16" />
-        </header>
-      )}
+      {!signedIn && <header className="app-drag h-12 shrink-0" />}
       {signedIn ? (
         <SignedInShell
           user={signedIn}
@@ -108,7 +104,10 @@ export default function MainWindow() {
         />
       ) : (
         <main className="flex flex-1 items-center justify-center overflow-auto px-6 py-10">
-          <div className="w-full max-w-sm" data-testid="shell">
+          <div className="m-auto flex w-full max-w-[22.5rem] flex-col gap-8" data-testid="shell">
+            <div className="flex justify-center">
+              <Wordmark />
+            </div>
             {!state || state.auth.status === 'restoring' ? (
               <RestoringCard />
             ) : (
@@ -136,15 +135,15 @@ export default function MainWindow() {
 
 function RestoringCard() {
   return (
-    <Card aria-busy>
-      <CardHeader className="items-center gap-3">
+    <AuthPanel aria-busy>
+      <AuthHeader className="items-center gap-3">
         <Skeleton className="h-7 w-40" />
         <Skeleton className="h-4 w-56" />
-      </CardHeader>
-      <CardContent>
+      </AuthHeader>
+      <AuthContent>
         <Skeleton className="h-10 w-full" />
-      </CardContent>
-    </Card>
+      </AuthContent>
+    </AuthPanel>
   );
 }
 
@@ -188,16 +187,14 @@ function SignedOutCard({ error }: { error: string | null }) {
   const action = useAction();
   const message = action.error ?? error;
   return (
-    <Card>
-      <CardHeader className="text-center">
-        <CardTitle className="text-heading-24">
+    <AuthPanel>
+      <AuthHeader className="text-center">
+        <AuthTitle>
           <h1>Welcome to Oat</h1>
-        </CardTitle>
-        <CardDescription>
-          Sign in with your browser. Your notes and workspaces sync to this Mac.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+        </AuthTitle>
+        <AuthDescription>Your notes and workspaces, on this Mac.</AuthDescription>
+      </AuthHeader>
+      <AuthContent className="flex flex-col gap-3">
         <Button
           size="lg"
           className="w-full"
@@ -214,8 +211,8 @@ function SignedOutCard({ error }: { error: string | null }) {
         <p role="status" className="text-center text-copy-13 text-red-900 empty:hidden">
           {message}
         </p>
-      </CardContent>
-    </Card>
+      </AuthContent>
+    </AuthPanel>
   );
 }
 
@@ -231,21 +228,15 @@ function SigningInCard({ allowPaste }: { allowPaste: boolean }) {
   }
 
   return (
-    <Card data-testid="signing-in">
-      <CardHeader className="text-center">
-        <div className="mx-auto mb-2 flex size-11 items-center justify-center rounded-full bg-brand-100 text-brand-900">
-          <Spinner className="size-5" />
-        </div>
-        <CardTitle className="text-heading-20">
+    <AuthPanel data-testid="signing-in">
+      <AuthHeader className="text-center">
+        <AuthTitle className="text-heading-20">
           <h1>Finish signing in in your browser</h1>
-        </CardTitle>
-        <CardDescription>
-          We opened Oat in your browser. Sign in there, and this window updates by itself.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
+        </AuthTitle>
+        <AuthDescription>This window updates when you finish.</AuthDescription>
+      </AuthHeader>
+      <AuthContent className="flex flex-col gap-2">
         <Button
-          variant="outline"
           className="w-full"
           disabled={action.pending}
           onClick={() => void action.run(() => call('auth:sign-in'))}
@@ -261,9 +252,9 @@ function SigningInCard({ allowPaste }: { allowPaste: boolean }) {
         >
           Cancel
         </Button>
-      </CardContent>
+      </AuthContent>
       {allowPaste && (
-        <CardFooter className="flex-col items-stretch gap-2 pt-4">
+        <AuthFooter className="flex-col items-stretch gap-2 pt-4">
           <form
             className="flex flex-col gap-2"
             onSubmit={(event) => {
@@ -293,9 +284,9 @@ function SigningInCard({ allowPaste }: { allowPaste: boolean }) {
                 : action.error}
             </p>
           </form>
-        </CardFooter>
+        </AuthFooter>
       )}
-    </Card>
+    </AuthPanel>
   );
 }
 

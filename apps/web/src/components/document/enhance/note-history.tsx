@@ -219,7 +219,7 @@ export function NoteHistoryDialog({
         </div>
 
         <DialogFooter className="items-center">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Close
           </Button>
           {entries.length > 0 && (

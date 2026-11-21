@@ -268,3 +268,10 @@ test:int, e2e; ~15 min) runs on every push to `main` and on demand (`workflow_di
 Why: in 55 runs, e2e + test:int were ~90 % of the time and caused most red runs (8 of 14 were flakes). The
 real e2e catches (axe contrast/a11y, specs broken by UI changes) still run post-merge and on demand. Revisit when
 web e2e is sharded or runs against a production build fast enough for PRs. Evidence: `docs/tasks/ci-fast-gate.md`.
+
+## D-35 · 2026-11-21 · accepted · agent
+Auth and setup use an unboxed ~360px centered column with a small Oat mark and one primary action per
+step. Dialogs retain the ziiz modal material, share a plain Inter heading hierarchy, and use ghost
+cancel actions. Sharing remains immediate-save with Done, not a misleading cancel/undo affordance.
+Passwordless signup is still first sign-in; no password/reset routes or web onboarding wizard are
+invented. Security warnings and permission guidance take precedence over shortening helper copy.
