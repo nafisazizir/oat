@@ -1,6 +1,7 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
+import { toFetch, type OatTransport } from '@oat/client';
 import { Alert, AlertDescription } from '@oat/ui/components/alert';
 import { Button } from '@oat/ui/components/button';
 import {
@@ -24,8 +25,9 @@ import { IconAlertCircle, IconArrowUp, IconPlayerStopFilled } from '@tabler/icon
 import { DefaultChatTransport } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { chatApi, describeChatError } from '@/lib/chat-client';
-import type { ChatScope, ChatSources, ChatUIMessage } from '@/lib/chat-types';
+import { describeChatError } from './chat-client';
+import { useFeatureUi } from './provider';
+import type { ChatScope, ChatSources, ChatUIMessage } from '@oat/services/dto/chat';
 
 import { AssistantMessage, UserMessage } from './chat-message';
 import { ChatSessionContext, type ChatSessionApi } from './session-context';
@@ -33,7 +35,17 @@ import { ChatSessionContext, type ChatSessionApi } from './session-context';
 /** Mirrors the server's per-message limit (`CHAT_LIMITS.userChars`). */
 const MAX_QUESTION_CHARS = 8000;
 const EMPTY_SOURCES: ChatSources = { citations: {}, documents: {} };
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number, signal: AbortSignal) =>
+  new Promise<void>((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    signal.addEventListener('abort', done, { once: true });
+    if (signal.aborted) done();
+  });
 
 /** Where a session keeps its thread id: set from the first answer's response header. */
 type ThreadHolder = { current: string | null };
@@ -42,7 +54,8 @@ type ThreadHolder = { current: string | null };
  * The AI SDK transport for one session. Only the new question goes out (the server loads the history from
  * the thread, D-27); the thread id comes back as a header before any token, so later turns continue it.
  */
-function createTransport(scope: ChatScope, thread: ThreadHolder) {
+function createTransport(scope: ChatScope, thread: ThreadHolder, transport: OatTransport) {
+  const fetch = toFetch(transport);
   return new DefaultChatTransport<ChatUIMessage>({
     api: '/api/chat',
     prepareSendMessagesRequest: ({ messages }) => ({
@@ -95,6 +108,8 @@ export function ChatSession({
   emptyDescription,
   autoFocus,
 }: ChatSessionProps) {
+  const { client, transport: hostTransport } = useFeatureUi();
+  const lifecycle = useRef<AbortController | null>(null);
   // Mutable on purpose (set by the transport); never read during render.
   const [thread] = useState<ThreadHolder>(() => ({ current: initialThreadId }));
   const [sources, setSources] = useState<ChatSources>(initialSources);
@@ -108,12 +123,13 @@ export function ChatSession({
   const [announcement, setAnnouncement] = useState('');
   const refreshRef = useRef<(expectMessageId?: string) => Promise<void>>(async () => {});
 
-  const [transport] = useState(() => createTransport(scope, thread));
+  const [transport] = useState(() => createTransport(scope, thread, hostTransport));
 
   const chat = useChat<ChatUIMessage>({
     transport,
     messages: initialMessages,
     onFinish: ({ message, isAbort, isError }) => {
+      if (lifecycle.current?.signal.aborted) return;
       // One announcement per turn for screen readers (the streamed text itself is not a live region).
       setAnnouncement(isAbort ? 'Stopped.' : isError ? '' : 'Answer ready.');
       // The answer is saved when the server's stream ends; read it back (sources, proposal statuses).
@@ -121,6 +137,14 @@ export function ChatSession({
     },
   });
   const { messages, status, error, sendMessage, stop, setMessages, clearError } = chat;
+  useEffect(() => {
+    const controller = new AbortController();
+    lifecycle.current = controller;
+    return () => {
+      controller.abort();
+      void stop();
+    };
+  }, [stop]);
   const statusRef = useRef(status);
   useEffect(() => {
     statusRef.current = status;
@@ -129,9 +153,11 @@ export function ChatSession({
   const refresh = useCallback(
     async (expectMessageId?: string) => {
       const id = thread.current;
-      if (!id) return;
+      const signal = lifecycle.current?.signal;
+      if (!id || !signal || signal.aborted) return;
       for (let attempt = 0; attempt < 30; attempt++) {
-        const detail = await chatApi.thread(id).catch(() => null);
+        const detail = await client.chat.thread(id, { signal }).catch(() => null);
+        if (signal.aborted) return;
         if (detail && (!expectMessageId || detail.messages.some((m) => m.id === expectMessageId))) {
           // Don't clobber a turn that started meanwhile.
           if (statusRef.current === 'ready' || statusRef.current === 'error') {
@@ -142,10 +168,10 @@ export function ChatSession({
           onSaved.current?.(id);
           return;
         }
-        await sleep(Math.min(100 * (attempt + 1), 500));
+        await sleep(Math.min(100 * (attempt + 1), 500), signal);
       }
     },
-    [setMessages, thread],
+    [setMessages, thread, client],
   );
   useEffect(() => {
     refreshRef.current = refresh;
@@ -249,7 +275,7 @@ function MessageList({
     <MessageScrollerProvider autoScroll>
       <MessageScroller className="flex-1">
         <MessageScrollerViewport aria-label="Conversation" data-testid="chat-messages">
-          <MessageScrollerContent className="gap-6 px-4 py-4">
+          <MessageScrollerContent className="gap-5 px-4 py-5">
             {messages.map((message) => {
               if (message.role !== 'user' && message.role !== 'assistant') return null;
               return (
@@ -339,7 +365,7 @@ function Composer({
         send();
       }}
     >
-      <InputGroup>
+      <InputGroup className="rounded-xl border-transparent bg-gray-100 p-1 focus-within:border-gray-alpha-500">
         <InputGroupTextarea
           aria-label="Ask the assistant"
           data-testid="chat-input"

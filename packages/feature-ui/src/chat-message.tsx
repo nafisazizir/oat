@@ -7,8 +7,8 @@ import { Skeleton } from '@oat/ui/components/skeleton';
 import { Spinner } from '@oat/ui/components/spinner';
 import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
 
-import { citationOrder } from '@/lib/chat-markdown';
-import type { ChatProposal, ChatUIMessage } from '@/lib/chat-types';
+import { citationOrder } from './chat-markdown';
+import type { ChatProposal, ChatUIMessage } from '@oat/services/dto/chat';
 
 import { Answer } from './answer';
 import { ProposalCard } from './proposal-card';

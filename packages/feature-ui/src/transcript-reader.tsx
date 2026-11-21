@@ -5,7 +5,7 @@ import { Button } from '@oat/ui/components/button';
 import { IconX } from '@tabler/icons-react';
 import { useEffect, useRef } from 'react';
 
-import { clock, type TranscriptLine } from '@/lib/transcript';
+import { clock, type TranscriptLine } from './transcript';
 
 /**
  * The transcript of a meeting note, opened at a moment (6.4): what a citation chip or a transcript search hit
@@ -63,7 +63,7 @@ export function TranscriptReader({
                 aria-current={focused ? 'true' : undefined}
                 className={cn(
                   'grid grid-cols-[3.25rem_1fr] gap-2 rounded-lg px-2 py-1.5 text-copy-14 transition-colors duration-150',
-                  focused && 'bg-selection ring-1 ring-brand-500',
+                  focused && 'bg-gray-200 ring-1 ring-gray-500',
                 )}
               >
                 <span className="pt-px text-label-12-mono text-gray-900 tabular-nums">
@@ -74,8 +74,8 @@ export function TranscriptReader({
                     className={cn(
                       'me-1.5 rounded-sm px-1 py-px text-label-12',
                       line.source === 'mic'
-                        ? 'bg-me text-me-foreground'
-                        : 'bg-them text-them-foreground',
+                        ? 'bg-blue-200 text-blue-1000'
+                        : 'bg-gray-200 text-gray-1000',
                     )}
                   >
                     {line.speaker}

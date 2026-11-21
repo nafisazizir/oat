@@ -5,6 +5,7 @@
 @import '@oat/ui/styles.css';
 @import '@oat/editor/styles.css';
 @import '@oat/meeting-ui/styles.css';
+@import '@oat/feature-ui/styles.css';
 
 @layer base {
   html,

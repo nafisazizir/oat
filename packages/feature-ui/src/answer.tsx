@@ -4,8 +4,9 @@ import { cn } from '@oat/ui';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import { Fragment, type ReactNode, useMemo } from 'react';
 
-import { type MdNode, parseAnswer } from '@/lib/chat-markdown';
-import { clock } from '@/lib/transcript';
+import { type MdNode, parseAnswer } from './chat-markdown';
+import { clock } from './transcript';
+import { TargetLink, useFeatureUi, type AppTarget } from './provider';
 
 import { useChatSession, useOpenCitation } from './session-context';
 
@@ -52,14 +53,14 @@ function render(nodes: MdNode[], ctx: RenderContext): ReactNode {
       case 'a': {
         const external = !node.href!.startsWith('/');
         return (
-          <a
+          <AnswerLink
             key={i}
-            href={node.href}
-            className="text-brand-900 underline underline-offset-2 hover:text-brand-1000"
+            href={node.href!}
+            className="text-gray-1000 underline underline-offset-2 hover:text-gray-900"
             {...(external ? { target: '_blank', rel: 'noopener noreferrer nofollow' } : {})}
           >
             {children}
-          </a>
+          </AnswerLink>
         );
       }
       case 'br':
@@ -143,6 +144,30 @@ function render(nodes: MdNode[], ctx: RenderContext): ReactNode {
   });
 }
 
+function AnswerLink({ href, ...props }: React.ComponentProps<'a'> & { href: string }) {
+  const { Link = 'a' } = useFeatureUi();
+  let target: AppTarget | undefined;
+  if (href.startsWith('/d/')) {
+    try {
+      const url = new URL(href, 'https://oat.invalid');
+      const match = /^\/d\/([^/]+)$/.exec(url.pathname);
+      if (match)
+        target = {
+          kind: 'document',
+          id: decodeURIComponent(match[1]!),
+          ...(url.searchParams.get('block') ? { blockId: url.searchParams.get('block')! } : {}),
+          ...(url.searchParams.get('seg') ? { segmentId: url.searchParams.get('seg')! } : {}),
+          ...(url.searchParams.has('t') && Number.isFinite(Number(url.searchParams.get('t')))
+            ? { timeMs: Number(url.searchParams.get('t')) * 1000 }
+            : {}),
+        };
+    } catch {
+      /* Invalid links remain ordinary anchors. */
+    }
+  }
+  return target ? <TargetLink {...props} target={target} /> : <Link {...props} href={href} />;
+}
+
 /**
  * A citation as a small numbered chip. Resolved through the thread's `sources` (re-checked access): clicking
  * jumps to the transcript moment or the note block. While the answer is still streaming the source isn't
@@ -200,7 +225,7 @@ function CitationChip({
             onClick={() => openCitation(source)}
             className={cn(
               base,
-              'cursor-pointer bg-brand-100 text-brand-900 outline-none hover:bg-brand-200 focus-visible:ring-3 focus-visible:ring-gray-600/50',
+              'cursor-pointer bg-gray-100 text-gray-1000 outline-none hover:bg-gray-200 focus-visible:ring-3 focus-visible:ring-gray-600/50',
             )}
           />
         }

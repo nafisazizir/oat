@@ -32,7 +32,8 @@
     "@tabler/icons-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@oat/feature-ui": "workspace:*"
   },
   "devDependencies": {
     "@testing-library/react": "catalog:",

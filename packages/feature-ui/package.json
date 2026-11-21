@@ -1,0 +1,50 @@
+{
+  "name": "@oat/feature-ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Host-adapted feature UI shared by web and desktop",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./search": "./src/search.ts",
+    "./styles.css": "./src/styles.css",
+    "./tasks": "./src/tasks.ts",
+    "./assistant": "./src/assistant.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:int": "vitest run --mode int --passWithNoTests"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "dependencies": {
+    "@ai-sdk/react": "catalog:",
+    "ai": "catalog:",
+    "markdown-it": "catalog:",
+    "@oat/client": "workspace:*",
+    "@oat/services": "workspace:*",
+    "@oat/ui": "workspace:*",
+    "@tabler/icons-react": "catalog:",
+    "cmdk": "catalog:",
+    "@oat/editor": "workspace:*"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "eslint-plugin-react-hooks": "catalog:",
+    "globals": "catalog:",
+    "jsdom": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

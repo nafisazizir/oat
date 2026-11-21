@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 
 import { PageContainer, PageHeader } from '@/components/page';
-import { TasksView, TasksViewSkeleton } from '@/components/tasks/tasks-view';
+import { TasksViewSkeleton } from '@oat/feature-ui/tasks';
+import { TasksView } from '@/components/tasks/tasks-view';
 import { getShellData } from '@/server/shell';
 
 export const metadata: Metadata = { title: 'My tasks' };
@@ -18,7 +19,7 @@ export default async function TasksPage() {
       />
       {/* `useSearchParams` needs a boundary; the view takes its filters from the URL on the client. */}
       <Suspense fallback={<TasksViewSkeleton />}>
-        <TasksView key={workspace.id} workspaceId={workspace.id} />
+        <TasksView key={workspace.id} />
       </Suspense>
     </PageContainer>
   );

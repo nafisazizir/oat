@@ -1,4 +1,17 @@
-import { isApiError } from '@/lib/api-client';
+import { OatApiError } from '@oat/client';
+
+function isApiError(error: unknown, code: string): error is OatApiError {
+  return error instanceof OatApiError && error.code === code;
+}
+
+function freshVersion(error: unknown): number | undefined {
+  if (!isApiError(error, 'stale_version')) return undefined;
+  const details = error.details;
+  if (!details || typeof details !== 'object' || !('document' in details)) return undefined;
+  const document = details.document;
+  if (!document || typeof document !== 'object' || !('version' in document)) return undefined;
+  return typeof document.version === 'number' ? document.version : undefined;
+}
 
 type SetDone = (
   id: string,
@@ -15,7 +28,7 @@ export async function setDoneRetryingOnce(
   try {
     return await setDone(id, { done, baseVersion });
   } catch (error) {
-    const fresh = isApiError(error, 'stale_version') ? error.body?.document?.version : undefined;
+    const fresh = freshVersion(error);
     if (fresh === undefined) throw error;
     return setDone(id, { done, baseVersion: fresh });
   }

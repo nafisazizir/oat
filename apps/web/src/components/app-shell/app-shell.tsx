@@ -9,6 +9,7 @@ import { BrowserRecordingBanner } from '@/components/meeting/recording-controls'
 import type { ShellData } from '@/lib/tree';
 
 import { AppSidebar } from './app-sidebar';
+import { WebFeatureProvider } from './feature-provider';
 import { CommandMenu, CommandMenuProvider } from './command-menu';
 import { ShellDataProvider } from './shell-data';
 import { TopBarProvider } from './top-bar';
@@ -50,20 +51,22 @@ export function AppShell({
   );
   return (
     <ShellDataProvider value={data}>
-      <SidebarProvider defaultOpen={defaultOpen}>
-        <TreeActionsProvider>
-          <CommandMenuProvider>
-            <AppSidebar />
-            <SidebarInset>
-              <TopBarProvider>
-                <BrowserRecordingBanner />
-                <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-              </TopBarProvider>
-            </SidebarInset>
-            <CommandMenu />
-          </CommandMenuProvider>
-        </TreeActionsProvider>
-      </SidebarProvider>
+      <WebFeatureProvider>
+        <SidebarProvider defaultOpen={defaultOpen}>
+          <TreeActionsProvider>
+            <CommandMenuProvider>
+              <AppSidebar />
+              <SidebarInset>
+                <TopBarProvider>
+                  <BrowserRecordingBanner />
+                  <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+                </TopBarProvider>
+              </SidebarInset>
+              <CommandMenu />
+            </CommandMenuProvider>
+          </TreeActionsProvider>
+        </SidebarProvider>
+      </WebFeatureProvider>
     </ShellDataProvider>
   );
 }
