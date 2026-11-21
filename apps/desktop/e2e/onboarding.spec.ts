@@ -19,7 +19,7 @@ import { join } from 'node:path';
 import { uniqueAddress } from '@oat/testkit';
 import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
 
-import { evidence, launchApp, openedUrls, scaled, signInDesktop } from './helpers';
+import { evidence, home, launchApp, openedUrls, scaled, signInDesktop } from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
 test.describe.configure({ mode: 'serial' });
@@ -155,17 +155,17 @@ test('fresh profile: setup → permissions → test recording → finish → fir
   await shots('guide');
   await page.getByTestId('guide-dismiss').click();
   await expect(guide).toBeHidden();
-  await expect(page.getByTestId('meeting-start')).toBeVisible();
+  await expect(home(page)).toContainText('No notes yet');
 
   // Relaunch: straight into the app, no guide.
   await launch(profile, 'permissions-fresh.json');
   await expect(page.getByTestId('signed-in-email')).toHaveText(email);
   await expect(page.getByTestId('onboarding')).toBeHidden();
-  await expect(page.getByTestId('meeting-start')).toBeVisible();
+  await expect(home(page)).toContainText('No notes yet');
 
   // Settings → Setup: states at a glance; "Open setup" runs it again (all allowed: opens at the test).
   await page.getByTestId('workspace-switcher').click();
-  await page.getByRole('menuitem', { name: 'Settings' }).click();
+  await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
   // The fixture's grants were in memory: after the relaunch macOS (the fixture file) says "not asked" again.
   await expect(page.getByTestId('setup-microphone')).toHaveAttribute('data-state', 'ask');
   await shots('settings-setup');

@@ -14,7 +14,15 @@ import { type ElectronApplication, expect, type Page, test } from '@playwright/t
 import postgres from 'postgres';
 
 import { databaseUrlFile } from '../../web/e2e/paths';
-import { evidence, launchApp, scaled, signInDesktop, signInOnWeb, writeEvidence } from './helpers';
+import {
+  evidence,
+  launchApp,
+  scaled,
+  signInDesktop,
+  signInOnWeb,
+  syncStatus,
+  writeEvidence,
+} from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
 test.describe.configure({ mode: 'serial' });
@@ -55,7 +63,7 @@ test('edit on the web → the desktop has it within seconds (SSE) and finds it l
   ({ app, page } = await launchApp(userDataDir, webUrl));
   const email = uniqueAddress('desktop-sync');
   await signInDesktop(app, page, browser, email);
-  await expect(page.getByTestId('sync-status')).toHaveText('All changes synced', {
+  await expect(syncStatus(page)).toHaveAccessibleName('All changes synced', {
     timeout: scaled(30_000),
   });
 
