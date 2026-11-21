@@ -5,15 +5,39 @@
 @import './tokens.css';
 @import '@fontsource-variable/inter/wght.css';
 @import '@fontsource-variable/newsreader/opsz.css';
-@import '@fontsource-variable/jetbrains-mono/wght.css';
+@import '@fontsource-variable/geist-mono/wght.css';
 
 @source './';
 @custom-variant dark (&:is(.dark *));
 
 :root {
   --font-sans: 'Inter Variable', sans-serif;
-  --font-mono: 'JetBrains Mono Variable', monospace;
+  --font-mono: 'Geist Mono Variable', monospace;
   --font-family-serif: 'Newsreader Variable', serif;
+}
+
+@utility text-display-32 {
+  @apply text-heading-32;
+  font-family: var(--font-family-serif);
+  font-weight: 400;
+}
+
+@utility text-display-24 {
+  @apply text-heading-24;
+  font-family: var(--font-family-serif);
+  font-weight: 400;
+}
+
+@utility text-display-20 {
+  @apply text-heading-20;
+  font-family: var(--font-family-serif);
+  font-weight: 400;
+}
+
+@utility text-display-14 {
+  @apply text-heading-14;
+  font-family: var(--font-family-serif);
+  font-weight: 400;
 }
 
 :root,

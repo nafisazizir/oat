@@ -29,7 +29,7 @@
     "tailwindcss": "^4"
   },
   "dependencies": {
-    "@fontsource-variable/jetbrains-mono": "catalog:",
+    "@fontsource-variable/geist-mono": "catalog:",
     "@fontsource-variable/newsreader": "catalog:",
     "class-variance-authority": "catalog:",
     "cmdk": "catalog:",

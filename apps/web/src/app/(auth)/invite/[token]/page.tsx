@@ -39,7 +39,7 @@ function Notice({
     <Card data-testid="invite-notice">
       <CardHeader className="text-center">
         <CardTitle className="text-heading-24">
-          <h1>{title}</h1>
+          <h1 className="text-display-24">{title}</h1>
         </CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
@@ -76,7 +76,7 @@ function InviteCard({ invite, children }: { invite: InviteDetails; children: Rea
           className="mx-auto mb-2 size-12"
         />
         <CardTitle className="text-heading-24">
-          <h1>Join {invite.workspace.name}</h1>
+          <h1 className="text-display-24">Join {invite.workspace.name}</h1>
         </CardTitle>
         <CardDescription>
           {invite.inviter.name} invited you to join as {role === 'admin' ? 'an' : 'a'} {role}.

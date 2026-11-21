@@ -191,7 +191,7 @@ export function MeetingPreview() {
               <ScrollArea className="min-h-0 flex-1">
                 <article className="mx-auto flex max-w-content flex-col gap-5 px-8 py-8">
                   <header className="flex flex-col gap-3">
-                    <h1 className="text-heading-32">Weekly design sync</h1>
+                    <h1 className="text-display-32">Weekly design sync</h1>
                     <div className="flex flex-wrap items-center gap-3 text-label-12 text-gray-900">
                       <IconCalendar className="size-4" />
                       <span>Thu 14 Nov · 10:00–10:30</span>

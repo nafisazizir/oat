@@ -22,7 +22,7 @@ export default function ShareNotFound() {
             <IconLinkOff />
           </EmptyMedia>
           <EmptyTitle>
-            <h1>This link isn’t available</h1>
+            <h1 className="text-display-20">This link isn’t available</h1>
           </EmptyTitle>
           <EmptyDescription>
             It may have been turned off or replaced with a new link. Ask the person who shared it

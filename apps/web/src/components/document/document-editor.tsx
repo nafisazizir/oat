@@ -302,7 +302,7 @@ export function DocumentEditor({
           rows={1}
           maxLength={200}
           autoFocus={autoFocusTitle}
-          className="w-full resize-none bg-transparent text-heading-32 text-gray-1000 caret-gray-1000 [field-sizing:content] outline-none placeholder:text-gray-700"
+          className="w-full resize-none bg-transparent text-display-32 text-gray-1000 caret-gray-1000 [field-sizing:content] outline-none placeholder:text-gray-700"
           onChange={(event) => {
             const next = event.target.value.replace(/\n/g, ' ');
             setTitle(next);

@@ -72,11 +72,17 @@ describe('oat palette', () => {
     for (const name of brand) expect(styles).toContain(`--color-${name.slice(5)}: var(${name})`);
   });
 
-  it('uses bundled Inter and JetBrains Mono and retains the editor serif', () => {
+  it('uses bundled Inter, Geist Mono and Newsreader', () => {
     expect(styles).toContain('@fontsource-variable/inter/wght.css');
-    expect(styles).toContain('@fontsource-variable/jetbrains-mono/wght.css');
+    expect(styles).toContain('@fontsource-variable/geist-mono/wght.css');
     expect(styles).toContain('@fontsource-variable/newsreader/opsz.css');
     expect(styles).not.toMatch(/https?:\/\/|instrument-sans/);
+  });
+
+  it.each([14, 20, 24, 32])('defines a regular serif display role at %s', (size) => {
+    expect(styles).toContain(
+      `@utility text-display-${size} {\n  @apply text-heading-${size};\n  font-family: var(--font-family-serif);\n  font-weight: 400;\n}`,
+    );
   });
 
   it('maps status and AI text roles to readable ramp steps in both themes', () => {

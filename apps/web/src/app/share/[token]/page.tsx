@@ -82,7 +82,7 @@ export default async function SharePage({ params }: Props) {
             </>
           )}
         </div>
-        <h1 className="text-heading-32 text-balance text-gray-1000">{titleOf(shared.title)}</h1>
+        <h1 className="text-display-32 text-balance text-gray-1000">{titleOf(shared.title)}</h1>
         <p className="text-copy-14 text-gray-900">
           {shared.authorName ? `Shared by ${shared.authorName} · ` : ''}
           Edited {formatDate(shared.updatedAt)}

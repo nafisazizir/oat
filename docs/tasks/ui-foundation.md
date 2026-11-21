@@ -9,7 +9,7 @@ Replace the shared UI foundation with ziiz 0.1.1 and the supplied oat palette, w
 
 ## Scope
 
-Shared theme, self-hosted Inter and JetBrains Mono, registry components and hooks, mechanical Base UI consumer migrations, token and component tests. Excludes chart and carousel, app redesign, deployments and PR creation.
+Shared theme, self-hosted Inter and Geist Mono, registry components and hooks, mechanical Base UI consumer migrations, token and component tests. Excludes chart and carousel, app redesign, deployments and PR creation.
 
 ## Acceptance criteria
 

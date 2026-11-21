@@ -194,7 +194,7 @@ function SignedOutCard({ error }: { error: string | null }) {
     <Card>
       <CardHeader className="text-center">
         <CardTitle className="text-heading-24">
-          <h1>Welcome to Oat</h1>
+          <h1 className="text-display-24">Welcome to Oat</h1>
         </CardTitle>
         <CardDescription>
           Sign in with your browser. Your notes and workspaces sync to this Mac.
@@ -240,7 +240,7 @@ function SigningInCard({ allowPaste }: { allowPaste: boolean }) {
           <Spinner className="size-5" />
         </div>
         <CardTitle className="text-heading-20">
-          <h1>Finish signing in in your browser</h1>
+          <h1 className="text-display-20">Finish signing in in your browser</h1>
         </CardTitle>
         <CardDescription>
           We opened Oat in your browser. Sign in there, and this window updates by itself.

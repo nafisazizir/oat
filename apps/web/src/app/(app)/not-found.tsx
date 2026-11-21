@@ -21,7 +21,7 @@ export default function AppNotFound() {
             <IconFileUnknown />
           </EmptyMedia>
           <EmptyTitle>
-            <h1>Page not found</h1>
+            <h1 className="text-display-20">Page not found</h1>
           </EmptyTitle>
           <EmptyDescription>
             It may have been moved or deleted, or you might not have access to it.

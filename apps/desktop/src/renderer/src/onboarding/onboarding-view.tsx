@@ -101,7 +101,7 @@ export function OnboardingView({
       <div className="flex w-full max-w-xl flex-col gap-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h1 className="text-heading-24 text-gray-1000">{firstRun ? 'Set up Oat' : 'Setup'}</h1>
+            <h1 className="text-display-24 text-gray-1000">{firstRun ? 'Set up Oat' : 'Setup'}</h1>
             <p className="text-copy-14 text-gray-900">
               {firstRun
                 ? 'A minute now, so your first meeting just works.'

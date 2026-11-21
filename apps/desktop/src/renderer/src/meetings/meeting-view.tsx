@@ -283,7 +283,7 @@ function StartScreen() {
         <EmptyMedia variant="icon" className="bg-brand-100 text-brand-900">
           <IconNotes aria-hidden />
         </EmptyMedia>
-        <h2 className="text-heading-20 text-gray-1000">Start a meeting note</h2>
+        <h2 className="text-display-20 text-gray-1000">Start a meeting note</h2>
         <EmptyDescription>
           Start recording when your call begins. Jot what matters here while Oat transcribes both
           sides; your notes and the transcript sync to the web.
@@ -412,7 +412,7 @@ function NoteBody({
           placeholder="Untitled meeting"
           rows={1}
           maxLength={200}
-          className="w-full resize-none bg-transparent text-heading-32 text-gray-1000 [field-sizing:content] outline-none placeholder:text-gray-700"
+          className="w-full resize-none bg-transparent text-display-32 text-gray-1000 [field-sizing:content] outline-none placeholder:text-gray-700"
           onChange={(event) => {
             const next = event.target.value.replace(/\n/g, ' ');
             setTitle(next);

@@ -63,7 +63,7 @@ export default async function HomePage() {
     <PageContainer>
       <header className="flex flex-col gap-2">
         <div className="flex items-end justify-between gap-4">
-          <h1 className="text-heading-32 text-gray-1000">Home</h1>
+          <h1 className="text-display-32 text-gray-1000">Home</h1>
           {recentMeetings.length > 0 && (
             <NewNoteButton size="lg" className="hidden sm:inline-flex" />
           )}

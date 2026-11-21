@@ -112,7 +112,7 @@ export function App({ staticOverlays }: { staticOverlays: boolean }) {
         <Section
           id="type"
           title="Type"
-          lede="Inter for headings, labels and copy; JetBrains Mono for code. Each role owns its size, weight, leading and tracking."
+          lede="Newsreader for display titles, Inter for UI and copy, Geist Mono for code. Each role owns its size, weight, leading and tracking."
         >
           <TypeScale />
         </Section>
