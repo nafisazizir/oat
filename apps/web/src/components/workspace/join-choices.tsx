@@ -160,6 +160,7 @@ export function JoinChoiceList({
             variant="ghost"
             className="w-full"
             nativeButton={false}
+            role="link"
             render={<Link href="/home" />}
           >
             Back to Oat

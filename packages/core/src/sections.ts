@@ -15,8 +15,8 @@ export const SIDEBAR_SECTIONS: readonly SidebarSection[] = ['private', 'shared']
 
 /** What the sidebar says for each section: its label and what goes there (shown while it is empty). */
 export const SECTION_INFO: Readonly<Record<SidebarSection, { label: string; empty: string }>> = {
-  private: { label: 'Private', empty: 'Only you can see what’s here.' },
-  shared: { label: 'Shared', empty: 'Notes shared with the workspace show up here.' },
+  private: { label: 'Private', empty: 'Notes only you can see.' },
+  shared: { label: 'Shared', empty: 'Notes everyone here can see.' },
 };
 
 /** The fields that decide an item's section (documents, folders and desktop note summaries all fit). */

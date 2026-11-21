@@ -87,12 +87,12 @@ describe('MeetingList: Private and Shared (D-36)', () => {
     render(list([note('mine-private', 'private')]));
     expect(screen.queryByTestId('meeting-section-empty-private')).toBeNull();
     expect(screen.getByTestId('meeting-section-empty-shared').textContent).toBe(
-      'Notes shared with the workspace show up here.',
+      'Notes everyone here can see.',
     );
     cleanup();
     render(list([]));
     expect(screen.getByTestId('meeting-section-empty-private').textContent).toBe(
-      'Only you can see what’s here.',
+      'Notes only you can see.',
     );
     // No notes at all: the list as a whole is marked empty.
     expect(screen.getByTestId('meeting-list-empty')).toBeTruthy();
