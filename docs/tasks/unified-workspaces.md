@@ -430,3 +430,29 @@ re-run the full `pnpm run ci` or any e2e (verifier's job).
   adapted rather than removed (auth int 83, members deny cases kept and extended).
 
 ## Evidence
+
+### Step B — implementer's full `pnpm run ci` (2026-11-21, `task/unified-workspaces-b`)
+
+```
+step             status     time  note
+format           pass       5.1s
+actionlint       pass       0.2s
+typecheck        pass       0.4s
+lint             pass       0.7s
+test             pass       0.2s
+stack            pass       0.2s
+migrate          pass       1.8s
+swift:release    pass       9.3s
+test:int         pass     196.2s
+e2e              FAIL     611.1s  failing package(s): @oat/desktop
+acceptance       FAIL      54.4s  pnpm --filter @oat/acceptance run acceptance exited with 1
+swift:build      pass       6.5s
+swift:test       pass       8.9s
+swift:synthetic  pass       2.4s
+total                     897.5s
+```
+
+Web e2e: 81 passed, 0 failed (incl. the 4 `join.spec.ts` tests, `workspaces.spec.ts`, and this time also
+`notion.spec.ts` and `typography.spec.ts`). Desktop e2e: 8 passed / 10 failed / 10 not run — the same specs as
+on step A and `main` (stale selectors; `workspaces.spec.ts` 4/4 pass). Acceptance fails at
+`getByTestId('meeting-start')` in the desktop cold-start step, before any workspace step — the known failure.
