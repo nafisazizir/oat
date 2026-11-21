@@ -96,6 +96,90 @@ Step C
 - Order matters for sync: ship the server accepting clients that still send/expect `kind` for one desktop
   version (DTO field optional, ignored), then remove.
 
+### Step A (branch `task/unified-workspaces-a`)
+What was decided, and what steps B/C need to know.
+
+**Model**
+- Postgres migration `0013_unified_workspaces` (after `main`'s 0012; `db:generate` reports no drift). In order:
+  rename former personal rows still called "Personal" to "<First name>’s workspace" (fallback "My workspace"; a
+  name its owner had already changed is kept), replace every `personal-<userId>` slug with a generated
+  `<words-from-name>-<12 hex>` one, then drop `workspace_deleted_team_only_ck`, the
+  `workspace_personal_created_by_uq` index, the `kind` column and the `workspace_kind` enum. Ids don't change,
+  so no document moves. The renames go through the `change_log` trigger, so syncing desktops get the new name.
+  Test: `packages/db/src/unified-workspaces-migration.int.test.ts` (migrates a DB at `main`'s schema with data).
+- New column `user.last_active_workspace_id` (nullable, no FK, like `session.active_workspace_id`): the
+  workspace the user last switched to. Written only by `@oat/auth` (`rememberActiveWorkspace`, from an after-hook
+  on Better Auth's `organization/set-active`, HTTP and in-process alike); never client-settable.
+- Sync DTO: `kind` is gone from `syncWorkspaceRowSchema` (rows are `{ id, name, role }`); `SYNC_PULL_SCOPE` was
+  **not** bumped, so nothing is re-downloaded. The "accept old clients for one desktop version" note above was
+  skipped as agreed (no production database, no released desktop): an old desktop build can't parse new pulls.
+- Local store migration 5 is `ALTER TABLE workspace DROP COLUMN kind` (in place; a failing local migration
+  would wipe the cache, so `migration-5.test.ts` upgrades a version-4 fixture —
+  `src/fixtures/v4-two-kinds.sql` — and checks rows, outbox entries, cursor and search are untouched).
+  `LocalStore.personalWorkspaceId()` became `firstWorkspaceId()` (first by name; no meaning beyond "sync has
+  brought a workspace").
+
+**Rules** (`packages/core/src/permissions.ts`)
+- `WorkspaceAccess` is `{ id }`. `canManageMembers`/`canInvite`/`canChangeRole` no longer look at a kind.
+- Last workspace: `isLastWorkspace(ctx, workspaceId)`; `canRemoveMember` refuses **leaving** it and
+  `canDeleteWorkspace` refuses deleting it. It is read from `ctx.memberships`, which must hold *all* of the
+  actor's live memberships — a context built from one workspace's rows fails closed (refuses). Removing
+  someone *else* from their only workspace, or an owner deleting a workspace that is another member's only one,
+  is still allowed: that person gets a workspace of their own the next time they open Oat (below).
+- `@oat/auth` `members.ts`: leave/delete take a per-user advisory lock (`lockUser`) and load the actor's full
+  context inside the transaction, so leaving/deleting two workspaces at once keeps one (concurrency tests).
+
+**Sign-up and sessions** (`packages/auth/src/workspaces.ts`)
+- `ensureFirstWorkspace(db, userId)` replaces `ensurePersonalWorkspace`: under `lockUser`, returns the user's
+  oldest live membership; else, if a pending, unexpired invitation to their address into a live workspace
+  exists, creates nothing and returns its token; else creates an ordinary workspace (`firstWorkspaceName`,
+  `workspaceSlug`) with the user as `owner`. Called from `user.create.after`, `session.create.before` and the
+  web shell.
+- **Step B hook-in point:** this function is where "matching joinable workspaces" belongs — today the only
+  reason not to create is a pending invite. The web shell (`apps/web/src/server/shell.ts` `getContext`)
+  redirects a workspace-less user with a pending invite to `/invite/<token>` (accept → joins; decline → next
+  visit creates their own). An invited newcomer who neither accepts nor declines stays on that page: B's
+  join screen ("Create my own workspace") should replace that redirect.
+- Sessions start in `startingWorkspaceId`: `user.last_active_workspace_id` if still a live membership, else the
+  oldest membership (`membership.created_at`, then id). `pickActiveWorkspace(workspaces, sessionActive,
+  lastActive)` applies the same rule when a session's workspace is gone; `UserWorkspace` gained `joinedAt`
+  and lost `kind`; `listUserWorkspaces` now orders by name.
+- `AUTH_MAX_TEAM_WORKSPACES` keeps its name; it now caps workspaces a user creates *on top of* the one made at
+  sign-up (the old count excluded personal ones, so the effective limit is unchanged).
+- Nothing reserves `personal-` slugs any more; a first workspace's slug can be changed like any other.
+
+**Web**
+- Removed: the "Personal workspace" settings note (`settings/workspace/layout.tsx`, `create-team-button.tsx`
+  deleted), the brand-coloured avatar, "Personal space" labels, Members hidden for personal, the personal
+  wording in the share dialog, templates pages and sign-in page.
+- "Only you" badges / the hidden "Shared" sidebar section now depend on the workspace having one member
+  (`isWorkspaceOfOne`), not on a kind. **Step C** replaces the sidebar sections anyway.
+- Danger zone: Leave and Delete (owners) are shown disabled with "This is your only workspace…" for the last
+  workspace (`WorkspaceSettings.lastWorkspace`); the actions return the same reason. The switcher offers
+  "Leave …" only with more than one workspace. **Step C** (switcher hidden with one workspace) must keep a
+  way to reach "Create workspace" — the desktop sends view-only users there.
+
+**Desktop**
+- New notes go to the active workspace if I can create there, else the first workspace (by name) where I can,
+  else nowhere (`Workspaces.snapshot().targetId === null`, `newNoteTarget`). With nowhere to go,
+  `beginMeeting` / "Start notes" are refused *before any audio is captured* with "…Create a workspace of your
+  own in Oat on the web, then try again." (`noNoteWorkspaceMessage`; a never-synced database still says
+  "connect once"), and the sidebar hint says the same — so no recording exists that could be lost.
+- With no stored choice the active workspace defaults to the first one I can create in, and that default is
+  now persisted, so a workspace arriving later (sorting earlier) doesn't change what the sidebar shows.
+- A workspace row without a role (`role: null`) is no longer assumed writable (that guess needed `kind`).
+- `SyncService.personalWorkspace()` → `awaitWorkspaces()` (boolean); `MeetingPersistence` now requires
+  `newNoteWorkspace`.
+
+**Grep criterion** — `grep -rIl -iE "personal|WorkspaceKind|kind === 'team'" apps packages` now returns only:
+Drizzle migrations/snapshots, `local-store` migration 1 + its migration-5 test and fixture, the Postgres
+migration test, and Google-**calendar** fixtures/tests where a calendar is titled "Personal"
+(`packages/calendar/src/google/source.test.ts`; also `tools/mocks`, `fixtures/calendar`) — unrelated to
+workspaces and left alone.
+
+**Out of scope touched:** `docs/DEV.md` and `.env.example` (two paragraphs/one comment describing the old
+model); test fixtures in `packages/ai`, `packages/indexing`, `agents` (dropped `kind`, renamed identifiers).
+
 ## Review
 
 ## Evidence

@@ -26,15 +26,18 @@ type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 /**
  * Per-user mutex for the rest of `tx`: everything that decides on "how many workspaces does this user have"
- * (creating their first one, leaving or deleting their last one) runs one at a time per user. `NO KEY
- * UPDATE`, so rows that merely reference the user (sessions, documents) aren't blocked meanwhile.
+ * (creating their first one, leaving or deleting their last one) runs one at a time per user. An advisory
+ * lock, not a row lock: it can't wait on (or block) a Better Auth transaction that is writing the user row
+ * while one of our hooks runs on another connection. Returns the user, `undefined` if there is none.
  */
 export async function lockUser(tx: Tx, userId: string) {
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${`oat:user-workspaces:${userId}`}, 0))`,
+  );
   const [row] = await tx
     .select({ id: user.id, name: user.name, email: user.email })
     .from(user)
-    .where(eq(user.id, userId))
-    .for('no key update');
+    .where(eq(user.id, userId));
   return row;
 }
 

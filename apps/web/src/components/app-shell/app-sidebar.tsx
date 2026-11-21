@@ -41,7 +41,7 @@ import { useOptimistic, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
 import { inSection, sections } from '@/lib/navigation';
-import { rootsOf, type Workspace } from '@/lib/tree';
+import type { Workspace } from '@/lib/tree';
 import { switchWorkspace } from '@/server/actions/workspaces';
 import { LeaveWorkspaceDialog } from '@/components/workspace/leave-workspace-dialog';
 import { WorkspaceAvatar } from '@/components/workspace/workspace-avatar';
@@ -169,11 +169,9 @@ function WorkspaceSwitcher() {
 export function AppSidebar() {
   const pathname = usePathname();
   const { setOpen: openCommandMenu } = useCommandMenu();
-  const { documents, workspace, trash } = useShellData();
+  const { workspace, trash } = useShellData();
   const { openTrash } = useTreeActions();
   const { saving } = useOptimisticTree();
-  // A workspace with nobody else in it has nobody to share with: show "Shared" only if something is in it.
-  const showShared = workspace.members > 1 || rootsOf(documents, 'shared').length > 0;
 
   return (
     <Sidebar
@@ -232,7 +230,8 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {showShared && <TreeSection area="shared" label="Shared" />}
+        {/* Every workspace can be shared with (D-36): the section is always there. */}
+        <TreeSection area="shared" label="Shared" />
         <TreeSection area="private" label="Private" />
       </SidebarContent>
 
