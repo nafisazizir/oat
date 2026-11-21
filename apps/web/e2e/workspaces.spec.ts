@@ -85,7 +85,7 @@ test('invite → accept → change role → remove, with two users', async ({ br
     teamName,
   );
   await expect(owner.page.getByTestId('workspace-slug').filter({ visible: true })).toBeVisible();
-  await owner.page.getByRole('button', { name: 'Choose workspace icon' }).click();
+  await owner.page.getByTestId('workspace-icon-button').click();
   await owner.page.getByRole('option', { name: '🌾' }).click();
   await owner.page.getByRole('button', { name: 'Save changes' }).click();
   await expect(owner.page.getByText('Workspace saved')).toBeVisible();
