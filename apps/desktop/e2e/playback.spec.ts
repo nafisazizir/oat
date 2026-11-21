@@ -19,7 +19,14 @@ import { DatabaseSync } from 'node:sqlite';
 import { uniqueAddress } from '@oat/testkit';
 import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
 
-import { evidence, launchApp, scaled, signInDesktop, writeEvidence } from './helpers';
+import {
+  evidence,
+  launchApp,
+  openTranscript,
+  scaled,
+  signInDesktop,
+  writeEvidence,
+} from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
 
@@ -155,7 +162,10 @@ test('listen back: click-to-seek across two parts, playhead highlight, sources, 
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
     timeout: scaled(30_000),
   });
-  // Playable once the files are closed (`storage:changed` reloads the player).
+  // Playable once the files are closed (`storage:changed` reloads the player). The player sits on top of
+  // the transcript, in its panel: closed until asked for, and it stays open from here on.
+  await expect(page.getByTestId('playback')).toHaveCount(0);
+  await openTranscript(page);
   await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'paused', {
     timeout: scaled(15_000),
   });

@@ -18,7 +18,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { uniqueAddress } from '@oat/testkit';
 import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
 
-import { launchApp, scaled, signInDesktop } from './helpers';
+import { home, launchApp, openTranscript, scaled, signInDesktop } from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
 
@@ -200,7 +200,7 @@ test('every desktop screen: axe clean in light and dark (+ sweep screenshots)', 
   await expect(page.getByTestId('first-meeting-guide')).toBeVisible();
   await sweep(page, '06-home-guide');
   await page.getByTestId('guide-dismiss').click();
-  await expect(page.getByTestId('meeting-start')).toBeVisible();
+  await expect(home(page)).toContainText('No notes yet');
   await sweep(page, '07-home');
 
   // "Start notes?" when Zoom takes the mic during "Design review".
@@ -222,6 +222,8 @@ test('every desktop screen: axe clean in light and dark (+ sweep screenshots)', 
   await page.keyboard.type('[ ] Send the launch checklist');
   await page.keyboard.press('Enter');
   await page.keyboard.type('Ask Jordan about the beta');
+  // With the transcript panel open (it stays open for the recorded note below: transcript + player).
+  await openTranscript(page);
   await expect(
     page.locator('[data-testid="transcript-panel"] [data-segment-id]').first(),
   ).toBeVisible({
@@ -254,7 +256,10 @@ test('every desktop screen: axe clean in light and dark (+ sweep screenshots)', 
   await search.fill('');
   await page.keyboard.press('Escape');
 
-  // An upcoming event's note (not recorded yet).
+  // An upcoming event's note (not recorded yet), from "Coming up" on Home.
+  await page.getByTestId('home-nav').click();
+  await expect(home(page).getByTestId('home-note-row')).toHaveCount(1);
+  await sweep(page, '13-home-notes');
   await page
     .getByTestId('upcoming')
     .getByTestId('upcoming-event')
@@ -265,7 +270,7 @@ test('every desktop screen: axe clean in light and dark (+ sweep screenshots)', 
 
   // Settings.
   await page.getByTestId('workspace-switcher').click();
-  await page.getByRole('menuitem', { name: 'Settings' }).click();
+  await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
   await expect(page.getByTestId('settings')).toBeVisible();
   await sweep(page, '14-settings-preferences');
   await page.getByTestId('settings-section-recording').click();
