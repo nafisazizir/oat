@@ -103,6 +103,8 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 
 ## M9 — Ship v1
 
+- [ ] Human-requested: one kind of workspace — drop personal, join by domain/policy, Private + Shared (D-36); steps A model, B joining, C sidebar + exit export · deps: 5.1, 5.3, 3.9 · [task](tasks/unified-workspaces.md)
+
 - [x] Human-requested UI redesign PR 4: calm home and note surfaces · [task](tasks/ui-calm-note-surfaces.md)
 
 - [x] Human-requested UI redesign PR 3: calm Account / Workspace settings · [task](tasks/ui-calm-settings.md)

@@ -43,7 +43,7 @@ integrations, look and feel) is ours to shape.
 | Transcription | Live streaming STT, two-source labelling (me/them), stored as timestamped segments. |
 | Editor | TipTap block editor (headings, lists, checklists, quotes, code, callouts, mentions, links), slash menu, Markdown shortcuts. |
 | Enhance | Template-driven enhancement, built-in templates (general, 1:1, sales/discovery, standup, interview), custom templates, regenerate. |
-| Workspace | Personal workspace auto-created; team workspaces; folders; documents = meeting notes or plain pages. |
+| Workspace | One kind of workspace (D-36): on sign-up join an existing one (invite or email-domain match, per its join policy) or get one created. Inside: Private and Shared sections; folders; documents = meeting notes or plain pages. |
 | Auth | Email magic link + Google OAuth; desktop signs in via browser + deep link. |
 | Sharing | Visibility: private / workspace / anyone-with-link (read-only web view). Invite members with roles (owner, admin, member, viewer). |
 | Assistant | Chat scoped to one note, and chat across all notes I can access (retrieval over transcripts + notes) with citations back to segments. |
@@ -113,7 +113,7 @@ docs/               spec, plan, factory, decisions, tasks, log
 - **Postgres is the source of truth**; desktop SQLite is a cache plus an outbox for offline writes.
   One sync mechanism for every table (trigger-driven outbox, version acks, cursor pull, SSE invalidation —
   D-19); a stale base version on push creates a "conflicted copy" rather than merging or overwriting.
-- **Everything carries `workspace_id`.** A personal space is a workspace with one member — no separate code path.
+- **Everything carries `workspace_id`.** There is no personal workspace (D-36): private notes are `private` items inside a workspace.
 - **AI via Vercel AI SDK + AI Gateway** (`"provider/model"` strings). Default to the current Claude models;
   verify exact model IDs against the gateway's model list at implementation time.
 - **Assistants:** interactive chat = AI SDK tool loop in `apps/web`. Durable/background agents = eve
@@ -127,7 +127,9 @@ docs/               spec, plan, factory, decisions, tasks, log
 
 ```
 user(id, email, name, image, created_at)
-workspace(id, name, kind: personal|team, created_by, created_at)
+workspace(id, name, join_policy: invite_only|request|auto_join, created_by, created_at)   -- D-36
+workspace_domain(workspace_id, domain)
+join_request(id, workspace_id, user_id, status: pending|approved|declined, decided_by?)
 membership(workspace_id, user_id, role: owner|admin|member|viewer)
 invite(id, workspace_id, email, role, token, expires_at, accepted_at)
 folder(id, workspace_id, parent_id?, name, visibility: private|workspace, owner_id)

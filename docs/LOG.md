@@ -323,3 +323,7 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - Typography Playwright **3 passed (56.9s)** including setup/light/dark. Fast-gate command/evidence:
   `pnpm run ci --fast`, `~/shots/pr5/ci-fast-typography-fix.log`.
   [task](tasks/ui-calm-auth-dialogs.md)
+- 2026-11-21 · unified-workspaces · Human decided D-36: no personal workspace; join by invite/domain with a
+  per-workspace join policy; Private + Shared inside a workspace; leavers lose access but can export. SPEC §4–6
+  updated, task brief written (3 steps), added to PLAN M9. Nothing implemented yet.
+  [task](tasks/unified-workspaces.md)
