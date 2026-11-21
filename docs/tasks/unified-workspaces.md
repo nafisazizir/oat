@@ -1217,3 +1217,125 @@ total                     639.5s
   gate was not run again after 20b706b.**
 - In the full run: desktop e2e 29 passed (0 failed), web e2e 87 passed, acceptance 1 passed.
 - `apps/desktop/e2e/storage.spec.ts` alone, 8 runs after fix A: 8 × `1 passed`.
+
+### Final — verifier (2026-11-21, `task/unified-workspaces` at 12abca9, main checkout)
+
+Verdict: **pass**. No deterministic failure, no intermittent failure in any run below, every step C criterion
+met. Gaps in test coverage and things not run are listed at the end.
+
+**1. Full gate** — `pnpm install && pnpm run ci` (one run; nothing red, so nothing was re-run):
+
+```
+step             status     time  note
+format           pass       5.4s
+actionlint       pass       0.2s
+typecheck        pass       0.5s
+lint             pass       1.1s
+test             pass       0.2s
+stack            pass       0.2s
+migrate          pass       2.0s
+swift:release    pass       1.0s
+test:int         pass     208.5s
+e2e              pass     508.9s
+acceptance       pass      71.5s
+swift:build      pass       0.4s
+swift:test       pass       6.5s
+swift:synthetic  pass       2.2s
+total                     808.6s
+ci: ok
+```
+
+- `typecheck`, `lint` and `test` were turbo cache hits in that run (0.2–1.1 s), so I ran them again without
+  the cache: `pnpm exec turbo run typecheck lint test --force --concurrency=7` → 62/62 tasks, 0 cached,
+  2748 unit tests passed (`@oat/core` 482 at 100 % coverage, web 254, desktop 451, auth 70, local-store 83).
+- `test:int`: web 314, auth 131 passed. e2e: desktop 29 passed, web 87 passed / 17 skipped, editor 16 passed /
+  2 skipped; acceptance 1 passed. `CI` is unset locally, so Playwright ran with 0 retries (a retry could not
+  have hidden a flake).
+- Neither known intermittent showed: acceptance kept its window; `recording-service.test.ts` passed (forced run).
+
+**2. Repeats** (each run on its own, after the gate)
+
+| what | runs | result |
+|---|---|---|
+| desktop `e2e/storage.spec.ts` | 6 | 6 × `1 passed` (+1 in the gate) |
+| web `e2e/auth.spec.ts` + `e2e/join.spec.ts` together | 4 | 4 × `13 passed` (+1 in the gate) |
+| web `typography.spec.ts` (light, dark) and `notion.spec.ts` inside the full web e2e run | 1 | all 3 passed |
+
+**3. Step C criteria, checked against the tests that ran (not the boxes)**
+
+- Private / Shared on web: `private-shared.spec.ts` "sidebar (light|dark)" — two sections, Private first, empty
+  lines, items filed by owner + visibility. Desktop: `apps/desktop/e2e/workspaces.spec.ts:262` "Private and
+  Shared…" and unit `meeting-list.test.tsx`, `@oat/core` `sections.test.ts`.
+- Moves without reload: web — same spec, Share dialog → `Workspace` then `Private`, row asserted in the other
+  section with no `reload()` on the owner's page. Desktop — visibility changed in Postgres, the row moves by
+  sync with no relaunch, both directions.
+- Another member never sees my Private items: same web spec as the teammate — sidebar (ids and titles), the
+  shared folder's page, `GET /api/documents/:id` → 404 for each, list API returns only the shared note; desktop:
+  the teammate's private note never reaches the local store (`meetings:list`). **Gap:** the spec's "by address"
+  is the API call; the teammate never navigates to `/d/<private id>`. I ran that as a throwaway spec (not
+  committed): `/d/<id>` for my private page, my private folder and a page inside it each render "Page not
+  found" with no title or text; `GET /api/documents/:id` 404 ×2; documents and folders lists `[]`; search for a
+  word from the private note returns no items.
+- Workspace menu, as reworded: web `private-shared.spec.ts:276` (one workspace: `data-switchable="false"`, no
+  `workspace-list`, 0 `workspace-option`, settings / invite / Create still there; two: list with 2 options;
+  back to one: gone again). Desktop `workspaces.spec.ts:181` (lines 190–214) and `workspace-switcher.test.tsx`.
+- Export: `private-shared.spec.ts` "leaving (light|dark)" reads the downloaded zip — exactly my three live
+  notes, none of the owner's, nothing from the trash; after leaving, documents 404, list 404, export 404, page
+  "Page not found". Int: `export/notes.int.test.ts` (other owners, trash, other workspace, after leaving, link).
+- axe, light and dark, any impact, 0 violations: join screen (whole page, also in the "requested" state), join
+  settings and requests list — `join.spec.ts:89`; web sidebar (empty and filled) and leave dialog (initial,
+  failed export, exported) — `private-shared.spec.ts`; desktop sidebar — `workspaces.spec.ts:262`.
+
+**4. Last fix round, as behaviours**
+
+| | behaviour | test | fails without the fix? |
+|---|---|---|---|
+| a | invited, then in by auto-join / approved request: workspace no longer offered | `joining.int.test.ts` "an invitation stops being offered once its invitee is a member" (3 tests + yes/no) | yes |
+| a | their old link opens the workspace | `entrypoints.int.test.ts` "acceptInvite: an invitation whose invitee got in by an approved request meanwhile still succeeds" | yes (it was the red test before 20b706b) |
+| a | a different account opening that settled link is refused | **no committed test at the action level.** `joining.int.test.ts` "a real failure stays one…" covers the helper only with a pending/cancelled invitation | — |
+| b | long emoji title ≤ 255 bytes, valid UTF-8; `con.notes` escaped | `export/zip.test.ts` "caps the length in UTF-8 bytes…", "keeps every name well under 255 bytes…" (≤ 210), "treats a device name as reserved…" | yes |
+| c | 429 after 5 exports a minute | `export/notes.int.test.ts` "is limited per user…" | yes |
+| d | failed export shows an error, not "saved" | `private-shared.spec.ts` "leaving" (stubbed 500 → `export-error`, no "to your downloads") | yes |
+| e | fresh desktop sign-in, rows not pulled yet: not "no workspace" | `apps/desktop/src/main/workspaces.test.ts` "a pull that names my workspace before its row arrives…"; `storage.spec.ts` 7/7 | unit: yes; no e2e forces the ordering |
+| f | desktop a11y on the three Settings screens | `apps/desktop/e2e/a11y.spec.ts` (preferences, recording, storage; light and dark) — passed | yes (serious/critical only, by that spec's design) |
+
+For the untested row of (a) I ran a throwaway case inside a copy of `entrypoints.int.test.ts` (deleted
+afterwards, not committed): invite as admin → invitee auto-joins → invitation `accepted`, role `member` (not
+the invitation's `admin`); another member, the owner and an outsider each opening the link get "no longer
+valid" and their role is unchanged; the invitee is redirected to `/home`; after the invitee is removed the
+link does not let them back in. Passed. Also not covered by an e2e: (a) through the UI (the review asked for a
+case in `private-shared.spec.ts`; only int tests were added), and the auto-join route at the action level.
+
+**5. Migrations** — gate `migrate`: `16/16 migrations applied, re-run no-op` (0000…0015 in journal order on an
+empty database, so 0013 → 0014 → 0015 run on top of `main`'s 0012); `git diff main...HEAD -- packages/db/drizzle`
+adds only 0013–0015 with their snapshots and three journal entries. From `main`'s schema *with data*:
+`packages/db/src/unified-workspaces-migration.int.test.ts` (in `test:int`, passed).
+`pnpm --filter @oat/db db:generate` → "No schema changes, nothing to migrate"; it wrote no file.
+
+**6. Grep** — `grep -rIl -iE "personal|WorkspaceKind|kind === 'team'"` over tracked files in `apps packages`
+(and `tools agents fixtures scripts native docker e2e`): only Drizzle migrations 0001/0003/0013 and snapshots
+0001–0012 + journal, `packages/db/src/unified-workspaces-migration.int.test.ts`, `local-store` `migrations.ts`
+(migration 1), `migration-5.test.ts` and `fixtures/v4-two-kinds.sql`, and the Google-calendar "Personal"
+fixtures (`packages/calendar/src/google/source.test.ts`, `tools/mocks/…/gcal.test.ts`, `fixtures/calendar/week*`).
+Outside those categories, both unrelated to workspaces: `fixtures/calendar/conference-links.json` ("zoom
+personal room") and `native/oat-audio/README.md` (Apple's `com.apple.security.personal-information.calendars`).
+Nothing in `apps/`. (Untracked build output such as `apps/web/.next-acceptance` also matches; ignored.)
+
+**7. Screenshots** (all 24 under `docs/tasks/evidence/unified-workspaces/` opened)
+
+- Nothing visibly broken. Light and dark agree in layout, text and order for: web sidebar (filled, empty),
+  desktop sidebar, leave dialog, join screen (match, requested), join settings, requests list, no-match Home.
+- `join-request-email-dark.png` is the same light rendering as `-light` (the email has one theme); it is not
+  evidence of a dark variant.
+- Only in light: workspace menu with one and with two workspaces, join screen auto-join, desktop
+  create-workspace hint. No desktop screenshot of the workspace menu or of an empty Private/Shared pair
+  (asserted in tests instead).
+- Seen, not a defect of this task: with two workspaces the menu offers "Leave Second home" to its only member
+  and owner.
+
+**Not run / limits**
+- The full gate ran once (green); it was not repeated, so intermittency of the whole gate rests on one run plus
+  the repeats in 2.
+- The search probe above ran seconds after the note was created, so "no items" may partly reflect indexing
+  not having caught up; the documents, folders and page checks do not depend on that.
+- Real macOS permission prompts, signed builds and a real mail server are outside what the gate can run.
