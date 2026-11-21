@@ -76,7 +76,8 @@ Step B
 Step C
 - [x] Sidebar shows Private and Shared sections on web and desktop; a note moves between them when its
       visibility changes, without reload; another member never sees my Private items (e2e with two users).
-- [x] Switcher is absent with one workspace and present with two.
+- [x] With one workspace the workspace menu shows no workspace list and no selector arrows; with two or more
+      it shows both. The menu button itself stays (settings, invite, Create and Join remain reachable).
 - [x] Export downloads a zip containing only my documents; after leaving, I can no longer read any of them.
 - [x] axe: 0 violations on the join screen, join settings, requests list and sidebar, light and dark.
 
@@ -403,6 +404,16 @@ What was decided, and what a reviewer needs to know.
 - Desktop: `e2e/workspaces.spec.ts` only. Acceptance: `journey.spec.ts` line 446, the badge text
   ("Only you + link" → `/^Everyone in .+ \+ link$/`) — one line; that journey still fails earlier for the
   known reason, so this line is **not run**.
+
+**For the human (review observations 6 and 8; no code change)**
+- Leaving and the desktop app: on its next pull after you leave a workspace, the desktop deletes that
+  workspace's local notes, meetings, transcripts and search entries — **including notes recorded on the
+  desktop that never synced** (offline, or parked). Those were never on the server, so they were never in
+  the export either. Sync the desktop before leaving. Until that pull happens (desktop offline) the local
+  copies stay readable, and audio files of meetings you recorded stay in the local archive.
+- A private page inside a shared folder shows under **Private** in the sidebar (top level), while its
+  breadcrumb and "Move to…" still show the shared folder; a shared folder holding only such pages looks
+  empty in the sidebar to everyone, its owner included. Nobody else can see the page.
 
 **Not done / to know**
 - Desktop evidence has no screenshot of an empty Private/Shared pair (covered by unit and e2e assertions).
@@ -816,6 +827,50 @@ reverted, not committed. I did not run the full `pnpm run ci`, any e2e or axe (v
   changing between list and read, after leaving) are there. UI uses `@oat/ui` components and token classes
   only. Clean-room and D-11: nothing touches `research/` or an external service; no new dependency.
 - Criteria: 1, 3 and 4 met as written (4 on the implementer's evidence); 2 met in substance, see finding 2.
+
+**Resolutions (implementer, 2026-11-21, after merging `task/unified-workspaces` at ef2ddaf)**
+
+1. Fixed. `joining.ts`: `settlePendingInvites` marks a pending invitation accepted when its invitee gets in
+   by auto-join or an approved request (role of the other route kept); `pendingInviteRows` never returns a
+   workspace the person is a member of, whatever the row says. Int tests in `joining.int.test.ts` ("an
+   invitation stops being offered once its invitee is a member").
+2. No behaviour change. The acceptance criterion now says what was built (no list, no arrows; the menu
+   stays). D-36's wording is the orchestrator's.
+3. Fixed. `names.ts`: base names are cut to 200 UTF-8 bytes on a character boundary (≤ 210 with a duplicate
+   number and `.md`); a Windows device name is reserved with any extensions (`con.notes` → `_con.notes`).
+   Unit tests in `export/zip.test.ts`.
+4. Fixed. The export route sits behind `apiRateLimiter()`: 5 per minute per user across workspaces
+   (`EXPORTS_PER_MINUTE`), 429 `rate_limited` with `retry-after` beyond. Int test in `notes.int.test.ts`.
+5. Fixed. Migration `0015_invite_email_lower` adds `invite_email_lower_idx` on `lower(email)` (the lookup
+   compares lower-cased on both sides; an int test checks the planner can use it). The shell calls the new
+   `hasAnyJoinChoice(db, userId, ctx)`: the user row and their invitations (2 queries) for most people; the
+   domain query only when the address can be listed and there is no invitation; latest requests only when a
+   workspace lists that domain. No member counts, no second permission-context load, no cache.
+6. Noted under Design notes → Step C ("For the human").
+7. Added to `notes.int.test.ts` "after leaving, I can read neither the export nor any note I exported; a
+   note shared by link stays readable by its link only": the link resolves after the owner left; signed in
+   they get 404 on the document and its share settings. "A non-link note is not readable by them
+   afterwards" was already that test (documents, list, export → 404) and `private-shared.spec.ts` "leaving".
+8. Noted under Design notes → Step C ("For the human").
+9. Fixed. The dialog fetches the export and says "Saved N notes to your downloads…" only after a 200; any
+   other answer shows "Couldn’t export your notes. Nothing was downloaded — try again." (the server's own
+   message for a 429). More space above the button. E2e covers the failure (a stubbed 500) and the success.
+   The re-taken evidence screenshots of other tasks were not reverted.
+
+Carried over from the e2e work:
+- A. Fixed in `packages/local-store/src/store.ts` `hasPulled()`. Ordering: every pull page carries
+  `workspaceIds` (the server's memberships now) and `applyPull` stores it at once, but the workspace **rows**
+  come from the change log — the last page of a first pull can be `lagging` while the transaction that made
+  the workspace is held back (D-22), and a pull that names a newly joined workspace is restarted before any
+  row is applied. In both, "a pull completed" was true with an empty workspace table, so a start got the
+  1.5 s re-check and then "You’re not in a workspace any more". `hasPulled()` is now also false while a
+  named workspace has no row, so the start waits for sync (the normal bounded wait) and the sidebar shows no
+  hint. Unit test in `apps/desktop/src/main/workspaces.test.ts` ("a pull that names my workspace before its
+  row arrives…"). `storage.spec.ts` runs: see Evidence.
+- B. Fixed. Desktop `settings-close` has no `aria-label` any more; its name is its content, "Back to notes
+  Esc" ("to notes" visually hidden). Web General settings had the same kind of mismatch on the icon button
+  (`aria-label="Choose workspace icon"`, visible "Add icon" / "Change icon"): label removed, the visible
+  text names it; `workspaces.spec.ts` uses its test id.
 
 ## Evidence
 
