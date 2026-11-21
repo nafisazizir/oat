@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuGroup,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@oat/ui/components/dropdown-menu';
 import { cn } from '@oat/ui/lib/utils';
@@ -18,6 +19,7 @@ import { IconCheck, IconEye, IconSelector } from '@tabler/icons-react';
 import { useState, type ReactNode } from 'react';
 
 import { BridgeCallError } from '../bridge.ts';
+import { call } from '../bridge.ts';
 import { roleLabel, type WorkspacesView } from './workspaces-state.ts';
 
 export function WorkspaceTile({
@@ -61,6 +63,15 @@ export function WorkspaceSwitcher({
       await view.setActive(id);
     } catch (e) {
       setError(e instanceof BridgeCallError ? e.message : 'Couldn’t switch workspaces.');
+    }
+  }
+
+  async function openSettings(section: 'workspace' | 'members') {
+    setError(null);
+    try {
+      await call('settings:open-web', { section });
+    } catch {
+      setError('Couldn’t open settings in your browser.');
     }
   }
 
@@ -112,6 +123,17 @@ export function WorkspaceSwitcher({
                 {w.id === active?.id && <IconCheck className="ms-auto" />}
               </DropdownMenuItem>
             ))}
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => void openSettings('workspace')}>
+              Workspace settings (web)
+            </DropdownMenuItem>
+            {active?.kind === 'team' && (
+              <DropdownMenuItem onClick={() => void openSettings('members')}>
+                Members (web)
+              </DropdownMenuItem>
+            )}
           </DropdownMenuGroup>
           {account}
         </DropdownMenuContent>

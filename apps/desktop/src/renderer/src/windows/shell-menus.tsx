@@ -130,6 +130,14 @@ export function DesktopUserMenu({
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     disabled={action.pending}
+                    onClick={() =>
+                      void action.run(() => call('settings:open-web', { section: 'profile' }))
+                    }
+                  >
+                    Profile (web)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={action.pending}
                     onClick={() => void action.run(() => call('window:open-widget'))}
                   >
                     <IconAppWindow />

@@ -78,7 +78,7 @@ test.describe('app shell', () => {
     await page.keyboard.press('Enter');
     await expect(palette).toBeHidden();
     await expect(page).toHaveURL(/\/settings$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Appearance' })).toBeVisible();
 
     // The sidebar's Search item opens it too; pick a page.
     await page

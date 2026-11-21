@@ -315,6 +315,12 @@ export const bridgeContract = {
     'state:get': { request: none, response: mainStateSnapshotSchema },
     /** Opens the system browser at the web sign-in page. */
     'auth:sign-in': { request: none, response: z.object({ opened: z.boolean() }) },
+    'settings:open-web': {
+      request: z.object({
+        section: z.enum(['profile', 'preferences', 'integrations', 'workspace', 'members']),
+      }),
+      response: none,
+    },
     'auth:cancel-sign-in': { request: none, response: none },
     /**
      * Development fallback when the browser can't hand the `oat://auth?…` link to the app (the dev

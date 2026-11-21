@@ -29,9 +29,8 @@ import {
   DisconnectNotionButton,
   NotionTargetPicker,
 } from '@/components/notion/notion-actions';
-import { BackLink, PageContainer, PageHeader } from '@/components/page';
 import { PipelineSwitch, PipelineSwitchSkeleton } from '@/components/pipeline/pipeline-settings';
-import { SettingsList, SettingsSection } from '@/components/settings/section';
+import { SettingsHeading, SettingsList, SettingsSection } from '@/components/settings/section';
 import type { NotionConnectionInfo } from '@/lib/api-types';
 import { calendarConnectErrorMessage } from '@/lib/calendar-errors';
 import { integrationModes, serverEnv } from '@/lib/env';
@@ -99,16 +98,11 @@ export default async function IntegrationsPage({
   const needsReconnect = connection !== null && !connection.hasCalendarScope;
 
   return (
-    <PageContainer className="gap-10">
-      <PageHeader
-        title="Integrations"
-        description="Connect the tools Oat works alongside."
-        eyebrow={<BackLink href="/settings">Settings</BackLink>}
-      />
+    <>
+      <SettingsHeading>Integrations</SettingsHeading>
 
       <SettingsSection
-        title="After a meeting"
-        description={`When a meeting you recorded in ${shell.workspace.name} ends, Oat finishes the notes in the background.`}
+        title={`After a meeting · ${shell.workspace.name}`}
         data-testid="after-meetings-card"
       >
         <Suspense fallback={<PipelineSwitchSkeleton label={AUTO_ENHANCE_LABEL} />}>
@@ -118,7 +112,7 @@ export default async function IntegrationsPage({
 
       <SettingsSection
         title="Google Calendar"
-        description="Upcoming meetings on Home, one click to start notes. Read-only: Oat never changes your calendar."
+        description="Read-only calendar access for upcoming meetings."
         action={
           <Badge
             variant={connection ? 'secondary' : 'outline'}
@@ -154,7 +148,7 @@ export default async function IntegrationsPage({
               </ItemContent>
             ) : (
               <ItemContent className="min-w-0 gap-0">
-                <ItemTitle>Not connected</ItemTitle>
+                <ItemTitle>Google account</ItemTitle>
                 <ItemDescription className="text-copy-13">
                   Choose a Google account and allow read-only calendar access.
                 </ItemDescription>
@@ -185,7 +179,7 @@ export default async function IntegrationsPage({
           error={notionConnectErrorMessage(params.notion_error)}
         />
       </Suspense>
-    </PageContainer>
+    </>
   );
 }
 

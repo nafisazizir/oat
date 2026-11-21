@@ -1,9 +1,16 @@
 import { Button } from '@oat/ui/components/button';
 import { Kbd } from '@oat/ui/components/kbd';
-import { IconArrowLeft } from '@tabler/icons-react';
-import { useEffect } from 'react';
+import {
+  SettingsLayout,
+  SettingsNavGroup,
+  settingsNavClass,
+} from '@oat/ui/components/settings-layout';
+import { IconArrowLeft, IconArrowUpRight } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
 
+import { call } from '../bridge.ts';
 import { escapeClosesView } from '../keyboard.ts';
+import { useRecordingAction } from '../recording/recording-controls.tsx';
 
 import { RecordingSettings } from './recording-settings.tsx';
 import { SetupSettings } from './setup-settings.tsx';
@@ -20,6 +27,8 @@ export function SettingsView({
   onClose: () => void;
   onOpenSetup: () => void;
 }) {
+  const [section, setSection] = useState<'preferences' | 'recording' | 'storage'>('preferences');
+  const action = useRecordingAction();
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (escapeClosesView(event, document)) onClose();
@@ -30,31 +39,112 @@ export function SettingsView({
 
   return (
     <section className="flex min-w-0 flex-1 flex-col" aria-label="Settings" data-testid="settings">
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-gray-alpha-400 ps-2 pe-4">
-        <Button variant="ghost" size="sm" onClick={onClose} data-testid="settings-close">
-          <IconArrowLeft data-icon="inline-start" />
-          Back
-          <Kbd className="ms-1">Esc</Kbd>
-        </Button>
-        <h1 className="text-heading-14 text-gray-1000">Settings</h1>
-      </div>
       <div className="min-h-0 flex-1 overflow-auto">
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-6 py-8">
-          <SetupSettings onOpenSetup={onOpenSetup} />
-          <RecordingSettings />
-          <StorageSettings />
-        </div>
+        <SettingsLayout
+          navigation={
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start"
+                onClick={onClose}
+                data-testid="settings-close"
+                aria-label="Back to notes"
+              >
+                <IconArrowLeft data-icon="inline-start" />
+                Back<Kbd className="ms-auto">Esc</Kbd>
+              </Button>
+              <SettingsNavGroup label="Account">
+                <button
+                  type="button"
+                  aria-label="Profile (opens in browser)"
+                  disabled={action.pending}
+                  className={settingsNavClass(false)}
+                  onClick={() =>
+                    void action.run(() => call('settings:open-web', { section: 'profile' }))
+                  }
+                >
+                  Profile
+                  <IconArrowUpRight aria-hidden className="ms-auto size-3.5" />
+                  <span className="sr-only"> (opens in browser)</span>
+                </button>
+                {(['preferences', 'recording', 'storage'] as const).map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    data-testid={`settings-section-${id}`}
+                    aria-current={section === id ? 'page' : undefined}
+                    className={settingsNavClass(section === id)}
+                    onClick={() => setSection(id)}
+                  >
+                    {id === 'preferences'
+                      ? 'Preferences'
+                      : id === 'recording'
+                        ? 'Recording'
+                        : 'Storage'}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  aria-label="Integrations (opens in browser)"
+                  disabled={action.pending}
+                  className={settingsNavClass(false)}
+                  onClick={() =>
+                    void action.run(() => call('settings:open-web', { section: 'integrations' }))
+                  }
+                >
+                  Integrations
+                  <IconArrowUpRight aria-hidden className="ms-auto size-3.5" />
+                  <span className="sr-only"> (opens in browser)</span>
+                </button>
+              </SettingsNavGroup>
+              <SettingsNavGroup label="Workspace">
+                {(['workspace', 'members'] as const).map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-label={`${id === 'workspace' ? 'General' : 'Members'} (opens in browser)`}
+                    disabled={action.pending}
+                    className={settingsNavClass(false)}
+                    onClick={() =>
+                      void action.run(() => call('settings:open-web', { section: id }))
+                    }
+                  >
+                    {id === 'workspace' ? 'General' : 'Members'}
+                    <IconArrowUpRight aria-hidden className="ms-auto size-3.5" />
+                    <span className="sr-only"> (opens in browser)</span>
+                  </button>
+                ))}
+                {action.error && (
+                  <p role="alert" className="px-2 text-copy-13 text-red-900">
+                    {action.error}
+                  </p>
+                )}
+              </SettingsNavGroup>
+            </>
+          }
+        >
+          <div hidden={section !== 'preferences'}>
+            <SetupSettings title="Preferences" onOpenSetup={onOpenSetup} />
+          </div>
+          <div hidden={section !== 'recording'}>
+            <RecordingSettings />
+          </div>
+          <div hidden={section !== 'storage'}>
+            <StorageSettings />
+          </div>
+        </SettingsLayout>
       </div>
     </section>
   );
 }
 
 /** A settings section's heading and one-line description. */
-export function SettingsHeader({ title, description }: { title: string; description: string }) {
+export function SettingsHeader({ title, description }: { title: string; description?: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <h2 className="text-heading-16 text-gray-1000">{title}</h2>
-      <p className="text-copy-14 text-gray-900">{description}</p>
+      <h1 className="text-heading-24 text-gray-1000">{title}</h1>
+      {description && <p className="text-copy-14 text-gray-900">{description}</p>}
     </div>
   );
 }

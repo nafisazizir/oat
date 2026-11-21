@@ -30,7 +30,7 @@ for (const theme of ['light', 'dark'] as const) {
     }
 
     await page.goto('/settings');
-    await sansTitle(page.getByRole('heading', { level: 1, name: 'Settings', exact: true }));
+    await sansTitle(page.getByRole('heading', { level: 1, name: 'Appearance', exact: true }));
     const mono = page.getByRole('code').filter({ hasText: '.env' });
     await expect(mono).toHaveCSS('font-family', /Geist Mono Variable/);
     await page.evaluate(() => document.fonts.ready);

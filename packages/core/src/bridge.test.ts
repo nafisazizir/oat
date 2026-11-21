@@ -10,6 +10,15 @@ import {
 } from './bridge.ts';
 
 describe('bridge contract', () => {
+  it('accepts only known web settings sections, not arbitrary URLs', () => {
+    const request = bridgeContract.invoke['settings:open-web'].request;
+    for (const section of ['profile', 'preferences', 'integrations', 'workspace', 'members']) {
+      expect(request.safeParse({ section }).success).toBe(true);
+    }
+    for (const value of [undefined, {}, { section: '' }, { section: 'https://evil.test' }]) {
+      expect(request.safeParse(value).success).toBe(false);
+    }
+  });
   it('channel names are unique across invoke, send and subscribe', () => {
     const all = [...bridgeChannels.invoke, ...bridgeChannels.send, ...bridgeChannels.subscribe];
     expect(new Set(all).size).toBe(all.length);

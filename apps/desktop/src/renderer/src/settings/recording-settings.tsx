@@ -70,15 +70,12 @@ export function RecordingSettings() {
 
   return (
     <div className="flex flex-col gap-4" data-testid="recording-settings">
-      <SettingsHeader
-        title="Recording"
-        description="When your call ends, Oat can stop recording for you. Your notes are then enhanced automatically."
-      />
+      <SettingsHeader title="Recording" />
       <p role="alert" className="text-copy-14 text-red-900 empty:hidden">
         {error}
       </p>
       {settings || !error ? (
-        <FieldGroup className="gap-0 rounded-lg border border-gray-alpha-400">
+        <FieldGroup className="gap-0">
           {SWITCHES.map((s, i) => (
             <SettingSwitch
               key={s.key}
@@ -125,7 +122,7 @@ function SettingSwitch({
   return (
     <Field
       orientation="horizontal"
-      className={divided ? 'border-t border-gray-alpha-400 p-4' : 'p-4'}
+      className={divided ? 'border-t border-gray-alpha-300 py-5' : 'pb-5 pt-2'}
       data-disabled={disabled || undefined}
     >
       <FieldContent>
