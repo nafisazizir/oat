@@ -27,6 +27,11 @@
       "dependsOn": ["transit"],
       "outputs": []
     },
+    "@oat/client#test": {
+      "dependsOn": ["transit"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/apps/web/src/app/api/**/route.ts"],
+      "outputs": []
+    },
     "test:int": {
       "dependsOn": ["transit"],
       "cache": false,

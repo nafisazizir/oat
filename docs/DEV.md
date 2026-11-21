@@ -25,6 +25,10 @@ machine").
 
 ## Commands
 
+The browser-safe typed REST client and injectable transport API are documented in
+[`@oat/client`](../packages/client/README.md). It supports web fetch now and a desktop bridge transport
+next; no feature UI is wired to it yet.
+
 | Command          | What it does                                                                     |
 | ---------------- | -------------------------------------------------------------------------------- |
 | `pnpm dev:up`    | `docker compose up -d --wait`; exits 0 only when every service is healthy. Builds the local images only if they don't exist yet and never rebuilds them, so running containers are left alone (compose only recreates a service whose `docker-compose.yml` definition differs). Safe from any worktree. |

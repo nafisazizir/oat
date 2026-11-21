@@ -16,6 +16,11 @@
  * (`ApiErrorBody` in `api-types.ts`; built-in writes are `403 builtin_read_only`).
  */
 import type { TemplateSection } from '@oat/core';
+import type { TemplateInput, TemplatePatch } from '@oat/ai/templates';
+
+export type CreateTemplateInput = TemplateInput & { workspaceId: string };
+export type UpdateTemplateInput = TemplatePatch;
+export type DuplicateTemplateInput = { workspaceId: string; fromTemplateId: string };
 
 export type TemplateDto = {
   id: string;

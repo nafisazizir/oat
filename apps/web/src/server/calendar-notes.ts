@@ -4,6 +4,7 @@ import { notePrefill } from '@oat/calendar';
 import { type CalendarEvent, canReadDocument } from '@oat/core';
 import { type Db, document, meeting, participant } from '@oat/db';
 import { emptyDoc } from '@oat/editor';
+import type { StartNotesResult } from '@oat/services/dto/calendar';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -33,10 +34,7 @@ const StartNotesInput = z.strictObject({
   workspaceId: z.string().min(1).max(100),
 });
 
-export interface StartNotesResult {
-  documentId: string;
-  created: boolean;
-}
+export type { StartNotesResult } from '@oat/services/dto/calendar';
 
 export async function startNotesFromEvent(
   db: Db,

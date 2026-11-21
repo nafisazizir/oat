@@ -21,6 +21,13 @@ export const InviteTokenSchema = z.object({ token: z.string().min(1) });
 export const JoinPolicyInputSchema = z.object({ policy: JoinPolicySchema });
 export const RemoveDomainSchema = z.object({ domain: z.string().min(1).max(253) });
 export type MutationResult = { ok: true };
+export type CreateWorkspaceInput = z.infer<typeof CreateWorkspaceSchema>;
+export type UpdateWorkspaceInput = z.infer<typeof UpdateWorkspaceSchema>;
+export type DeleteWorkspaceInput = z.infer<typeof DeleteWorkspaceSchema>;
+export type InviteMemberInput = z.infer<typeof InviteMemberSchema>;
+export type MemberRoleInput = z.infer<typeof MemberRoleSchema>;
+export type JoinPolicyInput = z.infer<typeof JoinPolicyInputSchema>;
+export type RemoveDomainInput = z.infer<typeof RemoveDomainSchema>;
 export type WorkspaceMutationResult = { ok: true; workspaceId: string };
 export interface JoinChoices {
   invites: {

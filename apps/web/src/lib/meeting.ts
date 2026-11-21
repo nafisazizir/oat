@@ -6,25 +6,20 @@
  *   POST   /api/documents/:id/participants  { name, email? }  → 201 MeetingParticipant (editors)
  *   DELETE /api/documents/:id/participants/:participantId     → 204 (editors)
  */
-import type { Participant } from '@oat/meeting-ui/format';
+import type {
+  MeetingParticipant,
+  MeetingInfo,
+  AddParticipantInput,
+} from '@oat/services/dto/meeting';
 
 import { ApiRequestError, request } from './api-client';
 import type { TranscriptLine } from './transcript';
 
-export type MeetingParticipant = Participant;
-
-export type MeetingInfo = {
-  /** `null`: a meeting note that was never recorded and has no attendees yet. */
-  meetingId: string | null;
-  startedAt: string | null;
-  endedAt: string | null;
-  recording?: { calendarEventId: string | null; lastSegmentEndMs?: number };
-  participants: MeetingParticipant[];
-  /** Only with `?transcript=1`. */
-  transcript?: TranscriptLine[];
-};
-
-export type AddParticipantInput = { name: string; email: string | null };
+export type {
+  MeetingParticipant,
+  MeetingInfo,
+  AddParticipantInput,
+} from '@oat/services/dto/meeting';
 
 const enc = encodeURIComponent;
 

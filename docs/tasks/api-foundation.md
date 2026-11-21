@@ -17,6 +17,7 @@ Out: packages/ui, visual changes, replacing local-first meeting notes, removing 
 - [x] Actions and routes share validation, permission checks, Better Auth calls and user-facing errors; only actions refresh/redirect.
 - [x] Cookie writes enforce CSRF; bearer headers reach Better Auth; anonymous/non-member/non-admin deny tests pass.
 - [x] Client-safe response DTOs and request schemas support a typed injectable client.
+- [x] Browser-safe `@oat/client` covers feature REST routes with injectable transports, streams and tests.
 - [ ] Desktop proxy keeps Keychain token out of renderer and supports stream subscribe/cancel.
 
 ## Verification
@@ -65,3 +66,49 @@ both corrected before the final green run. New route tests exercise bearer authe
 non-member/non-admin denials, scoped child ids, CRUD, join policies and calendar status/errors.
 No UI files changed; no visual check required. Full CI/e2e and independent review/verification were not
 run in this handoff (requested gate: fast CI plus relevant integration tests).
+
+### Handoff 2 — typed client
+
+Implemented private `@oat/client` with browser-safe transport types, fetchTransport, toFetch,
+OatApiError, namespaced typed feature methods, raw enhancement SSE, chat/export Responses,
+readLines/readSse, and cancellation. Type-only DTO imports erase server/package dependencies from
+the runtime. Moved app-only chat/search/meeting/transcript/calendar contracts into services DTOs,
+keeping existing app imports compatible through re-exports. The services package now declares
+the AI SDK type dependency used by the moved ChatUIMessage contract.
+
+The route inventory checks actual client function metadata against every supported route AND HTTP
+method. Turbo auto-discovers the package scripts; its client test task additionally hashes web route
+files to avoid stale inventory cache results. README and DEV describe usage and adding endpoints.
+
+Mapped exceptions: folders are deleted immediately (their notes are trashed); no folder-restore route
+exists, so restore notes individually at the root. Notion connectUrl is a POST browser-form action
+requiring workspaceId in form data, not a GET navigation or JSON API method; callback stays browser-owned.
+toFetch preserves fetch HTTP-error semantics for AI SDK, whereas typed methods throw OatApiError.
+Transport failures are status 0/unavailable; explicit cancellation retains AbortError/signal reason.
+No web UI wiring or packages/ui changes. Desktop bridge remains handoff 3.
+
+Final `pnpm run ci --fast`:
+```text
+step        status     time  note
+format      pass      23.8s
+actionlint  pass       0.5s
+typecheck   pass       6.2s
+lint        pass       3.7s
+test        pass       2.3s
+total                 36.5s
+
+ci: ok
+```
+
+Client unit results from that CI run:
+```text
+ Test Files  4 passed (4)
+      Tests  49 passed (49)
+   Duration  294ms (tests 57%, transform 20%, import 18%, worker 4%)
+```
+
+Fast CI also ran the existing web/services unit suites covering the moved contracts. Initial gate
+found a missing local TranscriptLine type import, a type-only test variable lint issue, and one file
+needing a second Prettier pass; all corrected. Diff review additionally found and fixed prototype-named
+query parameters in toFetch, with regression coverage. Final diff whitespace check clean.
+No additional integration/e2e/visual checks or independent review/verification in this handoff.

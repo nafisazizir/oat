@@ -15,6 +15,7 @@
     "test:int": "vitest run --mode int --passWithNoTests"
   },
   "dependencies": {
+    "ai": "catalog:",
     "@oat/ai": "workspace:*",
     "@oat/auth": "workspace:*",
     "@oat/core": "workspace:*",

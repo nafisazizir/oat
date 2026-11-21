@@ -787,6 +787,25 @@ importers:
         specifier: 'catalog:'
         version: 5.1.0(@types/node@24.19.2)(@vitest/coverage-v8@5.1.0)(happy-dom@21.0.4)(jsdom@31.0.1(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
+  packages/client:
+    dependencies:
+      '@oat/core':
+        specifier: workspace:*
+        version: link:../core
+      '@oat/services':
+        specifier: workspace:*
+        version: link:../services
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@24.19.2)(@vitest/coverage-v8@5.1.0)(happy-dom@21.0.4)(jsdom@31.0.1(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
   packages/core:
     dependencies:
       zod:
@@ -1139,6 +1158,9 @@ importers:
       '@oat/integrations-notion':
         specifier: workspace:*
         version: link:../integrations-notion
+      ai:
+        specifier: 'catalog:'
+        version: 7.0.173(zod@4.6.7)
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(@types/pg@8.23.1)(kysely@0.29.9)(pg@8.23.1)(postgres@3.4.9)

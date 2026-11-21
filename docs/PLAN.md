@@ -103,7 +103,7 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 
 ## M9 — Ship v1
 
-- [ ] Human-requested: API foundation — REST parity, typed client, desktop authenticated proxy (D-37) · deps: 5.1, 5.2, 7.4 · [task](tasks/api-foundation.md)
+- [ ] Human-requested: API foundation — REST parity and typed client implemented; desktop authenticated proxy next (D-37) · deps: 5.1, 5.2, 7.4 · [task](tasks/api-foundation.md)
 
 - [x] Stale desktop e2e + acceptance specs updated for the calm shell; web typography/notion/auth spec races fixed · [task](tasks/e2e-calm-shell-specs.md)
 

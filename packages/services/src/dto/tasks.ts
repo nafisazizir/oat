@@ -58,6 +58,15 @@ export type TaskListResponse = { items: TaskItemDto[]; truncated: boolean };
 
 /** `PATCH /api/tasks/:id`. */
 export type UpdateTaskInput = { done: boolean; baseVersion: number };
+export type UpdateTaskResult = { id: string; done: boolean; documentVersion: number };
+export type TaskListQuery = {
+  view?: TaskView;
+  status?: TaskStatus;
+  due?: TaskDueFilter;
+  today?: string;
+  workspaceId?: string;
+};
+export type TaskAssigneesQuery = { documentId: string; q?: string };
 
 /** Someone a task can be assigned to (`GET /api/tasks/assignees?documentId=…&q=…`). */
 export type TaskAssigneeDto = { name: string; email?: string; userId?: string };
