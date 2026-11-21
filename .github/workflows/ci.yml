@@ -12,8 +12,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Newer pushes cancel older runs on the same branch/PR, but every push to main gets its own run so the full
+# suite (D-34) isn't cancelled by the next merge.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: true
 
 permissions:

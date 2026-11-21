@@ -269,3 +269,7 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   sticky-nav offset on Storage; final local fast CI **ci: ok** (47.8s), refreshed six native screenshots
   and axe scans **0 violations**. Web settings remain visually unchanged by that renderer-only offset.
   [task](tasks/ui-calm-settings.md)
+
+## 2026-11-21 — CI: don't cancel main runs
+
+- After #14 merged, its full run on main was cancelled 6 min in by the next merge (`cancel-in-progress` on `ci-<workflow>-<ref>`). The concurrency group now uses the commit SHA on `main`, so every push to main finishes its full run. Branches and PRs still cancel older runs. [task](tasks/ci-fast-gate.md)
