@@ -1183,3 +1183,37 @@ total                    1011.8s
   (`html[data-hydrated]`) before clicking the menu. No retries, no timeouts changed.
 - Join screen: the signed-in address sits on its own line and truncates instead of breaking mid-domain
   (`join-screen-*` screenshots retaken).
+
+### Step C — after the review fix round (2026-11-21, `task/unified-workspaces-c`)
+
+Full `pnpm install && pnpm run ci` at ca25025 (all review items in, stale specs merged):
+
+```
+step             status     time  note
+format           pass       5.0s
+actionlint       pass       0.2s
+typecheck        pass       5.6s
+lint             pass       4.5s
+test             pass      18.3s
+stack            pass       0.2s
+migrate          pass       1.8s
+swift:release    pass       0.4s
+test:int         FAIL      15.8s  pnpm run test:int --concurrency=7 exited with 1
+e2e              pass     509.3s
+acceptance       pass      71.7s
+swift:build      pass       0.4s
+swift:test       pass       4.1s
+swift:synthetic  pass       2.2s
+total                     639.5s
+```
+
+- `test:int`: one failure, caused by this round — web `entrypoints.int.test.ts` "acceptInvite: an invitation
+  whose invitee got in by an approved request meanwhile still succeeds". With item 1 the invitation is
+  already `accepted` by the time its link is opened, and `acceptInvite` answered "no longer valid". Fixed
+  in 20b706b: for the invited, verified address that is a member, a settled invitation's link opens the
+  workspace (`inviteAlreadyHonoured`); anyone else still gets "no longer valid".
+- After that fix (head 20b706b): `pnpm run ci --only test:int` → `test:int pass 180.8s`, `ci: ok`;
+  `pnpm run ci --fast` → `ci: ok`; web e2e `workspaces` + `join` + `private-shared` → 13 passed. **The full
+  gate was not run again after 20b706b.**
+- In the full run: desktop e2e 29 passed (0 failed), web e2e 87 passed, acceptance 1 passed.
+- `apps/desktop/e2e/storage.spec.ts` alone, 8 runs after fix A: 8 × `1 passed`.
