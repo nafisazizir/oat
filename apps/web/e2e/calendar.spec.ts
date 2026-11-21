@@ -38,11 +38,10 @@ test('connect Google Calendar → upcoming meetings on Home → disconnect', asy
 
   // Not connected: Home invites to connect.
   // Role queries skip the hidden copy React keeps while it swaps in a streamed Suspense boundary.
-  const upcoming = page.getByRole('region', { name: 'Upcoming' });
-  const notice = upcoming.getByTestId('upcoming-connect');
-  await expect(notice).toContainText('Connect your calendar');
+  const upcoming = page.getByRole('region', { name: 'Coming up' });
+  await expect(upcoming).toHaveCount(0);
   await evidence(page, 'home-not-connected');
-  await notice.getByRole('link', { name: 'Connect Google Calendar' }).click();
+  await page.goto('/settings/integrations');
   await expect(page).toHaveURL(/\/settings\/integrations$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Integrations' })).toBeVisible();
   await expect(page.getByTestId('google-calendar-status')).toHaveText('Not connected');
@@ -109,6 +108,7 @@ test('connect Google Calendar → upcoming meetings on Home → disconnect', asy
   await expect(page.getByTestId('document-title').filter({ visible: true })).toHaveValue(
     'Daily standup',
   );
+  await page.getByTestId('attendees-toggle').click();
   const chips = page.getByTestId('participant-chip').filter({ visible: true });
   await expect(chips).toHaveCount(3); // Jordan, Sam, Priya — not Alex (`self`)
   // All from the calendar; order among attendees added together isn't defined.
@@ -167,7 +167,7 @@ test('connect Google Calendar → upcoming meetings on Home → disconnect', asy
   await page.getByRole('button', { name: 'Disconnect' }).click();
   await expect(page.getByTestId('google-calendar-status')).toHaveText('Not connected');
   await page.goto('/home');
-  await expect(upcoming.getByTestId('upcoming-connect')).toBeVisible();
+  await expect(upcoming).toHaveCount(0);
   const after = (await (await page.request.get('/api/calendar/upcoming')).json()) as {
     connected: boolean;
   };

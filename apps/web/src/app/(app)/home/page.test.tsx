@@ -5,8 +5,6 @@ import HomePage from './page';
 
 const shell = vi.hoisted(() => ({
   getShellData: vi.fn(),
-  listRecentMeetings: vi.fn(),
-  listRecentPages: vi.fn(),
 }));
 
 vi.mock('@/server/shell', () => shell);
@@ -21,17 +19,15 @@ vi.mock('@/components/calendar/upcoming-meetings', () => ({
 describe('Home', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    shell.getShellData.mockResolvedValue({ workspace: { name: 'Studio' } });
-    shell.listRecentMeetings.mockResolvedValue([]);
-    shell.listRecentPages.mockResolvedValue([]);
+    shell.getShellData.mockResolvedValue({ documents: [] });
   });
 
-  it('shows the note action and guidance when there are no documents', async () => {
+  it('keeps empty home quiet without duplicating the shell note action', async () => {
     const html = renderToStaticMarkup(await HomePage());
-    expect(html).toContain('No meeting notes yet');
-    expect(html).toContain('data-slot="empty"');
-    expect(html).toContain('New note');
-    expect(html).toContain('Pages you edit show up here.');
+    expect(html).toContain('No notes yet');
+    expect(html).not.toContain('data-slot="empty"');
+    expect(html).not.toContain('New note');
+    expect(html).not.toContain('Pages you edit show up here.');
     expect(html).toContain('Upcoming meetings');
   });
 
@@ -42,10 +38,9 @@ describe('Home', () => {
       kind: 'meeting',
       updatedAt: '2026-01-01T12:00:00Z',
     };
-    shell.listRecentMeetings.mockResolvedValue([document]);
-    shell.listRecentPages.mockResolvedValue([
-      { ...document, id: 'page-1', title: 'Ideas', kind: 'page' },
-    ]);
+    shell.getShellData.mockResolvedValue({
+      documents: [document, { ...document, id: 'page-1', title: 'Ideas', kind: 'page' }],
+    });
     const html = renderToStaticMarkup(await HomePage());
     expect(html).toContain('href="/d/note-1"');
     expect(html).toContain('href="/d/page-1"');
@@ -54,12 +49,11 @@ describe('Home', () => {
     expect(html).not.toContain('No meeting notes yet');
     expect(html).not.toContain('Shared ·');
     expect(html).not.toContain('Private ·');
-    expect(shell.listRecentMeetings).toHaveBeenCalledWith(5);
-    expect(shell.listRecentPages).toHaveBeenCalledWith(4);
+    expect(html).toContain('data-testid="home-notes"');
   });
 
   it('lets loader failures reach the route error boundary', async () => {
-    shell.listRecentMeetings.mockRejectedValue(new Error('Unavailable'));
+    shell.getShellData.mockRejectedValue(new Error('Unavailable'));
     await expect(HomePage()).rejects.toThrow('Unavailable');
   });
 });

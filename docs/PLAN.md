@@ -101,6 +101,8 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 
 ## M9 — Ship v1
 
+- [x] Human-requested UI redesign PR 4: calm home and note surfaces · [task](tasks/ui-calm-note-surfaces.md)
+
 - [x] Human-requested UI redesign PR 3: calm Account / Workspace settings · [task](tasks/ui-calm-settings.md)
 
 - [x] Human-requested UI redesign PR 2: calm web/desktop shell · [task](tasks/ui-calm-shell.md)

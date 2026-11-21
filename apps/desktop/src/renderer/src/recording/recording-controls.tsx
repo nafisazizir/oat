@@ -208,9 +208,12 @@ export function RecordingBar({
   }
 
   const controls = (
-    <div className={cn('flex items-center gap-3', !controlsContainer && 'flex-wrap')}>
+    <div
+      className={cn('flex items-center gap-2', !controlsContainer && 'flex-wrap justify-center')}
+    >
       {status === 'recording' && (
         <Button
+          size="sm"
           variant="secondary"
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:pause'))}
@@ -221,6 +224,7 @@ export function RecordingBar({
       )}
       {status === 'paused' && (
         <Button
+          size="sm"
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:resume'))}
         >
@@ -229,7 +233,13 @@ export function RecordingBar({
         </Button>
       )}
       {(status === 'idle' || status === 'error') && (
-        <Button disabled={action.pending || !snapshot} onClick={() => void start()}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="rounded-full"
+          disabled={action.pending || !snapshot}
+          onClick={() => void start()}
+        >
           {action.pending ? (
             <Spinner data-icon="inline-start" />
           ) : (
@@ -252,7 +262,8 @@ export function RecordingBar({
       )}
       {(active || status === 'error') && (
         <Button
-          variant="destructive"
+          size="sm"
+          variant="outline"
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:stop'))}
           aria-label={status === 'error' ? 'Dismiss' : 'Stop recording'}
@@ -262,19 +273,26 @@ export function RecordingBar({
         </Button>
       )}
 
-      <div className="flex items-center gap-3 border-s border-gray-alpha-400 ps-3">
-        <span className="flex items-center gap-2">
-          <RecordingDot status={status} />
-          <Elapsed snapshot={snapshot} />
-        </span>
-        {active && (
-          <>
-            <LevelMeter label="Me" source="mic" db={snapshot?.levels.mic?.rmsDb} />
-            <LevelMeter label="Them" source="system" db={snapshot?.levels.system?.rmsDb} />
-          </>
-        )}
-      </div>
-      <div className="ms-auto flex items-center gap-2">
+      {active && (
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-2">
+            <RecordingDot status={status} />
+            <Elapsed snapshot={snapshot} />
+          </span>
+          {active && (
+            <>
+              <LevelMeter compact label="Me" source="mic" db={snapshot?.levels.mic?.rmsDb} />
+              <LevelMeter
+                compact
+                label="Them"
+                source="system"
+                db={snapshot?.levels.system?.rmsDb}
+              />
+            </>
+          )}
+        </div>
+      )}
+      <div className="flex items-center gap-2">
         <SttStatusPill snapshot={snapshot} />
         {options && options.fixtures.length > 0 && (status === 'idle' || status === 'error') && (
           <Select

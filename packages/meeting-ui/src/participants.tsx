@@ -10,7 +10,7 @@ import { Label } from '@oat/ui/components/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@oat/ui/components/popover';
 import { cn } from '@oat/ui/lib/utils';
 import { Spinner } from '@oat/ui/components/spinner';
-import { IconCalendar, IconPlus, IconX } from '@tabler/icons-react';
+import { IconCalendar, IconPlus, IconUsers, IconX } from '@tabler/icons-react';
 import { type FormEvent, useId, useState } from 'react';
 
 import { initials, isPlausibleEmail, type Participant } from './format.ts';
@@ -25,6 +25,35 @@ export interface ParticipantChipsProps {
 }
 
 export const MAX_PARTICIPANT_NAME = 200;
+
+export function ParticipantSummary(props: ParticipantChipsProps) {
+  const count = props.participants.length;
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full"
+            data-testid="attendees-toggle"
+          />
+        }
+      >
+        <IconUsers aria-hidden />
+        {count} {count === 1 ? 'attendee' : 'attendees'}
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        aria-label="Attendees"
+        className="max-h-72 w-80 overflow-y-auto"
+        data-testid="participant-details"
+      >
+        <ParticipantChips {...props} />
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function ParticipantChips({
   participants,

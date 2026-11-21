@@ -101,7 +101,9 @@ export function MeetingList({
                     />
                   )}
                   <span className="min-w-0 flex-1 truncate">{n.title || 'Untitled meeting'}</span>
-                  <span className="shrink-0 text-label-12 text-gray-900 tabular-nums">
+                  <span
+                    className={`shrink-0 text-label-12 tabular-nums ${active ? 'text-gray-1000' : 'text-gray-900'}`}
+                  >
                     {shortWhen(n.startedAt ?? n.createdAt, now)}
                   </span>
                 </SidebarMenuButton>

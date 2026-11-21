@@ -7,7 +7,7 @@ test.describe('app shell', () => {
     await expect(page).toHaveURL(/\/home$/);
     await expect(page).toHaveTitle('Home · Oat');
     await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible();
-    await expect(page.getByText('No meeting notes yet')).toBeVisible();
+    await expect(page.getByText('No notes yet')).toBeVisible();
     await expect(page.getByTestId('workspace-switcher')).toContainText('Personal');
     await expect(page.getByTestId('page-tree')).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toHaveCount(0);

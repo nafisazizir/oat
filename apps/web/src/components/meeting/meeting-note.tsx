@@ -13,8 +13,10 @@
  */
 import {
   MeetingTime,
-  ParticipantChips,
+  ParticipantSummary,
   SidePanel,
+  TranscriptToggle,
+  usePanelEscape,
   TRANSCRIPT_PANEL_SIZE,
   type TranscriptItem,
   TranscriptList,
@@ -42,8 +44,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@oat/ui/components/empty';
-import { IconDeviceLaptop, IconLayoutSidebarRight, IconWaveSine } from '@tabler/icons-react';
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { IconDeviceLaptop, IconX, IconWaveSine } from '@tabler/icons-react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { AssistantToggleAnchor } from '@/components/assistant/document-assistant';
 import { useShellData } from '@/components/app-shell/shell-data';
@@ -134,26 +136,14 @@ export function MeetingNote({
   }, [doc.id, recordingHere, recording.status, recording.pending]);
 
   // Panel open: remembered per browser; a transcript deep link always opens it.
-  const [open, setOpen] = useStoredState<boolean>(OPEN_KEY, true);
-  useEffect(() => {
-    if (
-      recordingHere &&
-      (recording.error ||
-        recording.syncError ||
-        recording.syncDelayed ||
-        recording.audioNotice ||
-        recording.notice)
-    )
-      setOpen(true);
-  }, [
-    recordingHere,
-    recording.error,
-    recording.syncError,
-    recording.syncDelayed,
-    recording.audioNotice,
-    recording.notice,
-    setOpen,
-  ]);
+  const [open, setOpen] = useStoredState<boolean>(`${OPEN_KEY}:${user.id}`, false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const closePanel = () => {
+    player.pause();
+    setOpen(false);
+    requestAnimationFrame(() => toggleRef.current?.focus({ preventScroll: true }));
+  };
+  usePanelEscape(open && !wide, closePanel);
   const linkKey = wantsTranscript(focus) ? `${focus.seg ?? ''}|${focus.t ?? ''}` : null;
   useEffect(() => {
     if (linkKey) setOpen(true);
@@ -218,33 +208,18 @@ export function MeetingNote({
   }, [lines, recordingHere, recording.segments]);
 
   const header = (
-    <div className="flex flex-col gap-2.5" data-testid="meeting-header">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        {!browserLive && (
-          <MeetingTime
-            startedAt={info.startedAt}
-            endedAt={info.endedAt}
-            // Server render + hydration in UTC (they must agree), then the viewer's zone.
-            {...(hydrated ? {} : { timeZone: 'UTC' })}
-          />
-        )}
-        {!open && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="-me-2 ms-auto"
-            onClick={() => setOpen(true)}
-            aria-expanded={false}
-            data-testid="transcript-toggle"
-          >
-            <IconLayoutSidebarRight data-icon="inline-start" />
-            Transcript
-            {lines.length > 0 && <span className="text-gray-900 tabular-nums">{lines.length}</span>}
-          </Button>
-        )}
-      </div>
+    <>
+      {!browserLive && (
+        <MeetingTime
+          className="rounded-full border border-gray-alpha-300 px-2 py-1"
+          startedAt={info.startedAt}
+          endedAt={info.endedAt}
+          // Server render + hydration in UTC (they must agree), then the viewer's zone.
+          {...(hydrated ? {} : { timeZone: 'UTC' })}
+        />
+      )}
       {eventLine}
-      <ParticipantChips
+      <ParticipantSummary
         participants={info.participants}
         editable={editable && hydrated}
         onAdd={async (input) => {
@@ -264,12 +239,11 @@ export function MeetingNote({
           }
         }}
       />
-    </div>
+    </>
   );
 
   const transcript = (
     <>
-      <RecordingFeedback documentId={doc.id} />
       {deleteError && (
         <p role="alert" className="text-copy-13 text-red-900">
           {deleteError}
@@ -326,12 +300,6 @@ export function MeetingNote({
           document={doc}
           workspace={workspace}
           meta={header}
-          headerActions={
-            <RecordingControls
-              documentId={doc.id}
-              eligible={editable && !(info.endedAt && lines.length > 0)}
-            />
-          }
           overflowActions={
             local && !browserLive ? (
               <Button variant="ghost" onClick={() => setDeleteOpen(true)}>
@@ -342,19 +310,35 @@ export function MeetingNote({
         />
         {open && !wide && (
           <section
+            id="transcript-panel"
             aria-label="Transcript"
             data-testid="transcript-panel"
             className="mx-auto mb-14 flex h-96 w-full max-w-content flex-col overflow-hidden rounded-lg border border-gray-alpha-400 bg-background-100"
           >
-            <PanelTitle count={items.length} onClose={() => setOpen(false)} />
+            <PanelTitle count={items.length} onClose={closePanel} />
             {transcript}
           </section>
         )}
         {/* "Ask about this note" floats over the note column, never over the transcript panel. */}
-        <AssistantToggleAnchor className="mt-auto" />
+        <AssistantToggleAnchor
+          className="mt-auto"
+          feedback={<RecordingFeedback documentId={doc.id} />}
+        >
+          <RecordingControls
+            documentId={doc.id}
+            eligible={editable && !(info.endedAt && lines.length > 0)}
+          />
+          <TranscriptToggle
+            ref={toggleRef}
+            open={open}
+            count={items.length}
+            onClick={() => (open ? closePanel() : setOpen(true))}
+          />
+        </AssistantToggleAnchor>
       </div>
       {open && wide && (
         <SidePanel
+          id="transcript-panel"
           title={
             <>
               <IconWaveSine aria-hidden className="size-4 text-gray-900" />
@@ -367,7 +351,7 @@ export function MeetingNote({
             )
           }
           closeLabel="Hide transcript"
-          onClose={() => setOpen(false)}
+          onClose={closePanel}
           storageKey={WIDTH_KEY}
           defaultWidth={TRANSCRIPT_PANEL_SIZE.default}
           minWidth={TRANSCRIPT_PANEL_SIZE.min}
@@ -388,8 +372,14 @@ function PanelTitle({ count, onClose }: { count: number; onClose: () => void }) 
       <IconWaveSine aria-hidden className="size-4 text-gray-900" />
       <h2 className="text-label-14 text-gray-1000">Transcript</h2>
       {count > 0 && <span className="text-label-13 text-gray-900 tabular-nums">{count}</span>}
-      <Button variant="ghost" size="sm" className="ms-auto" onClick={onClose}>
-        Hide
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="ms-auto"
+        aria-label="Hide transcript"
+        onClick={onClose}
+      >
+        <IconX />
       </Button>
     </header>
   );

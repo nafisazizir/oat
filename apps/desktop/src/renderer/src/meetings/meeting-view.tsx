@@ -13,8 +13,9 @@ import {
   activeSegmentAt,
   MeetingTime,
   mergeTranscripts,
-  ParticipantChips,
+  ParticipantSummary,
   SidePanel,
+  TranscriptToggle,
   NoteColumn,
   TRANSCRIPT_PANEL_SIZE,
   type TranscriptItem,
@@ -35,14 +36,15 @@ import {
   IconAlertCircle,
   IconCheck,
   IconEye,
-  IconLayoutSidebarRightExpand,
   IconLock,
   IconNotes,
   IconStack2,
   IconUsers,
   IconWaveSine,
 } from '@tabler/icons-react';
-import { type ReactNode, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+
+import { createPortal } from 'react-dom';
 
 import { useMeetingGrace } from '../auto-stop/auto-stop-state.ts';
 import { BridgeCallError, call } from '../bridge.ts';
@@ -64,6 +66,7 @@ import { type AutosaveState, NoteAutosave } from './note-autosave.ts';
 type Content = MeetingNote['contentJson'];
 
 export function MeetingView({
+  userId,
   documentId,
   snapshot,
   options,
@@ -72,6 +75,7 @@ export function MeetingView({
   home,
   controlsContainer,
 }: {
+  userId: string;
   documentId: string | null;
   snapshot: RecordingSnapshot | null;
   options: InvokeResponse<'recording:options'> | null;
@@ -88,7 +92,16 @@ export function MeetingView({
     meetingId !== null && snapshot?.meetingId === meetingId && isActive(snapshot.status);
   const stored = useStoredTranscript(documentId, !recordingThis);
   const transcriptStatus = useTranscriptStatus(documentId ? meetingId : null);
-  const [panelOpen, setPanelOpen] = useStoredState<boolean>('oat.desktop.transcript.open', true);
+  const [panelOpen, setPanelOpen] = useStoredState<boolean>(
+    `oat.desktop.transcript.open:${userId}`,
+    false,
+  );
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const closePanel = () => {
+    player.pause();
+    setPanelOpen(false);
+    requestAnimationFrame(() => toggleRef.current?.focus({ preventScroll: true }));
+  };
   const [selected, setSelected] = useState<string | undefined>(undefined);
 
   const segments = useMemo<TranscriptItem[]>(() => {
@@ -145,62 +158,38 @@ export function MeetingView({
         {documentId === null ? 'Meeting notes' : note?.title || 'Untitled meeting'}
       </h1>
       <audio ref={audioRef} preload="metadata" hidden data-testid="playback-audio" />
-      <div
-        className={
-          controlsContainer
-            ? 'flex flex-col gap-3'
-            : 'flex flex-col gap-3 border-b border-gray-alpha-400 px-6 py-3'
-        }
-      >
-        <RecordingBar
-          controlsContainer={controlsContainer}
-          snapshot={snapshot}
-          options={options}
-          input={input}
-          onInputChange={onInputChange}
-          // D-24: continue only an editable note whose audio is on this Mac; else a new note.
-          meetingId={note?.editable && note.recordedHere ? meetingId : null}
-          recorded={note?.startedAt !== null}
-          hint={
-            note && meetingId && !(note.editable && note.recordedHere)
-              ? note.editable
-                ? 'Recorded on another device — recording starts a new note.'
-                : 'You can’t add to this note — recording starts a new note.'
-              : null
-          }
-        />
-        <IssueBanner snapshot={snapshot} />
-      </div>
+      <IssueBanner snapshot={snapshot} />
       <div className="flex min-h-0 flex-1">
-        <div className="min-w-0 flex-1 overflow-y-auto" data-testid="note-column">
-          {documentId === null ? (
-            (home ?? <StartScreen />)
-          ) : !loaded ? (
-            <NoteSkeleton />
-          ) : !note ? (
-            <Empty className="h-full border-none">
-              <EmptyHeader>
-                <EmptyTitle>This note isn’t on this Mac anymore</EmptyTitle>
-                <EmptyDescription>It was deleted or moved on another device.</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <NoteBody
-              key={note.documentId}
-              note={note}
-              live={recordingThis}
-              endedAt={
-                note.endedAt ?? (graceHere ? new Date(graceHere.endedAt).toISOString() : null)
-              }
-              postMeeting={postMeeting}
-              transcriptCount={segments.length}
-              panelOpen={panelOpen}
-              onOpenPanel={() => setPanelOpen(true)}
-            />
-          )}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto" data-testid="note-column">
+            {documentId === null ? (
+              (home ?? <StartScreen />)
+            ) : !loaded ? (
+              <NoteSkeleton />
+            ) : !note ? (
+              <Empty className="h-full border-none">
+                <EmptyHeader>
+                  <EmptyTitle>This note isn’t on this Mac anymore</EmptyTitle>
+                  <EmptyDescription>It was deleted or moved on another device.</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <NoteBody
+                key={note.documentId}
+                note={note}
+                live={recordingThis}
+                endedAt={
+                  note.endedAt ?? (graceHere ? new Date(graceHere.endedAt).toISOString() : null)
+                }
+                postMeeting={postMeeting}
+                controlsContainer={controlsContainer}
+              />
+            )}
+          </div>
         </div>
-        {panelOpen && (
+        {documentId && panelOpen && (
           <SidePanel
+            id="transcript-panel"
             title={
               <>
                 <IconWaveSine aria-hidden className="size-4 text-gray-900" />
@@ -213,10 +202,7 @@ export function MeetingView({
               )
             }
             closeLabel="Hide transcript"
-            onClose={() => {
-              player.pause(); // no hidden player keeps talking
-              setPanelOpen(false);
-            }}
+            onClose={closePanel}
             storageKey="oat.desktop.transcript.width"
             defaultWidth={TRANSCRIPT_PANEL_SIZE.default}
             minWidth={TRANSCRIPT_PANEL_SIZE.min}
@@ -250,6 +236,36 @@ export function MeetingView({
               />
             </div>
           </SidePanel>
+        )}
+      </div>
+      <div
+        className="flex flex-wrap items-center justify-center gap-2 border-t border-gray-alpha-200 bg-background-100 px-4 py-3"
+        data-testid="note-bottom-bar"
+      >
+        <RecordingBar
+          snapshot={snapshot}
+          options={options}
+          input={input}
+          onInputChange={onInputChange}
+          // D-24: continue only an editable note whose audio is on this Mac; else a new note.
+          meetingId={note?.editable && note.recordedHere ? meetingId : null}
+          recorded={note?.startedAt !== null}
+          hint={
+            note && meetingId && !(note.editable && note.recordedHere)
+              ? note.editable
+                ? 'Recorded on another device — recording starts a new note.'
+                : 'You can’t add to this note — recording starts a new note.'
+              : null
+          }
+        />
+
+        {documentId && (
+          <TranscriptToggle
+            ref={toggleRef}
+            open={panelOpen}
+            count={segments.length}
+            onClick={() => (panelOpen ? closePanel() : setPanelOpen(true))}
+          />
         )}
       </div>
     </section>
@@ -299,9 +315,7 @@ function NoteBody({
   live,
   endedAt,
   postMeeting,
-  transcriptCount,
-  panelOpen,
-  onOpenPanel,
+  controlsContainer,
 }: {
   note: MeetingNote;
   live: boolean;
@@ -309,9 +323,7 @@ function NoteBody({
   endedAt: string | null;
   /** The post-meeting line (7.5): grace countdown or pipeline status. */
   postMeeting: ReactNode;
-  transcriptCount: number;
-  panelOpen: boolean;
-  onOpenPanel: () => void;
+  controlsContainer?: HTMLElement | null;
 }) {
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState<Content>(note.contentJson);
@@ -365,6 +377,21 @@ function NoteBody({
   return (
     <NoteColumn className="gap-6" role="article" data-testid="note">
       <header className="flex flex-col gap-2.5">
+        <textarea
+          aria-label="Title"
+          data-testid="note-title"
+          value={title}
+          readOnly={!editable}
+          placeholder="Untitled meeting"
+          rows={1}
+          maxLength={200}
+          className="w-full resize-none bg-transparent text-heading-32 text-gray-1000 [field-sizing:content] outline-none placeholder:text-gray-700"
+          onChange={(event) => {
+            const next = event.target.value.replace(/\n/g, ' ');
+            setTitle(next);
+            autosave.queue({ title: next });
+          }}
+        />
         <div className="flex min-h-7 flex-wrap items-center gap-2 text-label-12 text-gray-900">
           {note.workspaceName && (
             // 3.9: which workspace the note lives in (it never moves, D-18).
@@ -385,40 +412,26 @@ function NoteBody({
               {note.trashed ? 'In trash' : 'View only'}
             </Badge>
           )}
-          <SaveStatus state={save.state} error={save.error} />
-          {postMeeting}
-          {!panelOpen && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ms-auto"
-              onClick={onOpenPanel}
-              aria-expanded={false}
-              data-testid="transcript-toggle"
-            >
-              <IconLayoutSidebarRightExpand data-icon="inline-start" />
-              Transcript
-              {transcriptCount > 0 && (
-                <span className="text-gray-900 tabular-nums">{transcriptCount}</span>
-              )}
-            </Button>
-          )}
+
+          <MeetingTime
+            className="rounded-full border border-gray-alpha-300 px-2 py-1"
+            startedAt={note.startedAt}
+            endedAt={endedAt}
+            live={live}
+          />
+          <NoteEventLine event={note.calendarEvent} />
+          <ParticipantSummary
+            participants={note.participants}
+            editable={editable && note.meetingId !== null}
+            onAdd={(p) => bridgeAction(() => call('meeting:add-participant', { documentId, ...p }))}
+            onRemove={(p) =>
+              bridgeAction(() =>
+                call('meeting:remove-participant', { documentId, participantId: p.id }),
+              )
+            }
+          />
         </div>
-        <textarea
-          aria-label="Title"
-          data-testid="note-title"
-          value={title}
-          readOnly={!editable}
-          placeholder="Untitled meeting"
-          rows={1}
-          maxLength={200}
-          className="w-full resize-none bg-transparent text-heading-32 text-gray-1000 [field-sizing:content] outline-none placeholder:text-gray-700"
-          onChange={(event) => {
-            const next = event.target.value.replace(/\n/g, ' ');
-            setTitle(next);
-            autosave.queue({ title: next });
-          }}
-        />
+
         {conflict && (
           <div
             role="status"
@@ -435,19 +448,21 @@ function NoteBody({
             </Button>
           </div>
         )}
-        <MeetingTime startedAt={note.startedAt} endedAt={endedAt} live={live} />
-        <NoteEventLine event={note.calendarEvent} />
-        <ParticipantChips
-          participants={note.participants}
-          editable={editable && note.meetingId !== null}
-          onAdd={(p) => bridgeAction(() => call('meeting:add-participant', { documentId, ...p }))}
-          onRemove={(p) =>
-            bridgeAction(() =>
-              call('meeting:remove-participant', { documentId, participantId: p.id }),
-            )
-          }
-        />
       </header>
+      {controlsContainer ? (
+        createPortal(
+          <div className="flex items-center gap-2 text-label-12 text-gray-900">
+            <SaveStatus state={save.state} error={save.error} />
+            {postMeeting}
+          </div>,
+          controlsContainer,
+        )
+      ) : (
+        <div className="flex items-center gap-2 text-label-12 text-gray-900">
+          <SaveStatus state={save.state} error={save.error} />
+          {postMeeting}
+        </div>
+      )}
       <div data-testid="note-editor">
         <OatEditor
           value={content}

@@ -3,7 +3,6 @@
 import { Button } from '@oat/ui/components/button';
 import { Sheet, SheetContent, SheetTitle } from '@oat/ui/components/sheet';
 import { cn } from '@oat/ui/lib/utils';
-import { Kbd, KbdGroup } from '@oat/ui/components/kbd';
 import { IconSparkles } from '@tabler/icons-react';
 import type { Route } from 'next';
 import { usePathname, useRouter } from 'next/navigation';
@@ -38,19 +37,32 @@ import { TranscriptReader } from './transcript-reader';
 type ToggleSlot = { node: React.ReactNode; claim: () => () => void };
 const AssistantToggleContext = createContext<ToggleSlot | null>(null);
 
-export function AssistantToggleAnchor({ className }: { className?: string }) {
+export function AssistantToggleAnchor({
+  className,
+  children,
+  feedback,
+}: {
+  className?: string;
+  children?: React.ReactNode;
+  feedback?: React.ReactNode;
+}) {
   const slot = useContext(AssistantToggleContext);
   const claim = slot?.claim;
   useEffect(() => claim?.(), [claim]);
-  if (!slot?.node) return null;
+  if (!slot?.node && !children && !feedback) return null;
   return (
     <div
+      data-testid="note-bottom-bar"
       className={cn(
-        'pointer-events-none sticky bottom-0 z-20 flex justify-end px-6 pt-2 pb-6 *:pointer-events-auto',
+        'pointer-events-none sticky bottom-0 z-20 flex flex-col items-center gap-2 px-4 pt-2 pb-4 *:pointer-events-auto',
         className,
       )}
     >
-      {slot.node}
+      {feedback && <div className="w-full max-w-content empty:hidden">{feedback}</div>}
+      <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-2xl border border-gray-alpha-300 bg-background-100 p-2">
+        {children}
+        {slot?.node}
+      </div>
     </div>
   );
 }
@@ -235,22 +247,18 @@ export function DocumentAssistant({
     available && !open ? (
       <Button
         ref={toggleRef}
-        size="lg"
-        variant="secondary"
+        size="sm"
+        variant="ghost"
         data-testid="assistant-toggle"
         aria-keyshortcuts="Meta+J"
         onClick={() => toggle(true)}
         className={cn(
-          'material-menu rounded-full ps-4 pe-2 hover:bg-gray-100',
+          'rounded-full bg-background-100 px-3 hover:bg-gray-alpha-100',
           !anchored && 'fixed end-6 bottom-6 z-20',
         )}
       >
         <IconSparkles data-icon="inline-start" className="text-brand-800" />
         Ask about this note
-        <KbdGroup aria-hidden className="ms-1">
-          <Kbd>⌘</Kbd>
-          <Kbd>J</Kbd>
-        </KbdGroup>
       </Button>
     ) : null;
   const toggleSlot: ToggleSlot = { node: anchored ? toggleButton : null, claim };

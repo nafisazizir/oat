@@ -27,6 +27,7 @@ import {
   IconCloudUpload,
   IconExternalLink,
   IconLoader,
+  IconHome,
   IconRefresh,
   IconSettings,
 } from '@tabler/icons-react';
@@ -37,7 +38,7 @@ import { AutoStopQuestion, AutoStopToast } from '../auto-stop/auto-stop-notice.t
 import { useAutoStopNotice } from '../auto-stop/auto-stop-state.ts';
 import { useCalendar, useMeetingPrompt } from '../calendar/calendar-state.ts';
 import { PromptBanner } from '../calendar/prompt-banner.tsx';
-import { UpcomingList } from '../calendar/upcoming-list.tsx';
+import { HomeView } from '../meetings/home-view.tsx';
 import { useMainState } from '../main-state.ts';
 import { MeetingList, NewMeetingButton } from '../meetings/meeting-list.tsx';
 import { MeetingView } from '../meetings/meeting-view.tsx';
@@ -55,6 +56,8 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
   SidebarInset,
   SidebarTrigger,
 } from '@oat/ui/components/sidebar';
@@ -404,16 +407,22 @@ function SignedInShell({
           </SidebarMenu>
         </SidebarHeader>
         <SidebarContent>
+          <SidebarMenu className="px-2">
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => {
+                  setSelected(null);
+                  setSettingsOpen(false);
+                }}
+                isActive={!selected && !settingsOpen}
+                data-testid="home-nav"
+              >
+                <IconHome />
+                Home
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
           <div className="group-data-[collapsible=icon]:hidden">
-            <UpcomingList
-              snapshot={calendar}
-              otherWorkspace={otherWorkspace}
-              onOpen={(documentId) => {
-                setSelected(documentId);
-                setSettingsOpen(false);
-                bumpMeetingsVersion();
-              }}
-            />
             <ConflictsPanel refreshKey={sync.lastSyncedAt} />
           </div>
           <MeetingList
@@ -504,6 +513,7 @@ function SignedInShell({
             </>
           ) : (
             <MeetingView
+              userId={user.id}
               documentId={selected}
               snapshot={snapshot}
               options={options}
@@ -511,9 +521,22 @@ function SignedInShell({
               onInputChange={setChoice}
               controlsContainer={toolbar}
               home={
-                onboarding.state.guide ? (
-                  <FirstMeetingGuide onDismiss={() => void onboarding.dismissGuide()} />
-                ) : undefined
+                <>
+                  {onboarding.state.guide && (
+                    <FirstMeetingGuide onDismiss={() => void onboarding.dismissGuide()} />
+                  )}
+                  <HomeView
+                    notes={listed}
+                    calendar={calendar}
+                    recordingMeetingId={recording ? activeMeetingId : null}
+                    otherWorkspace={otherWorkspace}
+                    onOpen={(id) => {
+                      setSelected(id);
+                      setSettingsOpen(false);
+                      bumpMeetingsVersion();
+                    }}
+                  />
+                </>
               }
             />
           )}
