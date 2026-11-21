@@ -13,11 +13,18 @@
  *    note becomes view-only here. The active workspace survives a relaunch (per account, local database).
  * 5. View-only everywhere (D-36: there is no workspace of last resort any more): the sidebar asks me to
  *    create a workspace, and "New meeting note" is refused with that message before anything is recorded.
+ *
+ * Step C of unified-workspaces (D-36), woven in: with one workspace the menu has no workspace list; the
+ * sidebar splits the notes into Private and Shared — a new recording and a note started from a calendar
+ * event land in Private, a teammate's shared note shows under Shared, their private one never arrives, and
+ * a note changes section when its visibility changes on the server, without a relaunch. The sidebar is
+ * scanned with axe in light and dark (`E2E_SCREENSHOTS=1` writes docs/tasks/evidence/unified-workspaces).
  */
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import AxeBuilder from '@axe-core/playwright';
 import type { CalendarEventInput } from '@oat/core';
 import { uniqueAddress } from '@oat/testkit';
 import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
@@ -145,6 +152,23 @@ async function joinTeam(name: string, role: 'member' | 'viewer'): Promise<string
   return id;
 }
 
+const inSection = (section: 'private' | 'shared') =>
+  page.getByTestId(`meeting-section-${section}`).getByTestId('meeting-list-item');
+
+/** Every axe violation (any impact) inside the sidebar, as short lines. */
+async function sidebarViolations(label: string): Promise<string[]> {
+  await page.evaluate(() => document.fonts.ready);
+  // Legacy mode: axe runs in the page itself (no extra blank page, which Electron can't open).
+  const { violations } = await new AxeBuilder({ page })
+    .setLegacyMode(true)
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
+    .include('[data-slot="sidebar"]')
+    .analyze();
+  return violations.flatMap((v) =>
+    v.nodes.map((n) => `${label}: ${v.id} (${v.impact}) ${n.target.join(' ')}`),
+  );
+}
+
 /** Picks a workspace in the switcher (opening its menu unless it is open). */
 async function choose(name: string) {
   const menu = page.getByRole('menu');
@@ -162,6 +186,14 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   // The workspace made at sign-up is an ordinary one: its name, and my role in it.
   await expect(switcher).toContainText(OWN);
   await expect(switcher).toContainText('Owner');
+  // One workspace: nothing to switch between, so the menu has no workspace list (D-36).
+  await expect(switcher).toHaveAttribute('data-switchable', 'false');
+  await switcher.click();
+  await expect(page.getByRole('menu')).toContainText('Workspace settings (web)');
+  await expect(page.getByTestId('workspace-list')).toHaveCount(0);
+  await expect(page.getByTestId('workspace-option')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toBeHidden();
 
   const [me] = await sql<{ id: string }[]>`select id from "user" where email = ${email}`;
   userId = me!.id;
@@ -177,6 +209,7 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
       { timeout: scaled(20_000) },
     )
     .toBe(3);
+  await expect(switcher).toHaveAttribute('data-switchable', 'true');
   await switcher.click();
   const options = page.getByTestId('workspace-option');
   await expect(options).toHaveCount(3);
@@ -187,8 +220,13 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
 
   // Design team: its list is empty; a new meeting note records into it.
   await choose(DESIGN);
-  await expect(page.getByTestId('meeting-list-empty')).toHaveText(
-    `Meeting notes in ${DESIGN} appear here.`,
+  await expect(page.getByTestId('meeting-list-empty')).toBeVisible();
+  // Two sections, each saying what goes there.
+  await expect(page.getByTestId('meeting-section-empty-private')).toHaveText(
+    'Notes only you can see.',
+  );
+  await expect(page.getByTestId('meeting-section-empty-shared')).toHaveText(
+    'Notes everyone here can see.',
   );
   await expect(page.getByTestId('workspace-hint')).toHaveCount(0);
   await page.getByTestId('new-meeting').click();
@@ -197,6 +235,9 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   });
   await expect(page.getByTestId('note-workspace')).toHaveText(DESIGN);
   await expect(page.getByTestId('meeting-list-item')).toHaveCount(1);
+  // A new recording starts in Private.
+  await expect(inSection('private')).toHaveCount(1);
+  await expect(inSection('shared')).toHaveCount(0);
   // The transcript sits behind its toggle (ui-calm): the toggle counts the lines as they arrive.
   await expect(page.getByRole('button', { name: /^Transcript [1-9]/ })).toBeVisible({
     timeout: scaled(20_000),
@@ -216,6 +257,77 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   const [segments] = await sql<{ n: number }[]>`
     select count(*)::int as n from transcript_segment where meeting_id = ${meetingId}`;
   expect(segments!.n).toBeGreaterThan(0);
+});
+
+test('Private and Shared: a teammate’s shared note is under Shared, their private one never arrives, and a note moves when its visibility changes', async () => {
+  test.setTimeout(scaled(120_000));
+  const mine = inSection('private');
+  const shared = inSection('shared');
+  await expect(mine).toHaveCount(1);
+  const myNote = (await mine.first().getAttribute('data-document-id'))!;
+
+  // A teammate in Design team with a shared and a private meeting note (as written by their own Oat).
+  const mate = `mate-${run}`;
+  await sql.begin(async (tx) => {
+    await tx`insert into "user" (id, name, email, email_verified)
+             values (${mate}, 'Teammate', ${`mate-${run}@example.test`}, true)`;
+    await tx`insert into membership (id, workspace_id, user_id, role)
+             values (${`m-${mate}`}, ${designId}, ${mate}, 'member')`;
+    await tx`insert into document (id, workspace_id, owner_id, kind, title, visibility)
+             values (${`d-${run}-shared`}, ${designId}, ${mate}, 'meeting', 'Teammate standup', 'workspace'),
+                    (${`d-${run}-secret`}, ${designId}, ${mate}, 'meeting', 'Teammate secret', 'private')`;
+  });
+  // Sync brings the shared one — under Shared — and never the private one.
+  await expect(shared.filter({ hasText: 'Teammate standup' })).toHaveCount(1, {
+    timeout: scaled(20_000),
+  });
+  await expect(mine).toHaveCount(1);
+  await synced();
+  await expect(page.getByTestId('meeting-list')).not.toContainText('Teammate secret');
+  const local = await invoke<{ notes: { documentId: string; title: string }[] }>(
+    page,
+    'meetings:list',
+  );
+  expect(local.notes.map((n) => n.title)).not.toContain('Teammate secret');
+
+  // The sidebar, light and dark: axe clean; evidence at 1440×900.
+  const found: string[] = [];
+  await app!.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0]!.setContentSize(1440, 900),
+  );
+  await page.mouse.move(700, 450);
+  for (const scheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    if (scheme === 'dark') await expect(page.locator('html')).toHaveClass(/dark/);
+    else await expect(page.locator('html')).not.toHaveClass(/dark/);
+    await page.waitForTimeout(400);
+    found.push(...(await sidebarViolations(`sidebar ${scheme}`)));
+    await evidence(page, `desktop-sidebar-private-shared-${scheme}`, 'unified-workspaces');
+  }
+  await page.emulateMedia({ colorScheme: 'light' });
+  await app!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(1280, 820));
+  expect(found, 'axe violations in the desktop sidebar').toEqual([]);
+
+  // My note is shared on the web: it moves to Shared here, without a relaunch, and its badge says so.
+  await sql`update document set visibility = 'workspace', version = version + 1 where id = ${myNote}`;
+  await expect(shared.and(page.locator(`[data-document-id="${myNote}"]`))).toHaveCount(1, {
+    timeout: scaled(20_000),
+  });
+  await expect(mine).toHaveCount(0);
+  await expect(page.getByTestId('meeting-section-empty-private')).toBeVisible();
+  await shared.and(page.locator(`[data-document-id="${myNote}"]`)).click();
+  await expect(page.getByText(`Everyone in ${DESIGN}`, { exact: true })).toBeVisible();
+  // …and back when it is made private again.
+  await sql`update document set visibility = 'private', version = version + 1 where id = ${myNote}`;
+  await expect(mine.and(page.locator(`[data-document-id="${myNote}"]`))).toHaveCount(1, {
+    timeout: scaled(20_000),
+  });
+  await expect(page.getByText('Private', { exact: true }).last()).toBeVisible();
+
+  // The teammate's notes go to the trash: the rest of this file counts my notes only.
+  await sql`update document set deleted_at = now(), version = version + 1 where owner_id = ${mate}`;
+  await expect(shared).toHaveCount(0, { timeout: scaled(20_000) });
+  await synced();
 });
 
 test('as a viewer, new notes go to the first workspace I can add to (and the sidebar says so)', async () => {
@@ -247,14 +359,15 @@ test('as a viewer, new notes go to the first workspace I can add to (and the sid
   // Design team lists that note next to the recorded one; my own workspace has neither.
   await choose(DESIGN);
   await expect(page.getByTestId('meeting-list-item')).toHaveCount(2);
+  // Both are mine and private — a note started from a calendar event starts in Private too.
+  await expect(inSection('private')).toHaveCount(2);
+  await expect(inSection('shared')).toHaveCount(0);
   await expect(page.getByTestId('meeting-list-item').filter({ hasText: EVENT })).toHaveCount(1);
   await home();
   await expect(upcoming.getByTestId('upcoming-event')).not.toHaveCount(0);
   await expect(upcoming.getByTestId('upcoming-event-workspace')).toHaveCount(0);
   await choose(OWN);
-  await expect(page.getByTestId('meeting-list-empty')).toHaveText(
-    `Meeting notes in ${OWN} appear here.`,
-  );
+  await expect(page.getByTestId('meeting-list-empty')).toBeVisible();
   await expect(page.getByTestId('workspace-hint')).toHaveCount(0);
 });
 
