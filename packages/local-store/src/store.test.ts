@@ -33,7 +33,7 @@ function withWorkspace() {
       {
         op: 'upsert',
         table: 'workspace',
-        row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+        row: { id: 'ws', name: 'Me', role: 'owner' },
       },
     ]),
     null,
@@ -401,7 +401,7 @@ describe('pull', () => {
           {
             op: 'upsert',
             table: 'workspace',
-            row: { id: 'team', name: 'T', kind: 'team', role: 'member' },
+            row: { id: 'team', name: 'T', role: 'member' },
           },
         ],
         {
@@ -428,17 +428,13 @@ describe('pull', () => {
   it('keeps my role per workspace (3.9) and follows changes to it; an older pull scope restarts', () => {
     withWorkspace();
     const team = (role: 'member' | 'viewer') =>
-      page(
-        [{ op: 'upsert', table: 'workspace', row: { id: 'team', name: 'T', kind: 'team', role } }],
-        {
-          workspaceIds: ['ws', 'team'],
-        },
-      );
+      page([{ op: 'upsert', table: 'workspace', row: { id: 'team', name: 'T', role } }], {
+        workspaceIds: ['ws', 'team'],
+      });
     store.applyPull(team('member'), null);
     expect(store.workspace('team')).toEqual({
       id: 'team',
       name: 'T',
-      kind: 'team',
       role: 'member',
     });
     store.applyPull(team('viewer'), 'c1');
@@ -474,10 +470,10 @@ describe('pull', () => {
     expect(store.documents()).toEqual([]);
   });
 
-  it('finds the personal workspace', () => {
-    expect(store.personalWorkspaceId()).toBeNull();
+  it('finds the first workspace', () => {
+    expect(store.firstWorkspaceId()).toBeNull();
     withWorkspace();
-    expect(store.personalWorkspaceId()).toBe('ws');
+    expect(store.firstWorkspaceId()).toBe('ws');
   });
 });
 
