@@ -102,6 +102,26 @@ describe('Workspaces', () => {
     expect(s).toMatchObject({ activeId: 'design', targetId: 'design' });
   });
 
+  it('the default is remembered: a workspace that arrives later and sorts earlier doesn’t take over', () => {
+    expect(store.getState(ACTIVE_WORKSPACE_KEY)).toBeNull();
+    expect(w.snapshot().activeId).toBe('design');
+    expect(store.getState(ACTIVE_WORKSPACE_KEY)).toBe('design');
+    expect(changes).toBe(0); // nothing to announce: it is what was already shown
+    // I join "Alpha" (sorts before "Design team"; joining restarts the pull from the beginning).
+    pull(
+      [
+        ws('alpha', 'Alpha', 'owner'),
+        ws('me', 'Mine', 'owner'),
+        ws('design', 'Design team', 'member'),
+        ws('board', 'Board', 'viewer'),
+      ],
+      null,
+      ['alpha', 'me', 'design', 'board'],
+    );
+    expect(w.snapshot().workspaces.map((x) => x.id)).toEqual(['alpha', 'board', 'design', 'me']);
+    expect(w.snapshot()).toMatchObject({ activeId: 'design', targetId: 'design' });
+  });
+
   it('switching is remembered in the account’s database; new notes follow when I can create there', async () => {
     expect(w.setActive('me')).toMatchObject({ activeId: 'me', targetId: 'me' });
     expect(store.getState(ACTIVE_WORKSPACE_KEY)).toBe('me');

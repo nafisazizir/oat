@@ -5,7 +5,8 @@
  *
  * - The active workspace is remembered in the user's own local database (one file per account, D-28), so each
  *   account on this Mac keeps its own choice. Nothing chosen yet, or the chosen one is gone (left, deleted):
- *   the first workspace I can create in, else the first one listed.
+ *   the first workspace I can create in, else the first one listed — and that default is remembered like a
+ *   choice, so a workspace that arrives later (and sorts earlier) never changes what the sidebar shows.
  * - New notes ("New meeting note", calendar / detection "Start notes") go to the active workspace when I may
  *   create there (`canCreateInWorkspace` — never as a viewer), else to the first workspace (by name) where I
  *   may; the snapshot's `targetId` says which, so the sidebar can tell. When I can only view every workspace
@@ -90,11 +91,12 @@ export class Workspaces {
       canCreate: canCreateInWorkspace(ctx, { id: w.id }),
     }));
     const stored = store.getState(ACTIVE_WORKSPACE_KEY);
-    const active =
-      workspaces.find((w) => w.id === stored) ??
-      workspaces.find((w) => w.canCreate) ??
-      workspaces[0] ??
-      null;
+    let active = workspaces.find((w) => w.id === stored) ?? null;
+    if (!active) {
+      active = workspaces.find((w) => w.canCreate) ?? workspaces[0] ?? null;
+      // Remember the default (see the module comment). Not a change to announce: it is what was shown.
+      if (active) store.setState(ACTIVE_WORKSPACE_KEY, active.id);
+    }
     const target = newNoteTarget(workspaces, active);
     return { workspaces, activeId: active?.id ?? null, targetId: target?.id ?? null };
   }

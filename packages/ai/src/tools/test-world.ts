@@ -1,6 +1,6 @@
 /**
  * A small in-memory world for tool and chat unit tests (test-only): two users in a team workspace plus their
- * personal workspaces, with shared, private, trashed and link-shared documents.
+ * workspaces of their own, with shared, private, trashed and link-shared documents.
  */
 import { createPermissionContext, type PermissionContext, type Role } from '@oat/core';
 import { createMemoryAssistantData } from './memory.ts';
@@ -13,13 +13,13 @@ import type {
 } from './types.ts';
 
 export const TEAM = 'ws-team';
-export const ALICE_PERSONAL = 'ws-alice';
+export const ALICE_OWN = 'ws-alice';
 export const users = { alice: 'u-alice', bob: 'u-bob', vic: 'u-vic', eve: 'u-eve' } as const;
 
 const memberships: Record<string, [string, Role][]> = {
   [users.alice]: [
     [TEAM, 'owner'],
-    [ALICE_PERSONAL, 'owner'],
+    [ALICE_OWN, 'owner'],
   ],
   [users.bob]: [[TEAM, 'member']],
   [users.vic]: [[TEAM, 'viewer']],
@@ -94,8 +94,8 @@ export const documents: DocumentRecord[] = [
     [p('b-old', 'Pricing was fifteen dollars per seat.')],
   ),
   doc(
-    'd-personal',
-    { ownerId: users.alice, title: 'Diary', workspaceId: ALICE_PERSONAL, visibility: 'private' },
+    'd-diary',
+    { ownerId: users.alice, title: 'Diary', workspaceId: ALICE_OWN, visibility: 'private' },
     [p('b-diary', 'Pricing thoughts for my diary.')],
   ),
   doc(
@@ -105,7 +105,7 @@ export const documents: DocumentRecord[] = [
       title: 'Public pricing FAQ',
       visibility: 'link',
       shareToken: SHARE_TOKEN,
-      workspaceId: ALICE_PERSONAL,
+      workspaceId: ALICE_OWN,
     },
     [p('b-faq', 'Pricing FAQ for customers.')],
   ),

@@ -178,8 +178,8 @@ ALTER TABLE transcript_segment ADD COLUMN backfilled INTEGER NOT NULL DEFAULT 0 
 ALTER TABLE workspace ADD COLUMN role TEXT CHECK (role IN ('owner', 'admin', 'member', 'viewer'));
 `,
   // 5 — D-36: one kind of workspace. The rows stay as they are (same ids, so every document, meeting and
-  // queued outbox entry keeps pointing at its workspace); only the column goes. The new name of a former
-  // "Personal" workspace arrives with the next pull.
+  // queued outbox entry keeps pointing at its workspace); only the column goes. A workspace the server
+  // renamed in its own migration gets its new name with the next pull.
   `
 ALTER TABLE workspace DROP COLUMN kind;
 `,

@@ -547,7 +547,7 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     await teammate.waitForURL(/\/home$/, { waitUntil: 'load' });
     await expect(teammate.getByTestId('workspace-switcher')).toContainText(TEAM);
 
-    // This meeting note lives in the owner's personal workspace (documents never move between
+    // This meeting note lives in the owner's first workspace (documents never move between
     // workspaces, D-18): the teammate reads it through the link. (3.9: the next meeting is recorded into
     // the team workspace — see the last step.)
     const res = await teammate.goto(shareLink);
