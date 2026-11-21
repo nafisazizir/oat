@@ -35,6 +35,11 @@ FROM web-deps AS web-build
 # Root configs the app tsconfig pulls in (next build type-checks the whole `apps/web` project).
 COPY tsconfig.base.json eslint.config.js vitest.shared.ts ./
 COPY packages/ packages/
+# Workspace deps outside packages/: the app's e2e + int tests (type-checked by `next build`) import them.
+COPY tools/mocks/ tools/mocks/
+COPY agents/ agents/
+# Ground-truth JSON that @oat/mocks imports (audio binaries are excluded by .dockerignore).
+COPY fixtures/ fixtures/
 COPY apps/web/ apps/web/
 RUN pnpm --filter @oat/web build
 
