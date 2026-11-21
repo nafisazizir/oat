@@ -24,7 +24,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { TopBarActions } from '@/components/app-shell/top-bar';
-import { useTreeActions } from '@/components/app-shell/tree-actions';
+import { useTreeActions } from '@oat/workspace-ui/tree-actions';
 import { useRegisterOpenDocument } from '@/components/assistant/open-document';
 import { NotionExportButton } from '@/components/notion/notion-export-button';
 import { PipelineStatus } from '@/components/pipeline/pipeline-status';

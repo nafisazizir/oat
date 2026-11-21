@@ -34,7 +34,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { useShellData } from '@/components/app-shell/shell-data';
+import { useShellData } from '@oat/workspace-ui/shell-data';
 import { isApiError, sharingApi } from '@/lib/api-client';
 import type { DocumentSharing, UpdateSharingInput } from '@/lib/api-types';
 

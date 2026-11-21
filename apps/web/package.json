@@ -41,7 +41,9 @@
     "redis": "catalog:",
     "server-only": "catalog:",
     "sonner": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@oat/workspace-ui": "workspace:*",
+    "@oat/client": "workspace:*"
   },
   "devDependencies": {
     "@axe-core/playwright": "catalog:",

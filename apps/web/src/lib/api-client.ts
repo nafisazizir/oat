@@ -103,17 +103,11 @@ export const foldersApi = {
     request<{ trashedDocumentIds: string[] }>('DELETE', `/api/folders/${enc(id)}`),
 };
 
-/** Same-tab notice that a document's version/title changed (sidebar rename, move…), for open editors. */
-export const DOCUMENT_CHANGED_EVENT = 'oat:document-changed';
-export type DocumentChangedDetail = Pick<DocumentDetail, 'id' | 'version' | 'title'>;
-
-export function announceDocumentChange(doc: DocumentChangedDetail) {
-  window.dispatchEvent(
-    new CustomEvent<DocumentChangedDetail>(DOCUMENT_CHANGED_EVENT, {
-      detail: { id: doc.id, version: doc.version, title: doc.title },
-    }),
-  );
-}
+export {
+  DOCUMENT_CHANGED_EVENT,
+  announceDocumentChange,
+  type DocumentChangedDetail,
+} from '@oat/workspace-ui/document-events';
 
 /** Post-meeting pipeline (8.3, `src/server/pipeline/api.ts`). */
 export const pipelineApi = {

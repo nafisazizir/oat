@@ -1,5 +1,5 @@
-import type { DocumentNode, ShellData } from '@/lib/tree';
-import { subtreeIds } from '@/lib/tree';
+import type { DocumentNode, ShellData } from './tree';
+import { subtreeIds } from './tree';
 
 /**
  * A sidebar mutation shown before the server confirms it. The shell applies every pending op on top of

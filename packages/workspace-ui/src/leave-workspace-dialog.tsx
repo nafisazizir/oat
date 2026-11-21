@@ -13,9 +13,10 @@ import {
 import { Button } from '@oat/ui/components/button';
 import { Spinner } from '@oat/ui/components/spinner';
 import { IconAlertCircle, IconDownload } from '@tabler/icons-react';
+import { OatApiError } from '@oat/client';
 import { useState, useTransition } from 'react';
 
-import { leaveWorkspace } from '@/server/actions/members';
+import { useWorkspaceHost } from './host';
 
 type Exporting = { state: 'idle' | 'working' } | { state: 'done' | 'failed'; message: string };
 
@@ -37,6 +38,7 @@ export function LeaveWorkspaceDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const host = useWorkspaceHost();
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<Exporting>({ state: 'idle' });
   const [pending, startTransition] = useTransition();
@@ -46,9 +48,7 @@ export function LeaveWorkspaceDialog({
   async function exportNotes() {
     setExporting({ state: 'working' });
     try {
-      const response = await fetch(`/api/workspaces/${encodeURIComponent(workspace.id)}/export`, {
-        credentials: 'same-origin',
-      });
+      const response = await host.client.workspaces.export(workspace.id);
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as {
           error?: { message?: string };
@@ -78,8 +78,12 @@ export function LeaveWorkspaceDialog({
             ? 'You have no notes of your own here, so the file is empty.'
             : `Saved ${count === 1 ? '1 note' : `${count} notes`} to your downloads. Check the file before you leave.`,
       });
-    } catch {
-      setExporting({ state: 'failed', message: EXPORT_FAILED });
+    } catch (error) {
+      setExporting({
+        state: 'failed',
+        message:
+          error instanceof OatApiError && error.status === 429 ? error.message : EXPORT_FAILED,
+      });
     }
   }
 
@@ -147,8 +151,16 @@ export function LeaveWorkspaceDialog({
             disabled={pending}
             onClick={() =>
               startTransition(async () => {
-                const result = await leaveWorkspace(workspace.id);
-                if (!result.ok) setError(result.error);
+                try {
+                  await host.client.workspaces.leave(workspace.id);
+                  onOpenChange(false);
+                  host.navigate({ view: 'home' });
+                  host.refresh();
+                } catch (error) {
+                  setError(
+                    error instanceof Error ? error.message : 'Couldn’t leave the workspace.',
+                  );
+                }
               })
             }
           >

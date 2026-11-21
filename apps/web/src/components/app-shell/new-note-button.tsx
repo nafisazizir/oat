@@ -3,7 +3,7 @@
 import { Button } from '@oat/ui/components/button';
 import { IconEdit } from '@tabler/icons-react';
 
-import { useTreeActions } from './tree-actions';
+import { useTreeActions } from '@oat/workspace-ui/tree-actions';
 import { useNewNote } from './use-new-note';
 
 export function NewNoteButton(props: Omit<React.ComponentProps<typeof Button>, 'onClick'>) {

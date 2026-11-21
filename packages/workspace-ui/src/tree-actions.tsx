@@ -21,7 +21,10 @@ import {
   CommandList,
 } from '@oat/ui/components/command';
 import { IconFolder, IconLock, IconUsers } from '@tabler/icons-react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useWorkspaceHost } from './host';
+import { hrefOf } from './routes';
+import { OatApiError } from '@oat/client';
+import type { ApiErrorBody } from '@oat/services/dto/api-types';
 import {
   createContext,
   useCallback,
@@ -35,14 +38,11 @@ import { toast } from 'sonner';
 
 import {
   announceDocumentChange,
-  ApiRequestError,
   DOCUMENT_CHANGED_EVENT,
   type DocumentChangedDetail,
-  documentsApi,
-  foldersApi,
-  isApiError,
-} from '@/lib/api-client';
-import { canRebase } from '@/lib/json-equal';
+} from './document-events';
+
+import { canRebase } from '@oat/services/json-equal';
 import {
   type Area,
   areaOf,
@@ -51,15 +51,18 @@ import {
   pathOf,
   subtreeIds,
   titleOf,
-} from '@/lib/tree';
+} from './tree';
 
 import { PENDING_ID_PREFIX } from './optimistic-tree';
 import { useOptimisticTree, useShellData } from './shell-data';
 import { TrashDialog } from './trash-dialog';
 
+const isApiError = (error: unknown, code: string): error is OatApiError =>
+  error instanceof OatApiError && error.code === code;
+
 /*
  * Every sidebar mutation (create, rename, move, trash, restore, delete) goes through here: one place
- * that calls the API (`src/lib/api-client.ts`), refreshes the server-rendered shell (`router.refresh()`)
+ * that calls the API (`src/lib/api-client.ts`), refreshes the server-rendered shell (`host.refresh()`)
  * and shows the dialogs (Move to…, the D-18 "this becomes private" confirmation, folder delete, trash).
  * Each mutation shows in the sidebar right away (`useOptimisticTree`) and rolls back with a toast if the
  * server refuses it.
@@ -96,7 +99,7 @@ export function useTreeActions(): TreeActions {
 }
 
 function errorToast(error: unknown, fallback: string) {
-  const message = error instanceof ApiRequestError ? error.message : fallback;
+  const message = error instanceof OatApiError ? error.message : fallback;
   toast.error(fallback, message !== fallback ? { description: message } : undefined);
 }
 
@@ -111,8 +114,9 @@ type Confirm = {
 let pendingIds = 0;
 
 export function TreeActionsProvider({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const pathname = usePathname();
+  const host = useWorkspaceHost();
+  const { client } = host;
+  const pathname = hrefOf(host.route).split('?')[0];
   const { workspace, documents, user } = useShellData();
   const tree = useOptimisticTree();
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -122,7 +126,7 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
   const canCreate = workspace.role !== 'viewer';
   const busy = useRef(false);
 
-  const refresh = useCallback(() => router.refresh(), [router]);
+  const refresh = useCallback(() => host.refresh(), [host]);
 
   /** A row for an item the server hasn't created yet (it can't be opened until it has an id). */
   const placeholder = useCallback(
@@ -151,14 +155,14 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
         node: placeholder(kind === 'meeting' ? 'meeting' : 'page', '', area, folderId),
       });
       try {
-        const doc = await documentsApi.create({
+        const doc = await client.documents.create({
           workspaceId: workspace.id,
           folderId,
           kind,
           ...(folderId ? {} : { visibility: area === 'shared' ? 'workspace' : 'private' }),
         });
         shown.confirm();
-        router.push(`/d/${doc.id}`);
+        host.navigate({ view: 'document', id: doc.id });
         refresh();
       } catch (error) {
         shown.rollback();
@@ -170,7 +174,7 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
         busy.current = false;
       }
     },
-    [workspace.id, router, refresh, tree, placeholder],
+    [workspace.id, host, refresh, tree, placeholder, client],
   );
 
   const newFolder = useCallback(
@@ -180,7 +184,7 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
         node: placeholder('folder', 'New folder', area, parentId),
       });
       try {
-        const folder = await foldersApi.create({
+        const folder = await client.folders.create({
           workspaceId: workspace.id,
           parentId,
           name: 'New folder',
@@ -196,7 +200,7 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
         errorToast(error, 'Couldn’t create the folder');
       }
     },
-    [workspace.id, refresh, tree, placeholder],
+    [workspace.id, refresh, tree, placeholder, client],
   );
 
   // Newest version seen per document in this tab (autosaves, moves, restores announce theirs), so a
@@ -211,20 +215,25 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
     return () => window.removeEventListener(DOCUMENT_CHANGED_EVENT, listener);
   }, []);
 
-  const renameDocument = useCallback(async (node: DocumentNode, title: string) => {
-    const baseVersion = Math.max(node.version ?? 0, knownVersions.current.get(node.id) ?? 0);
-    try {
-      return await documentsApi.update(node.id, { baseVersion, title });
-    } catch (error) {
-      // A title-only patch can't clobber content: if the title on the server is still the one the
-      // user saw, only other fields changed (e.g. the body was edited elsewhere) — re-send once.
-      const server = isApiError(error, 'stale_version') ? error.body?.document : undefined;
-      if (server && canRebase({ title }, { title: node.title, contentJson: null }, server)) {
-        return documentsApi.update(node.id, { baseVersion: server.version, title });
+  const renameDocument = useCallback(
+    async (node: DocumentNode, title: string) => {
+      const baseVersion = Math.max(node.version ?? 0, knownVersions.current.get(node.id) ?? 0);
+      try {
+        return await client.documents.update(node.id, { baseVersion, title });
+      } catch (error) {
+        // A title-only patch can't clobber content: if the title on the server is still the one the
+        // user saw, only other fields changed (e.g. the body was edited elsewhere) — re-send once.
+        const server = isApiError(error, 'stale_version')
+          ? (error.details as ApiErrorBody | undefined)?.document
+          : undefined;
+        if (server && canRebase({ title }, { title: node.title, contentJson: null }, server)) {
+          return client.documents.update(node.id, { baseVersion: server.version, title });
+        }
+        throw error;
       }
-      throw error;
-    }
-  }, []);
+    },
+    [client],
+  );
 
   const rename = useCallback(
     async (node: DocumentNode, name: string) => {
@@ -234,7 +243,7 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
       const shown = tree.apply({ type: 'rename', id: node.id, title: next });
       try {
         if (node.kind === 'folder') {
-          await foldersApi.rename(node.id, next);
+          await client.folders.update(node.id, { name: next });
         } else {
           announceDocumentChange(await renameDocument(node, next));
         }
@@ -245,7 +254,7 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
         if (isApiError(error, 'stale_version')) {
           toast.error('This page was renamed elsewhere', {
             description: 'Reload to get the latest version, then rename it again.',
-            action: { label: 'Reload', onClick: () => window.location.reload() },
+            action: { label: 'Reload', onClick: refresh },
           });
           refresh();
           return;
@@ -253,7 +262,7 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
         errorToast(error, 'Couldn’t rename');
       }
     },
-    [refresh, renameDocument, tree],
+    [refresh, renameDocument, tree, client],
   );
 
   const doMove = useCallback(
@@ -266,9 +275,9 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
       });
       try {
         if (node.kind === 'folder') {
-          await foldersApi.move(node.id, { parentId: folderId, makePrivate });
+          await client.folders.move(node.id, { parentId: folderId, makePrivate });
         } else {
-          announceDocumentChange(await documentsApi.move(node.id, { folderId, makePrivate }));
+          announceDocumentChange(await client.documents.move(node.id, { folderId, makePrivate }));
         }
       } catch (error) {
         shown.rollback();
@@ -279,7 +288,7 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
       const target = folderId ? pathOf(documents, folderId) : null;
       toast.success(`Moved ${titleOf(node)}`, target ? { description: `Now in ${target}` } : {});
     },
-    [documents, refresh, tree],
+    [documents, refresh, tree, client],
   );
 
   const move = useCallback(
@@ -326,7 +335,7 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
     async (node: DocumentNode, { quiet = false } = {}) => {
       const shown = tree.apply({ type: 'restore', id: node.id });
       try {
-        announceDocumentChange(await documentsApi.restore(node.id));
+        announceDocumentChange(await client.documents.restore(node.id));
         shown.confirm();
         refresh();
         if (!quiet) toast.success(`Restored ${titleOf(node)}`);
@@ -335,14 +344,14 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
         errorToast(error, 'Couldn’t restore');
       }
     },
-    [refresh, tree],
+    [refresh, tree, client],
   );
 
   const trashDocument = useCallback(
     async (node: DocumentNode) => {
       const shown = tree.apply({ type: 'trash', id: node.id, deletedAt: new Date().toISOString() });
       try {
-        announceDocumentChange(await documentsApi.trash(node.id));
+        announceDocumentChange(await client.documents.delete(node.id));
         shown.confirm();
         refresh();
         toast.success(`Moved ${titleOf(node)} to the trash`, {
@@ -353,7 +362,7 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
         errorToast(error, 'Couldn’t move to the trash');
       }
     },
-    [refresh, tree, restore],
+    [refresh, tree, restore, client],
   );
 
   const remove = useCallback(
@@ -378,7 +387,7 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
             deletedAt: new Date().toISOString(),
           });
           try {
-            await foldersApi.delete(node.id);
+            await client.folders.delete(node.id);
           } catch (error) {
             shown.rollback();
             throw error;
@@ -386,20 +395,20 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
           shown.confirm();
           refresh();
           toast.success(`Deleted ${titleOf(node)}`);
-          if (pathname === `/d/${node.id}`) router.push('/home');
+          if (pathname === `/d/${node.id}`) host.navigate({ view: 'home' });
         },
       });
     },
-    [documents, trashDocument, refresh, pathname, router, tree],
+    [documents, trashDocument, refresh, pathname, host, tree, client],
   );
 
   const deleteForever = useCallback(
     async (node: DocumentNode) => {
       const shown = tree.apply({ type: 'deleteForever', id: node.id });
       try {
-        await documentsApi.deleteForever(node.id);
+        await client.documents.deleteForever(node.id);
         shown.confirm();
-        if (pathname === `/d/${node.id}`) router.push('/home');
+        if (pathname === `/d/${node.id}`) host.navigate({ view: 'home' });
         refresh();
         toast.success(`Deleted ${titleOf(node)} forever`);
       } catch (error) {
@@ -407,7 +416,7 @@ export function TreeActionsProvider({ children }: { children: React.ReactNode })
         errorToast(error, 'Couldn’t delete');
       }
     },
-    [pathname, router, refresh, tree],
+    [pathname, host, refresh, tree, client],
   );
 
   const value = useMemo<TreeActions>(

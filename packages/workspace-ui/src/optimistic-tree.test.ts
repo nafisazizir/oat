@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { DocumentNode } from '@/lib/tree';
+import type { DocumentNode } from './tree';
 
 import { applyTreeOps } from './optimistic-tree';
 

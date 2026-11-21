@@ -1,0 +1,50 @@
+{
+  "name": "@oat/workspace-ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared workspace shell and tree UI",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles.css",
+    "./host": "./src/host.tsx",
+    "./shell-data": "./src/shell-data.tsx",
+    "./tree-actions": "./src/tree-actions.tsx",
+    "./leave-workspace-dialog": "./src/leave-workspace-dialog.tsx",
+    "./*": "./src/*.ts",
+    "./*.test": null
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:int": "vitest run --mode int --passWithNoTests"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "dependencies": {
+    "@oat/ui": "workspace:*",
+    "@oat/core": "workspace:*",
+    "@oat/services": "workspace:*",
+    "@oat/client": "workspace:*",
+    "@tabler/icons-react": "catalog:",
+    "sonner": "catalog:"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "eslint-plugin-react-hooks": "catalog:",
+    "globals": "catalog:",
+    "jsdom": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

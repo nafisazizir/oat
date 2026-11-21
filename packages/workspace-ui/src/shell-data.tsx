@@ -10,7 +10,7 @@ import {
   useState,
 } from 'react';
 
-import type { ShellData } from '@/lib/tree';
+import type { ShellData } from './tree';
 
 import { applyTreeOps, type TreeOp } from './optimistic-tree';
 

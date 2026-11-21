@@ -40,7 +40,7 @@ import { titleOf } from '@/lib/tree';
 import { Highlight } from '../search/highlight';
 import { useSearch } from '../search/use-search';
 import { useTheme } from '../theme-provider';
-import { useShellData } from './shell-data';
+import { useShellData } from '@oat/workspace-ui/shell-data';
 import { useNewNote } from './use-new-note';
 
 type CommandMenuContextValue = { open: boolean; setOpen: (open: boolean) => void };

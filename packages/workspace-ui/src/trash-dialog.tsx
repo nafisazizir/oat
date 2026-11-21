@@ -19,14 +19,18 @@ import {
   ItemTitle,
 } from '@oat/ui/components/item';
 import { IconArrowBackUp, IconFileText, IconNotes, IconTrash } from '@tabler/icons-react';
-import Link from 'next/link';
+import { useWorkspaceHost } from './host';
 import { useState } from 'react';
 
-import { formatDay } from '@/lib/format';
-import { type DocumentNode, titleOf } from '@/lib/tree';
+import { type DocumentNode, titleOf } from './tree';
 
 import { useShellData } from './shell-data';
 import { useTreeActions } from './tree-actions';
+
+const formatDay = (date: string) =>
+  new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(
+    new Date(date),
+  );
 
 /**
  * The trash of the active workspace: documents the user may still read (their own, plus non-private
@@ -67,6 +71,7 @@ export function TrashDialog({
 }
 
 function TrashRow({ node, onNavigate }: { node: DocumentNode; onNavigate: () => void }) {
+  const { Link } = useWorkspaceHost();
   const { restore, deleteForever } = useTreeActions();
   const [confirming, setConfirming] = useState(false);
   const Icon = node.kind === 'meeting' ? IconNotes : IconFileText;
@@ -80,7 +85,7 @@ function TrashRow({ node, onNavigate }: { node: DocumentNode; onNavigate: () => 
       <ItemContent className="min-w-0">
         <ItemTitle className="w-full">
           <Link
-            href={`/d/${node.id}`}
+            route={{ view: 'document', id: node.id }}
             onClick={onNavigate}
             className="truncate rounded-sm focus-visible:underline focus-visible:outline-none"
           >

@@ -35,9 +35,8 @@ import {
   IconPlus,
   IconTrash,
 } from '@tabler/icons-react';
-import type { Route } from 'next';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useWorkspaceHost } from './host';
+import { hrefOf } from './routes';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -49,7 +48,7 @@ import {
   findDocument,
   sectionOf,
   titleOf,
-} from '@/lib/tree';
+} from './tree';
 
 import { isPendingId } from './optimistic-tree';
 import { useShellData } from './shell-data';
@@ -127,7 +126,8 @@ function activeAncestorsOf(documents: readonly DocumentNode[], pathname: string)
  * inside and Delete.
  */
 export function TreeSection({ area }: { area: Area }) {
-  const pathname = usePathname();
+  const host = useWorkspaceHost();
+  const pathname = hrefOf(host.route).split('?')[0]!;
   const { documents, user } = useShellData();
   const actions = useTreeActions();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
@@ -227,6 +227,7 @@ function TreeRow({ row, active, onToggle }: { row: Row; active: boolean; onToggl
     if (dragged && dragged.id !== node.id) void actions.move(dragged, node.id);
   }, isFolder && node.access.edit);
   const indent = { paddingInlineStart: `calc(0.5rem + ${depth} * 0.875rem)` };
+  const { Link } = useWorkspaceHost();
   const pending = isPendingId(node.id);
 
   return (
@@ -248,7 +249,9 @@ function TreeRow({ row, active, onToggle }: { row: Row; active: boolean; onToggl
       ) : (
         <SidebarMenuButton
           // Not openable until the server has created it (a moment after it appears).
-          render={pending ? <span aria-disabled /> : <Link href={`/d/${node.id}` as Route} />}
+          render={
+            pending ? <span aria-disabled /> : <Link route={{ view: 'document', id: node.id }} />
+          }
           isActive={active}
           tooltip={title}
           style={indent}

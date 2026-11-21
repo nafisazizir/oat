@@ -27,7 +27,7 @@ import { useState, useTransition } from 'react';
 
 import { deleteWorkspace } from '@/server/actions/members';
 
-import { LeaveWorkspaceDialog } from './leave-workspace-dialog';
+import { LeaveWorkspaceDialog } from '@oat/workspace-ui/leave-workspace-dialog';
 
 function Row({
   title,

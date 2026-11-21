@@ -36,26 +36,21 @@ import {
   IconTrash,
   IconUserPlus,
 } from '@tabler/icons-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useWorkspaceHost } from './host';
 import { useOptimistic, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
-import { inSection, sections } from '@/lib/navigation';
-import type { Workspace } from '@/lib/tree';
-import { switchWorkspace } from '@/server/actions/workspaces';
-import { LeaveWorkspaceDialog } from '@/components/workspace/leave-workspace-dialog';
-import { WorkspaceAvatar } from '@/components/workspace/workspace-avatar';
+import { hrefOf, routeOf, inSection, sections } from './routes';
+import type { Workspace } from './tree';
+import { LeaveWorkspaceDialog } from './leave-workspace-dialog';
+import { WorkspaceAvatar } from './workspace-avatar';
 
-import { useCommandMenu } from './command-menu';
 import { CreateWorkspaceDialog } from './create-workspace-dialog';
 import { TreeSection } from './page-tree';
 import { useOptimisticTree, useShellData } from './shell-data';
 import { useTreeActions } from './tree-actions';
-import { AccountMenuItems } from './user-menu';
 import { Button } from '@oat/ui/components/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
-import { ThemeMenu } from '../theme-toggle';
 
 function WorkspaceTile({ workspace, className }: { workspace: Workspace; className?: string }) {
   return <WorkspaceAvatar workspace={workspace} {...(className ? { className } : {})} />;
@@ -65,7 +60,9 @@ function memberLabel(workspace: Workspace) {
   return workspace.members === 1 ? '1 member' : `${workspace.members} members`;
 }
 
-function WorkspaceSwitcher() {
+export function WorkspaceSwitcher({ accountItems }: { accountItems?: React.ReactNode }) {
+  const host = useWorkspaceHost();
+  const { Link } = host;
   const { workspace: loadedWorkspace, workspaces, canJoin } = useShellData();
   // The picked workspace shows in the switcher right away; the rest of the shell follows the refresh.
   const [currentWorkspace, showWorkspace] = useOptimistic(loadedWorkspace);
@@ -82,8 +79,12 @@ function WorkspaceSwitcher() {
   const switchTo = (workspace: Workspace) =>
     startTransition(async () => {
       showWorkspace(workspace);
-      const result = await switchWorkspace(workspace.id);
-      if (!result.ok) toast.error(result.error);
+      try {
+        await host.client.workspaces.switchActive(workspace.id);
+        host.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Couldn’t switch workspace.');
+      }
     });
 
   return (
@@ -139,14 +140,17 @@ function WorkspaceSwitcher() {
           )}
           <DropdownMenuGroup>
             {!canSwitch && <DropdownMenuLabel>Workspace</DropdownMenuLabel>}
-            <DropdownMenuItem nativeButton={false} render={<Link href="/settings/workspace" />}>
+            <DropdownMenuItem
+              nativeButton={false}
+              render={<Link route={routeOf('/settings/workspace')} />}
+            >
               <IconSettings />
               Workspace settings
             </DropdownMenuItem>
             {canInvite && (
               <DropdownMenuItem
                 nativeButton={false}
-                render={<Link href="/settings/workspace/members" />}
+                render={<Link route={routeOf('/settings/workspace/members')} />}
               >
                 <IconUserPlus />
                 Invite members
@@ -160,7 +164,7 @@ function WorkspaceSwitcher() {
               // Only while something is open to me: an invitation, or a workspace on my email domain.
               <DropdownMenuItem
                 nativeButton={false}
-                render={<Link href="/join" data-testid="join-workspace" />}
+                render={<Link route={routeOf('/join')} data-testid="join-workspace" />}
               >
                 <IconDoorEnter />
                 Join a workspace
@@ -173,7 +177,7 @@ function WorkspaceSwitcher() {
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
-          <AccountMenuItems />
+          {accountItems}
         </DropdownMenuContent>
       </DropdownMenu>
       <CreateWorkspaceDialog open={createOpen} onOpenChange={setCreateOpen} />
@@ -188,9 +192,24 @@ function WorkspaceSwitcher() {
   );
 }
 
-export function AppSidebar() {
-  const pathname = usePathname();
-  const { setOpen: openCommandMenu } = useCommandMenu();
+export function AppSidebar({
+  top,
+  primaryAction,
+  beforeTree,
+  footerExtra,
+  accountItems,
+  onSearch,
+}: {
+  top?: React.ReactNode;
+  primaryAction?: React.ReactNode;
+  beforeTree?: React.ReactNode;
+  footerExtra?: React.ReactNode;
+  accountItems?: React.ReactNode;
+  onSearch?: () => void;
+}) {
+  const host = useWorkspaceHost();
+  const { Link } = host;
+  const pathname = hrefOf(host.route).split('?')[0]!;
   const { workspace, trash } = useShellData();
   const { openTrash } = useTreeActions();
   const { saving } = useOptimisticTree();
@@ -203,10 +222,15 @@ export function AppSidebar() {
       // Sidebar changes show before the server confirms them; e2e waits for this before navigating.
       data-saving={saving || undefined}
     >
+      {top}
       <SidebarHeader>
+        {primaryAction}
         <SidebarMenu className="gap-0.5">
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Search · ⌘K" onClick={() => openCommandMenu(true)}>
+            <SidebarMenuButton
+              tooltip="Search · ⌘K"
+              onClick={() => (onSearch ? onSearch() : host.navigate({ view: 'search' }))}
+            >
               <IconSearch />
               <span>Search</span>
             </SidebarMenuButton>
@@ -216,7 +240,7 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              render={<Link href={sections.home.href} />}
+              render={<Link route={routeOf(sections.home.href)} />}
               isActive={pathname === sections.home.href}
               tooltip={sections.home.label}
             >
@@ -226,7 +250,7 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              render={<Link href={sections.tasks.href} data-testid="nav-tasks" />}
+              render={<Link route={routeOf(sections.tasks.href)} data-testid="nav-tasks" />}
               isActive={pathname === sections.tasks.href}
               tooltip={sections.tasks.label}
             >
@@ -236,7 +260,7 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              render={<Link href={sections.assistant.href} data-testid="nav-assistant" />}
+              render={<Link route={routeOf(sections.assistant.href)} data-testid="nav-assistant" />}
               isActive={inSection(pathname, sections.assistant.href)}
               tooltip={sections.assistant.label}
             >
@@ -248,6 +272,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        {beforeTree}
         {/* D-36: the two places a note can be. New notes start in Private. */}
         <TreeSection area="private" />
         <TreeSection area="shared" />
@@ -265,7 +290,7 @@ export function AppSidebar() {
                   variant="ghost"
                   size="icon-sm"
                   aria-label="Templates"
-                  render={<Link href={sections.templates.href} />}
+                  render={<Link route={routeOf(sections.templates.href)} />}
                 />
               }
             >
@@ -306,7 +331,7 @@ export function AppSidebar() {
                   variant="ghost"
                   size="icon-sm"
                   aria-label="Settings"
-                  render={<Link href={sections.settings.href} />}
+                  render={<Link route={routeOf(sections.settings.href)} />}
                 />
               }
             >
@@ -314,11 +339,11 @@ export function AppSidebar() {
             </TooltipTrigger>
             <TooltipContent>Settings</TooltipContent>
           </Tooltip>
-          <ThemeMenu />
+          {footerExtra}
         </div>
         <SidebarMenu>
           <SidebarMenuItem>
-            <WorkspaceSwitcher />
+            <WorkspaceSwitcher accountItems={accountItems} />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

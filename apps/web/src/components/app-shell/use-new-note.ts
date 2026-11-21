@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 
-import { useTreeActions } from './tree-actions';
+import { useTreeActions } from '@oat/workspace-ui/tree-actions';
 
 /** "New note": a new meeting note at the top level of Private, opened right away. */
 export function useNewNote() {

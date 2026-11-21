@@ -15,7 +15,7 @@ import { Spinner } from '@oat/ui/components/spinner';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
-import { createWorkspace } from '@/server/actions/workspaces';
+import { useWorkspaceHost } from './host';
 
 /** Minimal "new workspace" dialog: a name, then switch to it. */
 export function CreateWorkspaceDialog({
@@ -25,6 +25,7 @@ export function CreateWorkspaceDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const host = useWorkspaceHost();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -43,11 +44,13 @@ export function CreateWorkspaceDialog({
             event.preventDefault();
             const name = String(new FormData(event.currentTarget).get('name') ?? '');
             startTransition(async () => {
-              const result = await createWorkspace(name);
-              if (!result.ok) {
-                setError(result.error);
+              try {
+                await host.client.workspaces.create({ name });
+              } catch (error) {
+                setError(error instanceof Error ? error.message : 'Couldn’t create the workspace.');
                 return;
               }
+              host.refresh();
               setError(null);
               onOpenChange(false);
               toast.success(`Created ${name.trim()}`);
