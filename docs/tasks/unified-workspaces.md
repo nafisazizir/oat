@@ -1,5 +1,5 @@
 # unified-workspaces — one kind of workspace, Private + Shared inside it
-status: in-progress
+status: done
 milestone: M9 · deps: 5.1, 5.3, 3.9, ui-calm-shell · branch: task/unified-workspaces (steps: task/unified-workspaces-a, -b, -c, each merged into it in order)
 
 ## Goal
