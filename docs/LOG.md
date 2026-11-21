@@ -145,7 +145,7 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 
 - Replaced the shared UI component sources with the ziiz registry (all except chart and carousel), added Base UI, Tabler and registry dependencies, and installed ziiz 0.1.1 through the catalog.
 - Imported the supplied oat palette after ziiz and before the shadcn slot bridge. Exposed the complete brand scale and retained compatibility aliases for existing app/editor consumers.
-- Self-hosted Inter and JetBrains Mono; retained Newsreader solely for the editor's blockquotes.
+- Self-hosted UI and mono fonts; retained Newsreader for editor blockquotes. Current typography: D-33.
 - Migrated render composition, menu groups and activation, Select label metadata, array-valued toggle groups and popup focus restoration without app redesign.
 - Verification and screenshot evidence: docs/tasks/ui-foundation.md.
 - Final fast CI green; web, desktop and gallery production builds pass. Light/dark gallery screenshots verified. Full integration tests pass; web E2E is blocked before app startup by the VM's missing pgvector extension. Editor E2E passes after installing the missing local Chromium binary; macOS-only checks are skipped on Linux.
@@ -207,3 +207,27 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 - PR 11 CI escalation at pushed `f2b07e9`: Linux failed; Swift and Review passed. Downloaded CI traces: dark search snippets fail axe contrast at 4.1:1; independently reproduced on `origin/main` (`6b4c68d`) after waiting for indexing. Templates encountered sync-events 429s, then dirty retry state; exact quota cause remains unverified. Existing failing specs pass locally on both branches; full base web suite **64 passed, 17 skipped**. Stopped before unrelated search styling/sync-policy changes; lead scope decision required. [task](tasks/web-recording.md)
 - Authorized PR 11 CI follow-up: primary-ramp highlight text with two-theme AA token test, fresh template identity per attempt, indexed-snippet readiness before axe, and runtime sync-event request-count assertions through capture/navigation/Retry. Sync subscriber and limiter are unchanged from main; recording/recovery add no sync EventSource, and runtime counts remain stable. CI 429s were the existing per-user sync-events quota under a shared test identity (`Retry-After: 30`); exact quota bucket is not recoverable from recorded bodies. No limiter relaxation. Fast CI **ci: ok** (63.0s); affected E2Es **7 passed, 1 skipped (1.5m)**. Remote checks watched after push. [task](tasks/web-recording.md)
 - PR 11 Linux follow-up: contrast, template isolation and SSE-count checks passed remotely; recording replay assertion clicked during the transient pause between archive parts. CI trace establishes pause at 11,500 ms, automatic part-2 play at 11,700 ms, then test-induced pause; final archive end is 12,730 ms. Require native ended + final-part playhead before replay, retaining all playback assertions. Fast CI **ci: ok** (26.5s); recording E2E **2 passed (42.6s)**. No production playback changes. [task](tasks/web-recording.md)
+
+## 2026-11-21 — UI redesign PR 1: typography
+
+- D-33 records Geist Mono, regular Newsreader display titles and the clean-room calm-layout direction.
+  Replaced the mono dependency and added shared display roles across web/desktop page and note titles;
+  editor body remains Inter. Added gallery/unit coverage and two-theme browser checks, including empty
+  titles and the missing-document page. Included `research/granola/ui-design.md` as requested.
+- Web title/document/meeting E2Es: **13 passed (1.8m)**. Built desktop renderer and visually inspected
+  web document/Home and desktop meeting/transcript at 1440×900 in both themes, under
+  `/home/ubuntu/shots/pr1/`. Desktop uses the existing simulated bridge, not native Electron/audio.
+- First fast CI passed format/actionlint/typecheck/lint; an unchanged editor Markdown property test
+  timed out at 5000 ms (5658 ms elapsed) during concurrent browser tests. Without concurrent E2E load,
+  fast CI passed all five gates (**ci: ok**, 33.1s), including **112 shared UI tests**. No editor test,
+  timeout or CI changes. Review retained existing 20px metrics on error/empty/signing-in titles;
+  typography E2E rerun **3 passed** (including auth setup), desktop rebuilt. No PR opened.
+  [task](tasks/ui-type-geist-mono.md)
+
+## 2026-11-21 — PR 1 typography feedback
+
+- Human requested Inter headings, not serif display titles. Removed the display roles and restored
+  previous Inter title roles/usages; kept Geist Mono and existing Newsreader editor blockquotes.
+  Updated D-33, gallery and typography tests. The earlier serif screenshots are superseded.
+  Fast CI **ci: ok** (52.1s); revised light/dark typography E2E **3 passed** (including auth setup).
+  Product title files match their pre-PR 1 Inter sources. [task](tasks/ui-type-geist-mono.md)

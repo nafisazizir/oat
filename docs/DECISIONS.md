@@ -252,3 +252,10 @@ Web recording supports meetings held in a browser tab: microphone = "me", shared
 Audio stays on the recording device in browser storage (OPFS), never uploaded or synced. This extends
 D-10 without changing it; desktop remains the capture path for native call apps. Implementation is split:
 step A adds browser capture, live STT and transcript sync; step B adds the local archive and playback.
+
+## D-33 · 2026-11-21 · accepted · human
+UI redesign direction: a Granola-inspired calm layout, described in
+`research/granola/ui-design.md`, with Oat's own visual identity (clean-room rules still apply).
+Self-host Geist Mono through Fontsource for all mono roles. Headings, page/document titles and UI/body
+text stay Inter. Newsreader remains available for editor blockquotes only. Per human feedback, no serif
+display-title roles are introduced. Layout changes follow in later PRs.

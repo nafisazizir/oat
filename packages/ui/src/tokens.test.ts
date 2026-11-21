@@ -72,9 +72,9 @@ describe('oat palette', () => {
     for (const name of brand) expect(styles).toContain(`--color-${name.slice(5)}: var(${name})`);
   });
 
-  it('uses bundled Inter and JetBrains Mono and retains the editor serif', () => {
+  it('uses bundled Inter, Geist Mono and Newsreader', () => {
     expect(styles).toContain('@fontsource-variable/inter/wght.css');
-    expect(styles).toContain('@fontsource-variable/jetbrains-mono/wght.css');
+    expect(styles).toContain('@fontsource-variable/geist-mono/wght.css');
     expect(styles).toContain('@fontsource-variable/newsreader/opsz.css');
     expect(styles).not.toMatch(/https?:\/\/|instrument-sans/);
   });
