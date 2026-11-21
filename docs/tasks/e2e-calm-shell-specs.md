@@ -124,3 +124,39 @@ the owner of `task/unified-workspaces`; not masked in the spec.
 3. **"No transcript yet" start copy** ("Start recording to transcribe your microphone (you) and your
    computer's audio (them), live") is unreachable on the desktop: no panel without a note. Home's "No notes
    yet" is asserted instead.
+
+- `auth.spec.ts` "Google (mock issuer)" failed in one full run and 1 of 2 runs alone: the provider redirects
+  back to `/home` without a `goto`, so nothing waited for hydration and the click on the switcher was dead
+  (the ci-flakes class). It now waits with the hydration-aware `page.waitForURL` first; 8/8 after.
+
+## Evidence
+
+Final `pnpm install && pnpm run ci` (third full run; 2026-11-21):
+
+```
+step             status     time  note
+format           pass       5.0s
+actionlint       pass       0.2s
+typecheck        pass       3.4s
+lint             pass       4.5s
+test             pass       1.9s
+stack            pass       0.2s
+migrate          pass       1.7s
+swift:release    pass       0.3s
+test:int         pass     211.8s
+e2e              FAIL     506.7s  failing package(s): @oat/desktop
+acceptance       FAIL      49.2s  pnpm --filter @oat/acceptance run acceptance exited with 1
+swift:build      pass       0.8s
+swift:test       pass       4.1s
+swift:synthetic  pass       2.2s
+total                     792.1s
+```
+
+- `e2e`: desktop 27 passed, 1 failed (`a11y.spec.ts`, the product regression above); web 77 passed; editor
+  16 passed.
+- `acceptance`: passed in the two earlier full runs (73.1 s, 83.9 s) and in 3 of 3 runs alone (two of them
+  right after this failure: 76.4 s, 79.2 s). In this run the Electron window went away 40 s in, while the
+  journey waited for the fixture recording to end ("Target page, context or browser has been closed",
+  status still `recording`): the app was closed or crashed, no assertion about the UI failed. Not
+  reproduced; cause unknown (other agents were running desktop suites on the machine).
+- `storage.spec.ts` failed in the first full run only (the workspace race above).
