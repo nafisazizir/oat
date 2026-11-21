@@ -293,7 +293,8 @@ visibility inside a workspace) confusing. Privacy is now only per item: every wo
   everything in that workspace, including their private notes (as today). They can export their own notes
   (Markdown) before leaving; the leave dialog offers it. Admins still cannot read other members' private notes.
   What happens to orphaned private notes afterwards (retention/purge) is unchanged and stays a later task.
-- **Agent refinements (reversible):** the switcher is hidden while a user has one workspace; the last workspace
+- **Agent refinements (reversible):** while a user has one workspace the workspace menu shows no workspace list or
+  selector arrows (the menu itself stays, so settings, invite, create and join remain reachable); the last workspace
   a user belongs to can't be left or deleted without first creating/joining another (no account is ever
   workspace-less); where the desktop used to fall back to Personal (recording while the active workspace is
   view-only), it falls back to the first workspace the user can create in, else asks them to create one.
