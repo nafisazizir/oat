@@ -32,11 +32,6 @@ export const ROLES = ['owner', 'admin', 'member', 'viewer'] as const;
 export const RoleSchema = z.enum(ROLES);
 export type Role = z.infer<typeof RoleSchema>;
 
-/** A personal workspace has exactly one member (its owner); a team workspace has many. */
-export const WORKSPACE_KINDS = ['personal', 'team'] as const;
-export const WorkspaceKindSchema = z.enum(WORKSPACE_KINDS);
-export type WorkspaceKind = z.infer<typeof WorkspaceKindSchema>;
-
 export const FOLDER_VISIBILITIES = ['private', 'workspace'] as const;
 export const FolderVisibilitySchema = z.enum(FOLDER_VISIBILITIES);
 export type FolderVisibility = z.infer<typeof FolderVisibilitySchema>;
@@ -83,7 +78,6 @@ export type User = z.infer<typeof UserSchema>;
 export const WorkspaceSchema = z.object({
   id: IdSchema,
   name: z.string().min(1),
-  kind: WorkspaceKindSchema,
   createdBy: IdSchema,
   createdAt: timestamp,
 });

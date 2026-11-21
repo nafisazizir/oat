@@ -20,7 +20,6 @@ import {
   TRANSCRIPT_SOURCES,
   TranscriptSegmentSchema,
   UserSchema,
-  WORKSPACE_KINDS,
   WorkspaceSchema,
   type Document,
   type Role,
@@ -48,7 +47,6 @@ const validDocument = {
 describe('enums', () => {
   it('exposes the SPEC §6 values', () => {
     expect(ROLES).toEqual(['owner', 'admin', 'member', 'viewer']);
-    expect(WORKSPACE_KINDS).toEqual(['personal', 'team']);
     expect(FOLDER_VISIBILITIES).toEqual(['private', 'workspace']);
     expect(DOCUMENT_VISIBILITIES).toEqual(['private', 'workspace', 'link']);
     expect(DOCUMENT_KINDS).toEqual(['meeting', 'page']);
@@ -95,8 +93,7 @@ describe('other entities', () => {
     expect(() =>
       WorkspaceSchema.parse({
         id: 'w',
-        name: 'Personal',
-        kind: 'personal',
+        name: 'Acme',
         createdBy: 'u',
         createdAt: NOW,
       }),

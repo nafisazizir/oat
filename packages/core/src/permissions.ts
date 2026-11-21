@@ -44,25 +44,25 @@
  *
  * `decideMove*` return `{ allowed, setVisibility? }`; `canMove*` are their boolean forms.
  *
- * Workspaces (personal workspaces have exactly one member, their owner)
+ * Workspaces (one kind, D-36: every workspace can have members, be renamed, left and deleted)
  * | Action           | Rule                                                                                  |
  * |------------------|---------------------------------------------------------------------------------------|
  * | create in        | editor role (viewers never create).                                                   |
- * | manage members   | team workspace and owner/admin.                                                       |
+ * | manage members   | owner/admin.                                                                          |
  * | invite(role)     | manage members, and `role` ≤ actor's role (admins can't invite owners).               |
  * | change role      | manage members; target in this workspace; owners change anyone; admins change only    |
  * |                  | members/viewers and grant at most admin; never demote the last owner.                 |
- * | remove member    | team workspace; target in this workspace; never the last owner. Anyone may leave      |
- * |                  | (remove themselves); otherwise owners remove anyone, admins only members/viewers.     |
- * | delete workspace | team workspace and owner.                                                             |
+ * | remove member    | target in this workspace; never the last owner. Anyone may leave (remove themselves)  |
+ * |                  | unless it is their last workspace; otherwise owners remove anyone, admins only        |
+ * |                  | members/viewers.                                                                      |
+ * | delete workspace | owner, and not the actor's last workspace.                                            |
+ *
+ * "Last workspace" (D-36: no account is ever left without one by its own action) is read from the context:
+ * `ctx.memberships` must hold **all** of the actor's memberships in live workspaces (as
+ * `createPermissionContext` is normally given). A context built from one workspace's rows alone therefore
+ * refuses leaving and deleting — it fails closed.
  */
-import type {
-  DocumentVisibility,
-  FolderVisibility,
-  Membership,
-  Role,
-  WorkspaceKind,
-} from './types.ts';
+import type { DocumentVisibility, FolderVisibility, Membership, Role } from './types.ts';
 
 // ---------------------------------------------------------------------------------------------------------
 // Context and resource shapes
@@ -97,7 +97,6 @@ export interface FolderAccess {
 /** The fields of a workspace that permissions depend on (a full `Workspace` also fits). */
 export interface WorkspaceAccess {
   readonly id: string;
-  readonly kind: WorkspaceKind;
 }
 
 /** A membership being changed or removed, plus how many owners the workspace has right now. */
@@ -382,7 +381,7 @@ export function canCreateInWorkspace(ctx: PermissionContext, workspace: Workspac
 
 /** Opening member management at all (listing invites, changing roles, removing others). */
 export function canManageMembers(ctx: PermissionContext, workspace: WorkspaceAccess): boolean {
-  return workspace.kind === 'team' && isAdmin(roleIn(ctx, workspace.id));
+  return isAdmin(roleIn(ctx, workspace.id));
 }
 
 /** Inviting someone with `role`; nobody can invite above their own role. */
@@ -404,21 +403,30 @@ export function canChangeRole(
   return !isLastOwner(target) || newRole === 'owner';
 }
 
-/** Removing a member, including leaving a workspace yourself. */
+/**
+ * Whether `workspaceId` is the only workspace the actor belongs to (per the context's memberships): it can't
+ * be left or deleted until they create or join another one (D-36).
+ */
+export function isLastWorkspace(ctx: PermissionContext, workspaceId: string): boolean {
+  return ctx.memberships.has(workspaceId) && ctx.memberships.size <= 1;
+}
+
+/** Removing a member, including leaving a workspace yourself (never your last one). */
 export function canRemoveMember(
   ctx: PermissionContext,
   workspace: WorkspaceAccess,
   target: MemberTarget,
 ): boolean {
-  if (workspace.kind !== 'team' || target.workspaceId !== workspace.id) return false;
+  if (target.workspaceId !== workspace.id) return false;
   const actor = roleIn(ctx, workspace.id);
   if (actor === undefined || isLastOwner(target)) return false;
-  if (target.userId === ctx.userId) return true;
+  if (target.userId === ctx.userId) return !isLastWorkspace(ctx, workspace.id);
   return isAdmin(actor) && manages(actor, target.role);
 }
 
+/** Deleting a workspace: its owners, and never the actor's last one. */
 export function canDeleteWorkspace(ctx: PermissionContext, workspace: WorkspaceAccess): boolean {
-  return workspace.kind === 'team' && roleIn(ctx, workspace.id) === 'owner';
+  return roleIn(ctx, workspace.id) === 'owner' && !isLastWorkspace(ctx, workspace.id);
 }
 
 const isLastOwner = (target: MemberTarget): boolean =>
