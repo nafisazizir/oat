@@ -680,8 +680,7 @@ Job `checks` (Checks (Linux)) runs the full `pnpm run ci` on pushes to `main` an
 browser caches, saved even when the run fails, and installs Chromium only (no `--with-deps` apt step). Its
 `stack` step brings up the compose stack on the runner, and the Swift steps report `skip`. Run it on a PR branch
 before merging UI-heavy changes, since e2e (axe contrast, a11y) is where it catches real bugs. Job `swift` runs on
-`macos-26` for PRs and pushes (`node scripts/ci.mjs --only swift`, no install). Actions are pinned by tag, runs on
-the same ref cancel each other, and there are no secrets. The 4-vCPU runner sets `OAT_TEST_TIMEOUT_SCALE=3` (vitest
+`macos-26` for PRs and pushes (`node scripts/ci.mjs --only swift`, no install). Actions are pinned by tag, newer pushes cancel older runs on the same branch (each push to `main` gets its own run, so merges don't cancel the full suite), and there are no secrets. The 4-vCPU runner sets `OAT_TEST_TIMEOUT_SCALE=3` (vitest
 timeouts) and `E2E_TIMEOUT_SCALE=2`; `pnpm run ci` caps turbo at half the cores for the vitest steps. To lint the
 workflow by hand: `node scripts/ci.mjs --only actionlint`. (Mounting the repo into the actionlint container, as in
 `docker run -v "$PWD":/repo rhysd/actionlint`, fails when Docker Desktop isn't allowed to share the folder,

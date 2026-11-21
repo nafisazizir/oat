@@ -252,3 +252,8 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   simulated, not native/audio verification. Initial selector/link-role/tooltip typing failures fixed.
   Origin/main still does not contain PR 1 feedback commit 48b4708; main rebase remains pending.
   [task](tasks/ui-calm-shell.md)
+
+## 2026-11-21 — CI: don't cancel main runs
+
+- After #14 merged, its full run on main was cancelled 6 min in by the next merge (`cancel-in-progress` on `ci-<workflow>-<ref>`). The concurrency group now uses the commit SHA on `main`, so every push to main finishes its full run. Branches and PRs still cancel older runs. [task](tasks/ci-fast-gate.md)
+
