@@ -22,23 +22,13 @@
  * Core tables (`user`, `session`, `account`, `verification`) use Better Auth's default model and field
  * names, so they need no mapping. Organization → `workspace`, member → `membership`,
  * invitation → `invite`; `organizationId` → `workspaceId` everywhere; session `activeOrganizationId` →
- * `activeWorkspaceId`. `workspace.kind` defaults to `team` and isn't accepted from request bodies; `createdBy`
- * must be set by the `beforeCreateOrganization` hook (it's NOT NULL). A partial unique index allows one
- * `personal` workspace per creator. Better Auth fieldNames are Drizzle property names.
+ * `activeWorkspaceId`. There is one kind of workspace (D-36). `createdBy` must be set by the
+ * `beforeCreateOrganization` hook (it's NOT NULL). Better Auth fieldNames are Drizzle property names.
  */
 export const organizationSchema = {
   organization: {
     modelName: 'workspace',
     additionalFields: {
-      kind: {
-        // Mutable tuple + literal flags: Better Auth's types infer the `createOrganization` body from these.
-        type: ['personal', 'team'] as ['personal', 'team'],
-        required: false as const,
-        defaultValue: 'team',
-        // Not client-settable on create or update (1.6 review): API-created workspaces are always `team`
-        // (the auth hook sets it); personal ones are made server-side, once per user.
-        input: false as const,
-      },
       createdBy: { type: 'string' as const, required: false as const, input: false as const },
       /** Soft delete (5.1, D-22): set only by `@oat/auth` `deleteWorkspace`; never from a request body. */
       deletedAt: { type: 'date' as const, required: false as const, input: false as const },

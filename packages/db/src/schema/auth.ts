@@ -21,6 +21,12 @@ export const user = pgTable(
     email: text('email').notNull().unique(),
     emailVerified: boolean('email_verified').notNull().default(false),
     image: text('image'),
+    /**
+     * The workspace this user last switched to (D-36): where their next sign-in starts, on any device. Like
+     * `session.activeWorkspaceId` it has no FK (cyclic dependency) and is checked against live memberships
+     * on use; written only by `@oat/auth` (never from a request body).
+     */
+    lastActiveWorkspaceId: text('last_active_workspace_id'),
     ...timestamps(),
   },
   (t) => [uniqueIndex('user_email_lower_uq').on(sql`lower(${t.email})`)],

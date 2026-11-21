@@ -27,7 +27,7 @@ describe('SEED ids', () => {
   it('are fixed UUIDv7-shaped strings', () => {
     const ids = [
       SEED.userId,
-      SEED.personalWorkspaceId,
+      SEED.ownWorkspaceId,
       SEED.teamWorkspaceId,
       SEED.templateId,
       SEED.meetingId,

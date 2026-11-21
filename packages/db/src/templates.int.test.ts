@@ -115,7 +115,7 @@ describe('upsertBuiltinTemplates', () => {
       .returning();
     const [ws] = await db
       .insert(s.workspace)
-      .values({ name: 'W', slug: `w-${Date.now()}`, kind: 'team', createdBy: user!.id })
+      .values({ name: 'W', slug: `w-${Date.now()}`, createdBy: user!.id })
       .returning();
     const id = newId();
     await db.insert(s.template).values({ id, workspaceId: ws!.id, name: 'Mine', isBuiltin: false });

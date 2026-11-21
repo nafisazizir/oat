@@ -7,7 +7,6 @@ import {
   PARTICIPANT_SOURCES,
   ROLES,
   TRANSCRIPT_SOURCES,
-  WORKSPACE_KINDS,
 } from '@oat/core';
 import { getTableColumns, getTableName, is } from 'drizzle-orm';
 import { PgTable } from 'drizzle-orm/pg-core';
@@ -17,7 +16,6 @@ import * as schema from './schema/index.ts';
 /** Every pg enum whose values are owned by `@oat/core`. */
 const CORE_ENUMS = [
   [schema.roleEnum, ROLES],
-  [schema.workspaceKindEnum, WORKSPACE_KINDS],
   [schema.folderVisibilityEnum, FOLDER_VISIBILITIES],
   [schema.documentVisibilityEnum, DOCUMENT_VISIBILITIES],
   [schema.documentKindEnum, DOCUMENT_KINDS],

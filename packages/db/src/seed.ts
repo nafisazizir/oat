@@ -1,11 +1,11 @@
 /**
- * Dev seed: a demo user (`demo@oat.local`) with a personal and a team workspace, a few folders and
+ * Dev seed: a demo user (`demo@oat.local`) with a workspace of their own and a team workspace, a few folders and
  * documents, and one meeting with a transcript. Idempotent: every row has a fixed id and is inserted with
  * `on conflict do nothing`, so re-running never duplicates or overwrites anything.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { TRANSCRIPT_SOURCES, type TranscriptSource } from '@oat/core';
-import { inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, ne, sql } from 'drizzle-orm';
 import type { Db } from './client.ts';
 import {
   document,
@@ -25,7 +25,7 @@ const seedId = (n: number) => `01900000-0000-7000-8000-${n.toString(16).padStart
 export const SEED = {
   userId: seedId(1),
   email: 'demo@oat.local',
-  personalWorkspaceId: seedId(10),
+  ownWorkspaceId: seedId(10),
   teamWorkspaceId: seedId(11),
   folders: { projects: seedId(20), meetings: seedId(21), drafts: seedId(22) },
   documents: { welcome: seedId(30), roadmap: seedId(31), standup: seedId(32), draft: seedId(33) },
@@ -143,51 +143,52 @@ export async function seed(
       .where(sql`lower(${user.email}) = ${SEED.email}`);
     if (!demo) throw new Error('seed: demo user missing after insert');
     const userId = demo.id;
-    const personalSlug = `personal-${userId}`;
+    const ownSlug = 'oat-demo-own';
     const teamSlug = 'oat-demo-team';
 
+    // Likewise reuse the workspace the demo user already has (auth creates one on sign-up, D-36): their
+    // oldest membership. Only a user without one gets the seeded workspace of their own.
+    const firstWorkspace = () =>
+      tx
+        .select({ id: workspace.id })
+        .from(membership)
+        .innerJoin(workspace, eq(workspace.id, membership.workspaceId))
+        .where(and(eq(membership.userId, userId), ne(workspace.slug, teamSlug)))
+        .orderBy(asc(membership.createdAt), asc(membership.id))
+        .limit(1);
+    const [existing] = await firstWorkspace();
     count(
       'workspace',
       await tx
         .insert(workspace)
         .values([
-          {
-            id: SEED.personalWorkspaceId,
-            name: 'Demo User',
-            slug: personalSlug,
-            kind: 'personal',
-            createdBy: userId,
-          },
-          {
-            id: SEED.teamWorkspaceId,
-            name: 'Oat Demo Team',
-            slug: teamSlug,
-            kind: 'team',
-            createdBy: userId,
-          },
+          ...(existing
+            ? []
+            : [
+                {
+                  id: SEED.ownWorkspaceId,
+                  name: 'Demo’s workspace',
+                  slug: ownSlug,
+                  createdBy: userId,
+                },
+              ]),
+          { id: SEED.teamWorkspaceId, name: 'Oat Demo Team', slug: teamSlug, createdBy: userId },
         ])
         .onConflictDoNothing()
         .returning({ id: workspace.id }),
     );
-    // Likewise reuse workspaces that already hold these slugs (auth creates the personal one on sign-up).
-    const bySlug = new Map(
-      (
-        await tx
-          .select({ id: workspace.id, slug: workspace.slug })
-          .from(workspace)
-          .where(inArray(workspace.slug, [personalSlug, teamSlug]))
-      ).map((w) => [w.slug, w.id]),
-    );
-    const personalWs = bySlug.get(personalSlug);
-    const teamWs = bySlug.get(teamSlug);
-    if (!personalWs || !teamWs) throw new Error('seed: demo workspaces missing after insert');
+    const slugId = async (slug: string) =>
+      (await tx.select({ id: workspace.id }).from(workspace).where(eq(workspace.slug, slug)))[0]?.id;
+    const ownWs = existing?.id ?? (await slugId(ownSlug));
+    const teamWs = await slugId(teamSlug);
+    if (!ownWs || !teamWs) throw new Error('seed: demo workspaces missing after insert');
 
     count(
       'membership',
       await tx
         .insert(membership)
         .values([
-          { id: seedId(12), workspaceId: personalWs, userId, role: 'owner' },
+          { id: seedId(12), workspaceId: ownWs, userId, role: 'owner' },
           { id: seedId(13), workspaceId: teamWs, userId, role: 'owner' },
         ])
         .onConflictDoNothing()
@@ -201,7 +202,7 @@ export async function seed(
         .values([
           {
             id: SEED.folders.projects,
-            workspaceId: personalWs,
+            workspaceId: ownWs,
             name: 'Projects',
             visibility: 'private',
             ownerId: userId,
@@ -252,19 +253,19 @@ export async function seed(
         .values([
           {
             id: SEED.documents.welcome,
-            workspaceId: personalWs,
+            workspaceId: ownWs,
             ownerId: userId,
             kind: 'page',
             title: 'Welcome to Oat',
             visibility: 'private',
             ...doc([
               { h: 'Welcome' },
-              { p: 'This is your personal workspace. Only you can see it.' },
+              { p: 'This page is private. Only you can see it.' },
             ]),
           },
           {
             id: SEED.documents.roadmap,
-            workspaceId: personalWs,
+            workspaceId: ownWs,
             folderId: SEED.folders.projects,
             ownerId: userId,
             kind: 'page',

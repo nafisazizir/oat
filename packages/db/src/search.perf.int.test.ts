@@ -81,7 +81,6 @@ beforeAll(async () => {
       id,
       name: `W${i}`,
       slug: `perf-${id}`,
-      kind: 'team' as const,
       createdBy: me,
     })),
   );

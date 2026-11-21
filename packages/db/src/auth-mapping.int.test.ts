@@ -2,7 +2,7 @@
  * Proves the schema works with Better Auth (D-9) + its organization plugin mapped onto workspace /
  * membership / invite (`auth-mapping.ts`). Better Auth's Drizzle adapter validates the schema at runtime
  * (missing tables/columns, required columns it doesn't write) and throws on the first query if it drifts.
- * Real wiring (magic link, Google, personal workspace on sign-up) is task 1.6.
+ * Real wiring (magic link, Google, a first workspace on sign-up) is task 1.6.
  */
 import { createTestDatabase, type TestDatabase } from '@oat/testkit';
 import { betterAuth } from 'better-auth';
@@ -96,7 +96,6 @@ describe('Better Auth on @oat/db', () => {
     expect(ws).toMatchObject({
       name: 'Acme',
       slug: 'acme',
-      kind: 'team',
       createdBy: owner.user.id,
     });
     const owners = await db
@@ -105,44 +104,24 @@ describe('Better Auth on @oat/db', () => {
       .where(eq(schema.membership.workspaceId, org!.id));
     expect(owners).toMatchObject([{ userId: owner.user.id, role: 'owner' }]);
 
-    // `kind` is not client-settable (input: false); personal workspaces are created server-side (here via
-    // the hook's data, in the app by @oat/auth) and Better Auth reads them back with their kind.
-    const sneaky = await auth.api.createOrganization({
-      // @ts-expect-error `kind` is not part of the create body (Better Auth drops it)
-      body: { name: 'Sneaky', slug: `sneaky-${owner.user.id}`, kind: 'personal' },
-      headers: owner.headers,
-    });
-    const [sneakyRow] = await db
-      .select()
-      .from(schema.workspace)
-      .where(eq(schema.workspace.id, sneaky!.id));
-    expect(sneakyRow?.kind).toBe('team');
-    const [pws] = await db
+    // D-36: there is one kind of workspace. A workspace made server-side (in the app by @oat/auth, for a
+    // user's first sign-in) reads back through Better Auth like any other, and a user may create several.
+    const [own] = await db
       .insert(schema.workspace)
-      .values({
-        name: 'Owner',
-        slug: `personal-${owner.user.id}`,
-        kind: 'personal',
-        createdBy: owner.user.id,
-      })
+      .values({ name: 'Owner’s workspace', slug: `own-${owner.user.id}`, createdBy: owner.user.id })
       .returning();
     await db
       .insert(schema.membership)
-      .values({ workspaceId: pws!.id, userId: owner.user.id, role: 'owner' });
-    const personalFull = await auth.api.getFullOrganization({
-      query: { organizationId: pws!.id },
+      .values({ workspaceId: own!.id, userId: owner.user.id, role: 'owner' });
+    const ownFull = await auth.api.getFullOrganization({
+      query: { organizationId: own!.id },
       headers: owner.headers,
     });
-    expect(personalFull?.kind).toBe('personal');
-    // At most one personal workspace per creator (partial unique index).
-    await expect(
-      db.insert(schema.workspace).values({
-        name: 'Owner 2',
-        slug: `personal-2-${owner.user.id}`,
-        kind: 'personal',
-        createdBy: owner.user.id,
-      }),
-    ).rejects.toThrow();
+    expect(ownFull).toMatchObject({ id: own!.id, name: 'Owner’s workspace' });
+    expect(ownFull).not.toHaveProperty('kind');
+    await db
+      .insert(schema.workspace)
+      .values({ name: 'Owner 2', slug: `own-2-${owner.user.id}`, createdBy: owner.user.id });
 
     await auth.api.setActiveOrganization({
       body: { organizationId: org!.id },

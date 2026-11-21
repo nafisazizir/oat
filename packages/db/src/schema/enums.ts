@@ -11,7 +11,6 @@ import {
   PARTICIPANT_SOURCES,
   ROLES,
   TRANSCRIPT_SOURCES,
-  WORKSPACE_KINDS,
 } from '@oat/core';
 import { pgEnum } from 'drizzle-orm/pg-core';
 
@@ -36,7 +35,6 @@ export const CHUNK_SOURCES = ['notes', 'transcript'] as const;
 export type ChunkSource = (typeof CHUNK_SOURCES)[number];
 
 export const roleEnum = pgEnum('role', ROLES);
-export const workspaceKindEnum = pgEnum('workspace_kind', WORKSPACE_KINDS);
 export const inviteStatusEnum = pgEnum('invite_status', INVITE_STATUSES);
 export const folderVisibilityEnum = pgEnum('folder_visibility', FOLDER_VISIBILITIES);
 export const documentVisibilityEnum = pgEnum('document_visibility', DOCUMENT_VISIBILITIES);

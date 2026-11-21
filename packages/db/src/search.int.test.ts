@@ -19,9 +19,9 @@ const ids = {
   bob: newId(),
   carol: newId(), // member of nothing Alice/Bob have
   dave: newId(), // former team member
-  alicePersonal: newId(),
-  bobPersonal: newId(),
-  carolPersonal: newId(),
+  aliceOwn: newId(),
+  bobOwn: newId(),
+  carolOwn: newId(),
   team: newId(),
   gone: newId(), // soft-deleted team workspace (D-22)
 };
@@ -101,33 +101,30 @@ beforeAll(async () => {
   ]);
   await db.insert(s.workspace).values([
     {
-      id: ids.alicePersonal,
+      id: ids.aliceOwn,
       name: 'A',
-      slug: `personal-${ids.alice}`,
-      kind: 'personal',
+      slug: `own-${ids.alice}`,
       createdBy: ids.alice,
     },
     {
-      id: ids.bobPersonal,
+      id: ids.bobOwn,
       name: 'B',
-      slug: `personal-${ids.bob}`,
-      kind: 'personal',
+      slug: `own-${ids.bob}`,
       createdBy: ids.bob,
     },
     {
-      id: ids.carolPersonal,
+      id: ids.carolOwn,
       name: 'C',
-      slug: `personal-${ids.carol}`,
-      kind: 'personal',
+      slug: `own-${ids.carol}`,
       createdBy: ids.carol,
     },
-    { id: ids.team, name: 'Team', slug: `team-${ids.team}`, kind: 'team', createdBy: ids.alice },
-    { id: ids.gone, name: 'Gone', slug: `gone-${ids.gone}`, kind: 'team', createdBy: ids.alice },
+    { id: ids.team, name: 'Team', slug: `team-${ids.team}`, createdBy: ids.alice },
+    { id: ids.gone, name: 'Gone', slug: `gone-${ids.gone}`, createdBy: ids.alice },
   ]);
   await db.insert(s.membership).values([
-    { workspaceId: ids.alicePersonal, userId: ids.alice, role: 'owner' },
-    { workspaceId: ids.bobPersonal, userId: ids.bob, role: 'owner' },
-    { workspaceId: ids.carolPersonal, userId: ids.carol, role: 'owner' },
+    { workspaceId: ids.aliceOwn, userId: ids.alice, role: 'owner' },
+    { workspaceId: ids.bobOwn, userId: ids.bob, role: 'owner' },
+    { workspaceId: ids.carolOwn, userId: ids.carol, role: 'owner' },
     { workspaceId: ids.team, userId: ids.alice, role: 'owner' },
     { workspaceId: ids.team, userId: ids.bob, role: 'viewer' },
     { workspaceId: ids.team, userId: ids.dave, role: 'member' },
@@ -136,18 +133,18 @@ beforeAll(async () => {
   ]);
 
   const team = { workspaceId: ids.team };
-  await addDoc('Alice personal zebra notes', {
-    workspaceId: ids.alicePersonal,
+  await addDoc('Alice own zebra notes', {
+    workspaceId: ids.aliceOwn,
     ownerId: ids.alice,
-    contentMd: 'Zebra crossing budget for the personal project.',
+    contentMd: 'Zebra crossing budget for the side project.',
   });
-  await addDoc('Bob personal zebra secrets', {
-    workspaceId: ids.bobPersonal,
+  await addDoc('Bob own zebra secrets', {
+    workspaceId: ids.bobOwn,
     ownerId: ids.bob,
     contentMd: 'Bob keeps his zebra plans here.',
   });
   await addDoc('Carol zebra diary', {
-    workspaceId: ids.carolPersonal,
+    workspaceId: ids.carolOwn,
     ownerId: ids.carol,
     visibility: 'workspace',
     contentMd: 'Even a workspace-visible doc in a workspace you are not in stays hidden.',
@@ -200,10 +197,10 @@ afterAll(async () => {
 });
 
 describe('permission filter', () => {
-  it('Alice sees her personal docs and everything readable in the team, nothing of Bob/Carol', async () => {
+  it('Alice sees the docs of her own workspace and everything readable in the team, nothing of Bob/Carol', async () => {
     expect((await titles(as(ids.alice), 'zebra')).sort()).toEqual(
       [
-        'Alice personal zebra notes',
+        'Alice own zebra notes',
         'Alice private zebra 1:1',
         'Dave zebra shared',
         'Team zebra private draft',
@@ -214,10 +211,10 @@ describe('permission filter', () => {
     );
   });
 
-  it('Bob (team viewer) never sees Alice’s private docs, trashed docs or other personal workspaces', async () => {
+  it('Bob (team viewer) never sees Alice’s private docs, trashed docs or other people’s workspaces', async () => {
     expect((await titles(as(ids.bob), 'zebra')).sort()).toEqual(
       [
-        'Bob personal zebra secrets',
+        'Bob own zebra secrets',
         'Dave zebra shared',
         'Team zebra public link',
         'Team zebra roadmap',
@@ -232,11 +229,11 @@ describe('permission filter', () => {
   });
 
   it('workspaceIds narrows the search but never widens it', async () => {
-    expect((await titles(as(ids.alice, [ids.alicePersonal]), 'zebra')).sort()).toEqual([
-      'Alice personal zebra notes',
+    expect((await titles(as(ids.alice, [ids.aliceOwn]), 'zebra')).sort()).toEqual([
+      'Alice own zebra notes',
     ]);
-    // Bob asking for Alice's personal workspace / Carol's gets nothing.
-    expect(await titles(as(ids.bob, [ids.alicePersonal, ids.carolPersonal]), 'zebra')).toEqual([]);
+    // Bob asking for Alice's own workspace / Carol's gets nothing.
+    expect(await titles(as(ids.bob, [ids.aliceOwn, ids.carolOwn]), 'zebra')).toEqual([]);
     expect(await titles(as(ids.bob, []), 'zebra')).toEqual([]);
   });
 
@@ -300,7 +297,7 @@ describe('permission filter', () => {
 describe('snippets', () => {
   it('escapes HTML in titles and bodies; only <mark> remains', async () => {
     await addDoc('<b onmouseover="x()">Injected</b> walrus', {
-      workspaceId: ids.alicePersonal,
+      workspaceId: ids.aliceOwn,
       ownerId: ids.alice,
       contentMd:
         '<script>alert("walrus")</script> <img src=x onerror=alert(1)> walrus & friends fake <mark>not mine</mark>',
@@ -324,7 +321,7 @@ describe('snippets', () => {
 
   it('strips Markdown markers from body snippets', async () => {
     await addDoc('Markdown heron', {
-      workspaceId: ids.alicePersonal,
+      workspaceId: ids.aliceOwn,
       ownerId: ids.alice,
       contentMd:
         '## Heron facts\n\n> quoted\n\n- **Herons** wade in [shallow water](https://example.test/x).',
@@ -337,7 +334,7 @@ describe('snippets', () => {
 
 describe('ranking and matching', () => {
   beforeAll(async () => {
-    const ws = { workspaceId: ids.alicePersonal, ownerId: ids.alice };
+    const ws = { workspaceId: ids.aliceOwn, ownerId: ids.alice };
     const old = new Date(Date.now() - 200 * 86_400_000);
     await addDoc('Weekly sync', {
       ...ws,

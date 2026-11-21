@@ -9,22 +9,21 @@ import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { newToken } from '../id.ts';
 import { user } from './auth.ts';
 import { id, timestamps, timestamptz } from './columns.ts';
-import { inviteStatusEnum, roleEnum, workspaceKindEnum } from './enums.ts';
+import { inviteStatusEnum, roleEnum } from './enums.ts';
 
 export const workspace = pgTable(
   'workspace',
   {
     id: id(),
     name: text('name').notNull(),
-    /** Better Auth organization slug; unique. Personal workspaces use `personal-<userId>`. */
+    /** Better Auth organization slug; unique. Generated as `<words-from-name>-<random>`. */
     slug: text('slug').notNull().unique(),
     logo: text('logo'),
     /** Better Auth organization metadata (JSON-encoded string). */
     metadata: text('metadata'),
-    kind: workspaceKindEnum('kind').notNull().default('team'),
     /**
-     * Creator. `restrict`: deleting a user must first delete their personal workspace and hand over or delete
-     * team workspaces they created (account deletion flow, later task).
+     * Creator. `restrict`: deleting a user must first hand over or delete the workspaces they created
+     * (account deletion flow, later task).
      */
     createdBy: text('created_by')
       .notNull()
@@ -32,7 +31,7 @@ export const workspace = pgTable(
     /**
      * Soft delete (D-22: Better Auth's hard delete is disabled). A deleted workspace is hidden everywhere
      * (`@oat/auth` workspace lists and permission contexts skip it) and stays restorable for 30 days;
-     * purging is a later job. Only team workspaces are ever deleted.
+     * purging is a later job.
      */
     deletedAt: timestamptz('deleted_at'),
     ...timestamps(),
@@ -40,12 +39,6 @@ export const workspace = pgTable(
   (t) => [
     // FK lookups when deleting a user.
     index('workspace_created_by_idx').on(t.createdBy),
-    // One personal workspace per user (1.6 review); also how @oat/auth finds it.
-    uniqueIndex('workspace_personal_created_by_uq')
-      .on(t.createdBy)
-      .where(sql`${t.kind} = 'personal'`),
-    // Personal workspaces are never deleted (5.1).
-    check('workspace_deleted_team_only_ck', sql`${t.deletedAt} is null or ${t.kind} = 'team'`),
   ],
 );
 
