@@ -6,7 +6,8 @@
 
 /**
  * Domains of public mailbox providers. Not exhaustive (it can't be): it covers the large consumer
- * providers, common ISP mailboxes and well-known disposable ones. The other half of the rule is that an
+ * providers, common ISP mailboxes and well-known disposable ones; the biggest providers' country domains
+ * are matched by rule ({@link PUBLIC_MAILBOX_FAMILIES}). The other half of the rule is that an
  * owner/admin can only list the domain of their *own* verified address, so listing a public domain takes an
  * account there in the first place — at which point this list is what refuses it.
  */
@@ -156,7 +157,47 @@ export const PUBLIC_MAILBOX_DOMAINS: ReadonlySet<string> = new Set([
   'maildrop.cc',
   'dispostable.com',
   'throwawaymail.com',
+  // Regional names that the family rule below doesn't reach
+  'mail.de',
+  '163.net',
+  '126.net',
 ]);
+
+/**
+ * Providers that run the same mailbox service under many country domains (`live.ca`, `outlook.com.au`,
+ * `yahoo.co.id`, `gmx.fr`, …). Matched by rule instead of listing every country: the registrable name —
+ * the label right before the public suffix — is exactly one of these. A company whose name merely contains
+ * one (`liveperson.com`, `outlookgroup.io`) is not affected. The rule errs towards "public": a company on,
+ * say, `live.tv` can't use domain joining and invites people instead.
+ */
+export const PUBLIC_MAILBOX_FAMILIES: ReadonlySet<string> = new Set([
+  'gmail',
+  'googlemail',
+  'outlook',
+  'hotmail',
+  'live',
+  'msn',
+  'yahoo',
+  'ymail',
+  'rocketmail',
+  'aol',
+  'icloud',
+  'proton',
+  'protonmail',
+  'gmx',
+  'yandex',
+]);
+
+/** Second-level labels countries register under (`co.uk`, `com.au`, `ne.jp`, …). */
+const COUNTRY_SECOND_LEVEL: ReadonlySet<string> = new Set(['co', 'com', 'net', 'org', 'ne', 'or']);
+
+/** `<family>.<tld>` or `<family>.<co|com|…>.<two-letter country>`. */
+function isPublicMailboxFamily(domain: string): boolean {
+  const labels = domain.split('.');
+  if (!PUBLIC_MAILBOX_FAMILIES.has(labels[0]!)) return false;
+  if (labels.length === 2) return true;
+  return labels.length === 3 && COUNTRY_SECOND_LEVEL.has(labels[1]!) && labels[2]!.length === 2;
+}
 
 /** A DNS hostname with at least two labels, already lower-cased (IDNs in their `xn--` form). */
 const DOMAIN =
@@ -178,7 +219,10 @@ export function emailDomain(email: string): string | null {
   return normalizeDomain(email.slice(at + 1));
 }
 
-/** Whether anyone can get an address on `domain` (expects a {@link normalizeDomain}d value). */
+/**
+ * Whether anyone can get an address on `domain` (expects a {@link normalizeDomain}d value): it is on the
+ * list, or it is a country variant of one of the big providers ({@link PUBLIC_MAILBOX_FAMILIES}).
+ */
 export function isPublicMailboxDomain(domain: string): boolean {
-  return PUBLIC_MAILBOX_DOMAINS.has(domain);
+  return PUBLIC_MAILBOX_DOMAINS.has(domain) || isPublicMailboxFamily(domain);
 }

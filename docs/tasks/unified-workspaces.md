@@ -220,7 +220,10 @@ What was decided, and what step C needs to know.
   `organization/update`.
 
 **Rules** (`packages/core`)
-- `email-domains.ts`: `PUBLIC_MAILBOX_DOMAINS` (about 140 consumer, ISP and disposable providers),
+- `email-domains.ts`: `PUBLIC_MAILBOX_DOMAINS` (about 140 consumer, ISP and disposable providers) plus
+  `PUBLIC_MAILBOX_FAMILIES` (review 6: `<outlook|hotmail|live|yahoo|gmx|yandex|proton|icloud|…>.<tld>` and
+  `.<co|com|net|org|ne|or>.<cc>` are public by rule — the registrable label must *be* the name, so
+  `liveperson.com` is not; it errs towards public, e.g. a company on `live.tv` has to invite),
   `normalizeDomain`, `emailDomain`, `isPublicMailboxDomain`. The list can't be exhaustive; the second half of
   the rule is that only one's *own* verified domain can be listed.
 - `permissions.ts` (table in the file header; deny tests in `permissions.join.test.ts`, coverage still 100 %):
@@ -233,7 +236,8 @@ What was decided, and what step C needs to know.
 - **Decided: a declined request is final.** `canRequestToJoin` takes the status of the person's latest request
   to that workspace: `pending` or `declined` → no. So "can't spam" is both the unique index (one pending) and
   "a no stands": the workspace is no longer offered to them and asking again is refused; an owner/admin can
-  still invite them. Someone approved once and removed since may ask again.
+  still invite them. The same `declined` status blocks `canAutoJoin` (review 1/2), so a "no" also stands
+  when the policy later becomes `auto_join`. Someone approved once who *left* since may ask or join again.
 - The person is always an `EmailIdentity { email, emailVerified }` built from the user row; no rule takes an
   address or a domain from a request.
 
@@ -292,8 +296,17 @@ What was decided, and what step C needs to know.
 - `auto_join` + step A's finding 6: a `workspace`-visibility note in a workspace of one reads "Only you" and
   becomes readable by whoever auto-joins. Turning on `request`/`auto_join` is now a second way that happens;
   settle the wording with Private / Shared.
-- A member removed from an `auto_join` workspace can join again at once (and one removed from a `request`
-  workspace can ask again). Blocking that needs a "removed" record — not in scope here.
+- Removal (review 1): being removed **by someone else** is recorded as a `declined` `join_request` (by the
+  remover; a request of theirs that was waiting is declined too), so the removed person can neither
+  auto-join nor ask again — an invitation is the only way back, and accepting one writes a new `approved`
+  row so the "no" stops standing. Leaving on one's own records nothing. Separately, the `workspace_domain`
+  rows someone added are dropped when they stop being owner/admin (demoted, removed or leaving), next to
+  `revokeInvitesBeyondAuthority`; a row another current owner/admin could list themselves (verified email
+  on that domain) is kept and re-attributed to them. The policy is left as it is.
+- An invited newcomer whose email is **not verified** is not held for the invitation (invitations are only
+  offered to verified addresses), so `ensureFirstWorkspace` gives them a workspace of their own. Not
+  reachable today — magic link and Google both verify — but a future password or unverified sign-up flow
+  must revisit it (with the `/change-email` note below).
 - Desktop: someone who signs in on the desktop only and has choices gets no workspace until they open the web
   (step A's "You’re not in a workspace… on the web" message covers it). No join UI on the desktop.
 - `/change-email` is disabled (`DISABLED_AUTH_PATHS`). If it is ever enabled, the new address must be
@@ -548,6 +561,46 @@ from a throwaway int test added to `joining.int.test.ts` and reverted (not commi
   classes only (no raw colours or inline styles). Clean-room: nothing touches `research/`.
 - Acceptance criteria for step B are met as written; 1 is a gap against D-36's removal rule rather than a
   listed criterion.
+
+**Resolutions (implementer, 2026-11-21)**
+
+1. Fixed, both parts. (a) `members.ts` `recordRemoval`: `removeMember` by another person declines the
+   target's pending request and writes a `declined` `join_request` (`decided_by` = remover), not when
+   leaving. `@oat/core` `canAutoJoin` now takes `previous` like `canRequestToJoin` and refuses `declined`;
+   `joinOption` passes it, so the workspace is not offered either. An accepted invitation
+   (`recordAdmittedByInvitation`, from `afterAcceptInvitation`) writes a fresh `approved` row, so the
+   invitation is the way back and the "no" stops standing afterwards. (b) `dropDomainsBeyondAuthority` in
+   `changeMemberRole` and `removeMember` (removed or leaving): domains the target added go once they are
+   not owner/admin, unless another current owner/admin's verified email is on that domain (then the row is
+   re-attributed to them). Tests: core deny cases (`canAutoJoin` / `joinOption` with `declined`);
+   `joining.int.test.ts` "removal and lost authority close the door" (removed admin and their colleague are
+   refused and not offered; removed member stays out while the domain is still listed, others still join; a
+   waiting request is declined; invitation works after removal; leaving is not a "no"; demotion and leaving
+   drop the domain; shared-domain row is kept); web `entrypoints.int.test.ts` `removeMember: someone removed
+   can’t come back through the domain, only by invitation`.
+2. Fixed by 1(a). Test: `joining.int.test.ts` "a declined requester is not let in when the policy later
+   becomes auto_join" (+ the core `joinOption` case, which used to expect `join`).
+3. No code change (decided): an admin may open the workspace to their domain, as D-36 says; the orchestrator
+   raises it with the human.
+4. Fixed in the web action: when Better Auth's accept fails, `acceptInvite` asks `@oat/auth`
+   `inviteAlreadyHonoured` — invited verified address, already a member of that live workspace → the
+   invitation is marked accepted, the workspace made active, and the action ends as a normal accept (no
+   500). The other loser (approval after the accept) was already a no-op (`ON CONFLICT DO NOTHING`).
+   Better Auth's accept does not check for an existing membership at all, so the state the race loser finds
+   is reproduced in sequence (approve, then accept) in `joining.int.test.ts` "approve and an accepted
+   invitation at once" and in `entrypoints.int.test.ts` (`acceptInvite: … still succeeds`). The true
+   interleaving (approval committing between Better Auth's two statements) **can't be forced
+   deterministically** from a test; not attempted.
+5. Fixed. `joinableWorkspacesFor` reads every candidate (no SQL limit), applies `joinOption`, stops at 20,
+   and only then counts members for those 20. Test: "many workspaces on one domain" (45 workspaces, member
+   of the first 41 → offered the last 4; a newcomer → the first 20).
+6. Fixed by rule: `PUBLIC_MAILBOX_FAMILIES` + `isPublicMailboxFamily` (see Design notes → Rules); `mail.de`,
+   `163.net`, `126.net` added to the exact list. Tests: `live.ca`, `outlook.com.au`, `hotmail.co.jp`,
+   `yahoo.co.id`, `gmx.fr`, … are public; `liveperson.com`, `outlookgroup.io`, `team.outlook.com`,
+   `live.acme.com`, … are not.
+6b. No code change (decided): lookalike workspaces are inherent without DNS verification (out of scope);
+   the orchestrator raises it with the human.
+7. No code change (decided): not reachable today; one line added to Design notes → Step B.
 
 ## Evidence
 

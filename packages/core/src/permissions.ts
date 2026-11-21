@@ -65,9 +65,11 @@
  * | edit join settings | (policy, removing a domain) owner/admin.                                            |
  * | add domain         | owner/admin, with a verified email, and only that email's own domain; never a       |
  * |                    | public mailbox domain.                                                              |
- * | auto-join          | policy `auto_join`; signed in, not a member, matches. Joins as `member`.            |
+ * | auto-join          | policy `auto_join`; signed in, not a member, matches; no declined request (a "no",  |
+ * |                    | or having been removed, stands). Joins as `member`.                                 |
  * | request to join    | policy `request`; signed in, not a member, matches; no pending request and no       |
- * |                    | declined one (a "no" stands until an owner/admin invites them).                     |
+ * |                    | declined one (a "no" — or a removal, recorded as one — stands until an owner/admin  |
+ * |                    | invites them).                                                                      |
  * | decide request     | owner/admin of the request's workspace, while it is pending; approving with a role  |
  * |                    | ≤ their own.                                                                        |
  * An `invite_only` workspace offers a matching stranger nothing and is never shown to them (`joinOption`).
@@ -527,12 +529,19 @@ const matchesAsStranger = (
   roleIn(ctx, workspace.id) === undefined &&
   matchingJoinDomain(workspace, person) !== null;
 
-/** Joining straight away (as `member`): an `auto_join` workspace the person matches. */
+/**
+ * Joining straight away (as `member`): an `auto_join` workspace the person matches. `previous` is the
+ * status of their latest request to this workspace (`null` = none): `declined` — an owner/admin said no, or
+ * removed them from the workspace — blocks joining whatever the policy has become since; only an invitation
+ * brings them back. A request still `pending` doesn't stand in the way.
+ */
 export function canAutoJoin(
   ctx: PermissionContext,
   workspace: JoinableWorkspaceAccess,
   person: EmailIdentity,
+  previous: JoinRequestStatus | null,
 ): boolean {
+  if (previous === 'declined') return false;
   return workspace.joinPolicy === 'auto_join' && matchesAsStranger(ctx, workspace, person);
 }
 
@@ -566,7 +575,7 @@ export function joinOption(
   person: EmailIdentity,
   previous: JoinRequestStatus | null,
 ): JoinOption | null {
-  if (canAutoJoin(ctx, workspace, person)) return 'join';
+  if (canAutoJoin(ctx, workspace, person, previous)) return 'join';
   if (canRequestToJoin(ctx, workspace, person, previous)) return 'request';
   if (previous === 'pending' && canRequestToJoin(ctx, workspace, person, null)) return 'requested';
   return null;

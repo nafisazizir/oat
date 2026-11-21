@@ -19,11 +19,22 @@ import {
   canInvite,
   createPermissionContext,
   type MemberTarget,
+  canAddDomain,
+  canEditJoinSettings,
   type Role,
   ROLES,
   type WorkspaceAccess,
 } from '@oat/core';
-import { type Db, invite, membership, session, user, workspace } from '@oat/db';
+import {
+  type Db,
+  invite,
+  joinRequest,
+  membership,
+  session,
+  user,
+  workspace,
+  workspaceDomain,
+} from '@oat/db';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import { loadPermissionContext, lockUser } from './workspaces.ts';
@@ -169,6 +180,80 @@ async function revokeInvitesBeyondAuthority(
 }
 
 /**
+ * Drops the allowed email domains `userId` listed in this workspace once they could no longer list them
+ * (`role`: their role now; `undefined` = no longer a member): like an invitation, a listed domain carries
+ * its lister's authority only while they have it (D-36: removal and demotion close the door they opened).
+ * A domain that another current owner/admin could list themselves — their verified email is on it — stays,
+ * in that person's name. Runs inside the member-change transaction, after the change is written.
+ */
+async function dropDomainsBeyondAuthority(
+  tx: Tx,
+  access: WorkspaceAccess,
+  userId: string,
+  role: Role | undefined,
+) {
+  const still = createPermissionContext({
+    userId,
+    memberships: role ? [{ workspaceId: access.id, userId, role }] : [],
+  });
+  if (canEditJoinSettings(still, access)) return;
+  const listed = await tx
+    .select({ domain: workspaceDomain.domain })
+    .from(workspaceDomain)
+    .where(and(eq(workspaceDomain.workspaceId, access.id), eq(workspaceDomain.addedBy, userId)));
+  if (listed.length === 0) return;
+  const managers = await tx
+    .select({
+      userId: membership.userId,
+      role: membership.role,
+      email: user.email,
+      emailVerified: user.emailVerified,
+    })
+    .from(membership)
+    .innerJoin(user, eq(user.id, membership.userId))
+    .where(and(eq(membership.workspaceId, access.id), inArray(membership.role, ['owner', 'admin'])))
+    .orderBy(asc(membership.id));
+  for (const { domain } of listed) {
+    const heir = managers.find((m) =>
+      canAddDomain(
+        createPermissionContext({
+          userId: m.userId,
+          memberships: [{ workspaceId: access.id, userId: m.userId, role: m.role }],
+        }),
+        access,
+        m,
+        domain,
+      ),
+    );
+    const row = and(eq(workspaceDomain.workspaceId, access.id), eq(workspaceDomain.domain, domain));
+    if (heir) await tx.update(workspaceDomain).set({ addedBy: heir.userId }).where(row);
+    else await tx.delete(workspaceDomain).where(row);
+  }
+}
+
+/**
+ * Records that `userId` was removed from the workspace by `removedBy`, as a `declined` request to join: a
+ * request of theirs that was waiting is declined, else a declined row is written. `@oat/core` reads the
+ * latest request, so they can neither auto-join nor ask again — an owner/admin's invitation is the only
+ * way back (D-36: a removed member loses access). Not written when someone leaves on their own.
+ */
+async function recordRemoval(tx: Tx, access: WorkspaceAccess, userId: string, removedBy: string) {
+  const decision = { status: 'declined' as const, decidedBy: removedBy, decidedAt: sql`now()` };
+  await tx
+    .update(joinRequest)
+    .set({ ...decision, role: null })
+    .where(
+      and(
+        eq(joinRequest.workspaceId, access.id),
+        eq(joinRequest.userId, userId),
+        eq(joinRequest.status, 'pending'),
+      ),
+    );
+  // Always a new row: it must be the *latest* one, also after an earlier approval.
+  await tx.insert(joinRequest).values({ workspaceId: access.id, userId, ...decision });
+}
+
+/**
  * Whether `inviterId` may still invite with `role` into `workspaceId` right now: the workspace is live and
  * their *current* membership passes `@oat/core` `canInvite`. Checked when an invite is accepted or
  * (re)sent, so a removed or demoted admin's old invites can't be used to get back in.
@@ -213,6 +298,7 @@ export async function changeMemberRole(
         and(eq(membership.workspaceId, input.workspaceId), eq(membership.userId, input.userId)),
       );
     await revokeInvitesBeyondAuthority(tx, locked.access, input.userId, input.role);
+    await dropDomainsBeyondAuthority(tx, locked.access, input.userId, input.role);
   });
 }
 
@@ -220,7 +306,8 @@ export async function changeMemberRole(
  * Removes `userId` from a workspace; `userId === actorId` is leaving. `@oat/core` `removeMember` decides
  * (anyone may leave unless it is their last workspace, owners remove anyone, admins only members/viewers,
  * never the last owner). A member removed from their only workspace gets a new one of their own the next
- * time they open Oat (`ensureFirstWorkspace`).
+ * time they open Oat (`ensureFirstWorkspace`). Removal by someone else also closes the domain door behind
+ * them ({@link recordRemoval}); either way the domains they had listed go ({@link dropDomainsBeyondAuthority}).
  */
 export async function removeMember(
   db: Db,
@@ -242,6 +329,8 @@ export async function removeMember(
       );
     await clearActiveWorkspace(tx, input.workspaceId, input.userId);
     await revokeInvitesBeyondAuthority(tx, locked.access, input.userId, undefined);
+    await dropDomainsBeyondAuthority(tx, locked.access, input.userId, undefined);
+    if (!leaving) await recordRemoval(tx, locked.access, input.userId, input.actorId);
   });
 }
 
@@ -441,6 +530,52 @@ export async function findInviteByToken(db: Db, token: string): Promise<InviteDe
     workspace: { id: row.workspaceId, name: row.workspaceName, logo: row.workspaceLogo },
     inviter: { name: row.inviterName?.trim() || row.inviterEmail, email: row.inviterEmail },
   };
+}
+
+/**
+ * For an accept that failed: whether the invitation has in fact been honoured — `userId` is the invited
+ * (verified) address and already a member of that live workspace. That happens when they got in another
+ * way a moment earlier (an owner approved their request to join while they were accepting): Better Auth's
+ * accept then fails on the one-membership-per-person index. The invitation is marked accepted (if it still
+ * says pending) and the workspace id is returned so the caller can carry on as if the accept had worked;
+ * `undefined` when the failure was a real one.
+ */
+export async function inviteAlreadyHonoured(
+  db: Db,
+  input: { invitationId: string; userId: string },
+): Promise<string | undefined> {
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ workspaceId: invite.workspaceId, email: invite.email, status: invite.status })
+      .from(invite)
+      .where(eq(invite.id, input.invitationId))
+      .for('update');
+    if (!row || (row.status !== 'pending' && row.status !== 'accepted')) return undefined;
+    const [me] = await tx
+      .select({ email: user.email, emailVerified: user.emailVerified })
+      .from(user)
+      .where(eq(user.id, input.userId));
+    if (!me?.emailVerified || me.email.toLowerCase() !== row.email.toLowerCase()) return undefined;
+    const [member] = await tx
+      .select({ id: membership.id })
+      .from(membership)
+      .innerJoin(workspace, eq(workspace.id, membership.workspaceId))
+      .where(
+        and(
+          eq(membership.workspaceId, row.workspaceId),
+          eq(membership.userId, input.userId),
+          isNull(workspace.deletedAt),
+        ),
+      );
+    if (!member) return undefined;
+    if (row.status === 'pending') {
+      await tx
+        .update(invite)
+        .set({ status: 'accepted', acceptedAt: sql`now()` })
+        .where(eq(invite.id, input.invitationId));
+    }
+    return row.workspaceId;
+  });
 }
 
 /** An invitation by id with its workspace (for resend/revoke; the caller checks permissions). */

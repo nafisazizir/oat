@@ -148,41 +148,54 @@ describe('canAddDomain', () => {
 
 describe('canAutoJoin', () => {
   it('allows a matching stranger into an auto_join workspace', () => {
-    expect(canAutoJoin(stranger, workspace('auto_join'), sam)).toBe(true);
+    expect(canAutoJoin(stranger, workspace('auto_join'), sam, null)).toBe(true);
     // Membership elsewhere doesn't matter.
-    expect(canAutoJoin(ownerElsewhere, workspace('auto_join'), sam)).toBe(true);
+    expect(canAutoJoin(ownerElsewhere, workspace('auto_join'), sam, null)).toBe(true);
   });
 
   it('denies every other policy', () => {
-    expect(canAutoJoin(stranger, workspace('invite_only'), sam)).toBe(false);
-    expect(canAutoJoin(stranger, workspace('request'), sam)).toBe(false);
+    expect(canAutoJoin(stranger, workspace('invite_only'), sam, null)).toBe(false);
+    expect(canAutoJoin(stranger, workspace('request'), sam, null)).toBe(false);
   });
 
   it('denies an unverified email, a public mailbox domain and a domain that is not listed', () => {
-    expect(canAutoJoin(stranger, workspace('auto_join'), unverified('sam@acme.test'))).toBe(false);
+    expect(canAutoJoin(stranger, workspace('auto_join'), unverified('sam@acme.test'), null)).toBe(
+      false,
+    );
     expect(
       canAutoJoin(
         stranger,
         workspace('auto_join', { domains: ['gmail.com'] }),
         verified('sam@gmail.com'),
+        null,
       ),
     ).toBe(false);
-    expect(canAutoJoin(stranger, workspace('auto_join'), verified('sam@other.test'))).toBe(false);
+    expect(canAutoJoin(stranger, workspace('auto_join'), verified('sam@other.test'), null)).toBe(
+      false,
+    );
+  });
+
+  it('denies someone who was declined or removed (a declined request), whatever the policy is now', () => {
+    expect(canAutoJoin(stranger, workspace('auto_join'), sam, 'declined')).toBe(false);
+    expect(canAutoJoin(ownerElsewhere, workspace('auto_join'), sam, 'declined')).toBe(false);
+    // A request that is still waiting, or one approved before they left, doesn't stand in the way.
+    expect(canAutoJoin(stranger, workspace('auto_join'), sam, 'pending')).toBe(true);
+    expect(canAutoJoin(stranger, workspace('auto_join'), sam, 'approved')).toBe(true);
   });
 
   it('denies a deleted workspace, an existing member and an anonymous caller', () => {
-    expect(canAutoJoin(stranger, workspace('auto_join', { deletedAt: new Date() }), sam)).toBe(
-      false,
-    );
-    expect(canAutoJoin(member, workspace('auto_join'), sam)).toBe(false);
-    expect(canAutoJoin(anon, workspace('auto_join'), sam)).toBe(false);
+    expect(
+      canAutoJoin(stranger, workspace('auto_join', { deletedAt: new Date() }), sam, null),
+    ).toBe(false);
+    expect(canAutoJoin(member, workspace('auto_join'), sam, null)).toBe(false);
+    expect(canAutoJoin(anon, workspace('auto_join'), sam, null)).toBe(false);
   });
 });
 
 describe('canRequestToJoin', () => {
   it('allows a matching stranger to ask a request workspace, also again after an approval', () => {
     expect(canRequestToJoin(stranger, workspace('request'), sam, null)).toBe(true);
-    // Approved once, removed since: they may ask again.
+    // Approved once, left since: they may ask again (a removal is recorded as `declined`).
     expect(canRequestToJoin(stranger, workspace('request'), sam, 'approved')).toBe(true);
   });
 
@@ -231,7 +244,8 @@ describe('joinOption', () => {
     expect(joinOption(stranger, workspace('auto_join'), sam, null)).toBe('join');
     // A request made before the policy became auto_join doesn't stand in the way.
     expect(joinOption(stranger, workspace('auto_join'), sam, 'pending')).toBe('join');
-    expect(joinOption(stranger, workspace('auto_join'), sam, 'declined')).toBe('join');
+    // A "no" (or a removal) stands when the policy later becomes auto_join: not offered at all.
+    expect(joinOption(stranger, workspace('auto_join'), sam, 'declined')).toBeNull();
   });
 
   it('shows a waiting request as "requested", and nothing after a decline', () => {
@@ -296,7 +310,10 @@ describe('assertCan (joining)', () => {
     expect(() =>
       assertCan('addDomain', owner, { id: T }, verified('alice@gmail.com'), 'gmail.com'),
     ).toThrow('Forbidden: addDomain');
-    expect(() => assertCan('autoJoin', stranger, workspace('request'), sam)).toThrow(
+    expect(() => assertCan('autoJoin', stranger, workspace('request'), sam, null)).toThrow(
+      ForbiddenError,
+    );
+    expect(() => assertCan('autoJoin', stranger, workspace('auto_join'), sam, 'declined')).toThrow(
       ForbiddenError,
     );
     expect(() =>
@@ -318,7 +335,7 @@ describe('assertCan (joining)', () => {
     expect(() =>
       assertCan('addDomain', owner, { id: T }, verified('alice@acme.test'), 'acme.test'),
     ).not.toThrow();
-    expect(() => assertCan('autoJoin', stranger, workspace('auto_join'), sam)).not.toThrow();
+    expect(() => assertCan('autoJoin', stranger, workspace('auto_join'), sam, null)).not.toThrow();
     expect(() =>
       assertCan('requestToJoin', stranger, workspace('request'), sam, null),
     ).not.toThrow();
