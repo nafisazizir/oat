@@ -334,3 +334,4 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   workspace to a domain; lookalike workspaces are possible without DNS verification; desktop deletes unsynced
   local notes of a workspace after leaving; Home no longer offers "connect calendar"; the menu offers "Leave"
   to a workspace's sole owner. [task](tasks/unified-workspaces.md)
+- 2026-11-21 · API foundation (D-37), handoff 1 · Added REST parity for workspace/member/invite/join/calendar actions, shared server operations, DTOs/schemas and authorization integration coverage. Fast CI green; relevant integration tests 139 passed. Client package and desktop proxy remain for handoffs 2/3; independent review/verification pending. See docs/tasks/api-foundation.md.

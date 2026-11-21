@@ -1,5 +1,7 @@
 import 'server-only';
 
+import type { JoiningView, WorkspaceSettings } from '@oat/services/dto/workspaces';
+
 import {
   findLiveWorkspace,
   getJoinSettings,
@@ -22,7 +24,6 @@ import {
   canRemoveMember,
   type EmailIdentity,
   isLastWorkspace,
-  type JoinPolicy,
   type MemberTarget,
   type PermissionContext,
   type Role,
@@ -45,79 +46,13 @@ import { getShellData } from './shell';
  * checks again (`assertCan`), and member changes re-check under a row lock (`@oat/auth` members.ts).
  */
 
-export interface MemberView {
-  userId: string;
-  name: string;
-  email: string;
-  image: string | null;
-  role: Role;
-  isYou: boolean;
-  /** Roles the viewer may change this member to (empty: no role picker). */
-  assignableRoles: Role[];
-  canRemove: boolean;
-}
-
-export interface InviteView {
-  id: string;
-  email: string;
-  role: Role;
-  state: 'pending' | 'expired';
-  expiresAt: string;
-  invitedBy: string;
-  /** Resending re-checks that the viewer may invite with this role. */
-  canResend: boolean;
-}
-
-/** Someone asking to join (D-36); only loaded for people who manage members. */
-export interface JoinRequestView {
-  id: string;
-  name: string;
-  email: string;
-  image: string | null;
-  requestedAt: string;
-}
-
-/** The join policy and allowed domains, for the people who may change them. */
-export interface JoiningView {
-  policy: JoinPolicy;
-  domains: string[];
-  /**
-   * The one domain the viewer could add — their own verified email's — and whether it is listed already;
-   * or why they have none to add (`public`: a public mailbox address; `unverified`).
-   */
-  ownDomain:
-    { domain: string; listed: boolean } | { domain: null; reason: 'public' | 'unverified' };
-}
-
-export interface WorkspaceSettings {
-  workspace: {
-    id: string;
-    name: string;
-    slug: string;
-    icon: string | null;
-  };
-  role: Role;
-  /** Name/icon changes and member management (owners and admins). */
-  canManage: boolean;
-  /** Roles the viewer may invite with (empty: no invite button). */
-  inviteRoles: Role[];
-  canLeave: boolean;
-  canDelete: boolean;
-  /**
-   * This is the only workspace the viewer belongs to (D-36): it can't be left or deleted until they create or
-   * join another one — the settings page says so instead of only disabling the buttons.
-   */
-  lastWorkspace: boolean;
-  members: MemberView[];
-  /** Pending and expired invitations; only loaded for people who manage members. */
-  invites: InviteView[];
-  /** Join policy + domains (D-36); `null` for people who can't edit them (they don't see them either). */
-  joining: JoiningView | null;
-  /** Requests to join waiting for a decision; empty for people who can't decide them. */
-  joinRequests: JoinRequestView[];
-  /** Roles the viewer may approve a request with (at most their own). */
-  approveRoles: Role[];
-}
+export type {
+  MemberView,
+  InviteView,
+  JoinRequestView,
+  JoiningView,
+  WorkspaceSettings,
+} from '@oat/services/dto/workspaces';
 
 /** Pure part: rows + permission context → what the settings pages show. */
 export function buildWorkspaceSettings(input: {
