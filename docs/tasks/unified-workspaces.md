@@ -429,6 +429,126 @@ re-run the full `pnpm run ci` or any e2e (verifier's job).
   calendar fixtures. Clean-room and D-11: nothing new touches `research/` or an external service. Tests were
   adapted rather than removed (auth int 83, members deny cases kept and extended).
 
+### Step B
+Verdict: **changes** (2026-11-21, reviewer; diff `a1329ce...task/unified-workspaces-b` at ecd4dd8).
+One must-fix (1: removal doesn't hold against domain joining); 2–3 are decisions for the orchestrator/human;
+4–7 are small. The join rules themselves, the entry points, the races and the migration held up — see
+"Checked and fine".
+
+Ran on this branch: `@oat/core` test (100 % coverage), `@oat/auth` test (70) + `test:int` (115), `@oat/db`
+`test:int` (56), web `entrypoints.int.test.ts` (96) — all pass. Findings marked **confirmed by running** come
+from a throwaway int test added to `joining.int.test.ts` and reverted (not committed). I did not run the full
+`pnpm run ci` or the e2e (verifier's job).
+
+**Must fix**
+
+1. Removal / demotion does not close the door an admin opened — `packages/auth/src/members.ts:226-247`
+   (`removeMember`), `:201-218` (`changeMemberRole`), `packages/core/src/permissions.ts:531-537`
+   (`canAutoJoin`), `packages/auth/src/joining.ts:377-400`.
+   Scenario: Eve (`eve@agency.io`) is an **admin** of Acme's `invite_only` workspace. She presses "Allow
+   agency.io" and sets the policy to `auto_join` (both allowed to an admin). The owner removes her. The
+   `workspace_domain` row and the policy stay; Eve calls `joinWorkspace` and is a `member` again at once, and
+   so is any other verified `@agency.io` address (they are *offered* the workspace on `/join`). Same after a
+   demotion to viewer: the domain she listed stays although she could no longer list it.
+   **Confirmed by running**: after `removeMember` by the owner, settings were still
+   `{ policy: 'auto_join', domains: ['<eve's domain>'] }`, Eve's `joinWorkspace` returned `{ joined: true }`
+   with role `member`, a second person on her domain was offered `join` and joined.
+   This contradicts D-36 ("a removed … member loses access to everything in that workspace") and the rule
+   step A already applies to invitations (`revokeInvitesBeyondAuthority`: an invite stops counting when its
+   sender loses the authority). It is also the general form of the rejoin the implementer flagged: any member
+   removed from an `auto_join` workspace on a listed domain is back in one click; removed from a `request`
+   workspace they may ask again and every owner/admin is mailed again (confirmed: three rounds, three
+   requests, one mail each — bounded by an approval per round, so not a flood on its own).
+   Smallest fix, no new table: (a) when someone is removed **by another person**, write a `join_request` row
+   for them with status `declined` and `decided_by` = the remover (or settle their latest one that way), and
+   give `canAutoJoin` the same `previous` argument `canRequestToJoin` has, refusing on `declined` — "a no
+   stands until an owner/admin invites them" then covers removal for both policies; accepting an invitation
+   already settles it. Leaving on one's own should not write it. (b) in `removeMember` and `changeMemberRole`
+   (next to `revokeInvitesBeyondAuthority`), delete `workspace_domain` rows whose `added_by` is the target
+   once they are no longer owner/admin — or keep a row only while some current owner/admin has that verified
+   domain. Deny tests for both; the UI text "People who already joined stay" is unaffected.
+
+**Should fix / decide**
+
+2. A decline is not final once the policy changes — `packages/core/src/permissions.ts:531-537`, `:565-570`
+   (`joinOption` tries `canAutoJoin` first, which ignores `previous`). Scenario: Sam asks, the owner declines;
+   later an admin switches the workspace to `auto_join`; Sam is offered "Join" and gets in.
+   **Confirmed by running.** Arguably what `auto_join` means, but the Design note says a no stands "until an
+   owner/admin invites them". Fix 1(a) settles it either way; otherwise record it as intended.
+3. An admin (not only an owner) can open the workspace to their whole domain — `permissions.ts:500-502`
+   (`canEditJoinSettings` = `canManageMembers`). An admin can already invite individuals up to admin, so this
+   is not an escalation of role, but it is an escalation of *reach*: one click admits every present and future
+   address on a domain, silently (no mail to owners, nothing on the Members page says how someone got in).
+   D-36 says "owner/admin", so this is as decided; flagging that with 1 unfixed it is what makes 1 serious.
+   Cheap mitigations if wanted: mail owners when the policy or a domain changes; show "joined via domain".
+   Traced.
+4. Approve racing an accepted invitation — `packages/auth/src/joining.ts:534-539` vs Better Auth's
+   `accept-invitation`, which does not take the workspace lock and inserts the membership without
+   `ON CONFLICT`. If the approval commits between Better Auth's membership check and its insert, the accept
+   fails on `membership_workspace_user_uq` (a 500 "Couldn't accept the invitation"); the person is a member
+   with the approver's role, the invite stays `pending`. No duplicate membership and no wrong access (the
+   unique index holds). **Suspicion, traced only**; narrow window, self-healing on retry. Note it or ignore.
+5. `packages/auth/src/joining.ts:227,258` — the 40-row cap is applied before filtering. With more than 40
+   non-`invite_only` workspaces on one domain, rows the person is a member of or was declined by use up the
+   cap and later workspaces are never offered. Only reachable on a very large domain; traced.
+6. Public mailbox list is by exact domain (`packages/core/src/email-domains.ts:13-159`) and, as its comment
+   says, not exhaustive: e.g. `outlook.com.au`, `hotmail.co.jp`, `live.ca`, `yahoo.co.id`, `gmx.fr`, `mail.de`,
+   `163.net` are missing. Scenario: an owner on `x@live.ca` allows `live.ca` with `auto_join`; every `live.ca`
+   user is offered and can join **that owner's own** workspace. Only the lister's own workspace is exposed, so
+   low; worth adding the obvious regional variants. Related and inherent (DNS verification is out of scope):
+   anyone with one address at `bigcorp.com` can create "BigCorp", allow the domain with `auto_join`, and every
+   later `@bigcorp.com` sign-up is shown it first on `/join`. Observation for the human, not a defect of B.
+7. `packages/auth/src/joining.ts:136-138` — `pendingInvitesFor` returns nothing for an unverified user, so
+   `ensureFirstWorkspace` now creates a workspace for an unverified invited newcomer where step A held them
+   for the invite. Not reachable today (magic link and Google create verified users; password sign-up and
+   `/verify-email` are disabled) and it fails closed. Keep in mind with the `/change-email` note. Traced.
+
+**Checked and fine**
+
+- Domain matching: only `emailVerified` rows match, in `matchingJoinDomain` and again in every server path
+  (the person is always `lockUser`'s row; no action takes an email or a domain to match or add —
+  `allowMyDomain(workspaceId)` has no domain argument, `removeAllowedDomain` only keys a delete in a
+  workspace the caller manages). Extraction: after the last `@` (`a@b@acme.com` → `acme.com`, which is that
+  domain's mailbox), trimmed, lower-cased, trailing dot dropped; exact match, so `evil.acme.com` ≠ `acme.com`
+  both ways; plus-addressing irrelevant (domain only); non-ASCII domains fail the hostname pattern and match
+  nothing (fail closed), punycode compares literally. Public list is consulted on the normalised domain at
+  match time as well as at add time, so a row inserted behind the rules still never matches (int test). Case
+  can't bypass it; the DB check keeps stored domains lower-case/trimmed. Email can't change after
+  verification: `/change-email`, `/verify-email`, `/sign-up/email` are disabled and `/update-user` takes
+  `name` only.
+- Policy enforcement: `joinWorkspace` → `autoJoin` only, always role `member` (hard-coded);
+  `requestToJoin` → `request` only; `invite_only` is filtered in SQL and again by `joinOption`; a deleted
+  workspace is `NotFound` in `lockJoinable`/`lockWorkspace`; approve role ≤ decider's role, decided on rows
+  read under the workspace lock; `join_policy` is not a Better Auth organization field and
+  `beforeUpdateOrganization` refuses it. Non-members get the same `NotFound` for "not open", unknown and
+  deleted, and the actions map unknown request / foreign workspace to one message, so ids can't be probed.
+  Web deny cases for all seven actions are in `entrypoints.int.test.ts`.
+- Leaks: a non-member sees only name, logo and member count of `request`/`auto_join` workspaces on their own
+  verified domain — nothing for `invite_only`, no member or admin addresses. Join settings and requests are
+  loaded for any member server-side but only returned to owners/admins (`buildWorkspaceSettings`).
+- Races: locks are user → workspace row everywhere, no cycle; `join_request_one_pending_uq` (partial unique)
+  and `membership_workspace_user_uq` are the database backstops; the existing concurrency tests (8 joins,
+  8 requests, 2×approve + 2×decline, join vs delete) pass. A request made while the policy flips is
+  serialised by the workspace row lock. Pending requests stay decidable after a flip to `invite_only` — a
+  deliberate, documented choice I agree with (the decider grants it, like an invite).
+- Emails: built from rows read in the transaction; names, addresses and workspace names are flattened,
+  capped, made unlinkable and HTML-escaped (`emailSafeText`/`unlinkable`/`escapeHtml`, unit tests); links are
+  fixed paths on `baseURL`; one mail per created request, none on re-ask; sent after commit through the
+  existing SMTP mailer (Mailpit in dev, D-11), failures logged only.
+- `/join`: invitations are listed only for the session user's own verified address and the accept/decline
+  actions re-check recipient and verification, so an invite for another address is neither shown nor
+  accepted. No loop: the shell and the page use the same `getJoinChoices`; with no choices the page creates
+  the workspace; "Create my own workspace" is always there; a declined requester gets their own on the next
+  visit. Desktop-only users with choices stay workspace-less until they open the web (documented).
+- Migration `0014_join_policy`: journal idx 14 after 13, additive, `join_policy` default `invite_only` NOT
+  NULL, FKs cascade on workspace/user, checks for decided-at/role consistency, indexes on the lookups.
+- Scope: `members-panel.tsx` `ROW` border change is a one-class fix that also affects the members list
+  (fine, noted by the implementer); exporting `lockWorkspace`/`contextOf`/`liveMemberships`/`Tx` and moving
+  `ensureFirstWorkspace` to `joining.ts` are needed by the step. New UI uses `@oat/ui` components and token
+  classes only (no raw colours or inline styles). Clean-room: nothing touches `research/`.
+- Acceptance criteria for step B are met as written; 1 is a gap against D-36's removal rule rather than a
+  listed criterion.
+
 ## Evidence
 
 ### Step B — implementer's full `pnpm run ci` (2026-11-21, `task/unified-workspaces-b`)
