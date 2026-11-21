@@ -5,14 +5,14 @@
 @import './tokens.css';
 @import '@fontsource-variable/inter/wght.css';
 @import '@fontsource-variable/newsreader/opsz.css';
-@import '@fontsource-variable/jetbrains-mono/wght.css';
+@import '@fontsource-variable/geist-mono/wght.css';
 
 @source './';
 @custom-variant dark (&:is(.dark *));
 
 :root {
   --font-sans: 'Inter Variable', sans-serif;
-  --font-mono: 'JetBrains Mono Variable', monospace;
+  --font-mono: 'Geist Mono Variable', monospace;
   --font-family-serif: 'Newsreader Variable', serif;
 }
 

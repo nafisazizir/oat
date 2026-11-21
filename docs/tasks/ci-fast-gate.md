@@ -7,7 +7,7 @@ branch: devin/1795225563-ci-fast-gate (PR #14, builds on #13)
 
 The human: "Linux CI takes forever and I dont know if its useful … ideally CI need to runs <3m." Find out why
 `Checks (Linux)` is slow and often red, which of its checks catch bugs, and restore an automatic PR job that
-runs in under 3 minutes wall clock. Decision: D-33.
+runs in under 3 minutes wall clock. Decision: D-34.
 
 ## Analysis (CI runs 2026-11-18 → 2026-11-21)
 
@@ -80,7 +80,7 @@ web e2e (mostly axe contrast and a11y after UI changes, plus e2e specs that the 
   errors. They also flaked twice early on, before the timeout scaling.
 - `test:int` caught nothing real in this window; its 3 failures were timing or ordering flakes.
 
-### Recommendation (implemented, D-33)
+### Recommendation (implemented, D-34)
 
 1. **PR gate = fast tier, in parallel:** `format,actionlint,lint` · `typecheck` · `test`, as 3 matrix jobs
    each running `pnpm run ci --only …` with its own turbo cache. Target and measured: < 3 min wall clock.

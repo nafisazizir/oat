@@ -10,7 +10,7 @@ Home and its loading state; Sonner; gallery; eligible UI Lucide dependency and l
 
 ## Design notes
 - Home uses Item links and an Empty call to action. Keep dates; drop redundant sharing metadata and sidebar instructions. Loading mirrors the header, streamed calendar and 5/4 recent-document rows.
-- Gallery shows eleven ramps, all 31 roles and four floating materials. In-page specimens stay flat. Inter and JetBrains Mono replace stale font guidance.
+- Gallery shows eleven ramps, all 31 roles and four floating materials. In-page specimens stay flat. Inter and Geist Mono replace stale font guidance.
 - Upstream Sonner still uses shadcn slots; upstream Toast uses material-modal, background-100, gray-1000 and a transparent border. Apply that material with importance to beat Sonner's unlayered default shadow/radius.
 - Keep the web Lucide dependency: excluded PR #5 files still import it. Remove only the UI dev dependency. Leave editor/catalog alone.
 

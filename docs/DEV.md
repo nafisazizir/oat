@@ -628,7 +628,7 @@ Real runs never happen in `pnpm run ci` (D-11, D-13).
 ## CI (`pnpm run ci` is the gate)
 
 `pnpm run ci` (`scripts/ci.mjs`, plain Node) runs every gate in order and prints a summary table with
-durations; it exits non-zero if any step fails. GitHub Actions runs it in two tiers (D-12, D-33): PRs get the
+durations; it exits non-zero if any step fails. GitHub Actions runs it in two tiers (D-12, D-34): PRs get the
 `--fast` steps as parallel jobs (< 3 min), and the full run happens on pushes to `main` and on demand. The
 `actionlint` step lints the workflow. A step whose prerequisite failed is skipped; the
 others still run so you see every failure at once (`--bail` stops at the first).
@@ -672,7 +672,7 @@ makes `next dev` compile and hydrate pages several times slower. The e2e suites 
 `process.env.E2E_PORT` (fallback to a fixed port for manual runs). Chromium is installed once per machine with
 `pnpm --filter @oat/ui exec playwright install chromium`.
 
-**GitHub Actions** (`.github/workflows/ci.yml`, D-33) has three jobs. Job `fast` runs on every PR and push: 3 parallel
+**GitHub Actions** (`.github/workflows/ci.yml`, D-34) has three jobs. Job `fast` runs on every PR and push: 3 parallel
 `ubuntu-24.04` matrix jobs, `pnpm run ci --only format,actionlint,lint`, `--only typecheck` and `--only test`, each
 with its own turbo cache key (`turbo-<os>-<static|typecheck|test>-*`). This is the PR gate, < 3 min wall clock.
 Job `checks` (Checks (Linux)) runs the full `pnpm run ci` on pushes to `main` and on `workflow_dispatch` (Actions → CI
