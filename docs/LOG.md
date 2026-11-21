@@ -223,3 +223,11 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   timeout or CI changes. Review retained existing 20px metrics on error/empty/signing-in titles;
   typography E2E rerun **3 passed** (including auth setup), desktop rebuilt. No PR opened.
   [task](tasks/ui-type-geist-mono.md)
+
+## 2026-11-21 — PR 1 typography feedback
+
+- Human requested Inter headings, not serif display titles. Removed the display roles and restored
+  previous Inter title roles/usages; kept Geist Mono and existing Newsreader editor blockquotes.
+  Updated D-33, gallery and typography tests. The earlier serif screenshots are superseded.
+  Fast CI **ci: ok** (52.1s); revised light/dark typography E2E **3 passed** (including auth setup).
+  Product title files match their pre-PR 1 Inter sources. [task](tasks/ui-type-geist-mono.md)

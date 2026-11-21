@@ -27,10 +27,9 @@ describe('ziiz gallery', () => {
     expect(html).not.toContain('--ds-background-300');
   });
 
-  it('shows the 31 ziiz roles and four display roles with button roles on buttons only', () => {
+  it('shows all 31 type roles with button roles on buttons only', () => {
     const html = renderToStaticMarkup(<TypeScale />);
-    expect(html.match(/<p class="text-/g)).toHaveLength(32);
-    for (const size of [14, 20, 24, 32]) expect(html).toContain(`text-display-${size}`);
+    expect(html.match(/<p class="text-/g)).toHaveLength(28);
     expect(html.match(/<button/g)).toHaveLength(3);
     expect(html).toContain('text-heading-72');
     expect(html).toContain('text-copy-13-mono');

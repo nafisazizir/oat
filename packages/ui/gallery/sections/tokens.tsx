@@ -49,10 +49,6 @@ export function ColourTokens() {
 }
 
 const typeRoles = [
-  'text-display-32',
-  'text-display-24',
-  'text-display-20',
-  'text-display-14',
   'text-heading-72',
   'text-heading-64',
   'text-heading-56',

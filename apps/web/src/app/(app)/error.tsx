@@ -30,7 +30,7 @@ export default function AppError({
             <IconAlertTriangle />
           </EmptyMedia>
           <EmptyTitle>
-            <h1 className="text-display-20">Something went wrong</h1>
+            <h1>Something went wrong</h1>
           </EmptyTitle>
           <EmptyDescription>
             This page couldn’t load. Try again, or head back home.

@@ -101,7 +101,7 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 
 ## M9 — Ship v1
 
-- [x] Human-requested UI redesign PR 1: Geist Mono and Newsreader display titles · [task](tasks/ui-type-geist-mono.md)
+- [x] Human-requested UI redesign PR 1: Geist Mono; headings stay Inter · [task](tasks/ui-type-geist-mono.md)
 
 - [x] Human-requested: web recording, step A capture/STT/sync + step B OPFS archive/playback, header/source polish, PR 11 account/session isolation, stale-recording append, pending-sync recovery and STT finalization/reconnect reliability · authorized contrast/isolation and replay-test follow-ups pass local gates; remote CI watch pending · [task](tasks/web-recording.md)
 

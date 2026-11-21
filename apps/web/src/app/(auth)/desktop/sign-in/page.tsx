@@ -35,7 +35,7 @@ export default async function DesktopSignInPage({
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-heading-24">
-            <h1 className="text-display-24">This link is incomplete</h1>
+            <h1>This link is incomplete</h1>
           </CardTitle>
           <CardDescription>
             Open the Oat app and choose “Sign in” again. It opens this page with everything it
@@ -54,7 +54,7 @@ export default async function DesktopSignInPage({
     <Card>
       <CardHeader className="text-center">
         <CardTitle className="text-heading-24">
-          <h1 className="text-display-24">Sign in to the Oat app</h1>
+          <h1>Sign in to the Oat app</h1>
         </CardTitle>
         <CardDescription>
           You’re signed in as

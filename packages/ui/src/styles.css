@@ -16,30 +16,6 @@
   --font-family-serif: 'Newsreader Variable', serif;
 }
 
-@utility text-display-32 {
-  @apply text-heading-32;
-  font-family: var(--font-family-serif);
-  font-weight: 400;
-}
-
-@utility text-display-24 {
-  @apply text-heading-24;
-  font-family: var(--font-family-serif);
-  font-weight: 400;
-}
-
-@utility text-display-20 {
-  @apply text-heading-20;
-  font-family: var(--font-family-serif);
-  font-weight: 400;
-}
-
-@utility text-display-14 {
-  @apply text-heading-14;
-  font-family: var(--font-family-serif);
-  font-weight: 400;
-}
-
 :root,
 .dark {
   --success: var(--ds-green-900);

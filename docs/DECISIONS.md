@@ -256,7 +256,6 @@ step A adds browser capture, live STT and transcript sync; step B adds the local
 ## D-33 · 2026-11-21 · accepted · human
 UI redesign direction: a Granola-inspired calm layout, described in
 `research/granola/ui-design.md`, with Oat's own visual identity (clean-room rules still apply).
-Self-host Geist Mono through Fontsource for all mono roles. Use the already bundled Newsreader
-at regular weight for page and document display titles; keep editor body text and UI controls in Inter.
-Shared `text-display-*` roles retain ziiz heading metrics while owning the serif family and 400 weight;
-consumers use one role, not raw size/weight overrides. Layout changes follow in later PRs.
+Self-host Geist Mono through Fontsource for all mono roles. Headings, page/document titles and UI/body
+text stay Inter. Newsreader remains available for editor blockquotes only. Per human feedback, no serif
+display-title roles are introduced. Layout changes follow in later PRs.

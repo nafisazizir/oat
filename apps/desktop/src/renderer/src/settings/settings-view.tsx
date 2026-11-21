@@ -36,7 +36,7 @@ export function SettingsView({
           Back
           <Kbd className="ms-1">Esc</Kbd>
         </Button>
-        <h1 className="text-display-14 text-gray-1000">Settings</h1>
+        <h1 className="text-heading-14 text-gray-1000">Settings</h1>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-6 py-8">

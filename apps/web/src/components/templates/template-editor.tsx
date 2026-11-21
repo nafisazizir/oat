@@ -246,7 +246,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
             placeholder="Template name"
             maxLength={TEMPLATE_LIMITS.name}
             aria-invalid={nameInvalid || undefined}
-            className="h-auto border-transparent bg-transparent px-0 py-1 text-display-32 shadow-none focus-visible:border-transparent focus-visible:ring-0"
+            className="h-auto border-transparent bg-transparent px-0 py-1 text-heading-32 shadow-none focus-visible:border-transparent focus-visible:ring-0"
           />
           {props.mode === 'edit' && (
             <DropdownMenu>

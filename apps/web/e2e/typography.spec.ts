@@ -3,26 +3,26 @@ import type { Locator } from '@playwright/test';
 import { apiCreateDocument } from './docs-helpers';
 import { expect, test } from './fixtures';
 
-async function displayTitle(title: Locator) {
-  await expect(title).toHaveCSS('font-family', /Newsreader Variable/);
-  await expect(title).toHaveCSS('font-weight', '400');
+async function sansTitle(title: Locator) {
+  await expect(title).toHaveCSS('font-family', /Inter Variable/);
+  await expect(title).toHaveCSS('font-weight', '450');
 }
 
 for (const theme of ['light', 'dark'] as const) {
-  test(`display titles and mono retain distinct families (${theme})`, async ({ page }) => {
+  test(`headings and body stay Inter while mono uses Geist (${theme})`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript((value) => localStorage.setItem('oat-theme', value), theme);
     await page.goto('/home');
-    await displayTitle(page.getByRole('heading', { level: 1, name: 'Home', exact: true }));
+    await sansTitle(page.getByRole('heading', { level: 1, name: 'Home', exact: true }));
 
     for (const kind of ['page', 'meeting'] as const) {
       const doc = await apiCreateDocument(page, { title: `Typography ${kind}`, kind });
       await page.goto(`/d/${doc.id}`);
       const title = page.getByTestId('document-title');
-      await displayTitle(title);
+      await sansTitle(title);
       await title.fill('');
       await expect(title).toHaveValue('');
-      await displayTitle(title);
+      await sansTitle(title);
       const editor = page.getByTestId('note-editor').locator('[contenteditable=true]');
       await expect(editor).toHaveCSS('font-family', /Inter Variable/);
       await editor.fill('A clear thought.');
@@ -30,7 +30,7 @@ for (const theme of ['light', 'dark'] as const) {
     }
 
     await page.goto('/settings');
-    await displayTitle(page.getByRole('heading', { level: 1, name: 'Settings', exact: true }));
+    await sansTitle(page.getByRole('heading', { level: 1, name: 'Settings', exact: true }));
     const mono = page.getByRole('code').filter({ hasText: '.env' });
     await expect(mono).toHaveCSS('font-family', /Geist Mono Variable/);
     await page.evaluate(() => document.fonts.ready);
@@ -39,8 +39,6 @@ for (const theme of ['light', 'dark'] as const) {
     );
 
     await page.goto('/d/does-not-exist');
-    await displayTitle(
-      page.getByRole('heading', { level: 1, name: 'Page not found', exact: true }),
-    );
+    await sansTitle(page.getByRole('heading', { level: 1, name: 'Page not found', exact: true }));
   });
 }

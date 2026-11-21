@@ -67,7 +67,7 @@ export default function GlobalError({
                 <IconAlertTriangle />
               </EmptyMedia>
               <EmptyTitle>
-                <h1 className="text-display-20">Oat couldn’t load</h1>
+                <h1>Oat couldn’t load</h1>
               </EmptyTitle>
               <EmptyDescription>
                 Something went wrong on our side. Try again, or reload the app.

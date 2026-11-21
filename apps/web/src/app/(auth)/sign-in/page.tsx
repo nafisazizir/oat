@@ -30,7 +30,7 @@ export default async function SignInPage({
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-heading-24">
-            <h1 className="text-display-24">Welcome to Oat</h1>
+            <h1>Welcome to Oat</h1>
           </CardTitle>
           <CardDescription>Sign in to your notes and workspaces.</CardDescription>
         </CardHeader>

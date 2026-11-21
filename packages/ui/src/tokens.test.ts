@@ -79,12 +79,6 @@ describe('oat palette', () => {
     expect(styles).not.toMatch(/https?:\/\/|instrument-sans/);
   });
 
-  it.each([14, 20, 24, 32])('defines a regular serif display role at %s', (size) => {
-    expect(styles).toContain(
-      `@utility text-display-${size} {\n  @apply text-heading-${size};\n  font-family: var(--font-family-serif);\n  font-weight: 400;\n}`,
-    );
-  });
-
   it('maps status and AI text roles to readable ramp steps in both themes', () => {
     for (const [role, ramp] of Object.entries({
       success: 'green-900',

@@ -49,7 +49,7 @@ export function PageHeader({
         <div className="flex items-center gap-2 text-label-13 text-gray-900">{eyebrow}</div>
       )}
       <div className="flex items-end justify-between gap-4">
-        <h1 className="text-display-32 text-gray-1000">{title}</h1>
+        <h1 className="text-heading-32 text-gray-1000">{title}</h1>
         {children}
       </div>
       {description && <p className="text-copy-16 text-gray-900">{description}</p>}

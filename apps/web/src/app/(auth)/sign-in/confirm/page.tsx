@@ -38,9 +38,7 @@ export default async function ConfirmSignInPage({
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-heading-24">
-            <h1 className="text-display-24">
-              {token ? 'This link has expired' : 'This link is incomplete'}
-            </h1>
+            <h1>{token ? 'This link has expired' : 'This link is incomplete'}</h1>
           </CardTitle>
           <CardDescription>
             {token
@@ -68,7 +66,7 @@ export default async function ConfirmSignInPage({
     <Card>
       <CardHeader className="text-center">
         <CardTitle className="text-heading-24">
-          <h1 className="text-display-24">Finish signing in</h1>
+          <h1>Finish signing in</h1>
         </CardTitle>
         <CardDescription>
           You’re signing in to Oat as
