@@ -13,7 +13,7 @@ import {
   activeSegmentAt,
   MeetingTime,
   mergeTranscripts,
-  ParticipantChips,
+  ParticipantSummary,
   SidePanel,
   TranscriptToggle,
   NoteColumn,
@@ -413,9 +413,14 @@ function NoteBody({
             </Badge>
           )}
 
-          <MeetingTime startedAt={note.startedAt} endedAt={endedAt} live={live} />
+          <MeetingTime
+            className="rounded-full border border-gray-alpha-300 px-2 py-1"
+            startedAt={note.startedAt}
+            endedAt={endedAt}
+            live={live}
+          />
           <NoteEventLine event={note.calendarEvent} />
-          <ParticipantChips
+          <ParticipantSummary
             participants={note.participants}
             editable={editable && note.meetingId !== null}
             onAdd={(p) => bridgeAction(() => call('meeting:add-participant', { documentId, ...p }))}

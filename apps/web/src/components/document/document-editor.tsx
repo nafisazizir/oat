@@ -241,7 +241,25 @@ export function DocumentEditor({
 
       {!trashed && (
         <TopBarActions>
-          <div className="flex min-w-0 items-center gap-2" data-testid="document-actions">
+          <div
+            className="flex min-w-0 items-center gap-2 text-label-12 text-gray-900"
+            data-testid="document-actions"
+          >
+            {editable && (
+              <SaveStatus
+                state={autosave.state}
+                error={autosave.error}
+                onRetry={autosave.retry}
+                onReload={reload}
+              />
+            )}
+            {isMeeting && (
+              <PipelineStatus
+                documentId={doc.id}
+                canRun={editable}
+                onEnhancing={enhancement.follow}
+              />
+            )}
             {headerActions}
             {editable && isMeeting ? (
               <EnhanceToolbar
@@ -280,7 +298,10 @@ export function DocumentEditor({
             }
           }}
         />
-        <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2 text-label-13 text-gray-900">
+        <div
+          className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2 text-label-13 text-gray-900"
+          data-testid={isMeeting ? 'meeting-header' : undefined}
+        >
           <VisibilityBadge visibility={doc.visibility} workspace={workspace} />
           {!trashed && !doc.access.edit && (
             <Badge variant="outline">
@@ -292,21 +313,6 @@ export function DocumentEditor({
             <span className="rounded-full bg-gray-alpha-100 px-2 py-1 text-label-12">
               Edited {formatDay(updatedAt)}
             </span>
-          )}
-          {editable && (
-            <SaveStatus
-              state={autosave.state}
-              error={autosave.error}
-              onRetry={autosave.retry}
-              onReload={reload}
-            />
-          )}
-          {!trashed && isMeeting && (
-            <PipelineStatus
-              documentId={doc.id}
-              canRun={editable}
-              onEnhancing={enhancement.follow}
-            />
           )}
           {meta}
         </div>

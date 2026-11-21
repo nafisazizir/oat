@@ -116,10 +116,12 @@ test('meeting header, attendees, transcript panel (collapse, resize, click → d
   const header = page.getByTestId('meeting-header').filter({ visible: true });
   await expect(header.getByTestId('meeting-time')).toContainText('Nov 12');
   await expect(header.getByTestId('meeting-duration')).toHaveText('30 min');
+  await page.getByTestId('attendees-toggle').click();
   await expect(chips(page)).toHaveCount(1);
   await expect(chips(page).first()).toHaveAttribute('data-source', 'calendar');
   await expect(chips(page).first()).toContainText('Riley Chen');
 
+  await page.keyboard.press('Escape');
   await expect(panel(page)).toHaveCount(0);
   await page.getByTestId('transcript-toggle').click();
   // Transcript panel beside the note, me/them lines.
@@ -139,6 +141,7 @@ test('meeting header, attendees, transcript panel (collapse, resize, click → d
   await evidence(page, 'web-meeting');
 
   // Attendees: add (persisted), remove (persisted).
+  await page.getByTestId('attendees-toggle').click();
   await page.getByTestId('add-participant').click();
   await page.getByLabel('Name').fill('Dana Scully');
   await page.getByLabel('Email (optional)').fill('dana@example.com');
@@ -148,6 +151,7 @@ test('meeting header, attendees, transcript panel (collapse, resize, click → d
   await evidence(page, 'web-attendees');
   await page.reload();
   await settled(page);
+  await page.getByTestId('attendees-toggle').click();
   await expect(chips(page)).toHaveCount(2);
   // Removal is optimistic: the chip goes at once, so wait for the server before reloading.
   const removed = page.waitForResponse(
@@ -158,7 +162,9 @@ test('meeting header, attendees, transcript panel (collapse, resize, click → d
   await removed;
   await page.reload();
   await settled(page);
+  await page.getByTestId('attendees-toggle').click();
   await expect(chips(page)).toHaveCount(1);
+  await page.keyboard.press('Escape');
 
   // Resize with the keyboard on the handle; the width is remembered.
   const width = Number(await panel(page).getAttribute('data-width'));
@@ -240,6 +246,7 @@ test('a trashed meeting note is read-only: no attendee changes', async ({ page }
   await page.goto(`/d/${doc.id}`);
   await settled(page);
   await expect(page.getByTestId('trash-banner')).toBeVisible();
+  await page.getByTestId('attendees-toggle').click();
   await expect(chips(page)).toHaveCount(1);
   await expect(page.getByTestId('add-participant')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Remove Riley Chen' })).toHaveCount(0);

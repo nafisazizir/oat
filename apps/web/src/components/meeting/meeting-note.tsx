@@ -13,7 +13,7 @@
  */
 import {
   MeetingTime,
-  ParticipantChips,
+  ParticipantSummary,
   SidePanel,
   TranscriptToggle,
   usePanelEscape,
@@ -207,9 +207,10 @@ export function MeetingNote({
   }, [lines, recordingHere, recording.segments]);
 
   const header = (
-    <div className="flex flex-wrap items-center gap-2" data-testid="meeting-header">
+    <>
       {!browserLive && (
         <MeetingTime
+          className="rounded-full border border-gray-alpha-300 px-2 py-1"
           startedAt={info.startedAt}
           endedAt={info.endedAt}
           // Server render + hydration in UTC (they must agree), then the viewer's zone.
@@ -217,7 +218,7 @@ export function MeetingNote({
         />
       )}
       {eventLine}
-      <ParticipantChips
+      <ParticipantSummary
         participants={info.participants}
         editable={editable && hydrated}
         onAdd={async (input) => {
@@ -237,7 +238,7 @@ export function MeetingNote({
           }
         }}
       />
-    </div>
+    </>
   );
 
   const transcript = (

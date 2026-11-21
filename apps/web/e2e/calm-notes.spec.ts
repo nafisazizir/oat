@@ -1,7 +1,15 @@
 import { apiCreateDocument } from './docs-helpers';
+import { SIGNED_OUT, signInWithMagicLink, uniqueAddress } from './auth-helpers';
 import { expect, test } from './fixtures';
 
-test('home groups notes by date and meeting actions use the shell slot', async ({ page }) => {
+test.use({ storageState: SIGNED_OUT });
+
+test('home groups notes by date and meeting actions use the shell slot', async ({
+  page,
+  baseURL,
+}) => {
+  await page.goto('/sign-in');
+  await signInWithMagicLink(page, uniqueAddress('e2e-calm-notes'), baseURL!);
   await page.goto('/home');
   const doc = await apiCreateDocument(page, { title: 'Calm home fixture', kind: 'meeting' });
   await page.reload();

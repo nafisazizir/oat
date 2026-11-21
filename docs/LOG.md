@@ -1,13 +1,5 @@
 # Factory Log
 
-## 2026-11-21 — UI redesign PR 4: home and notes (in progress)
-
-- Reset PR 3 to 615f6a3 and branched `devin/1795226919-calm-note-surfaces`. Date-grouped home lists,
-  toolbar action portals, opt-in per-user transcript and bottom controls under implementation.
-  Rebase onto PR 3 d679651 before finishing (teamWorkspace Settings prop from lead).
-  PR #17 checks failure notification received; CI loop is not delegated to this PR 4 task, so lead must
-  handle it. No investigation of that PR undertaken. [task](tasks/ui-calm-note-surfaces.md)
-
 Append-only. Newest at the bottom. Orchestrator writes one entry per state change.
 
 ## Waiting on human
@@ -277,3 +269,19 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   sticky-nav offset on Storage; final local fast CI **ci: ok** (47.8s), refreshed six native screenshots
   and axe scans **0 violations**. Web settings remain visually unchanged by that renderer-only offset.
   [task](tasks/ui-calm-settings.md)
+
+## 2026-11-21 — UI redesign PR 4: calm home and note surfaces
+
+- Implemented web/native date-grouped borderless Home, optional Coming up, Inter title/metadata
+  hierarchy, compact attendee-details popover, top-bar actions, quiet bottom controls and opt-in
+  per-account transcript with Escape/close/focus return. Preserved recording, citations and resize.
+- Branch `devin/1795226919-calm-note-surfaces` rebased onto merged PR 3/main `12ad11c`, including
+  teamWorkspace Members-link gating. No PR opened; no separate PR #17 CI investigation was needed
+  after the lead confirmed its merge.
+- Fast CI **ci: ok**; 37 web e2e passed and the stale calendar attendee selector was fixed, with focused
+  calendar **3 passed**. Desktop 417 tests / 54 files and shared meeting UI 34 tests / 5 files passed.
+  Renderer built; existing chunk-size advisory only. Final gate log: ~/shots/pr4/ci-fast-release.log.
+- Reviewed 18 light/dark 1440×900 screenshots under ~/shots/pr4/; captured-state axe **0 violations**.
+  Fixed a selected desktop timestamp contrast issue caught in visual verification. Native bridge,
+  recording and calendar are simulated on Linux; real macOS/audio/provider behavior is unverified.
+  [task](tasks/ui-calm-note-surfaces.md)

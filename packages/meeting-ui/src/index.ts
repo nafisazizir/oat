@@ -35,6 +35,7 @@ export { NoteColumn, TRANSCRIPT_PANEL_SIZE } from './note-column.tsx';
 export {
   MAX_PARTICIPANT_NAME,
   ParticipantChips,
+  ParticipantSummary,
   type ParticipantChipsProps,
 } from './participants.tsx';
 export { SidePanel, type SidePanelProps, useStoredState } from './side-panel.tsx';

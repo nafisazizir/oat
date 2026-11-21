@@ -108,6 +108,7 @@ test('connect Google Calendar → upcoming meetings on Home → disconnect', asy
   await expect(page.getByTestId('document-title').filter({ visible: true })).toHaveValue(
     'Daily standup',
   );
+  await page.getByTestId('attendees-toggle').click();
   const chips = page.getByTestId('participant-chip').filter({ visible: true });
   await expect(chips).toHaveCount(3); // Jordan, Sam, Priya — not Alex (`self`)
   // All from the calendar; order among attendees added together isn't defined.
