@@ -33,7 +33,7 @@ import { announceDocumentChange } from '@/lib/api-client';
 import type { DocumentDetail } from '@/lib/api-types';
 import { formatDay } from '@/lib/format';
 import { documentNode } from '@/lib/tree';
-import { audienceLabel, type WorkspaceAudience } from '@/lib/workspace';
+import { audienceLabel, isWorkspaceOfOne, type WorkspaceAudience } from '@/lib/workspace';
 
 import { EnhanceError } from './enhance/enhance-controls';
 import { EnhancePreview } from './enhance/enhance-preview';
@@ -357,7 +357,7 @@ function VisibilityBadge({
       ? [IconLock, 'Private']
       : visibility === 'link'
         ? [IconLink, `${audienceLabel(workspace)} + link`]
-        : [workspace.kind === 'personal' ? IconLock : IconUsers, audienceLabel(workspace)];
+        : [isWorkspaceOfOne(workspace) ? IconLock : IconUsers, audienceLabel(workspace)];
   return (
     <Badge variant="secondary" data-testid="visibility-badge">
       <Icon data-icon="inline-start" />

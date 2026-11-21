@@ -18,8 +18,8 @@ import { useState, useTransition } from 'react';
 import { leaveWorkspace } from '@/server/actions/members';
 
 /**
- * "Leave <workspace>?" confirmation. On success the server action redirects to Home (personal workspace
- * active); a refusal (e.g. the only owner) is shown in the dialog.
+ * "Leave <workspace>?" confirmation. On success the server action redirects to Home (another of the user's
+ * workspaces active); a refusal (the only owner, or their only workspace) is shown in the dialog.
  */
 export function LeaveWorkspaceDialog({
   workspace,

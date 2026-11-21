@@ -4,7 +4,7 @@
  * to the trash), with deny cases for anonymous users, non-members, viewers and other people's private
  * folders.
  */
-import { findPersonalWorkspaceId } from '@oat/auth';
+import { findFirstWorkspaceId } from '@oat/auth';
 import { document, folder } from '@oat/db';
 import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -20,7 +20,7 @@ let member: TestUser;
 let viewer: TestUser;
 let outsider: TestUser;
 let team: string;
-let ownerPersonal: string;
+let ownerOwnWs: string;
 
 beforeAll(async () => {
   h = await createHarness();
@@ -36,7 +36,7 @@ beforeAll(async () => {
     [member, 'member'],
     [viewer, 'viewer'],
   ]);
-  ownerPersonal = (await findPersonalWorkspaceId(h.db, owner.id))!;
+  ownerOwnWs = (await findFirstWorkspaceId(h.db, owner.id))!;
 }, 60_000);
 
 afterAll(async () => {
@@ -154,7 +154,7 @@ describe('folders', () => {
     const c = await folderOf(owner, { workspaceId: team, name: 'c', parentId: b.id });
     expect((await moveFolder(owner, a.id, { parentId: a.id })).status).toBe(400);
     expect((await moveFolder(owner, a.id, { parentId: c.id })).status).toBe(400);
-    const elsewhere = await folderOf(owner, { workspaceId: ownerPersonal, name: 'personal' });
+    const elsewhere = await folderOf(owner, { workspaceId: ownerOwnWs, name: 'elsewhere' });
     expect((await moveFolder(owner, a.id, { parentId: elsewhere.id })).status).toBe(404);
     const ok = await moveFolder(owner, c.id, { parentId: null });
     expect(ok.status).toBe(200);

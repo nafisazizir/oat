@@ -58,7 +58,7 @@ export async function makeWorkspace(
   const id = newId();
   await db
     .insert(s.workspace)
-    .values({ id, name: 'W', slug: `w-${id}`, createdBy: owner, kind: 'team' });
+    .values({ id, name: 'W', slug: `w-${id}`, createdBy: owner });
   await db
     .insert(s.membership)
     .values([

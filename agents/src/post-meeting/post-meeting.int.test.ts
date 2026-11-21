@@ -213,7 +213,6 @@ async function seedMeeting(
     name: 'W',
     slug: `w-${workspaceId}`,
     createdBy: ownerId,
-    kind: 'team',
   });
   await db.insert(membership).values({ workspaceId, userId: ownerId, role: 'owner' });
   const documentId = newId();

@@ -33,9 +33,7 @@ export default async function TemplatePage({ params }: Props) {
           <span>
             {template.workspaceId !== workspace.id
               ? 'From another workspace'
-              : workspace.kind === 'personal'
-                ? 'Your template'
-                : `In ${workspace.name}`}
+              : `In ${workspace.name}`}
           </span>
         </div>
         <TemplateEditor

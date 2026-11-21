@@ -77,7 +77,7 @@ export function WorkspaceGeneralForm({
                   />
                 }
               >
-                <WorkspaceAvatar workspace={{ name: name || workspace.name, kind: 'team', icon }} />
+                <WorkspaceAvatar workspace={{ name: name || workspace.name, icon }} />
                 {icon ? 'Change icon' : 'Add icon'}
               </PopoverTrigger>
               <PopoverContent align="start" className="w-auto">

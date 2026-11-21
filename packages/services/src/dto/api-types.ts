@@ -3,7 +3,7 @@
  * handlers (`src/server/api`), the server loaders and the browser client (`src/lib/api-client.ts`).
  * Plain types only: dates are ISO strings, content is TipTap JSON (D-4).
  */
-import type { DocumentKind, DocumentVisibility, FolderVisibility, WorkspaceKind } from '@oat/core';
+import type { DocumentKind, DocumentVisibility, FolderVisibility } from '@oat/core';
 import type { JSONContent } from '@oat/editor';
 
 /** What the actor may do with an item (computed by `@oat/core` permissions on the server). */
@@ -61,7 +61,7 @@ export type DocumentSharing = {
   /** D-18: a document inside a private folder stays private (move it out to share it). */
   inPrivateFolder: boolean;
   owner: { id: string; name: string };
-  workspace: { id: string; name: string; kind: WorkspaceKind; memberCount: number };
+  workspace: { id: string; name: string; memberCount: number };
 };
 
 /**

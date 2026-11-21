@@ -10,6 +10,7 @@
  *    `getDb` pointed at the harness): a signed-in user without permission gets an error result and nothing
  *    changes. Each has a happy-path control so a broken setup can't pass as a refusal.
  */
+import { findFirstWorkspaceId } from '@oat/auth';
 import { invite, membership, session, workspace } from '@oat/db';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -176,7 +177,7 @@ describe('workspace actions', () => {
     expect(await workspaces.switchWorkspace(team)).toEqual({ ok: true, workspaceId: team });
   });
 
-  it('updateWorkspace: members, viewers, outsiders and personal workspaces are refused', async () => {
+  it('updateWorkspace: members, viewers and outsiders are refused; the workspace made at sign-up can be renamed', async () => {
     denies('action server/actions/members.ts#updateWorkspace');
     const rename = (workspaceId: string) =>
       members.updateWorkspace({ workspaceId, name: 'Hijacked', icon: null });
@@ -188,14 +189,16 @@ describe('workspace actions', () => {
     expect(await rename(team)).toEqual(refusedWith(NOT_FOUND));
     expect((await workspaceRow(team)).name).toBe('Team');
 
-    // Settings belong to team workspaces (core manageMembers); a personal one is refused too.
-    const [personal] = await h.db
-      .select({ id: workspace.id })
-      .from(workspace)
-      .innerJoin(membership, eq(membership.workspaceId, workspace.id))
-      .where(and(eq(membership.userId, owner.id), eq(workspace.kind, 'personal')));
+    // D-36: the workspace made for a user at sign-up is an ordinary one — its owner renames it, and
+    // nobody else does.
+    const own = (await findFirstWorkspaceId(h.db, owner.id))!;
+    as(admin);
+    expect(await rename(own)).toEqual(refusedWith(NOT_FOUND));
     as(owner);
-    expect(await rename(personal!.id)).toEqual(refusedWith(FORBIDDEN));
+    expect(
+      await members.updateWorkspace({ workspaceId: own, name: 'Owner HQ', icon: null }),
+    ).toEqual({ ok: true });
+    expect((await workspaceRow(own)).name).toBe('Owner HQ');
 
     as(admin);
     expect(await members.updateWorkspace({ workspaceId: team, name: 'Team', icon: '🌾' })).toEqual({
@@ -226,6 +229,40 @@ describe('workspace actions', () => {
     as(outsider);
     expect(await members.leaveWorkspace(team)).toEqual(refusedWith(NOT_FOUND));
     expect(await roleOf(team, owner.id)).toBe('owner');
+  });
+
+  // D-36: nobody ends up without a workspace by their own action.
+  it('leaveWorkspace and deleteWorkspace: never your only workspace, and the refusal says so', async () => {
+    denies('action server/actions/members.ts#leaveWorkspace');
+    denies('action server/actions/members.ts#deleteWorkspace');
+    const solo = await h.signUp('only-one');
+    const own = (await findFirstWorkspaceId(h.db, solo.id))!;
+    const { name } = await workspaceRow(own);
+    as(solo);
+    expect(await members.leaveWorkspace(own)).toEqual(
+      refusedWith(
+        /^This is your only workspace\. Create or join another one before you leave it\.$/,
+      ),
+    );
+    expect(await members.deleteWorkspace({ workspaceId: own, confirmName: name })).toEqual(
+      refusedWith(
+        /^This is your only workspace\. Create or join another one before you delete it\.$/,
+      ),
+    );
+    expect((await workspaceRow(own)).deletedAt).toBeNull();
+    expect(await roleOf(own, solo.id)).toBe('owner');
+
+    // A member whose only workspace is someone else's can't leave it either.
+    const guest = await h.signUp('only-guest');
+    const theirs = (await findFirstWorkspaceId(h.db, guest.id))!;
+    await h.db.insert(membership).values({ workspaceId: own, userId: guest.id, role: 'member' });
+    await h.db.delete(membership).where(eq(membership.workspaceId, theirs));
+    as(guest);
+    expect(await members.leaveWorkspace(own)).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('only workspace'),
+    });
+    expect(await roleOf(own, guest.id)).toBe('member');
   });
 });
 

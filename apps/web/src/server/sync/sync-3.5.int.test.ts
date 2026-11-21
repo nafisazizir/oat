@@ -6,7 +6,7 @@
  * property run (two real `LocalStore` + `SyncEngine` desktops and web edits through the documents API,
  * with network faults) that must converge with conflicted copies only for real concurrent edits.
  */
-import { createMemoryRateLimiter, findPersonalWorkspaceId } from '@oat/auth';
+import { createMemoryRateLimiter, findFirstWorkspaceId } from '@oat/auth';
 import {
   documentContentKey,
   type SyncBackfillResponse,
@@ -43,7 +43,7 @@ let member: TestUser;
 let viewer: TestUser;
 let outsider: TestUser;
 let team: string;
-let ownerPersonal: string;
+let ownerOwnWs: string;
 let counter = 0;
 
 beforeAll(async () => {
@@ -66,7 +66,7 @@ beforeAll(async () => {
     [member, 'member'],
     [viewer, 'viewer'],
   ]);
-  ownerPersonal = (await findPersonalWorkspaceId(h.db, owner.id))!;
+  ownerOwnWs = (await findFirstWorkspaceId(h.db, owner.id))!;
 }, 60_000);
 
 afterAll(async () => {
@@ -167,25 +167,21 @@ async function webEdit(as: TestUser, id: string, text: string) {
 describe('push: receipts (lost acks) and conflicted copies', () => {
   it('a stale push of a text that already landed is ok; a different text conflicts', async () => {
     const id = uid('doc');
-    expect(
-      (await push(owner, [docEntry(id, ownerPersonal, 'v0', 0)])).body.results[0],
-    ).toMatchObject({ status: 'ok' });
+    expect((await push(owner, [docEntry(id, ownerOwnWs, 'v0', 0)])).body.results[0]).toMatchObject({
+      status: 'ok',
+    });
     // Edit to X on version 0; pretend the answer was lost (the client still thinks it is on 0).
-    expect(
-      (await push(owner, [docEntry(id, ownerPersonal, 'X', 0)])).body.results[0],
-    ).toMatchObject({
+    expect((await push(owner, [docEntry(id, ownerOwnWs, 'X', 0)])).body.results[0]).toMatchObject({
       status: 'ok',
       row: { version: 1 },
     });
     await webEdit(owner, id, 'W'); // someone saw X and edited it: version 2
     // Re-sending X on base 0: X landed before → ok with the current row, not a conflict.
-    const replay = (await push(owner, [docEntry(id, ownerPersonal, 'X', 0)])).body.results[0]!;
+    const replay = (await push(owner, [docEntry(id, ownerOwnWs, 'X', 0)])).body.results[0]!;
     expect(replay).toMatchObject({ status: 'ok', row: { version: 2 } });
     expect(textOf((replay as { row: { contentJson: unknown } }).row)).toBe('W');
     // A text that never landed on a stale base is a real conflict.
-    expect(
-      (await push(owner, [docEntry(id, ownerPersonal, 'Y', 1)])).body.results[0],
-    ).toMatchObject({
+    expect((await push(owner, [docEntry(id, ownerOwnWs, 'Y', 1)])).body.results[0]).toMatchObject({
       status: 'conflict',
       row: { version: 2 },
     });
@@ -222,15 +218,15 @@ describe('push: receipts (lost acks) and conflicted copies', () => {
     await push(member, [docEntry(c2, team, 'x', 0, { conflictOf: secret })]);
     expect(await serverDoc(c2)).toMatchObject({ conflictOfId: null, conflictDevice: null });
     const c3 = uid('copy');
-    await push(owner, [docEntry(c3, ownerPersonal, 'x', 0, { conflictOf: original })]);
+    await push(owner, [docEntry(c3, ownerOwnWs, 'x', 0, { conflictOf: original })]);
     expect((await serverDoc(c3)).conflictOfId).toBeNull();
   });
 
   it('sync deletes only conflicted copies (to the trash); unknown ids are ok', async () => {
     const original = uid('doc');
-    await push(owner, [docEntry(original, ownerPersonal, 'o', 0)]);
+    await push(owner, [docEntry(original, ownerOwnWs, 'o', 0)]);
     const copy = uid('copy');
-    await push(owner, [docEntry(copy, ownerPersonal, 'c', 0, { conflictOf: original })]);
+    await push(owner, [docEntry(copy, ownerOwnWs, 'c', 0, { conflictOf: original })]);
     const del = (id: string, as = owner) =>
       push(as, [{ version: v(), op: 'delete', table: 'document', id }]).then(
         (r) => r.body.results[0],
@@ -267,7 +263,7 @@ describe('conflicts API (compare + resolve)', () => {
   }
 
   it('GET compares both sides; keep copy writes it into the original and trashes the copy', async () => {
-    const { original, copy } = await conflictPair(ownerPersonal);
+    const { original, copy } = await conflictPair(ownerOwnWs);
     const got = await conflictCall('GET', owner, copy);
     expect(got.status).toBe(200);
     expect(got.body).toMatchObject({
@@ -290,7 +286,7 @@ describe('conflicts API (compare + resolve)', () => {
   });
 
   it('keep original only trashes the copy', async () => {
-    const { original, copy } = await conflictPair(ownerPersonal);
+    const { original, copy } = await conflictPair(ownerOwnWs);
     const before = await serverDoc(original);
     expect((await conflictCall('POST', owner, copy, { body: { keep: 'original' } })).status).toBe(
       200,
@@ -303,7 +299,7 @@ describe('conflicts API (compare + resolve)', () => {
   it('denies: other users can’t see or resolve a copy; a non-editor can’t keep the copy', async () => {
     denies('GET /api/sync/conflicts/[id]');
     denies('POST /api/sync/conflicts/[id]');
-    const { copy } = await conflictPair(ownerPersonal);
+    const { copy } = await conflictPair(ownerOwnWs);
     expect((await conflictCall('GET', outsider, copy)).status).toBe(404);
     expect(
       (await conflictCall('POST', outsider, copy, { body: { keep: 'original' } })).status,
@@ -311,7 +307,7 @@ describe('conflicts API (compare + resolve)', () => {
     expect((await conflictCall('GET', null, copy)).status).toBe(401);
     // Not a copy at all.
     const page = uid('doc');
-    await push(owner, [docEntry(page, ownerPersonal, 'p', 0)]);
+    await push(owner, [docEntry(page, ownerOwnWs, 'p', 0)]);
     expect((await conflictCall('GET', owner, page)).status).toBe(404);
     // A cross-site cookie write is refused.
     expect(
@@ -744,7 +740,7 @@ describe('pull: lagging hint (D-22 xmin stall)', () => {
     try {
       await blocker`begin`;
       await blocker`select pg_current_xact_id()`;
-      await push(owner, [docEntry(uid('doc'), ownerPersonal, 'held', 0)]);
+      await push(owner, [docEntry(uid('doc'), ownerOwnWs, 'held', 0)]);
       const during = (await pull(owner, cursor)).body;
       expect(during.changes).toEqual([]);
       expect(during.lagging).toBe(true);
@@ -766,7 +762,7 @@ describe('pull: lagging hint (D-22 xmin stall)', () => {
 describe('property: two desktops + web, network faults', () => {
   it('converges; conflicted copies only for real concurrent edits', async () => {
     const user = await h.signUp('s35-prop');
-    const personal = (await findPersonalWorkspaceId(h.db, user.id))!;
+    const own = (await findFirstWorkspaceId(h.db, user.id))!;
     let copies = 0;
     for (let round = 0; round < 3; round++) {
       let seed = 11 + round * 97;
@@ -783,7 +779,7 @@ describe('property: two desktops + web, network faults', () => {
       };
       const notes = [uid('n'), uid('n'), uid('n')];
       for (const id of notes) {
-        await push(user, [docEntry(id, personal, `${id} v0`, 0)]);
+        await push(user, [docEntry(id, own, `${id} v0`, 0)]);
         const row = await serverDoc(id);
         remember(id, row.title, row.contentJson);
       }
@@ -843,20 +839,20 @@ describe('property: two desktops + web, network faults', () => {
         for (let i = 0; i < 4; i++) for (const d of [A, B]) await d.engine.syncNow();
       };
       const converged = async () => {
-        const rows = (
-          await h.db.select().from(document).where(eq(document.workspaceId, personal))
-        ).map((d) => ({
-          id: d.id,
-          title: d.title,
-          text: textOf(d),
-          version: d.version,
-          trashed: d.deletedAt !== null,
-          conflictOfId: d.conflictOfId,
-        }));
+        const rows = (await h.db.select().from(document).where(eq(document.workspaceId, own))).map(
+          (d) => ({
+            id: d.id,
+            title: d.title,
+            text: textOf(d),
+            version: d.version,
+            trashed: d.deletedAt !== null,
+            conflictOfId: d.conflictOfId,
+          }),
+        );
         rows.sort((x, y) => x.id.localeCompare(y.id));
         for (const d of [A, B]) {
           const local = d.store
-            .documents(personal)
+            .documents(own)
             .map((x) => ({
               id: x.id,
               title: x.title,

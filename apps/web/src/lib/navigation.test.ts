@@ -31,7 +31,7 @@ const node = (
 
 /** Fixture tree. */
 const tree: Pick<ShellData, 'workspace' | 'documents' | 'trash'> = {
-  workspace: { id: 'w', name: 'Studio', kind: 'team', members: 3, role: 'member' },
+  workspace: { id: 'w', name: 'Studio', members: 3, role: 'member' },
   documents: [
     node('root-page', null),
     node('folder', null, 'private', 'folder'),

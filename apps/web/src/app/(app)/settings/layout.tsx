@@ -6,9 +6,7 @@ import { getShellData } from '@/server/shell';
 export default async function SettingsRootLayout({ children }: { children: React.ReactNode }) {
   const { workspace } = await getShellData();
   return (
-    <SettingsLayout
-      navigation={<SettingsNav workspace={workspace.name} team={workspace.kind === 'team'} />}
-    >
+    <SettingsLayout navigation={<SettingsNav workspace={workspace.name} />}>
       {children}
     </SettingsLayout>
   );

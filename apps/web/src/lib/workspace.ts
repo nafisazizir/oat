@@ -80,12 +80,15 @@ export function expiresIn(expiresAt: Date, now: Date = new Date()): string {
 }
 
 /** What visibility labels need to know about a document's workspace. */
-export type WorkspaceAudience = { name: string; kind: 'personal' | 'team' };
+export type WorkspaceAudience = { name: string; members: number };
+
+/** Whether the workspace has nobody but the viewer in it (so "the workspace" is just them, for now). */
+export const isWorkspaceOfOne = (workspace: { members: number }): boolean => workspace.members <= 1;
 
 /**
- * Who "workspace" visibility reaches, for badges: "Only you" in a personal workspace (it has one member),
- * else "Shared with <workspace>". Never "Shared with Personal" (9.3).
+ * Who "workspace" visibility reaches, for badges: "Only you" while the workspace has no other member, else
+ * "Shared with <workspace>" (9.3: never "Shared with" a workspace nobody else is in).
  */
 export function audienceLabel(workspace: WorkspaceAudience): string {
-  return workspace.kind === 'personal' ? 'Only you' : `Shared with ${workspace.name}`;
+  return isWorkspaceOfOne(workspace) ? 'Only you' : `Shared with ${workspace.name}`;
 }

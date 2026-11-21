@@ -10,8 +10,6 @@ export const metadata: Metadata = { title: 'Workspace settings' };
 
 export default async function WorkspaceGeneralPage() {
   const settings = await getWorkspaceSettings();
-  // The layout shows the personal-workspace note instead of this page.
-  if (settings.workspace.kind === 'personal') return null;
   const { workspace } = settings;
 
   return (
@@ -33,6 +31,8 @@ export default async function WorkspaceGeneralPage() {
           workspace={workspace}
           canLeave={settings.canLeave}
           canDelete={settings.canDelete}
+          isOwner={settings.role === 'owner'}
+          lastWorkspace={settings.lastWorkspace}
           restoreDays={WORKSPACE_RESTORE_DAYS}
         />
       </section>

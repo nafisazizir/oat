@@ -11,7 +11,14 @@ import {
   loadPermissionContext,
   removeMember as remove,
 } from '@oat/auth';
-import { assertCan, isForbiddenError, RoleSchema, type Role } from '@oat/core';
+import {
+  assertCan,
+  isForbiddenError,
+  isLastWorkspace,
+  roleIn,
+  RoleSchema,
+  type Role,
+} from '@oat/core';
 import { refresh, revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -84,14 +91,14 @@ async function load(userId: string, workspaceId: string) {
     loadPermissionContext(db, userId),
   ]);
   if (!workspace || ctx.memberships.get(workspaceId) === undefined) return undefined;
-  return { workspace, access: { id: workspace.id, kind: workspace.kind }, ctx };
+  return { workspace, access: { id: workspace.id }, ctx };
 }
 
 // ---------------------------------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------------------------------
 
-/** Renames a team workspace and sets/clears its emoji icon (owners and admins). */
+/** Renames a workspace and sets/clears its emoji icon (owners and admins). */
 export async function updateWorkspace(input: {
   workspaceId: string;
   name: string;
@@ -109,7 +116,7 @@ export async function updateWorkspace(input: {
   try {
     const loaded = await load(user.id, parsed.data.workspaceId);
     if (!loaded) return { ok: false, error: NOT_FOUND };
-    // Workspace settings are managed by the same people who manage members (team owners/admins).
+    // Workspace settings are managed by the same people who manage members (owners/admins).
     assertCan('manageMembers', loaded.ctx, loaded.access);
     await getAuth().api.updateOrganization({
       body: {
@@ -125,12 +132,22 @@ export async function updateWorkspace(input: {
   return { ok: true };
 }
 
-/** Leaves a team workspace; afterwards the personal workspace is active. */
+/** Why the user's only workspace stays (D-36); `@oat/auth` enforces it, this is the wording. */
+const LAST_WORKSPACE = (verb: 'leave' | 'delete') =>
+  `This is your only workspace. Create or join another one before you ${verb} it.`;
+
+/**
+ * Leaves a workspace (never the user's last one); afterwards another of their workspaces is active
+ * (`pickActiveWorkspace`).
+ */
 export async function leaveWorkspace(workspaceId: string): Promise<MemberActionResult> {
   const { user } = await requireSession();
   const id = Id.safeParse(workspaceId);
   if (!id.success) return { ok: false, error: NOT_FOUND };
   try {
+    const loaded = await load(user.id, id.data);
+    if (!loaded) return { ok: false, error: NOT_FOUND };
+    if (isLastWorkspace(loaded.ctx, id.data)) return { ok: false, error: LAST_WORKSPACE('leave') };
     await leave(getDb(), { actorId: user.id, workspaceId: id.data });
   } catch (error) {
     return failure(
@@ -144,7 +161,7 @@ export async function leaveWorkspace(workspaceId: string): Promise<MemberActionR
   redirect('/home');
 }
 
-/** Soft-deletes a team workspace (owner only). `confirmName` must match its name. */
+/** Soft-deletes a workspace (owner only, never their last one). `confirmName` must match its name. */
 export async function deleteWorkspace(input: {
   workspaceId: string;
   confirmName: string;
@@ -157,6 +174,9 @@ export async function deleteWorkspace(input: {
     if (!loaded) return { ok: false, error: NOT_FOUND };
     if (input.confirmName.trim() !== loaded.workspace.name.trim()) {
       return { ok: false, error: 'Type the workspace name exactly to confirm.' };
+    }
+    if (roleIn(loaded.ctx, id.data) === 'owner' && isLastWorkspace(loaded.ctx, id.data)) {
+      return { ok: false, error: LAST_WORKSPACE('delete') };
     }
     await softDeleteWorkspace(getDb(), { actorId: user.id, workspaceId: id.data });
   } catch (error) {

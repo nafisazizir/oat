@@ -12,6 +12,7 @@ import {
   canInvite,
   canManageMembers,
   canRemoveMember,
+  isLastWorkspace,
   type MemberTarget,
   type PermissionContext,
   type Role,
@@ -62,16 +63,20 @@ export interface WorkspaceSettings {
     id: string;
     name: string;
     slug: string;
-    kind: 'personal' | 'team';
     icon: string | null;
   };
   role: Role;
-  /** Name/icon changes and member management (team owners and admins). */
+  /** Name/icon changes and member management (owners and admins). */
   canManage: boolean;
   /** Roles the viewer may invite with (empty: no invite button). */
   inviteRoles: Role[];
   canLeave: boolean;
   canDelete: boolean;
+  /**
+   * This is the only workspace the viewer belongs to (D-36): it can't be left or deleted until they create or
+   * join another one — the settings page says so instead of only disabling the buttons.
+   */
+  lastWorkspace: boolean;
   members: MemberView[];
   /** Pending and expired invitations; only loaded for people who manage members. */
   invites: InviteView[];
@@ -86,7 +91,7 @@ export function buildWorkspaceSettings(input: {
   invites: Awaited<ReturnType<typeof listPendingInvites>>;
 }): WorkspaceSettings {
   const { ctx, userId } = input;
-  const access: WorkspaceAccess = { id: input.workspace.id, kind: input.workspace.kind };
+  const access: WorkspaceAccess = { id: input.workspace.id };
   const role = roleIn(ctx, access.id);
   if (!role) throw new Error('not a member of the active workspace');
   const ownerCount = input.members.filter((m) => m.role === 'owner').length;
@@ -104,6 +109,7 @@ export function buildWorkspaceSettings(input: {
     inviteRoles: ROLES.filter((r) => canInvite(ctx, access, r)),
     canLeave: canRemoveMember(ctx, access, target({ userId, role })),
     canDelete: canDeleteWorkspace(ctx, access),
+    lastWorkspace: isLastWorkspace(ctx, access.id),
     members: input.members.map((m) => ({
       userId: m.userId,
       name: displayName(m),
@@ -149,7 +155,6 @@ export const getWorkspaceSettings = cache(async (): Promise<WorkspaceSettings> =
       id: row.id,
       name: row.name,
       slug: row.slug,
-      kind: row.kind,
       icon: workspaceIcon(row.logo),
     },
     members,

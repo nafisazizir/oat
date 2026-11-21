@@ -99,7 +99,6 @@ export async function createHarness(): Promise<Harness> {
       .values({
         name: 'Team',
         slug: `team-${Date.now()}-${counter++}`,
-        kind: 'team',
         createdBy: owner.id,
       })
       .returning();

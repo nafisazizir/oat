@@ -339,7 +339,7 @@ async function upsertDocument(
       throw new Reject('not_found', 'Workspace not found.');
     }
     const [ws] = await tx
-      .select({ id: workspace.id, kind: workspace.kind })
+      .select({ id: workspace.id })
       .from(workspace)
       .where(and(eq(workspace.id, row.workspaceId), isNull(workspace.deletedAt)));
     if (!ws) throw new Reject('not_found', 'Workspace not found.');

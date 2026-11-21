@@ -59,8 +59,12 @@ describe('expiresIn', () => {
 });
 
 describe('audienceLabel', () => {
-  it('never says "Shared with" a personal workspace', () => {
-    expect(audienceLabel({ kind: 'personal', name: 'Personal' })).toBe('Only you');
-    expect(audienceLabel({ kind: 'team', name: 'Acme' })).toBe('Shared with Acme');
+  it('never says "Shared with" a workspace nobody else is in', () => {
+    expect(audienceLabel({ name: 'Ada’s workspace', members: 1 })).toBe('Only you');
+    expect(audienceLabel({ name: 'Acme', members: 2 })).toBe('Shared with Acme');
+    // The same workspace, once someone joined.
+    expect(audienceLabel({ name: 'Ada’s workspace', members: 3 })).toBe(
+      'Shared with Ada’s workspace',
+    );
   });
 });

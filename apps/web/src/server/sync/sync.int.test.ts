@@ -5,7 +5,7 @@
  * property-style run of the real desktop `LocalStore` + `SyncEngine` against these handlers through a
  * flaky transport: whatever the faults, the server ends up with exactly the client's final segments.
  */
-import { findPersonalWorkspaceId } from '@oat/auth';
+import { findFirstWorkspaceId } from '@oat/auth';
 import type {
   SyncPullResponse,
   SyncPushEntry,
@@ -36,8 +36,8 @@ let member: TestUser;
 let viewer: TestUser;
 let outsider: TestUser;
 let team: string;
-let ownerPersonal: string;
-let outsiderPersonal: string;
+let ownerOwnWs: string;
+let outsiderOwnWs: string;
 let counter = 0;
 
 beforeAll(async () => {
@@ -57,8 +57,8 @@ beforeAll(async () => {
     [member, 'member'],
     [viewer, 'viewer'],
   ]);
-  ownerPersonal = (await findPersonalWorkspaceId(h.db, owner.id))!;
-  outsiderPersonal = (await findPersonalWorkspaceId(h.db, outsider.id))!;
+  ownerOwnWs = (await findFirstWorkspaceId(h.db, owner.id))!;
+  outsiderOwnWs = (await findFirstWorkspaceId(h.db, outsider.id))!;
 }, 60_000);
 
 afterAll(async () => {
@@ -160,7 +160,7 @@ describe('push', () => {
     const meetingId = uid('mtg');
     const batch = [
       segEntry(uid('s'), meetingId, 'second'), // children may come first: applied parents first
-      docEntry(docId, ownerPersonal, { title: '  Weekly \n sync ' }),
+      docEntry(docId, ownerOwnWs, { title: '  Weekly \n sync ' }),
       meetingEntry(meetingId, docId),
       segEntry(uid('s'), meetingId, 'first'),
     ];
@@ -180,7 +180,7 @@ describe('push', () => {
       },
     });
     const [doc] = await h.db.select().from(document).where(eq(document.id, docId));
-    expect(doc).toMatchObject({ kind: 'meeting', ownerId: owner.id, workspaceId: ownerPersonal });
+    expect(doc).toMatchObject({ kind: 'meeting', ownerId: owner.id, workspaceId: ownerOwnWs });
     expect((await serverSegments(meetingId)).map((s) => s.text).sort()).toEqual([
       'first',
       'second',
@@ -195,7 +195,7 @@ describe('push', () => {
   });
 
   it('segments are insert-or-replace by id; deletes are idempotent', async () => {
-    const { meetingId } = await meetingOf(owner, ownerPersonal);
+    const { meetingId } = await meetingOf(owner, ownerOwnWs);
     const id = uid('s');
     await push(owner, [segEntry(id, meetingId, 'draft')]);
     await push(owner, [segEntry(id, meetingId, 'final text')]);
@@ -207,9 +207,9 @@ describe('push', () => {
   });
 
   it('rejects cross-meeting id spoofing (same user and another user)', async () => {
-    const a = await meetingOf(owner, ownerPersonal);
-    const b = await meetingOf(owner, ownerPersonal);
-    const c = await meetingOf(outsider, outsiderPersonal);
+    const a = await meetingOf(owner, ownerOwnWs);
+    const b = await meetingOf(owner, ownerOwnWs);
+    const c = await meetingOf(outsider, outsiderOwnWs);
     const id = uid('s');
     await push(owner, [segEntry(id, a.meetingId, 'original')]);
 
@@ -237,14 +237,14 @@ describe('push', () => {
 
   it('per-row authorization: no access → rejected, nothing written', async () => {
     denies('POST /api/sync/push');
-    const mine = await meetingOf(owner, ownerPersonal);
+    const mine = await meetingOf(owner, ownerOwnWs);
     // Outsider: someone else's (private) meeting doesn't exist for them.
     const intrude = segEntry(uid('s'), mine.meetingId, 'intruder');
-    const editDoc = docEntry(mine.docId, ownerPersonal, { title: 'pwned' });
-    const intoPersonal = docEntry(uid('doc'), ownerPersonal);
+    const editDoc = docEntry(mine.docId, ownerOwnWs, { title: 'pwned' });
+    const intoOwnWs = docEntry(uid('doc'), ownerOwnWs);
     const intoTeam = docEntry(uid('doc'), team);
-    const r1 = (await push(outsider, [intrude, editDoc, intoPersonal, intoTeam])).body.results;
-    for (const e of [intrude, editDoc, intoPersonal, intoTeam]) {
+    const r1 = (await push(outsider, [intrude, editDoc, intoOwnWs, intoTeam])).body.results;
+    for (const e of [intrude, editDoc, intoOwnWs, intoTeam]) {
       expect(statusOf(r1, e), JSON.stringify(e)).toMatchObject({
         status: 'rejected',
         code: 'not_found',
@@ -330,26 +330,26 @@ describe('push', () => {
   });
 
   it('stale base version: conflict with the server copy unless the text is the same', async () => {
-    const { docId } = await meetingOf(owner, ownerPersonal);
-    const first = docEntry(docId, ownerPersonal, { title: 'v1', baseVersion: 0 });
+    const { docId } = await meetingOf(owner, ownerOwnWs);
+    const first = docEntry(docId, ownerOwnWs, { title: 'v1', baseVersion: 0 });
     expect(statusOf((await push(owner, [first])).body.results, first)).toMatchObject({
       status: 'ok',
       row: { version: 1, title: 'v1' },
     });
     // Replaying the same edit on the old base is recognised as applied.
-    const replay = docEntry(docId, ownerPersonal, { title: 'v1', baseVersion: 0 });
+    const replay = docEntry(docId, ownerOwnWs, { title: 'v1', baseVersion: 0 });
     expect(statusOf((await push(owner, [replay])).body.results, replay)).toMatchObject({
       status: 'ok',
       row: { version: 1 },
     });
     // A different edit on the old base conflicts.
-    const stale = docEntry(docId, ownerPersonal, { title: 'other', baseVersion: 0 });
+    const stale = docEntry(docId, ownerOwnWs, { title: 'other', baseVersion: 0 });
     expect(statusOf((await push(owner, [stale])).body.results, stale)).toMatchObject({
       status: 'conflict',
       row: { id: docId, version: 1, title: 'v1' },
     });
     // Content goes through the editor schema (block ids assigned).
-    const content = docEntry(docId, ownerPersonal, {
+    const content = docEntry(docId, ownerOwnWs, {
       title: 'v1',
       baseVersion: 1,
       contentJson: {
@@ -364,29 +364,29 @@ describe('push', () => {
   });
 
   it('malformed or unsupported entries are rejected one by one', async () => {
-    const { docId, meetingId } = await meetingOf(owner, ownerPersonal);
+    const { docId, meetingId } = await meetingOf(owner, ownerOwnWs);
     const good = segEntry(uid('s'), meetingId, 'good');
     const entries = [
       { version: v(), op: 'upsert', table: 'transcript_segment', row: { id: 'x' } },
       { version: v(), op: 'upsert', table: 'workspace', row: { id: 'w' } },
       // (3.5: deleting an unknown document is ok — conflicted copies are deleted by sync.)
       { version: v(), op: 'delete', table: 'meeting', id: uid('mtg') },
-      docEntry(uid('doc'), ownerPersonal, {
+      docEntry(uid('doc'), ownerOwnWs, {
         contentJson: { type: 'doc', content: [{ type: 'iframe' }] },
       }),
       docEntry(docId, team), // can't move workspaces
       // Server-owned fields can't ride along (strict rows).
       {
-        ...docEntry(uid('doc'), ownerPersonal),
-        row: { ...docEntry('x', ownerPersonal).row, ownerId: member.id },
+        ...docEntry(uid('doc'), ownerOwnWs),
+        row: { ...docEntry('x', ownerOwnWs).row, ownerId: member.id },
       },
       {
-        ...docEntry(uid('doc'), ownerPersonal),
-        row: { ...docEntry('y', ownerPersonal).row, visibility: 'link' },
+        ...docEntry(uid('doc'), ownerOwnWs),
+        row: { ...docEntry('y', ownerOwnWs).row, visibility: 'link' },
       },
       {
-        ...docEntry(uid('doc'), ownerPersonal),
-        row: { ...docEntry('z', ownerPersonal).row, version: 9 },
+        ...docEntry(uid('doc'), ownerOwnWs),
+        row: { ...docEntry('z', ownerOwnWs).row, version: 9 },
       },
       good,
     ];
@@ -409,7 +409,7 @@ describe('push', () => {
   });
 
   it('500 segments in one push', async () => {
-    const { meetingId } = await meetingOf(owner, ownerPersonal);
+    const { meetingId } = await meetingOf(owner, ownerOwnWs);
     const entries = Array.from({ length: 500 }, (_, i) => segEntry(uid('s'), meetingId, `t${i}`));
     const started = Date.now();
     const res = await push(owner, entries);
@@ -457,13 +457,13 @@ describe('pull', () => {
     denies('GET /api/sync/pull');
     const a = await h.signUp('pull-a');
     const b = await h.signUp('pull-b');
-    const aPersonal = (await findPersonalWorkspaceId(h.db, a.id))!;
-    const bPersonal = (await findPersonalWorkspaceId(h.db, b.id))!;
-    const mine = await meetingOf(a, aPersonal);
+    const aOwnWs = (await findFirstWorkspaceId(h.db, a.id))!;
+    const bOwnWs = (await findFirstWorkspaceId(h.db, b.id))!;
+    const mine = await meetingOf(a, aOwnWs);
     const seg1Id = uid('s');
     const seg1 = segEntry(seg1Id, mine.meetingId, 'hello');
     await push(a, [seg1, segEntry(uid('s'), mine.meetingId, 'world')]);
-    const theirs = await meetingOf(b, bPersonal);
+    const theirs = await meetingOf(b, bOwnWs);
     await push(b, [segEntry(uid('s'), theirs.meetingId, 'secret')]);
 
     const first = await pullUntil(
@@ -474,9 +474,9 @@ describe('pull', () => {
     );
     const all = first.changes;
     const cursor = first.cursor;
-    expect(first.workspaceIds).toEqual([aPersonal]);
+    expect(first.workspaceIds).toEqual([aOwnWs]);
     const ids = all.map(idOf);
-    expect(ids).toEqual(expect.arrayContaining([aPersonal, mine.docId, mine.meetingId]));
+    expect(ids).toEqual(expect.arrayContaining([aOwnWs, mine.docId, mine.meetingId]));
     expect(all.filter((c) => c.table === 'transcript_segment').map((c) => c.op)).toEqual([
       'upsert',
       'upsert',
@@ -524,10 +524,13 @@ describe('pull', () => {
       );
     const first = await pullUntil(m, null, (cs) => role(cs).length > 0);
     expect(role(first.changes).at(-1)).toBe('member');
-    const personal = first.changes.find(
-      (c) => c.op === 'upsert' && c.table === 'workspace' && c.row.kind === 'personal',
+    // …and the workspace made for them at sign-up, as its owner. No row says what kind it is (D-36).
+    const mOwn = await findFirstWorkspaceId(h.db, m.id);
+    const own = first.changes.find(
+      (c) => c.op === 'upsert' && c.table === 'workspace' && c.row.id === mOwn,
     );
-    expect(personal).toMatchObject({ row: { role: 'owner' } });
+    expect(own).toMatchObject({ row: { role: 'owner' } });
+    expect(own && 'row' in own ? Object.keys(own.row).sort() : []).toEqual(['id', 'name', 'role']);
     // The owner sees their own role in the same workspace.
     const mine = await pullUntil(owner, null, (cs) => role(cs).length > 0);
     expect(role(mine.changes).at(-1)).toBe('owner');
@@ -580,13 +583,13 @@ describe('local store + engine against the real API', () => {
     const user = await h.signUp('trash');
     const { store, engine } = engineFor(user);
     const deadline = Date.now() + 20_000;
-    while (!store.personalWorkspaceId() && Date.now() < deadline) await engine.syncNow();
+    while (!store.firstWorkspaceId() && Date.now() < deadline) await engine.syncNow();
     const meetingId = uid('mtg');
     const documentId = uid('doc');
     store.createMeeting({
       meetingId,
       documentId,
-      workspaceId: store.personalWorkspaceId()!,
+      workspaceId: store.firstWorkspaceId()!,
       ownerId: user.id,
       title: 'Trash me',
       startedAt: new Date().toISOString(),
@@ -685,11 +688,11 @@ describe('property: local store + engine against the real API', () => {
       engine.start();
       // The first pull may need a moment (change-log visibility, see `pullUntil`) and faults are on.
       const deadline = Date.now() + 20_000;
-      while (!store.personalWorkspaceId() && Date.now() < deadline) {
+      while (!store.firstWorkspaceId() && Date.now() < deadline) {
         await engine.syncNow();
         await new Promise((r) => setTimeout(r, 50));
       }
-      const workspaceId = store.personalWorkspaceId()!;
+      const workspaceId = store.firstWorkspaceId()!;
       const meetingId = uid('mtg');
       store.createMeeting({
         meetingId,

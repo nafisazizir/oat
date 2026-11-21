@@ -61,7 +61,6 @@ function WorkspaceTile({ workspace, className }: { workspace: Workspace; classNa
 }
 
 function memberLabel(workspace: Workspace) {
-  if (workspace.kind === 'personal') return 'Personal space';
   return workspace.members === 1 ? '1 member' : `${workspace.members} members`;
 }
 
@@ -72,9 +71,9 @@ function WorkspaceSwitcher() {
   const [createOpen, setCreateOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const isTeam = currentWorkspace.kind === 'team';
-  const canInvite =
-    isTeam && (currentWorkspace.role === 'owner' || currentWorkspace.role === 'admin');
+  // D-36: the last workspace can't be left, so the menu only offers it when there is another one.
+  const canLeave = workspaces.length > 1;
+  const canInvite = currentWorkspace.role === 'owner' || currentWorkspace.role === 'admin';
 
   const switchTo = (workspace: Workspace) =>
     startTransition(async () => {
@@ -145,7 +144,7 @@ function WorkspaceSwitcher() {
               <IconPlus />
               Create workspace
             </DropdownMenuItem>
-            {isTeam && (
+            {canLeave && (
               <DropdownMenuItem onClick={() => setLeaveOpen(true)}>
                 <IconLogout />
                 Leave {currentWorkspace.name}
@@ -156,7 +155,7 @@ function WorkspaceSwitcher() {
         </DropdownMenuContent>
       </DropdownMenu>
       <CreateWorkspaceDialog open={createOpen} onOpenChange={setCreateOpen} />
-      {isTeam && (
+      {canLeave && (
         <LeaveWorkspaceDialog
           workspace={currentWorkspace}
           open={leaveOpen}
@@ -173,8 +172,8 @@ export function AppSidebar() {
   const { documents, workspace, trash } = useShellData();
   const { openTrash } = useTreeActions();
   const { saving } = useOptimisticTree();
-  // A personal workspace has nobody to share with: show "Shared" only if something is in it.
-  const showShared = workspace.kind === 'team' || rootsOf(documents, 'shared').length > 0;
+  // A workspace with nobody else in it has nobody to share with: show "Shared" only if something is in it.
+  const showShared = workspace.members > 1 || rootsOf(documents, 'shared').length > 0;
 
   return (
     <Sidebar

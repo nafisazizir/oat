@@ -5,6 +5,7 @@
  * copy of the same invite), one note per double click, and the deny cases: viewers can't create, another
  * member's private note for the same meeting is never handed out, unknown events 404, anonymous 401.
  */
+import { findFirstWorkspaceId } from '@oat/auth';
 import type { CalendarEvent, CalendarEventInput } from '@oat/core';
 import { CalendarEventSchema } from '@oat/core';
 import { document, meeting, membership, participant, workspace } from '@oat/db';
@@ -64,13 +65,9 @@ function give(user: TestUser, ...events: CalendarEvent[]) {
   calendars.set(user.id, map);
 }
 
-async function personalWorkspace(user: TestUser): Promise<string> {
-  const [row] = await h.db
-    .select({ id: workspace.id })
-    .from(workspace)
-    .innerJoin(membership, eq(membership.workspaceId, workspace.id))
-    .where(and(eq(membership.userId, user.id), eq(workspace.kind, 'personal')));
-  return row!.id;
+/** The workspace made for the user at sign-up (their oldest membership). */
+async function ownWorkspace(user: TestUser): Promise<string> {
+  return (await findFirstWorkspaceId(h.db, user.id))!;
 }
 
 const start = (as: TestUser | null, body: unknown, opts: { origin?: string | null } = {}) =>
@@ -109,7 +106,7 @@ describe('POST /api/calendar/notes', () => {
   it('makes a private meeting note from the event, then reopens it', async () => {
     const review = event('google:cal-work/review_1');
     give(owner, review);
-    const ws = await personalWorkspace(owner);
+    const ws = await ownWorkspace(owner);
     const first = await start(owner, { eventId: review.id, workspaceId: ws });
     expect(first.status, JSON.stringify(first.error)).toBe(201);
     expect(first.body.created).toBe(true);
@@ -149,7 +146,7 @@ describe('POST /api/calendar/notes', () => {
   });
 
   it('finds the note the desktop made from the same invite (EventKit id, same meeting key)', async () => {
-    const ws = await personalWorkspace(owner);
+    const ws = await ownWorkspace(owner);
     const [doc] = await h.db
       .insert(document)
       .values({ workspaceId: ws, ownerId: owner.id, kind: 'meeting', title: 'From the Mac' })
@@ -173,7 +170,7 @@ describe('POST /api/calendar/notes', () => {
   it('a double click makes one note', async () => {
     const lunch = event('google:cal-work/lunch', { icalUid: 'lunch@oat.test', title: 'Lunch' });
     give(owner, lunch);
-    const ws = await personalWorkspace(owner);
+    const ws = await ownWorkspace(owner);
     const [a, b] = await Promise.all([
       start(owner, { eventId: lunch.id, workspaceId: ws }),
       start(owner, { eventId: lunch.id, workspaceId: ws }),
@@ -217,7 +214,7 @@ describe('POST /api/calendar/notes', () => {
     give(member, retro);
     const viewerNote = await start(viewer, { eventId: retro.id, workspaceId: team });
     expect(viewerNote.status).toBe(403);
-    const ownerWs = await personalWorkspace(owner);
+    const ownerWs = await ownWorkspace(owner);
     const elsewhere = await start(member, { eventId: retro.id, workspaceId: ownerWs });
     expect([403, 404]).toContain(elsewhere.status);
     // Someone else's event id: their calendar, not mine.

@@ -167,7 +167,7 @@ async function loadReadable(
       out.set(`workspace:${w.id}`, {
         op: 'upsert',
         table: 'workspace',
-        row: { id: w.id, name: w.name, kind: w.kind, role },
+        row: { id: w.id, name: w.name, role },
       });
     }
   }

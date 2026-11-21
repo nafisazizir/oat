@@ -3,7 +3,7 @@
  * through the documents API (so `content_md` is derived like in production), transcript segments inserted
  * directly. Deny cases: anonymous, another member's private notes, non-members, other workspaces.
  */
-import { findPersonalWorkspaceId } from '@oat/auth';
+import { findFirstWorkspaceId } from '@oat/auth';
 import { meeting, newId, transcriptSegment } from '@oat/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -19,7 +19,7 @@ let alice: TestUser;
 let bob: TestUser;
 let outsider: TestUser;
 let team: string;
-let alicePersonal: string;
+let aliceOwnWs: string;
 
 const paragraph = (text: string) => ({
   type: 'doc',
@@ -51,11 +51,11 @@ beforeAll(async () => {
     h.signUp('outsider'),
   ]);
   team = await h.teamWorkspace(alice, [[bob, 'member']]);
-  alicePersonal = (await findPersonalWorkspaceId(h.db, alice.id))!;
+  aliceOwnWs = (await findFirstWorkspaceId(h.db, alice.id))!;
 
   await created(alice, {
-    workspaceId: alicePersonal,
-    title: 'Pelican personal notes',
+    workspaceId: aliceOwnWs,
+    title: 'Pelican private notes',
     contentJson: paragraph(
       'My pelican thoughts on R&D and a<b comparisons, <script>alert(1)</script> today',
     ),
@@ -120,7 +120,7 @@ describe('GET /api/search', () => {
           'Bob pelican page 0',
           'Bob pelican page 1',
           'Bob pelican page 2',
-          'Pelican personal notes',
+          'Pelican private notes',
           'Pelican private draft',
           'Pelican roadmap',
           'Pelican standup',
@@ -138,7 +138,7 @@ describe('GET /api/search', () => {
     const res = await search(bob, 'q=pelican&limit=20');
     const titles = res.body.notes!.items.map((n) => n.title);
     expect(titles).not.toContain('Pelican private draft');
-    expect(titles).not.toContain('Pelican personal notes');
+    expect(titles).not.toContain('Pelican private notes');
     expect(titles).toContain('Pelican roadmap');
     expect(res.body.transcripts!.items).toEqual([
       expect.objectContaining({
@@ -154,17 +154,17 @@ describe('GET /api/search', () => {
 
   it('workspaceId scopes the search; a workspace you are not in is a 404', async () => {
     denies('GET /api/search');
-    const res = await search(alice, `q=pelican&type=notes&workspaceId=${alicePersonal}`);
-    expect(res.body.notes!.items.map((n) => n.title)).toEqual(['Pelican personal notes']);
+    const res = await search(alice, `q=pelican&type=notes&workspaceId=${aliceOwnWs}`);
+    expect(res.body.notes!.items.map((n) => n.title)).toEqual(['Pelican private notes']);
     expect(res.body.transcripts).toBeUndefined();
-    expect((await search(bob, `q=pelican&workspaceId=${alicePersonal}`)).status).toBe(404);
+    expect((await search(bob, `q=pelican&workspaceId=${aliceOwnWs}`)).status).toBe(404);
     expect((await search(outsider, `q=pelican&workspaceId=${team}`)).status).toBe(404);
   });
 
   it('escapes snippets (only <mark> markup)', async () => {
     const res = await search(alice, `q=pelican thoughts&type=notes`);
     const [hit] = res.body.notes!.items;
-    expect(hit!.title).toBe('Pelican personal notes');
+    expect(hit!.title).toBe('Pelican private notes');
     expect(hit!.snippetHtml.replace(/<\/?mark>/g, '')).not.toMatch(/[<>]/);
     expect(hit!.snippetHtml).toContain('R&amp;D and a &lt;b comparisons');
     expect(hit!.snippetHtml).not.toContain('<script');

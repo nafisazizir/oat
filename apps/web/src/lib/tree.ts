@@ -11,7 +11,6 @@ import type { Access, DocumentSummary, FolderSummary } from './api-types';
 export type Workspace = {
   id: string;
   name: string;
-  kind: 'personal' | 'team';
   members: number;
   /** The signed-in user's role here (viewers can't create). */
   role: Role;

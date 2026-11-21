@@ -1,7 +1,8 @@
 import 'server-only';
 
 import {
-  ensurePersonalWorkspace,
+  ensureFirstWorkspace,
+  lastActiveWorkspaceId,
   listUserWorkspaces,
   pickActiveWorkspace,
   type UserWorkspace,
@@ -9,6 +10,8 @@ import {
 import { type CalendarEvent, createPermissionContext } from '@oat/core';
 import { meeting } from '@oat/db';
 import { eq } from 'drizzle-orm';
+import type { Route } from 'next';
+import { redirect } from 'next/navigation';
 import { cache } from 'react';
 
 import type { DocumentDetail, DocumentSummary, FolderSummary } from '@/lib/api-types';
@@ -45,7 +48,6 @@ import { loadTranscript } from './transcript';
 const toWorkspace = (w: UserWorkspace): Workspace => ({
   id: w.id,
   name: w.name,
-  kind: w.kind,
   members: w.memberCount,
   icon: workspaceIcon(w.logo),
   role: w.role,
@@ -56,11 +58,17 @@ export function buildShellData(input: {
   user: { id: string; name?: string | null; email: string; image?: string | null };
   workspaces: readonly UserWorkspace[];
   activeWorkspaceId: string | null | undefined;
+  /** The workspace the user last switched to (used when the session's one is gone or unset). */
+  lastActiveWorkspaceId?: string | null;
   folders?: readonly FolderSummary[];
   documents?: readonly DocumentSummary[];
   trash?: readonly DocumentSummary[];
 }): ShellData {
-  const active = pickActiveWorkspace(input.workspaces, input.activeWorkspaceId);
+  const active = pickActiveWorkspace(
+    input.workspaces,
+    input.activeWorkspaceId,
+    input.lastActiveWorkspaceId,
+  );
   if (!active) throw new Error('signed-in user has no workspace');
   const user: ShellUser = {
     id: input.user.id,
@@ -83,14 +91,20 @@ export function buildShellData(input: {
 /**
  * The signed-in user, their workspaces (the active one resolved from the session) and their
  * permission context. Redirects to `/sign-in` without a session. Deduped per request.
+ *
+ * A user without a workspace (D-36) — removed from their only one, its owner deleted it, or their sign-up
+ * hook failed — gets one of their own here; unless an invitation is waiting for them, in which case they
+ * are sent to it (accepting joins that workspace, declining brings them back here for their own).
  */
 const getContext = cache(async () => {
   const { user, session } = await requireSession();
   const db = getDb();
   let workspaces = await listUserWorkspaces(db, user.id);
   if (workspaces.length === 0) {
-    // Normally created on sign-up; heal a user whose workspace creation failed.
-    await ensurePersonalWorkspace(db, user.id);
+    const first = await ensureFirstWorkspace(db, user.id);
+    if (first.workspaceId === undefined) {
+      redirect(`/invite/${encodeURIComponent(first.pendingInviteToken)}` as Route);
+    }
     workspaces = await listUserWorkspaces(db, user.id);
   }
   // The workspace list already carries the user's roles: no second membership query.
@@ -101,7 +115,14 @@ const getContext = cache(async () => {
       memberships: workspaces.map((w) => ({ workspaceId: w.id, userId: user.id, role: w.role })),
     }),
   };
-  const active = pickActiveWorkspace(workspaces, session.activeOrganizationId);
+  // The session's workspace is gone (left, removed, deleted) or was never set: the one last switched to,
+  // else the oldest membership — the same rule a new session starts with.
+  const sessionActive = workspaces.some((w) => w.id === session.activeOrganizationId);
+  const active = pickActiveWorkspace(
+    workspaces,
+    session.activeOrganizationId,
+    sessionActive ? null : await lastActiveWorkspaceId(db, user.id),
+  );
   if (!active) throw new Error('signed-in user has no workspace');
   return { db, user, session, workspaces, actor, active };
 });

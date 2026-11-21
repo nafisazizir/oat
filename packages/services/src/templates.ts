@@ -91,7 +91,7 @@ async function memberWorkspace(
 ): Promise<WorkspaceAccess> {
   if (!isMember(ctx, workspaceId)) throw notFound('Workspace');
   const [row] = await db
-    .select({ id: workspace.id, kind: workspace.kind })
+    .select({ id: workspace.id })
     .from(workspace)
     .where(eq(workspace.id, workspaceId));
   if (!row) throw notFound('Workspace');
