@@ -437,5 +437,6 @@ not hold on the branch (passed next to `documents.spec.ts`), though it did fail 
 
 **Failures caused by this branch:** none found.
 **Could not run / not done:** nothing skipped. Notes: the 1440×900 screenshots in *Verification* are for B/C
-screens; `desktop-create-workspace-hint` is taken by the desktop spec. Each comparison run was made once per
+screens; no screenshot exists under `docs/tasks/evidence/unified-workspaces/` after these runs (the desktop
+spec's `evidence(…, 'desktop-create-workspace-hint')` call left no file there). Each comparison run was made once per
 side (plus the single re-run of `typography`), so the flaky classification rests on few samples.
