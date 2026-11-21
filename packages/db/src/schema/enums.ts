@@ -8,6 +8,8 @@ import {
   DOCUMENT_KINDS,
   DOCUMENT_VISIBILITIES,
   FOLDER_VISIBILITIES,
+  JOIN_POLICIES,
+  JOIN_REQUEST_STATUSES,
   PARTICIPANT_SOURCES,
   ROLES,
   TRANSCRIPT_SOURCES,
@@ -36,6 +38,8 @@ export type ChunkSource = (typeof CHUNK_SOURCES)[number];
 
 export const roleEnum = pgEnum('role', ROLES);
 export const inviteStatusEnum = pgEnum('invite_status', INVITE_STATUSES);
+export const joinPolicyEnum = pgEnum('join_policy', JOIN_POLICIES);
+export const joinRequestStatusEnum = pgEnum('join_request_status', JOIN_REQUEST_STATUSES);
 export const folderVisibilityEnum = pgEnum('folder_visibility', FOLDER_VISIBILITIES);
 export const documentVisibilityEnum = pgEnum('document_visibility', DOCUMENT_VISIBILITIES);
 export const documentKindEnum = pgEnum('document_kind', DOCUMENT_KINDS);
