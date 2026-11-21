@@ -1,5 +1,4 @@
 import type { DesktopUser, InvokeResponse, SearchHitSnapshot } from '@oat/core/bridge';
-import { Avatar, AvatarFallback } from '@oat/ui/components/avatar';
 import {
   Dialog,
   DialogContent,
@@ -8,11 +7,10 @@ import {
   DialogDescription,
 } from '@oat/ui/components/dialog';
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from '@oat/ui/components/dropdown-menu';
 import {
   SidebarMenu,
@@ -22,7 +20,6 @@ import {
 } from '@oat/ui/components/sidebar';
 import { Kbd } from '@oat/ui/components/kbd';
 import {
-  IconSelector,
   IconSettings,
   IconAppWindow,
   IconRefresh,
@@ -31,6 +28,8 @@ import {
 } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
+import { WorkspaceSwitcher } from '../workspaces/workspace-switcher.tsx';
+import type { WorkspacesView } from '../workspaces/workspaces-state.ts';
 import { call } from '../bridge.ts';
 import { LocalSearch } from '../sync/local-search.tsx';
 import { useRecordingAction } from '../recording/recording-controls.tsx';
@@ -63,7 +62,11 @@ export function DesktopSearch({
   return (
     <>
       <SidebarMenuItem>
-        <SidebarMenuButton tooltip="Search" onClick={() => setOpen(true)}>
+        <SidebarMenuButton
+          className="rounded-full border border-gray-alpha-400 bg-background-100"
+          tooltip="Search"
+          onClick={() => setOpen(true)}
+        >
           <IconSearch aria-hidden />
           <span>Search</span>
         </SidebarMenuButton>
@@ -95,8 +98,10 @@ export function DesktopSearch({
 export function DesktopUserMenu({
   user,
   onOpenSettings,
+  workspaces,
 }: {
   user: DesktopUser;
+  workspaces: WorkspacesView;
   onOpenSettings: () => void;
 }) {
   const action = useRecordingAction();
@@ -106,61 +111,48 @@ export function DesktopUserMenu({
     <>
       <SidebarMenu>
         <SidebarMenuItem>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-popup-open:bg-gray-alpha-100 group-data-[collapsible=icon]:ps-1!"
-                  data-testid="user-menu"
-                  tooltip={label}
-                />
-              }
-            >
-              <Avatar size="sm">
-                <AvatarFallback>{label.charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-button-14 text-gray-1000">{label}</span>
-                <span
-                  className="truncate text-label-12 text-gray-900"
-                  data-testid="signed-in-email"
-                >
-                  {user.email}
-                </span>
-              </div>
-              <IconSelector aria-hidden className="ms-auto text-gray-900" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="w-(--anchor-width) min-w-56">
-              <DropdownMenuGroup>
-                <DropdownMenuItem onClick={onOpenSettings}>
-                  <IconSettings />
-                  Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={action.pending}
-                  onClick={() => void action.run(() => call('window:open-widget'))}
-                >
-                  <IconAppWindow />
-                  Show meeting widget
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={action.pending}
-                  onClick={() => void action.run(async () => setMe(await call('api:me')))}
-                >
-                  <IconRefresh />
-                  Check connection
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={action.pending}
-                  onClick={() => void action.run(() => call('auth:sign-out'))}
-                >
-                  <IconLogout />
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <WorkspaceSwitcher
+            view={workspaces}
+            label={label}
+            email={user.email}
+            account={
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Account</DropdownMenuLabel>
+                  <DropdownMenuLabel>
+                    <span className="block">{label}</span>
+                    <span className="block text-label-12 text-gray-900">{user.email}</span>
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem onClick={onOpenSettings}>
+                    <IconSettings />
+                    Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={action.pending}
+                    onClick={() => void action.run(() => call('window:open-widget'))}
+                  >
+                    <IconAppWindow />
+                    Show meeting widget
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={action.pending}
+                    onClick={() => void action.run(async () => setMe(await call('api:me')))}
+                  >
+                    <IconRefresh />
+                    Check connection
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={action.pending}
+                    onClick={() => void action.run(() => call('auth:sign-out'))}
+                  >
+                    <IconLogout />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </>
+            }
+          />
         </SidebarMenuItem>
       </SidebarMenu>
       {me && !action.error && (

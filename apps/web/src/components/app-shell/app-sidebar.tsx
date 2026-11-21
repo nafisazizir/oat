@@ -24,7 +24,6 @@ import {
 import {
   IconCheck,
   IconChecklist,
-  IconEdit,
   IconHome,
   IconLayoutGrid,
   IconLogout,
@@ -52,8 +51,10 @@ import { CreateWorkspaceDialog } from './create-workspace-dialog';
 import { TreeSection } from './page-tree';
 import { useOptimisticTree, useShellData } from './shell-data';
 import { useTreeActions } from './tree-actions';
-import { useNewNote } from './use-new-note';
-import { UserMenu } from './user-menu';
+import { AccountMenuItems } from './user-menu';
+import { Button } from '@oat/ui/components/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
+import { ThemeMenu } from '../theme-toggle';
 
 function WorkspaceTile({ workspace, className }: { workspace: Workspace; className?: string }) {
   return <WorkspaceAvatar workspace={workspace} {...(className ? { className } : {})} />;
@@ -90,6 +91,7 @@ function WorkspaceSwitcher() {
             <SidebarMenuButton
               size="lg"
               className="data-popup-open:bg-gray-alpha-100 group-data-[collapsible=icon]:ps-1!"
+              tooltip={currentWorkspace.name}
               data-testid="workspace-switcher"
               aria-busy={pending || undefined}
             />
@@ -104,7 +106,7 @@ function WorkspaceSwitcher() {
           </div>
           <IconSelector className="ms-auto text-gray-900" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-(--anchor-width) min-w-56">
+        <DropdownMenuContent side="top" align="start" className="w-(--anchor-width) min-w-56">
           <DropdownMenuGroup>
             <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
             {workspaces.map((workspace) => (
@@ -150,6 +152,7 @@ function WorkspaceSwitcher() {
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
+          <AccountMenuItems />
         </DropdownMenuContent>
       </DropdownMenu>
       <CreateWorkspaceDialog open={createOpen} onOpenChange={setCreateOpen} />
@@ -167,7 +170,6 @@ function WorkspaceSwitcher() {
 export function AppSidebar() {
   const pathname = usePathname();
   const { setOpen: openCommandMenu } = useCommandMenu();
-  const newNote = useNewNote();
   const { documents, workspace, trash } = useShellData();
   const { openTrash } = useTreeActions();
   const { saving } = useOptimisticTree();
@@ -183,24 +185,13 @@ export function AppSidebar() {
       data-saving={saving || undefined}
     >
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <WorkspaceSwitcher />
-          </SidebarMenuItem>
-        </SidebarMenu>
         <SidebarMenu className="gap-0.5">
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="New note"
-              onClick={newNote}
-              className="text-brand-900 hover:text-brand-1000"
+              className="rounded-full border border-gray-alpha-400 bg-background-100"
+              tooltip="Search · ⌘K"
+              onClick={() => openCommandMenu(true)}
             >
-              <IconEdit />
-              <span>New note</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Search · ⌘K" onClick={() => openCommandMenu(true)}>
               <IconSearch />
               <span>Search</span>
             </SidebarMenuButton>
@@ -247,35 +238,71 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
+        <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
+          <Tooltip>
+            <TooltipTrigger
+              role="link"
+              render={
+                <Button
+                  nativeButton={false}
+                  role="link"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Templates"
+                  render={<Link href={sections.templates.href} />}
+                />
+              }
+            >
+              <IconLayoutGrid />
+            </TooltipTrigger>
+            <TooltipContent>Templates</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="relative"
+                  aria-label={trash.length ? `Trash (${trash.length})` : 'Trash'}
+                  onClick={openTrash}
+                  data-testid="open-trash"
+                />
+              }
+            >
+              <IconTrash />
+              {trash.length > 0 && (
+                <span
+                  aria-hidden
+                  className="absolute end-1 top-1 size-1.5 rounded-full bg-brand-900"
+                />
+              )}
+            </TooltipTrigger>
+            <TooltipContent>Trash{trash.length > 0 ? ` (${trash.length})` : ''}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              role="link"
+              render={
+                <Button
+                  nativeButton={false}
+                  role="link"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Settings"
+                  render={<Link href={sections.settings.href} />}
+                />
+              }
+            >
+              <IconSettings />
+            </TooltipTrigger>
+            <TooltipContent>Settings</TooltipContent>
+          </Tooltip>
+          <ThemeMenu />
+        </div>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Trash" onClick={openTrash} data-testid="open-trash">
-              <IconTrash />
-              <span>Trash</span>
-              {trash.length > 0 && (
-                <span className="ms-auto text-label-12 text-gray-900 tabular-nums group-data-[collapsible=icon]:hidden">
-                  {trash.length}
-                </span>
-              )}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          {[
-            { ...sections.templates, Icon: IconLayoutGrid },
-            { ...sections.settings, Icon: IconSettings },
-          ].map(({ href, label, Icon }) => (
-            <SidebarMenuItem key={href}>
-              <SidebarMenuButton
-                render={<Link href={href} />}
-                isActive={inSection(pathname, href)}
-                tooltip={label}
-              >
-                <Icon />
-                <span>{label}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-          <SidebarMenuItem>
-            <UserMenu />
+            <WorkspaceSwitcher />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

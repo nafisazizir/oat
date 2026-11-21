@@ -159,7 +159,7 @@ test('storage settings: list, show in Finder, delete audio (transcript kept), si
   ).toBeVisible({ timeout: scaled(30_000) });
 
   // While it records: listed as "Recording", and its audio can't be deleted.
-  await page.getByTestId('user-menu').click();
+  await page.getByTestId('workspace-switcher').click();
   await page.getByRole('menuitem', { name: 'Settings' }).click();
   await expect(page.getByTestId('storage-settings')).toBeVisible();
   const live = page.locator(`[data-testid=storage-meeting][data-meeting-id="${meetingId}"]`);

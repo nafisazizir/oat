@@ -105,7 +105,9 @@ test.describe('magic link', () => {
     await page.goto('/home');
     await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible();
     await expect(page.getByTestId('workspace-switcher')).toContainText('Personal');
-    await expect(page.getByTestId('user-menu')).toContainText(email);
+    await page.getByTestId('workspace-switcher').click();
+    await expect(page.getByRole('menu')).toContainText(email);
+    await page.keyboard.press('Escape');
     await evidence(page, 'home-after-magic-link');
 
     // The link is single-use: opening it again (signed out) says so, with no button.
@@ -151,8 +153,10 @@ test.describe('Google (mock issuer)', () => {
     await signInWithGoogle(page, email, 'Grace Hopper');
     await expect(page).toHaveURL(/\/home$/);
     await expect(page.getByTestId('workspace-switcher')).toContainText('Personal');
-    await expect(page.getByTestId('user-menu')).toContainText('Grace Hopper');
-    await expect(page.getByTestId('user-menu')).toContainText(email);
+    await page.getByTestId('workspace-switcher').click();
+    await expect(page.getByRole('menu')).toContainText('Grace Hopper');
+    await expect(page.getByRole('menu')).toContainText(email);
+    await page.keyboard.press('Escape');
     await evidence(page, 'home-after-google');
   });
 });
@@ -189,7 +193,7 @@ test.describe('signed in', () => {
     await page.reload();
     await expect(switcher).toContainText('Personal');
 
-    await page.getByTestId('user-menu').click();
+    await page.getByTestId('workspace-switcher').click();
     await page.getByRole('menuitem', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/sign-in$/);
     await page.goto('/home');

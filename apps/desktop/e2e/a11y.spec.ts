@@ -229,7 +229,7 @@ test('every desktop screen: axe clean in light and dark (+ sweep screenshots)', 
   });
   await sweep(page, '09-recording');
   const widgetOpened = electronApp.waitForEvent('window');
-  await page.getByTestId('user-menu').click();
+  await page.getByTestId('workspace-switcher').click();
   await page.getByRole('menuitem', { name: 'Show meeting widget' }).click();
   const widget = await widgetOpened;
   await expect(widget.getByTestId('widget-recording')).toHaveText('Recording');
@@ -264,7 +264,7 @@ test('every desktop screen: axe clean in light and dark (+ sweep screenshots)', 
   await sweep(page, '13-note-upcoming');
 
   // Settings.
-  await page.getByTestId('user-menu').click();
+  await page.getByTestId('workspace-switcher').click();
   await page.getByRole('menuitem', { name: 'Settings' }).click();
   await expect(page.getByTestId('settings')).toBeVisible();
   await expect(page.getByTestId('storage-total')).toBeVisible();
@@ -272,7 +272,7 @@ test('every desktop screen: axe clean in light and dark (+ sweep screenshots)', 
 
   // Signed out again (account card after sign-out).
   await page.getByTestId('settings-close').click();
-  await page.getByTestId('user-menu').click();
+  await page.getByTestId('workspace-switcher').click();
   await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Welcome to Oat' })).toBeVisible();
 

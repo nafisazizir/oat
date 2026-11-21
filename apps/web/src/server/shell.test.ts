@@ -2,7 +2,6 @@ import type { UserWorkspace } from '@oat/auth';
 import { describe, expect, it } from 'vitest';
 
 import type { DocumentSummary, FolderSummary } from '@/lib/api-types';
-import { breadcrumbsFor } from '@/lib/navigation';
 import { childrenOf, rootsOf } from '@/lib/tree';
 
 import { buildShellData } from './shell';
@@ -111,11 +110,5 @@ describe('buildShellData (session + memberships + tree → shell)', () => {
     const [reading] = childrenOf(data.documents, 'f1');
     expect(reading).toMatchObject({ id: 'd2', kind: 'meeting', parentId: 'f1', version: 3 });
     expect(data.trash.map((d) => d.id)).toEqual(['d4']);
-    expect(breadcrumbsFor(data, '/d/d2').map((c) => c.label)).toEqual([
-      'Personal',
-      'Private',
-      'Ideas',
-      'Reading list',
-    ]);
   });
 });
