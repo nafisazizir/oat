@@ -23,7 +23,7 @@ import { type AuthConfig, isLoopbackUrl } from './config.ts';
 import { desktopAuth } from './desktop.ts';
 import { createSmtpMailer, invitationEmail, type Mailer, magicLinkEmail } from './email.ts';
 import { GOOGLE_CALENDAR_PROVIDER_ID, GOOGLE_CALENDAR_SCOPES } from './google-calendar.ts';
-import { ensureFirstWorkspace, settlePendingRequests } from './joining.ts';
+import { ensureFirstWorkspace, recordAdmittedByInvitation } from './joining.ts';
 import { magicLinkConfirmUrl } from './magic-link.ts';
 import {
   INVITE_EXPIRES_IN,
@@ -600,10 +600,11 @@ export function createAuth({
             });
             if (!stillAllowed) throw forbidden('This invitation is no longer valid.');
           },
-          // Someone who asked to join and was then invited is in: their request isn't left waiting.
+          // Someone who asked to join and was then invited is in: their request isn't left waiting, and
+          // an earlier "no" (declined, or removed) no longer stands — the invitation is the way back.
           afterAcceptInvitation: async ({ member, organization: org }) => {
             if (isRole(member.role)) {
-              await settlePendingRequests(db, org.id, member.userId, member.role);
+              await recordAdmittedByInvitation(db, org.id, member.userId, member.role);
             }
           },
           beforeUpdateMemberRole: async ({ newRole }) => {

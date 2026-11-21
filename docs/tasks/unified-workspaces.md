@@ -220,7 +220,10 @@ What was decided, and what step C needs to know.
   `organization/update`.
 
 **Rules** (`packages/core`)
-- `email-domains.ts`: `PUBLIC_MAILBOX_DOMAINS` (about 140 consumer, ISP and disposable providers),
+- `email-domains.ts`: `PUBLIC_MAILBOX_DOMAINS` (about 140 consumer, ISP and disposable providers) plus
+  `PUBLIC_MAILBOX_FAMILIES` (review 6: `<outlook|hotmail|live|yahoo|gmx|yandex|proton|icloud|…>.<tld>` and
+  `.<co|com|net|org|ne|or>.<cc>` are public by rule — the registrable label must *be* the name, so
+  `liveperson.com` is not; it errs towards public, e.g. a company on `live.tv` has to invite),
   `normalizeDomain`, `emailDomain`, `isPublicMailboxDomain`. The list can't be exhaustive; the second half of
   the rule is that only one's *own* verified domain can be listed.
 - `permissions.ts` (table in the file header; deny tests in `permissions.join.test.ts`, coverage still 100 %):
@@ -233,7 +236,8 @@ What was decided, and what step C needs to know.
 - **Decided: a declined request is final.** `canRequestToJoin` takes the status of the person's latest request
   to that workspace: `pending` or `declined` → no. So "can't spam" is both the unique index (one pending) and
   "a no stands": the workspace is no longer offered to them and asking again is refused; an owner/admin can
-  still invite them. Someone approved once and removed since may ask again.
+  still invite them. The same `declined` status blocks `canAutoJoin` (review 1/2), so a "no" also stands
+  when the policy later becomes `auto_join`. Someone approved once who *left* since may ask or join again.
 - The person is always an `EmailIdentity { email, emailVerified }` built from the user row; no rule takes an
   address or a domain from a request.
 
@@ -292,8 +296,17 @@ What was decided, and what step C needs to know.
 - `auto_join` + step A's finding 6: a `workspace`-visibility note in a workspace of one reads "Only you" and
   becomes readable by whoever auto-joins. Turning on `request`/`auto_join` is now a second way that happens;
   settle the wording with Private / Shared.
-- A member removed from an `auto_join` workspace can join again at once (and one removed from a `request`
-  workspace can ask again). Blocking that needs a "removed" record — not in scope here.
+- Removal (review 1): being removed **by someone else** is recorded as a `declined` `join_request` (by the
+  remover; a request of theirs that was waiting is declined too), so the removed person can neither
+  auto-join nor ask again — an invitation is the only way back, and accepting one writes a new `approved`
+  row so the "no" stops standing. Leaving on one's own records nothing. Separately, the `workspace_domain`
+  rows someone added are dropped when they stop being owner/admin (demoted, removed or leaving), next to
+  `revokeInvitesBeyondAuthority`; a row another current owner/admin could list themselves (verified email
+  on that domain) is kept and re-attributed to them. The policy is left as it is.
+- An invited newcomer whose email is **not verified** is not held for the invitation (invitations are only
+  offered to verified addresses), so `ensureFirstWorkspace` gives them a workspace of their own. Not
+  reachable today — magic link and Google both verify — but a future password or unverified sign-up flow
+  must revisit it (with the `/change-email` note below).
 - Desktop: someone who signs in on the desktop only and has choices gets no workspace until they open the web
   (step A's "You’re not in a workspace… on the web" message covers it). No join UI on the desktop.
 - `/change-email` is disabled (`DISABLED_AUTH_PATHS`). If it is ever enabled, the new address must be
@@ -637,7 +650,169 @@ from a throwaway int test added to `joining.int.test.ts` and reverted (not commi
 - Acceptance criteria for step B are met as written; 1 is a gap against D-36's removal rule rather than a
   listed criterion.
 
+**Resolutions (implementer, 2026-11-21)**
+
+1. Fixed, both parts. (a) `members.ts` `recordRemoval`: `removeMember` by another person declines the
+   target's pending request and writes a `declined` `join_request` (`decided_by` = remover), not when
+   leaving. `@oat/core` `canAutoJoin` now takes `previous` like `canRequestToJoin` and refuses `declined`;
+   `joinOption` passes it, so the workspace is not offered either. An accepted invitation
+   (`recordAdmittedByInvitation`, from `afterAcceptInvitation`) writes a fresh `approved` row, so the
+   invitation is the way back and the "no" stops standing afterwards. (b) `dropDomainsBeyondAuthority` in
+   `changeMemberRole` and `removeMember` (removed or leaving): domains the target added go once they are
+   not owner/admin, unless another current owner/admin's verified email is on that domain (then the row is
+   re-attributed to them). Tests: core deny cases (`canAutoJoin` / `joinOption` with `declined`);
+   `joining.int.test.ts` "removal and lost authority close the door" (removed admin and their colleague are
+   refused and not offered; removed member stays out while the domain is still listed, others still join; a
+   waiting request is declined; invitation works after removal; leaving is not a "no"; demotion and leaving
+   drop the domain; shared-domain row is kept); web `entrypoints.int.test.ts` `removeMember: someone removed
+   can’t come back through the domain, only by invitation`.
+2. Fixed by 1(a). Test: `joining.int.test.ts` "a declined requester is not let in when the policy later
+   becomes auto_join" (+ the core `joinOption` case, which used to expect `join`).
+3. No code change (decided): an admin may open the workspace to their domain, as D-36 says; the orchestrator
+   raises it with the human.
+4. Fixed in the web action: when Better Auth's accept fails, `acceptInvite` asks `@oat/auth`
+   `inviteAlreadyHonoured` — invited verified address, already a member of that live workspace → the
+   invitation is marked accepted, the workspace made active, and the action ends as a normal accept (no
+   500). The other loser (approval after the accept) was already a no-op (`ON CONFLICT DO NOTHING`).
+   Better Auth's accept does not check for an existing membership at all, so the state the race loser finds
+   is reproduced in sequence (approve, then accept) in `joining.int.test.ts` "approve and an accepted
+   invitation at once" and in `entrypoints.int.test.ts` (`acceptInvite: … still succeeds`). The true
+   interleaving (approval committing between Better Auth's two statements) **can't be forced
+   deterministically** from a test; not attempted.
+5. Fixed. `joinableWorkspacesFor` reads every candidate (no SQL limit), applies `joinOption`, stops at 20,
+   and only then counts members for those 20. Test: "many workspaces on one domain" (45 workspaces, member
+   of the first 41 → offered the last 4; a newcomer → the first 20).
+6. Fixed by rule: `PUBLIC_MAILBOX_FAMILIES` + `isPublicMailboxFamily` (see Design notes → Rules); `mail.de`,
+   `163.net`, `126.net` added to the exact list. Tests: `live.ca`, `outlook.com.au`, `hotmail.co.jp`,
+   `yahoo.co.id`, `gmx.fr`, … are public; `liveperson.com`, `outlookgroup.io`, `team.outlook.com`,
+   `live.acme.com`, … are not.
+6b. No code change (decided): lookalike workspaces are inherent without DNS verification (out of scope);
+   the orchestrator raises it with the human.
+7. No code change (decided): not reachable today; one line added to Design notes → Step B.
+
 ## Evidence
+
+### Step A
+Verifier, 2026-11-21, branch `task/unified-workspaces-a` at a1329ce. Verdict: **pass for Step A** — every
+Step A criterion holds and no failure is caused by this branch — **but the gate is not green**: `e2e` and
+`acceptance` are red here exactly as on `main` (d3b92e2), see "Baseline". Steps B/C not checked.
+
+**1. `pnpm install && pnpm run ci` (full)** — install: "Already up to date".
+```
+step             status     time  note
+format           pass       4.8s
+actionlint       pass       0.2s
+typecheck        pass       0.5s
+lint             pass       0.8s
+test             pass       0.2s
+stack            pass       0.2s
+migrate          pass       1.8s
+swift:release    pass       0.5s
+test:int         pass     179.3s
+e2e              FAIL     448.9s  failing package(s): @oat/desktop, @oat/web
+acceptance       FAIL      35.1s  pnpm --filter @oat/acceptance run acceptance exited with 1
+swift:build      pass       0.5s
+swift:test       pass       4.1s
+swift:synthetic  pass       2.2s
+total                     679.1s
+ci: FAILED (e2e, acceptance)
+```
+(typecheck/lint/test were turbo cache hits; the Step A packages were re-run uncached below.)
+- e2e `@oat/desktop`: 8 passed, 10 failed, 10 did not run. `workspaces.spec.ts` 4/4 and `desktop.spec.ts` 4/4 pass.
+- e2e `@oat/web`: 76 passed, 17 skipped, 1 failed — `typography.spec.ts:13` (dark): "browser console errors",
+  4× `Failed to load resource: … 429 (Too Many Requests)`. `notion.spec.ts` passed in this run.
+- e2e `@oat/editor`: 16 passed, 2 skipped.
+- acceptance: 1 failed — `journey.spec.ts:159`, step "desktop: cold start, sign in through the browser",
+  `getByTestId('meeting-start')` not visible (line 246).
+
+**2. Step A verification commands** (run directly, not through turbo)
+```
+pnpm --filter @oat/core test permissions      320 passed; coverage 100 % statements/branches/functions/lines
+pnpm --filter @oat/auth test                  10 files, 64 passed
+pnpm --filter @oat/auth test:int              4 files, 86 passed
+pnpm --filter @oat/local-store test           8 files, 83 passed
+pnpm --filter @oat/db test:int                7 files passed, 1 skipped; 56 passed, 1 skipped
+pnpm --filter @oat/desktop test workspaces    3 files, 30 passed
+web   playwright workspaces/auth/calm-auth/sharing .spec.ts   17 passed (28.2s)
+desktop playwright e2e/workspaces.spec.ts                      4 passed (23.2s)
+web   playwright e2e/typography.spec.ts (alone, re-run)        3 passed (light + dark)
+web   playwright notion.spec.ts + documents.spec.ts            9 passed
+```
+
+**Acceptance criteria, Step A**
+1. No `kind`/"personal" left — **pass**. `git grep -Il -iE "personal|WorkspaceKind|kind === 'team'" -- apps packages`
+   (tracked files; a plain `grep -r` also walks `.next*` build output) returns only: `packages/db/drizzle/*`
+   (0001, 0003, 0013 + snapshots/journal), `packages/db/src/unified-workspaces-migration.int.test.ts`,
+   `packages/local-store/src/{migrations.ts (migration 1), migration-5.test.ts, fixtures/v4-two-kinds.sql}` and
+   `packages/calendar/src/google/source.test.ts` (a Google calendar titled "Personal"). Outside apps/packages:
+   calendar fixtures, `tools/mocks` gcal test, READMEs. `schema/workspace.ts`, `enums.ts`, `core/sync.ts`,
+   `core/types.ts` carry no workspace kind. Not a special case, but still named after the old model:
+   test-harness helper `teamWorkspace`, option `maxTeamWorkspaces` / `AUTH_MAX_TEAM_WORKSPACES`, and "team
+   workspace" in test comments and `e2e/acceptance/journey.spec.ts`.
+2. Existing user keeps documents under the same workspace id; renamed; can invite/rename — **pass**. Read
+   `0013_unified_workspaces.sql` (updates name/slug only, then drops constraint, index, column, enum; ids
+   untouched) and ran `unified-workspaces-migration.int.test.ts` (5 tests: ids + documents kept, rename with
+   fallback, slugs, change log, drops) inside `@oat/db test:int`; CI `migrate` passes. Invite + rename + slug
+   change of a first workspace: `auth.int.test.ts` "a first workspace is an ordinary one…" (passed). The
+   invite/rename test uses a freshly created first workspace, not a migrated row; after the migration the two
+   are indistinguishable in the schema.
+3. New user lands in an auto-created workspace as owner; concurrent sign-up creates one — **pass**.
+   `auth.int.test.ts` "concurrent calls for a user without one create exactly one, as owner" (8 parallel
+   `ensureFirstWorkspace`, one id, one `created`, role owner); web e2e `auth.spec.ts:68` "signs up, lands on the
+   requested page in a workspace of their own" and `:137` "signing in again keeps one workspace".
+4. Leaving/deleting the only workspace refused; works with a second — **pass**. `permissions.ts:410-429`
+   (`isLastWorkspace` in `canRemoveMember`/`canDeleteWorkspace`); deny cases in `permissions.test.ts:748-857`;
+   `members.int.test.ts` "nobody leaves their last workspace; with a second one they can", "the last workspace
+   can’t be deleted; with a second one it can"; `entrypoints.int.test.ts:235`; web e2e `workspaces.spec.ts:210`.
+5. Desktop record target — **pass**. Desktop e2e `workspaces.spec.ts:221` (viewer → first workspace I can add
+   to) and `:285` (view-only everywhere: hint, "Create a workspace of your own in Oat on the web, then try
+   again.", recorder stays idle, meeting count unchanged, records again once a role returns); unit
+   `workspaces.test.ts` "in no workspace at all" / "view-only everywhere" (30 passed). The zero-workspace case
+   (review finding 2) is covered by unit tests only, not by an e2e.
+6. Desktop upgrade without re-download or loss — **pass**. `migration-5.test.ts` (4 tests) upgrades the
+   version-4 fixture `v4-two-kinds.sql` with a `personal` row: rows, outbox, cursor, search kept; reopen no-op.
+
+**3. Baseline: `main` at d3b92e2** — throwaway worktree in the session scratch directory (`git worktree add
+--detach <scratch>/main-base d3b92e2`, `pnpm install`), removed afterwards. Same machine, same stack, run right
+after the branch runs. The ten failing desktop spec files and `journey.spec.ts` line 246 are byte-identical on
+both sides except `apps/desktop/e2e/workspaces.spec.ts` (rewritten on the branch) and a 2-line change in
+`journey.spec.ts`.
+
+`pnpm --filter @oat/desktop run e2e` on main: **4 passed, 11 failed, 12 did not run**. The extracted
+(test, error, locator, failing line) list of the branch run and the main run was compared with `diff`: the
+ten entries below are identical; main has one more (`workspaces.spec.ts`).
+
+| # | spec (desktop) | error on branch = error on main | class |
+|---|---|---|---|
+| 1 | `a11y.spec.ts:156` | `getByTestId('meeting-start')` not visible (line 203) | same failure on main |
+| 2 | `auto-stop.spec.ts:173` | `transcript-panel` › `transcript-segment` nth(2) not visible (190) | same failure on main |
+| 3 | `backfill.spec.ts:133` | `transcript-notice` first() not visible (155) | same failure on main |
+| 4 | `calendar-notes.spec.ts:190` | `participant-chip` count: expected 2, received 0 (229) | same failure on main |
+| 5 | `meeting.spec.ts:94` | `meeting-start` not visible (102) | same failure on main |
+| 6 | `onboarding.spec.ts:74` | `meeting-start` not visible (158) | same failure on main |
+| 7 | `playback.spec.ts:132` | `playback` `data-state` "paused": element not found (159) | same failure on main |
+| 8 | `recording.spec.ts:188` | `transcript-empty` "No transcript yet": element not found (200) | same failure on main |
+| 9 | `storage.spec.ts:133` | `transcript-segment[data-final=true]` nth(2) not visible (159) | same failure on main |
+| 10 | `sync.spec.ts:51` | `sync-status` expected "All changes synced", received "" (58) | same failure on main |
+| — | `workspaces.spec.ts` | main: `:152` fails (`transcript-panel` segment not visible, line 196), 3 not run; branch: 4/4 pass | fails on main, **fixed** by this branch |
+| 11 | acceptance `journey.spec.ts:159` | `meeting-start` not visible (246), step "desktop: cold start, sign in through the browser" | same failure on main |
+| 12 | web `typography.spec.ts:13` (dark) | branch full run: console errors, 4× HTTP 429. Alone on branch: pass. Main: pass with `notion.spec.ts` and in a full `@oat/web` e2e run (77 passed, 17 skipped, 0 failed) | flaky (passes alone on both) |
+| 13 | web `notion.spec.ts:35` | did **not** fail on the branch in this verification (full run and with `documents.spec.ts`: pass). On main: passes next to `typography.spec.ts` and in the full run; fails once next to `documents.spec.ts` (`scrollWidth` 1178 > 390, line 202) | flaky; seen failing on main only |
+
+Apparent cause of 1–11: the specs wait for elements the calm shell no longer shows at that point
+(`meeting-start`, the transcript panel/segments/notice/empty state, `sync-status` text; `participant-chip` and
+`playback` test ids are not in `apps/desktop/src` at all, on either side). The branch's renderer changes are
+limited to the workspace switcher/state, the settings view and one line each in `upcoming-list.tsx` and
+`main-window.tsx`. The claim "fails identically on `main`" is confirmed for desktop e2e and acceptance.
+Not confirmed as stated: `typography` (dark) did not fail on main in my runs — it is a load/rate-limit flake
+(429s), not a deterministic main failure; and `notion.spec.ts` "fails whenever it runs next to other specs" did
+not hold on the branch (passed next to `documents.spec.ts`), though it did fail that way on main.
+
+**Failures caused by this branch:** none found.
+**Could not run / not done:** nothing skipped. Notes: the 1440×900 screenshots in *Verification* are for B/C
+screens; no screenshot exists under `docs/tasks/evidence/unified-workspaces/` after these runs (the desktop
+spec's `evidence(…, 'desktop-create-workspace-hint')` call left no file there). Each comparison run was made once per
+side (plus the single re-run of `typography`), so the flaky classification rests on few samples.
 
 ### Step B — implementer's full `pnpm run ci` (2026-11-21, `task/unified-workspaces-b`)
 
@@ -664,6 +839,123 @@ Web e2e: 81 passed, 0 failed (incl. the 4 `join.spec.ts` tests, `workspaces.spec
 `notion.spec.ts` and `typography.spec.ts`). Desktop e2e: 8 passed / 10 failed / 10 not run — the same specs as
 on step A and `main` (stale selectors; `workspaces.spec.ts` 4/4 pass). Acceptance fails at
 `getByTestId('meeting-start')` in the desktop cold-start step, before any workspace step — the known failure.
+
+### Step B — verifier (2026-11-21, `task/unified-workspaces-b` at 68e271b)
+Verdict: **pass**, with one intermittent web e2e failure outside the known baseline (a test race, below).
+
+**Full `pnpm install && pnpm run ci`** (install exit 0; ci exit 1)
+
+```
+step             status     time  note
+format           pass       5.6s
+actionlint       pass       0.3s
+typecheck        pass       0.5s
+lint             pass       1.0s
+test             pass       0.2s
+stack            pass       0.3s
+migrate          pass       1.9s
+swift:release    pass       0.6s
+test:int         pass     206.8s
+e2e              FAIL     512.5s  failing package(s): @oat/desktop, @oat/web
+acceptance       FAIL      51.8s  pnpm --filter @oat/acceptance run acceptance exited with 1
+swift:build      pass       0.7s
+swift:test       pass       4.2s
+swift:synthetic  pass       2.2s
+total                     788.6s
+```
+
+- `test:int`: `@oat/auth` 126 passed, `@oat/web` 304 passed (19 files), `@oat/db` 56 passed / 1 skipped.
+- Desktop e2e: 8 passed / 10 failed / 10 did not run. Failing set compared one by one with the baseline —
+  `a11y:156`, `auto-stop:173`, `backfill:133`, `calendar-notes:190`, `meeting:94`, `onboarding:74`,
+  `playback:132`, `recording:188`, `storage:133`, `sync:51` — identical, nothing extra.
+- Acceptance: `journey.spec.ts:246` `getByTestId('meeting-start')` not visible — the baseline failure.
+- Web e2e: 80 passed / 1 failed / 17 skipped. `join.spec.ts` 4/4, `notion.spec.ts` and `typography.spec.ts`
+  (light and dark) passed. The one failure is **not on the baseline list**:
+  `e2e/auth.spec.ts:152` "Google (mock issuer) › signs in through the provider page and lands on /home" —
+  `getByRole('menu')` never appears after clicking the workspace switcher (line 160).
+  - Re-run alone (`playwright test e2e/auth.spec.ts`): 9/9 pass.
+  - Intermittent, and only seen when `join.spec.ts` is in the same run: with the four Verification specs
+    **plus** `join.spec.ts` it failed 2 of 4 runs on this branch; the four specs without `join.spec.ts`
+    passed 3 of 3 here and 3 of 3 on the step A checkout (0fb193f). Machine load average was about 16.
+  - Cause as far as I traced it (not proven): the page reaches `/home` through the provider redirect, which
+    is none of the navigations the `page` fixture waits for hydration on (`goto`, `waitForURL`, …), so the
+    switcher can be clicked before it is hydrated. `auth.spec.ts`, `fixtures.ts` and the app shell are
+    unchanged by step B; `join.spec.ts` adds several browser contexts to the same `next dev`. A test race
+    this step makes more likely to show, not a product defect — but it will make full CI red some of the
+    time until line 157 waits for hydration.
+
+**Step B commands**
+
+```
+pnpm --filter @oat/core test permissions      2 files, 357 passed (coverage 100 %)
+pnpm --filter @oat/auth test                  11 files, 70 passed
+pnpm --filter @oat/local-store test           8 files, 83 passed
+pnpm --filter @oat/auth run test:int          5 files, 126 passed
+playwright workspaces + auth + calm-auth + sharing + join   21 passed (2 of 4 runs; the other 2: 20 passed,
+                                                            auth.spec.ts:152 failed, see above)
+```
+
+(`pnpm --filter @oat/core test email-domains` runs 9/9 but exits 1 on the 100 % coverage threshold, as any
+single-file run of that package does; the file passes in the full `test` step.)
+
+**Acceptance criteria (Step B)**
+
+1. Three policies — met. e2e `join.spec.ts:158` (invite_only: stranger lands in "My workspace", `/join`
+   sends them Home, workspace not in the switcher), `:205` light + dark (request → "Request access"), `:312`
+   (auto_join → role shown as Member). Integration: `joining.int.test.ts` "invite_only: never shown; request:
+   "request"; auto_join: "join"" and "joins as member, once, however often and however concurrently". Ran.
+2. Unverified / public mailbox / not the admin's own domain — met. `permissions.join.test.ts` `canAddDomain`
+   "denies a domain other than their own", "denies an unverified email", "denies a public mailbox domain,
+   even the actor’s own"; `matchingJoinDomain` "never matches an unverified address / a public mailbox
+   domain". Ran (357 passed).
+3. Approve / decline — met. `joining.int.test.ts` "approve creates the membership with the chosen role",
+   "decline creates no membership, and the person can’t ask again", "one pending request per person per
+   workspace, however concurrently", "a request mails every owner and admin; a decision mails the
+   requester"; e2e `:205` approves as Viewer, declines the second, and reads both decision mails in Mailpit.
+4. Owner/admin only — met. `joining.int.test.ts` "only owners and admins change the policy or the domains",
+   "only owners and admins decide, and nobody approves above their own role"; `entrypoints.int.test.ts`
+   `setJoinPolicy, allowMyDomain, removeAllowedDomain…` and `approveJoinRequest and declineJoinRequest…`;
+   seeing: `workspace-settings.test.ts` "member and viewer: no join settings, no requests, nothing to approve
+   with"; e2e `:312` (a member's settings page has no `join-settings`).
+
+**Review fixes as behaviours** (all in `packages/auth/src/joining.int.test.ts` unless named; all ran green)
+
+- (a) removed by an admin: "a removed member stays out although the domain is still listed; others on it
+  still get in" (join and request both `NotFoundError`), "an invitation still works after a removal, and is
+  the way back"; web: `entrypoints.int.test.ts` "removeMember: someone removed can’t come back through the
+  domain, only by invitation". Would fail without `recordRemoval` / the `declined` check in `canAutoJoin`.
+- (b) leaving on one's own: "leaving on one’s own is not a "no"" (no `join_request` row, offered `join`).
+- (c) lister loses authority: "a removed admin can’t rejoin through the domain they opened, and nobody else
+  can either" (removed), "a demoted admin’s domain goes; so does one whose lister leaves" (demoted, leaves).
+- (d) "a declined requester is not let in when the policy later becomes auto_join".
+- (e) `email-domains.test.ts` "covers the big providers’ country domains by rule" (`live.ca`,
+  `outlook.com.au` public) and "a company domain that merely contains such a name is not public"
+  (`liveperson.com`). **Gap:** these assert `isPublicMailboxDomain` only; no test puts a family domain
+  through `canAddDomain` / `addOwnDomain` (those tests use `gmail.com`, `outlook.com`, …). The unit test
+  does fail without the fix, and `canAddDomain` calls that function, so the behaviour is covered
+  indirectly. Checked directly with a throwaway script against `permissions.ts` (not committed):
+  `live.ca` and `outlook.com.au` → `canAddDomain` false, `matchingJoinDomain` null; `liveperson.com` →
+  true / matches.
+- (f) "filters first, then caps: workspaces the person can’t act on don’t use up the list" (45 workspaces,
+  member of the first 41 → offered the last 4; a newcomer → the first 20). Fails with a cap before the filter.
+
+**Screenshots** (`docs/tasks/evidence/unified-workspaces/`, all 1440×900, all opened)
+
+Present: `join-screen-match-{light,dark}`, `join-screen-requested-{light,dark}`, `join-screen-auto-join-light`,
+`join-no-match-home-{light,dark}`, `join-settings-{light,dark}`, `join-requests-{light,dark}`,
+`join-request-email-{light,dark}`. Nothing overflows, text is readable in both themes, rows and buttons
+line up. Notes, none blocking:
+- "No match" is shown as the Home of a requester who was declined (workspace of their own, switcher open),
+  not of a newcomer whose domain matches nothing; both end on the same screen.
+- Join screen: the signed-in address wraps at the hyphen inside the domain ("…@co-" / "e15a46cf.test").
+- `join-settings-*`: the "Allowed email domains" row sits at the bottom edge of the 900 px viewport; the
+  "Allow <domain>" button state is not in any screenshot (the domain is already listed).
+- `join-request-email-dark` is the same light email as the light one (the email has no dark variant).
+- These were taken at 0ae76df, before the review fixes; the fixes did not touch these screens, and I did not
+  regenerate them.
+
+**Could not run / not done:** `main` was not re-run (baseline taken as given). The approve-vs-accept
+interleaving (review 4) has only the sequential test, as the implementer noted.
 
 ### Step C — implementer's full `pnpm run ci` (2026-11-21, `task/unified-workspaces-c`)
 

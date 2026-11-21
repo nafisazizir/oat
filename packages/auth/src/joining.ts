@@ -184,18 +184,16 @@ async function pendingInvitesFor(db: Db | Tx, me: Person): Promise<InviteChoice[
   );
 }
 
-/** The status of the person's latest request to each of `workspaceIds`. */
+/** The status of the person's latest request to each workspace they ever asked (or were removed from). */
 async function latestRequests(
   db: Db | Tx,
   userId: string,
-  workspaceIds: readonly string[],
 ): Promise<Map<string, JoinRequestStatus>> {
   const latest = new Map<string, JoinRequestStatus>();
-  if (workspaceIds.length === 0) return latest;
   const rows = await db
     .select({ workspaceId: joinRequest.workspaceId, status: joinRequest.status })
     .from(joinRequest)
-    .where(and(eq(joinRequest.userId, userId), inArray(joinRequest.workspaceId, [...workspaceIds])))
+    .where(eq(joinRequest.userId, userId))
     .orderBy(desc(joinRequest.createdAt), desc(joinRequest.id));
   for (const row of rows) {
     if (!latest.has(row.workspaceId)) latest.set(row.workspaceId, row.status);
@@ -203,9 +201,26 @@ async function latestRequests(
   return latest;
 }
 
+/** The status of the person's latest request to one workspace (`null` = none). */
+async function latestRequest(
+  db: Db | Tx,
+  userId: string,
+  workspaceId: string,
+): Promise<{ id: string; status: JoinRequestStatus } | null> {
+  const [row] = await db
+    .select({ id: joinRequest.id, status: joinRequest.status })
+    .from(joinRequest)
+    .where(and(eq(joinRequest.workspaceId, workspaceId), eq(joinRequest.userId, userId)))
+    .orderBy(desc(joinRequest.createdAt), desc(joinRequest.id))
+    .limit(1);
+  return row ?? null;
+}
+
 async function joinableWorkspacesFor(db: Db | Tx, me: Person): Promise<JoinableWorkspace[]> {
   const { domain } = listableDomain(me);
   if (domain === null) return [];
+  // Every candidate, then the rules, then the cap: rows the person can't act on (already a member,
+  // declined, removed) must not use up the places of workspaces they could join.
   const rows = await db
     .select({
       id: workspace.id,
@@ -223,21 +238,13 @@ async function joinableWorkspacesFor(db: Db | Tx, me: Person): Promise<JoinableW
         ne(workspace.joinPolicy, 'invite_only'),
       ),
     )
-    .orderBy(asc(sql`lower(${workspace.name})`), asc(workspace.id))
-    .limit(MAX_JOINABLE * 2);
+    .orderBy(asc(sql`lower(${workspace.name})`), asc(workspace.id));
   if (rows.length === 0) return [];
-  const ids = rows.map((r) => r.id);
-  const [ctx, previous, counts] = await Promise.all([
+  const [ctx, previous] = await Promise.all([
     loadPermissionContext(db, me.id),
-    latestRequests(db, me.id, ids),
-    db
-      .select({ workspaceId: membership.workspaceId, n: count() })
-      .from(membership)
-      .where(inArray(membership.workspaceId, ids))
-      .groupBy(membership.workspaceId),
+    latestRequests(db, me.id),
   ]);
-  const memberCount = new Map(counts.map((c) => [c.workspaceId, Number(c.n)]));
-  const joinable: JoinableWorkspace[] = [];
+  const offered: Omit<JoinableWorkspace, 'memberCount'>[] = [];
   for (const row of rows) {
     const access: JoinableWorkspaceAccess = {
       id: row.id,
@@ -247,15 +254,22 @@ async function joinableWorkspacesFor(db: Db | Tx, me: Person): Promise<JoinableW
     };
     const option = joinOption(ctx, access, me, previous.get(row.id) ?? null);
     if (option === null) continue;
-    joinable.push({
-      id: row.id,
-      name: row.name,
-      logo: row.logo,
-      memberCount: memberCount.get(row.id) ?? 0,
-      option,
-    });
+    offered.push({ id: row.id, name: row.name, logo: row.logo, option });
+    if (offered.length === MAX_JOINABLE) break;
   }
-  return joinable.slice(0, MAX_JOINABLE);
+  if (offered.length === 0) return [];
+  const counts = await db
+    .select({ workspaceId: membership.workspaceId, n: count() })
+    .from(membership)
+    .where(
+      inArray(
+        membership.workspaceId,
+        offered.map((w) => w.id),
+      ),
+    )
+    .groupBy(membership.workspaceId);
+  const memberCount = new Map(counts.map((c) => [c.workspaceId, Number(c.n)]));
+  return offered.map((w) => ({ ...w, memberCount: memberCount.get(w.id) ?? 0 }));
 }
 
 async function joinChoicesFor(db: Db | Tx, me: Person): Promise<JoinChoices> {
@@ -370,7 +384,8 @@ async function lockJoinable(
 
 /**
  * Joins an `auto_join` workspace as `member` (`@oat/core` `autoJoin`: verified email on a listed, non-public
- * domain; live workspace). Idempotent: someone who is already a member stays as they are. A workspace the
+ * domain; live workspace; not someone who was declined or removed — only an invitation brings them back).
+ * Idempotent: someone who is already a member stays as they are. A workspace the
  * person may not join looks exactly like one that doesn't exist ({@link NotFoundError}), so ids can't be
  * probed.
  */
@@ -384,8 +399,9 @@ export async function joinWorkspace(
     const ws = await lockJoinable(tx, input.workspaceId);
     const ctx = await loadPermissionContext(tx, me.id);
     if (roleIn(ctx, ws.id) !== undefined) return { joined: false };
+    const previous = await latestRequest(tx, me.id, ws.id);
     try {
-      assertCan('autoJoin', ctx, ws, me);
+      assertCan('autoJoin', ctx, ws, me, previous?.status ?? null);
     } catch {
       throw new NotFoundError('Workspace not found.');
     }
@@ -421,6 +437,28 @@ export async function settlePendingRequests(
     );
 }
 
+/**
+ * Records that an owner/admin let the person in by invitation: a request that was waiting is settled, and
+ * an earlier "no" (a declined request, or a removal recorded as one — `members.ts` `removeMember`) is
+ * superseded by a new `approved` row, so it no longer stands should they leave on their own later. The
+ * earlier rows are kept as they were.
+ */
+export async function recordAdmittedByInvitation(
+  db: Db,
+  workspaceId: string,
+  userId: string,
+  role: Role,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await settlePendingRequests(tx, workspaceId, userId, role);
+    const latest = await latestRequest(tx, userId, workspaceId);
+    if (latest?.status !== 'declined') return;
+    await tx
+      .insert(joinRequest)
+      .values({ workspaceId, userId, status: 'approved', decidedAt: sql`now()`, role });
+  });
+}
+
 /** Who to tell about a new request. */
 export interface JoinRequestNotice {
   workspace: { id: string; name: string };
@@ -444,12 +482,7 @@ export async function requestToJoin(
     if (!me) throw new NotFoundError('Workspace not found.');
     const ws = await lockJoinable(tx, input.workspaceId);
     const ctx = await loadPermissionContext(tx, me.id);
-    const [latest] = await tx
-      .select({ id: joinRequest.id, status: joinRequest.status })
-      .from(joinRequest)
-      .where(and(eq(joinRequest.workspaceId, ws.id), eq(joinRequest.userId, me.id)))
-      .orderBy(desc(joinRequest.createdAt), desc(joinRequest.id))
-      .limit(1);
+    const latest = await latestRequest(tx, me.id, ws.id);
     if (latest?.status === 'pending' && canRequestToJoin(ctx, ws, me, null)) {
       return { requestId: latest.id, created: false };
     }

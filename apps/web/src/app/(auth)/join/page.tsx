@@ -53,7 +53,11 @@ export default async function JoinPage() {
           <h1>Join a workspace</h1>
         </AuthTitle>
         <AuthDescription>
-          You’re signed in as <span className="text-gray-1000">{user.email}</span>.
+          You’re signed in as{' '}
+          {/* On its own line, cut with an ellipsis: an address never breaks in the middle. */}
+          <span className="block truncate text-gray-1000" title={user.email}>
+            {user.email}
+          </span>
         </AuthDescription>
       </AuthHeader>
       <AuthContent className="gap-6">

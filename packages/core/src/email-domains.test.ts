@@ -75,6 +75,41 @@ describe('public mailbox domains', () => {
     }
   });
 
+  it('covers the big providers’ country domains by rule', () => {
+    for (const domain of [
+      'live.ca',
+      'outlook.com.au',
+      'hotmail.co.jp',
+      'yahoo.co.id',
+      'yahoo.com.mx',
+      'gmx.fr',
+      'yandex.kz',
+      'proton.ch',
+      'icloud.com.cn',
+      'ymail.co.uk',
+      'mail.de',
+      '163.net',
+    ]) {
+      expect(isPublicMailboxDomain(domain), domain).toBe(true);
+    }
+  });
+
+  it('a company domain that merely contains such a name is not public', () => {
+    for (const domain of [
+      'liveperson.com',
+      'outlookgroup.io',
+      'yahoo-consulting.com',
+      'mail.live-events.com',
+      'team.outlook.com',
+      'live.acme.com',
+      'gmxtools.co.uk',
+      'outlook.example.museum',
+      'live.xyz.uk',
+    ]) {
+      expect(isPublicMailboxDomain(domain), domain).toBe(false);
+    }
+  });
+
   it('does not include ordinary company domains', () => {
     for (const domain of ['acme.com', 'oat.test', 'example.test', 'gmail.com.acme.com']) {
       expect(isPublicMailboxDomain(domain), domain).toBe(false);

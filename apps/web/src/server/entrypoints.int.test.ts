@@ -605,6 +605,58 @@ describe('joining actions', () => {
     expect(await requestsBy(second.id)).toHaveLength(1);
   });
 
+  it('acceptInvite: an invitation whose invitee got in by an approved request meanwhile still succeeds', async () => {
+    const both = await h.signUp('asked-and-invited', domain);
+    as(both);
+    expect(await joining.requestAccess(co)).toEqual({ ok: true });
+    as(boss);
+    expect(
+      await members.inviteMember({ workspaceId: co, email: both.email, role: 'member' }),
+    ).toEqual({ ok: true });
+    const [request] = await requestsBy(both.id);
+    expect(await joining.approveJoinRequest({ requestId: request!.id, role: 'viewer' })).toEqual({
+      ok: true,
+    });
+    const [pending] = await invitesTo(both.email);
+    as(both);
+    expect(await redirected(members.acceptInvite(pending!.token))).toMatchObject({ url: '/home' });
+    expect(await roleOf(co, both.id)).toBe('viewer');
+    expect((await invitesTo(both.email))[0]!.status).toBe('accepted');
+    const [row] = await h.db.select().from(session).where(eq(session.userId, both.id));
+    expect(row!.activeWorkspaceId).toBe(co);
+  });
+
+  it('removeMember: someone removed can’t come back through the domain, only by invitation', async () => {
+    as(boss);
+    expect(await joining.setJoinPolicy({ workspaceId: co, policy: 'auto_join' })).toEqual({
+      ok: true,
+    });
+    const back = await h.signUp('comes-back', domain);
+    as(back);
+    expect(await redirected(joining.joinWorkspace(co))).toMatchObject({ url: '/home' });
+    as(boss);
+    expect(await members.removeMember({ workspaceId: co, userId: back.id })).toEqual({ ok: true });
+    as(back);
+    expect(await joining.joinWorkspace(co)).toEqual(refusedWith(NOT_OPEN));
+    expect(await joining.requestAccess(co)).toEqual(refusedWith(NOT_OPEN));
+    expect(await roleOf(co, back.id)).toBeUndefined();
+
+    as(boss);
+    expect(
+      await members.inviteMember({ workspaceId: co, email: back.email, role: 'member' }),
+    ).toEqual({ ok: true });
+    const [invitation] = await invitesTo(back.email);
+    as(back);
+    expect(await redirected(members.acceptInvite(invitation!.token))).toMatchObject({
+      url: '/home',
+    });
+    expect(await roleOf(co, back.id)).toBe('member');
+    as(boss);
+    expect(await joining.setJoinPolicy({ workspaceId: co, policy: 'request' })).toEqual({
+      ok: true,
+    });
+  });
+
   it('createMyWorkspace: makes one workspace for a user without one, and nothing for a user who has one', async () => {
     const chooser = await h.signUp('chooser', domain);
     expect(await findFirstWorkspaceId(h.db, chooser.id)).toBeUndefined();

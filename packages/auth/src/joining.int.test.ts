@@ -32,7 +32,14 @@ import {
   setJoinPolicy,
 } from './joining.ts';
 import { magicLinkVerifyUrl } from './magic-link.ts';
-import { deleteWorkspace, NotFoundError } from './members.ts';
+import {
+  changeMemberRole,
+  deleteWorkspace,
+  inviteAlreadyHonoured,
+  leaveWorkspace,
+  NotFoundError,
+  removeMember,
+} from './members.ts';
 import { createMemoryRateLimiter } from './rate-limit.ts';
 import { type Auth, createAuth } from './server.ts';
 import { listUserWorkspaces } from './workspaces.ts';
@@ -490,7 +497,7 @@ describe('request', () => {
     expect(await ensureFirstWorkspace(db, sam.id)).toMatchObject({ created: true });
   });
 
-  it('someone approved once and removed since may ask again', async () => {
+  it('someone approved once who left since may ask again', async () => {
     const co = await company('request');
     const sam = await person(co.domain);
     const first = await requestToJoin(db, { userId: sam.id, workspaceId: co.id });
@@ -894,5 +901,356 @@ describe('join emails', () => {
       console.error = original;
     }
     expect(errors).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------
+// Removal, lost authority, and the other review findings (Review → Step B, 1 · 2 · 4 · 5)
+// ---------------------------------------------------------------------------------------------------
+
+/** A user who signed up for real (magic link), with the session headers Better Auth needs. */
+async function realUser(domain: string) {
+  const email = `real-${rand()}@${domain}`;
+  await auth.handler(
+    new Request(`${BASE}/api/auth/sign-in/magic-link`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: BASE },
+      body: JSON.stringify({ email, callbackURL: '/home' }),
+    }),
+  );
+  const token = outbox.findLast((m) => m.to === email)?.text.match(/token=([^&\s]+)/)?.[1];
+  const verify = await auth.handler(
+    new Request(magicLinkVerifyUrl(BASE, decodeURIComponent(token!), '/home'), {
+      redirect: 'manual',
+    }),
+  );
+  const headers = new Headers({
+    cookie: verify.headers
+      .getSetCookie()
+      .map((c) => c.split(';')[0]!)
+      .join('; '),
+  });
+  const session = await auth.api.getSession({ headers });
+  return { id: session!.user.id, email, headers };
+}
+
+/** Another workspace of their own, so that leaving one isn't leaving their last. */
+async function createOwnWorkspaceElsewhere(userId: string) {
+  const [ws] = await db
+    .insert(schema.workspace)
+    .values({ name: `Own ${rand()}`, slug: `own-${rand()}`, createdBy: userId })
+    .returning();
+  await db.insert(schema.membership).values({ workspaceId: ws!.id, userId, role: 'owner' });
+}
+
+const invitationFor = async (workspaceId: string, inviterId: string, email: string) =>
+  (
+    await db
+      .insert(schema.invite)
+      .values({
+        workspaceId,
+        email,
+        role: 'member',
+        inviterId,
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      })
+      .returning()
+  )[0]!;
+
+describe('removal and lost authority close the door', () => {
+  it('a removed admin can’t rejoin through the domain they opened, and nobody else can either', async () => {
+    const co = await company('invite_only', newDomain(), { domains: [] });
+    const agency = newDomain();
+    const eve = await addMember(co.id, agency, 'admin');
+    await addOwnDomain(db, { actorId: eve.id, workspaceId: co.id });
+    await setJoinPolicy(db, { actorId: eve.id, workspaceId: co.id, policy: 'auto_join' });
+    const colleague = await person(agency);
+    expect(await offered(colleague.id)).toEqual([[co.id, 'join']]);
+
+    await removeMember(db, { actorId: co.owner.id, workspaceId: co.id, userId: eve.id });
+
+    // The domain she listed went with her authority; the policy may stay, nothing matches it.
+    expect(await getJoinSettings(db, co.id)).toEqual({ policy: 'auto_join', domains: [] });
+    for (const user of [eve, colleague]) {
+      expect(await offered(user.id), user.email).toEqual([]);
+      await expect(joinWorkspace(db, { userId: user.id, workspaceId: co.id })).rejects.toThrow(
+        NotFoundError,
+      );
+      expect(await membershipsOf(co.id, user.id)).toEqual([]);
+    }
+    // And the removal itself is on record as a "no", by the remover.
+    expect(await requestsOf(co.id, eve.id)).toEqual([
+      expect.objectContaining({ status: 'declined', decidedBy: co.owner.id, role: null }),
+    ]);
+  });
+
+  it('a removed member stays out although the domain is still listed; others on it still get in', async () => {
+    const co = await company('auto_join');
+    const mia = await person(co.domain);
+    await joinWorkspace(db, { userId: mia.id, workspaceId: co.id });
+    await removeMember(db, { actorId: co.owner.id, workspaceId: co.id, userId: mia.id });
+
+    // The owner's own domain stays listed.
+    expect(await getJoinSettings(db, co.id)).toEqual({ policy: 'auto_join', domains: [co.domain] });
+    expect(await offered(mia.id)).toEqual([]);
+    await expect(joinWorkspace(db, { userId: mia.id, workspaceId: co.id })).rejects.toThrow(
+      NotFoundError,
+    );
+    // Nor by asking, should the workspace ask for requests instead.
+    await setJoinPolicy(db, { actorId: co.owner.id, workspaceId: co.id, policy: 'request' });
+    expect(await offered(mia.id)).toEqual([]);
+    await expect(requestToJoin(db, { userId: mia.id, workspaceId: co.id })).rejects.toThrow(
+      NotFoundError,
+    );
+    expect(await membershipsOf(co.id, mia.id)).toEqual([]);
+    await setJoinPolicy(db, { actorId: co.owner.id, workspaceId: co.id, policy: 'auto_join' });
+
+    const other = await person(co.domain);
+    expect(await joinWorkspace(db, { userId: other.id, workspaceId: co.id })).toEqual({
+      joined: true,
+    });
+  });
+
+  it('a request of theirs that was still waiting is declined when they are removed', async () => {
+    // Asked, then got in by a membership written directly (as an accepted invite would), then removed.
+    const co = await company('request');
+    const sam = await person(co.domain);
+    await requestToJoin(db, { userId: sam.id, workspaceId: co.id });
+    await db
+      .insert(schema.membership)
+      .values({ workspaceId: co.id, userId: sam.id, role: 'member' });
+    await removeMember(db, { actorId: co.owner.id, workspaceId: co.id, userId: sam.id });
+    const rows = await requestsOf(co.id, sam.id);
+    expect(rows.map((r) => r.status).sort()).toEqual(['declined', 'declined']);
+    expect(await listJoinRequests(db, co.id)).toEqual([]);
+    await expect(requestToJoin(db, { userId: sam.id, workspaceId: co.id })).rejects.toThrow(
+      NotFoundError,
+    );
+  });
+
+  it('an invitation still works after a removal, and is the way back', async () => {
+    const co = await company('auto_join');
+    const mia = await realUser(co.domain);
+    await joinWorkspace(db, { userId: mia.id, workspaceId: co.id });
+    await removeMember(db, { actorId: co.owner.id, workspaceId: co.id, userId: mia.id });
+    await expect(joinWorkspace(db, { userId: mia.id, workspaceId: co.id })).rejects.toThrow(
+      NotFoundError,
+    );
+
+    const invitation = await invitationFor(co.id, co.owner.id, mia.email);
+    expect((await getJoinChoices(db, mia.id)).invites.map((i) => i.token)).toEqual([
+      invitation.token,
+    ]);
+    await auth.api.acceptInvitation({
+      body: { invitationId: invitation.id },
+      headers: mia.headers,
+    });
+    expect(await membershipsOf(co.id, mia.id)).toEqual([{ role: 'member' }]);
+
+    // Invited back, the earlier "no" no longer stands: after leaving on their own they may join again.
+    await createOwnWorkspaceElsewhere(mia.id);
+    await leaveWorkspace(db, { actorId: mia.id, workspaceId: co.id });
+    expect(await offered(mia.id)).toEqual([[co.id, 'join']]);
+    expect(await joinWorkspace(db, { userId: mia.id, workspaceId: co.id })).toEqual({
+      joined: true,
+    });
+  });
+
+  it('leaving on one’s own is not a "no": they can come back the way they came', async () => {
+    const co = await company('auto_join');
+    const mia = await person(co.domain);
+    await joinWorkspace(db, { userId: mia.id, workspaceId: co.id });
+    await createOwnWorkspaceElsewhere(mia.id);
+    await leaveWorkspace(db, { actorId: mia.id, workspaceId: co.id });
+    expect(await requestsOf(co.id, mia.id)).toEqual([]);
+    expect(await offered(mia.id)).toEqual([[co.id, 'join']]);
+  });
+
+  it('a demoted admin’s domain goes; so does one whose lister leaves', async () => {
+    const co = await company('auto_join', newDomain(), { domains: [] });
+    const agency = newDomain();
+    const eve = await addMember(co.id, agency, 'admin');
+    await addOwnDomain(db, { actorId: eve.id, workspaceId: co.id });
+    await addOwnDomain(db, { actorId: co.owner.id, workspaceId: co.id });
+    const colleague = await person(agency);
+    expect(await offered(colleague.id)).toEqual([[co.id, 'join']]);
+
+    // Still an owner/admin after a role change: the domain stays. Losing that drops it.
+    await changeMemberRole(db, {
+      actorId: co.owner.id,
+      workspaceId: co.id,
+      userId: eve.id,
+      role: 'owner',
+    });
+    expect((await getJoinSettings(db, co.id)).domains).toHaveLength(2);
+    await changeMemberRole(db, {
+      actorId: co.owner.id,
+      workspaceId: co.id,
+      userId: eve.id,
+      role: 'viewer',
+    });
+    expect(await getJoinSettings(db, co.id)).toEqual({ policy: 'auto_join', domains: [co.domain] });
+    expect(await offered(colleague.id)).toEqual([]);
+    await expect(joinWorkspace(db, { userId: colleague.id, workspaceId: co.id })).rejects.toThrow(
+      NotFoundError,
+    );
+
+    // An admin who leaves takes the domain they listed with them too.
+    const other = newDomain();
+    const adam = await addMember(co.id, other, 'admin');
+    await addOwnDomain(db, { actorId: adam.id, workspaceId: co.id });
+    await createOwnWorkspaceElsewhere(adam.id);
+    await leaveWorkspace(db, { actorId: adam.id, workspaceId: co.id });
+    expect((await getJoinSettings(db, co.id)).domains).toEqual([co.domain]);
+  });
+
+  it('a domain another owner/admin could list themselves stays, in their name', async () => {
+    const co = await company('auto_join', newDomain(), { domains: [] });
+    const eve = await addMember(co.id, co.domain, 'admin'); // same domain as the owner
+    await addOwnDomain(db, { actorId: eve.id, workspaceId: co.id });
+    await removeMember(db, { actorId: co.owner.id, workspaceId: co.id, userId: eve.id });
+    expect(await getJoinSettings(db, co.id)).toEqual({ policy: 'auto_join', domains: [co.domain] });
+    const [row] = await db
+      .select()
+      .from(schema.workspaceDomain)
+      .where(eq(schema.workspaceDomain.workspaceId, co.id));
+    expect(row!.addedBy).toBe(co.owner.id);
+    // Eve herself stays out; a colleague still gets in.
+    await expect(joinWorkspace(db, { userId: eve.id, workspaceId: co.id })).rejects.toThrow(
+      NotFoundError,
+    );
+    const colleague = await person(co.domain);
+    expect(await offered(colleague.id)).toEqual([[co.id, 'join']]);
+  });
+});
+
+describe('a decline is final', () => {
+  it('a declined requester is not let in when the policy later becomes auto_join', async () => {
+    const co = await company('request');
+    const sam = await person(co.domain);
+    const { requestId } = await requestToJoin(db, { userId: sam.id, workspaceId: co.id });
+    await decideJoinRequest(db, { actorId: co.owner.id, requestId, decision: 'decline' });
+    await setJoinPolicy(db, { actorId: co.owner.id, workspaceId: co.id, policy: 'auto_join' });
+
+    expect(await offered(sam.id)).toEqual([]);
+    await expect(joinWorkspace(db, { userId: sam.id, workspaceId: co.id })).rejects.toThrow(
+      NotFoundError,
+    );
+    expect(await membershipsOf(co.id, sam.id)).toEqual([]);
+    // Someone who was never declined joins as usual.
+    const pat = await person(co.domain);
+    expect(await offered(pat.id)).toEqual([[co.id, 'join']]);
+  });
+});
+
+describe('approve and an accepted invitation at once', () => {
+  it('the accept that lost resolves cleanly: one membership, invitation accepted, request settled', async () => {
+    // The interleaving itself (approval committing between Better Auth's steps) can't be forced from a
+    // test; this is the state the loser finds: the approval has committed, then the accept runs.
+    const co = await company('request');
+    const sam = await realUser(co.domain);
+    const { requestId } = await requestToJoin(db, { userId: sam.id, workspaceId: co.id });
+    const invitation = await invitationFor(co.id, co.owner.id, sam.email);
+    await decideJoinRequest(db, {
+      actorId: co.owner.id,
+      requestId,
+      decision: { approve: 'admin' },
+    });
+
+    // Better Auth's accept trips over the membership that exists…
+    await expect(
+      auth.api.acceptInvitation({ body: { invitationId: invitation.id }, headers: sam.headers }),
+    ).rejects.toThrow();
+    // …which is not a failure: the invitation has been honoured.
+    expect(await inviteAlreadyHonoured(db, { invitationId: invitation.id, userId: sam.id })).toBe(
+      co.id,
+    );
+    expect(await membershipsOf(co.id, sam.id)).toEqual([{ role: 'admin' }]);
+    const [after] = await db
+      .select()
+      .from(schema.invite)
+      .where(eq(schema.invite.id, invitation.id));
+    expect(after).toMatchObject({ status: 'accepted' });
+    expect(after!.acceptedAt).toBeInstanceOf(Date);
+    expect(await requestsOf(co.id, sam.id)).toEqual([
+      expect.objectContaining({ status: 'approved', role: 'admin' }),
+    ]);
+    // Asking again is harmless.
+    expect(await inviteAlreadyHonoured(db, { invitationId: invitation.id, userId: sam.id })).toBe(
+      co.id,
+    );
+  });
+
+  it('a real failure stays one: not the invited address, not a member, a revoked or unknown invitation', async () => {
+    const co = await company('request');
+    const sam = await person(co.domain);
+    const invitation = await invitationFor(co.id, co.owner.id, sam.email);
+    const check = (userId: string, invitationId = invitation.id) =>
+      inviteAlreadyHonoured(db, { invitationId, userId });
+    // Not a member yet.
+    expect(await check(sam.id)).toBeUndefined();
+    // A member, but not the invited address.
+    expect(await check(co.owner.id)).toBeUndefined();
+    expect(await check(sam.id, 'no-such-invite')).toBeUndefined();
+    await db
+      .insert(schema.membership)
+      .values({ workspaceId: co.id, userId: sam.id, role: 'member' });
+    await db
+      .update(schema.invite)
+      .set({ status: 'canceled' })
+      .where(eq(schema.invite.id, invitation.id));
+    expect(await check(sam.id)).toBeUndefined();
+    const [after] = await db
+      .select()
+      .from(schema.invite)
+      .where(eq(schema.invite.id, invitation.id));
+    expect(after!.status).toBe('canceled');
+  });
+});
+
+describe('many workspaces on one domain', () => {
+  it('filters first, then caps: workspaces the person can’t act on don’t use up the list', async () => {
+    const domain = newDomain();
+    const owner = await person(domain);
+    const mia = await person(domain);
+    const total = 45;
+    const rows = await db
+      .insert(schema.workspace)
+      .values(
+        Array.from({ length: total }, (_, i) => ({
+          name: `W ${String(i).padStart(2, '0')}`,
+          slug: `w-${rand()}-${i}`,
+          createdBy: owner.id,
+          joinPolicy: 'auto_join' as const,
+        })),
+      )
+      .returning({ id: schema.workspace.id, name: schema.workspace.name });
+    const byName = [...rows].sort((a, b) => a.name.localeCompare(b.name));
+    await db
+      .insert(schema.workspaceDomain)
+      .values(byName.map((w) => ({ workspaceId: w.id, domain, addedBy: owner.id })));
+    await db
+      .insert(schema.membership)
+      .values(byName.map((w) => ({ workspaceId: w.id, userId: owner.id, role: 'owner' as const })));
+    // Mia is already in the first 41 (by name); the last 4 are the only ones she can join.
+    await db
+      .insert(schema.membership)
+      .values(
+        byName
+          .slice(0, 41)
+          .map((w) => ({ workspaceId: w.id, userId: mia.id, role: 'member' as const })),
+      );
+    expect((await getJoinChoices(db, mia.id)).workspaces.map((w) => w.name)).toEqual([
+      'W 41',
+      'W 42',
+      'W 43',
+      'W 44',
+    ]);
+
+    // Someone who can join all of them is offered the first 20, with member counts.
+    const sam = await person(domain);
+    const offeredToSam = (await getJoinChoices(db, sam.id)).workspaces;
+    expect(offeredToSam.map((w) => w.name)).toEqual(byName.slice(0, 20).map((w) => w.name));
+    expect(offeredToSam.every((w) => w.memberCount === 2)).toBe(true);
   });
 });

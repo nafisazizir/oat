@@ -54,6 +54,7 @@ export {
   findInviteByToken,
   findLiveWorkspace,
   INVITE_EXPIRES_IN,
+  inviteAlreadyHonoured,
   inviterMayStillInvite,
   inviteState,
   inviteTokenFor,

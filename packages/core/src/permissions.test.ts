@@ -918,6 +918,7 @@ describe('assertCan', () => {
       autoJoin: [
         { id: T, joinPolicy: 'auto_join', domains: ['acme.test'], deletedAt: null },
         { email: 'a@acme.test', emailVerified: true },
+        null,
       ],
       requestToJoin: [
         { id: T, joinPolicy: 'request', domains: ['acme.test'], deletedAt: null },
