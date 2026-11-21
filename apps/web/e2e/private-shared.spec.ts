@@ -209,6 +209,31 @@ for (const theme of ['light', 'dark'] as const) {
     expect((await them.request.get(`/api/documents/${noteId}`)).status()).toBe(404);
 
     expect(found, 'axe violations on the sidebar').toEqual([]);
+
+    // Removed by the owner while the domain still lets people join: the way back is an invitation, so
+    // the removed teammate — now in a workspace of their own — is not offered "Join a workspace", and
+    // the join screen has nothing for them.
+    await me.goto('/settings/workspace/members');
+    await me
+      .getByTestId('member-row')
+      .filter({ visible: true })
+      .filter({ hasText: mate.email })
+      .getByRole('button', { name: /^Remove / })
+      .click();
+    const remove = me.getByTestId('remove-member-dialog');
+    await remove.getByRole('button', { name: 'Remove' }).click();
+    await expect(remove).toBeHidden();
+    await expect(me.getByText(/^Removed /)).toBeVisible();
+    await them.goto('/home');
+    await expect(them.getByTestId('workspace-switcher')).toContainText('My workspace');
+    await them.getByTestId('workspace-switcher').click();
+    await expect(them.getByRole('menuitem', { name: 'Create workspace' })).toBeVisible();
+    await expect(them.getByRole('menuitem', { name: 'Join a workspace' })).toHaveCount(0);
+    await them.keyboard.press('Escape');
+    await them.goto('/join');
+    await expect(them).toHaveURL(/\/home$/);
+    expect((await them.request.get(`/api/documents/${sharedDoc.id}`)).status()).toBe(404);
+
     for (const person of [owner, mate]) await person.context.close();
   });
 }

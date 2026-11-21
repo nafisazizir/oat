@@ -988,3 +988,16 @@ total                    1011.8s
 - Acceptance: the known failure, before any step this branch changes.
 - Axe criterion: the sidebar (web and desktop) is this step's; the join screen, join settings and requests
   list are step B's `join.spec.ts`, which passed in this run.
+
+### Step C — after merging step B's review fixes (2026-11-21, merge `0093ade` of `task/unified-workspaces` at 35ca216)
+
+- Conflict: this file only (both sides appended to *Evidence*); kept both, step B's verifier section first.
+  Code merged cleanly; `join.spec.ts` was not changed on the other side, so `people-helpers.ts` stands.
+- Step C on top of it: `getJoinChoices` (shell `canJoin`, `/join` for members) now skips a removed or
+  declined person — asserted in `private-shared.spec.ts` (removed from an `auto_join` workspace whose domain
+  is still listed: no "Join a workspace", `/join` goes Home). Leaving on one's own writes no "declined"
+  record, so the leave + export flow is unchanged (spec passes).
+- `auth.spec.ts` Google sign-in: `waitForURL` instead of the URL assertion, so the spec waits for hydration
+  (`html[data-hydrated]`) before clicking the menu. No retries, no timeouts changed.
+- Join screen: the signed-in address sits on its own line and truncates instead of breaking mid-domain
+  (`join-screen-*` screenshots retaken).
