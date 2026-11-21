@@ -334,3 +334,8 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   workspace to a domain; lookalike workspaces are possible without DNS verification; desktop deletes unsynced
   local notes of a workspace after leaving; Home no longer offers "connect calendar"; the menu offers "Leave"
   to a workspace's sole owner. [task](tasks/unified-workspaces.md)
+- 2026-11-21 · Graphite UI foundation · Synced the Ziiz registry and applied Graphite and default
+  control shapes to web, desktop and shared meeting UI (D-37). Local fast gate passed and web
+  Playwright finished with 87 passed and 17 skipped. Built the desktop renderer and captured
+  light and dark web Appearance and desktop Storage evidence in
+  [PR #22](https://github.com/nafisazizir/oat/pull/22). [task](tasks/graphite-ui-foundation.md)

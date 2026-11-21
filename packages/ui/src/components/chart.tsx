@@ -77,34 +77,28 @@ function ChartContainer({
   );
 }
 
-const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
-  const colorConfig = Object.entries(config).filter(([, config]) => config.theme ?? config.color);
-
-  if (!colorConfig.length) {
-    return null;
-  }
-
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ?? itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
-  })
-  .join('\n')}
+// Escape chart IDs and series names in stylesheet text without relying on browser-only CSS.escape.
+function escapeCssFragment(value: string) {
+  return value.replace(/[^\w-]/gu, (char) => `\\${char.codePointAt(0)!.toString(16)} `);
 }
-`,
-          )
-          .join('\n'),
-      }}
-    />
-  );
-};
+
+function ChartStyle({ id, config }: { id: string; config: ChartConfig }) {
+  const rules = (Object.keys(THEMES) as Array<keyof typeof THEMES>).flatMap((theme) => {
+    const declarations = Object.entries(config).flatMap(([key, itemConfig]) => {
+      const color = itemConfig.theme?.[theme] ?? itemConfig.color;
+      // The value belongs inside one declaration. Keep rule delimiters and comments out.
+      if (!color || /[;{}<>\\]|\/\*/.test(color)) return [];
+      return [`  --color-${escapeCssFragment(key)}: ${color};`];
+    });
+    if (!declarations.length) return [];
+
+    const prefix = THEMES[theme];
+    return [
+      `${prefix ? `${prefix} ` : ''}[data-chart="${escapeCssFragment(id)}"] {\n${declarations.join('\n')}\n}`,
+    ];
+  });
+  return rules.length ? <style>{rules.join('\n')}</style> : null;
+}
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
 

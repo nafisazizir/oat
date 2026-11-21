@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { Button } from './components/button.tsx';
+import { ChartStyle } from './components/chart.tsx';
 import {
   Command,
   CommandEmpty,
@@ -49,6 +50,26 @@ describe('cn', () => {
 
   it('keeps a token colour next to a scale size (no false conflict)', () => {
     expect(cn('text-copy-14', 'text-gray-900')).toBe('text-copy-14 text-gray-900');
+  });
+});
+
+describe('ChartStyle', () => {
+  it('scopes themed series colors and keeps declaration delimiters out of the stylesheet', () => {
+    const { container } = render(
+      <ChartStyle
+        id="chart:meetings"
+        config={{
+          'per week': { theme: { light: 'var(--ds-gray-900)', dark: 'oklch(0.9 0 0)' } },
+          invalid: { color: 'gray; color: gray' },
+        }}
+      />,
+    );
+    const css = container.querySelector('style')?.textContent;
+    expect(css).toContain('[data-chart="chart\\3a meetings"]');
+    expect(css).toContain('.dark [data-chart=');
+    expect(css).toContain('--color-per\\20 week: var(--ds-gray-900);');
+    expect(css).toContain('--color-per\\20 week: oklch(0.9 0 0);');
+    expect(css).not.toContain('--color-invalid');
   });
 });
 

@@ -103,7 +103,7 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 
 ## M9 — Ship v1
 
-- [ ] Human-requested Graphite theme and shared control refresh for web and desktop · [task](tasks/graphite-ui-foundation.md)
+- [x] Human-requested Graphite theme and shared control refresh for web and desktop · [task](tasks/graphite-ui-foundation.md)
 
 - [x] Stale desktop e2e + acceptance specs updated for the calm shell; web typography/notion/auth spec races fixed · [task](tasks/e2e-calm-shell-specs.md)
 
