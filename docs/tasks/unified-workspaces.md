@@ -93,8 +93,8 @@ Step C
   2026-11-21 and confirmed there is no production database, so no compatibility window is needed for data.
 - Better Auth still calls these "organizations"; keep the mapping in `auth-mapping.ts`, only remove `kind`.
 - Slugs: stop reserving `personal-`; existing `personal-<userId>` slugs get a generated slug in the migration.
-- Order matters for sync: ship the server accepting clients that still send/expect `kind` for one desktop
-  version (DTO field optional, ignored), then remove.
+- The one-desktop-version window in which the sync DTO would keep `kind` as an optional, ignored field was
+  dropped (orchestrator, 2026-11-21): there is no production database and no released desktop build.
 
 ### Step A (branch `task/unified-workspaces-a`)
 What was decided, and what steps B/C need to know.
@@ -171,6 +171,10 @@ What was decided, and what steps B/C need to know.
 - A workspace row without a role (`role: null`) is no longer assumed writable (that guess needed `kind`).
 - `SyncService.personalWorkspace()` → `awaitWorkspaces()` (boolean); `MeetingPersistence` now requires
   `newNoteWorkspace`.
+
+**For step C (review finding 6, deferred):** "Only you" on a `workspace`-visibility item depends on the member
+count (`isWorkspaceOfOne`), so in a workspace of one it reads "Only you" and silently becomes readable by
+whoever joins next. Settle the wording when the sidebar gets Private / Shared.
 
 **Grep criterion** — `grep -rIl -iE "personal|WorkspaceKind|kind === 'team'" apps packages` now returns only:
 Drizzle migrations/snapshots, `local-store` migration 1 + its migration-5 test and fixture, the Postgres
@@ -258,6 +262,30 @@ re-run the full `pnpm run ci` or any e2e (verifier's job).
    and with only such rows the refusal says "You can only view the workspaces you're in", which is not what
    is known. Reachable only on a store that has rows but no roles yet (upgrade from a pre-3.9 store while
    offline). Low; traced.
+
+**Resolutions (implementer, 2026-11-21)**
+
+1. Fixed. `members.ts`: `lockActor` (user lock) → `lockWorkspace` → `lockedActorContext(tx, locked, actor)`,
+   which takes the actor's role in this workspace from the locked rows and their other live memberships from
+   a read made after both locks. Leave is built the same way. Regression tests in `members.int.test.ts`
+   ("a change that commits while the action waits for the workspace lock"): demoted owner's delete is
+   refused; a member removed meanwhile gets not-found; an owner who becomes the last owner meanwhile stays.
+2. Fixed. `LocalStore.hasPulled()` (a pull has completed); `noNoteWorkspaceReason` = `unknown` | `none` |
+   `view-only`; synced with no workspace → "You’re not in a workspace any more… Create a workspace in Oat on
+   the web" after a 1.5 s re-check instead of the 10 s wait, still before any audio. The snapshot carries
+   `synced`, and the sidebar hint says "You’re not in a workspace. Create one on the web to take notes."
+   Unit tests for never-synced vs synced-and-none in `workspaces.test.ts`, `workspaces-state.test.ts`,
+   `workspace-switcher.test.tsx`. The server does not heal on pull (the web shell and sign-in still do).
+3. Fixed. The after-hook also records `organization/create` (unless `keepCurrentActiveOrganization`) and
+   `organization/accept-invitation`. Int test "a workspace the user creates, or joins by accepting an
+   invitation, is where they start next".
+4. No code change; Design note amended (window dropped: no production database, no released desktop).
+5. Fixed. Dialog reads "Create a workspace" (description no longer says "team"); the action is
+   `createWorkspace` (authz registry updated). `create-team-button.tsx` was already deleted. Test comments
+   that call a shared workspace a "team workspace" were left alone.
+6. Deferred to step C; noted under Design notes → Step A.
+7. Fixed (small): a row with `role: null` makes the reason `unknown` (connect message, no sidebar hint), not
+   `view-only`. Tests next to 2.
 
 **Checked and fine**
 

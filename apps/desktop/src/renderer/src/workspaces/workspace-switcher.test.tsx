@@ -19,8 +19,13 @@ const ws = (id: string, name: string, role: DesktopWorkspace['role']): DesktopWo
   canCreate: role !== null && role !== 'viewer',
 });
 
-function view(workspaces: DesktopWorkspace[], activeId: string, targetId: string | null) {
-  const snapshot = { workspaces, activeId, targetId };
+function view(
+  workspaces: DesktopWorkspace[],
+  activeId: string | null,
+  targetId: string | null,
+  synced = true,
+) {
+  const snapshot = { workspaces, activeId, targetId, synced };
   return { snapshot, ...activeAndFallback(snapshot), setActive: vi.fn() } satisfies WorkspacesView;
 }
 
@@ -68,5 +73,20 @@ describe('WorkspaceSwitcher hint (where new notes go)', () => {
       'You can view Board but not add notes to it. Create a workspace of your own on the web to take notes.',
     );
     expect(screen.getByTestId('workspace-switcher').textContent).toContain('View only');
+  });
+
+  it('synced and in no workspace at all: asks me to create one', () => {
+    show(view([], null, null));
+    expect(screen.getByTestId('workspace-hint').textContent).toBe(
+      'You’re not in a workspace. Create one on the web to take notes.',
+    );
+  });
+
+  it('not synced yet, or my role not known yet: says nothing', () => {
+    show(view([], null, null, false));
+    expect(screen.queryByTestId('workspace-hint')).toBeNull();
+    cleanup();
+    show(view([ws('old', 'Old', null)], 'old', null));
+    expect(screen.queryByTestId('workspace-hint')).toBeNull();
   });
 });

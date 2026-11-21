@@ -15,8 +15,9 @@ export interface WorkspacesView {
   /** Where new notes go when that isn't the active workspace (I can only view it), else `null`. */
   fallback: DesktopWorkspace | null;
   /**
-   * I can only view the active workspace and there is no other one to put new notes in (D-36): the sidebar
-   * asks me to create a workspace.
+   * There is nowhere to put new notes and it is for me to fix (D-36): I can only view every workspace I am in,
+   * or — synced — I am in none (`active` is `null` then). The sidebar asks me to create a workspace. Not set
+   * while that isn't known yet (never synced, or roles still unknown).
    */
   needsWorkspace: boolean;
   setActive(workspaceId: string): Promise<void>;
@@ -84,7 +85,11 @@ export function activeAndFallback(snapshot: WorkspacesSnapshot | null): {
   return {
     active,
     fallback: active && target && target.id !== active.id ? target : null,
-    needsWorkspace: active !== null && target === null,
+    needsWorkspace:
+      target === null &&
+      (active !== null
+        ? snapshot!.workspaces.every((w) => w.role !== null)
+        : snapshot?.synced === true && snapshot.workspaces.length === 0),
   };
 }
 

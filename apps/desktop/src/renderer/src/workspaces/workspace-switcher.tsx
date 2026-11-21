@@ -145,12 +145,16 @@ export function WorkspaceSwitcher({
           data-testid="workspace-hint"
         >
           <IconEye aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-          <span>
-            You can view {active?.name} but not add notes to it.{' '}
-            {fallback
-              ? `New notes go to ${fallback.name}.`
-              : 'Create a workspace of your own on the web to take notes.'}
-          </span>
+          {active ? (
+            <span>
+              You can view {active.name} but not add notes to it.{' '}
+              {fallback
+                ? `New notes go to ${fallback.name}.`
+                : 'Create a workspace of your own on the web to take notes.'}
+            </span>
+          ) : (
+            <span>You’re not in a workspace. Create one on the web to take notes.</span>
+          )}
         </p>
       )}
       {error && (

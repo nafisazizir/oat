@@ -21,7 +21,10 @@ import type { LocalStore } from '@oat/local-store';
 /** `sync_state` key of the active workspace (per account: the database is the account's). */
 export const ACTIVE_WORKSPACE_KEY = 'desktop.activeWorkspace';
 
-/** Nothing is known about the account's workspaces yet (a fresh database that never synced). */
+/**
+ * Not known yet: a fresh database that never synced, or workspaces whose roles sync hasn't brought (a store
+ * from before roles were synced, upgraded offline) — not the same as "view-only".
+ */
 export const CONNECT_ONCE_MESSAGE =
   'Oat needs to connect once to set up your notes on this Mac. Check your connection and try again.';
 
@@ -29,13 +32,38 @@ export const CONNECT_ONCE_MESSAGE =
 export const CREATE_WORKSPACE_MESSAGE =
   'You can only view the workspaces you’re in, so there’s nowhere to save a new note. Create a workspace of your own in Oat on the web, then try again.';
 
+/** Synced, and I am in no workspace at all (removed from my only one, or its owner deleted it). */
+export const NO_WORKSPACE_MESSAGE =
+  'You’re not in a workspace any more, so there’s nowhere to save a new note. Create a workspace in Oat on the web, then try again.';
+
 /**
- * Why a new note has nowhere to go (`newNoteWorkspace()` answered `null`), in words for the user: either
- * sync hasn't brought any workspace yet, or I can't create in any of mine (D-36: create one).
+ * Why new notes have nowhere to go: `unknown` (never synced, or roles not known yet), `none` (synced: I am
+ * in no workspace) or `view-only` (I can only view every workspace I am in). The last two are for me to
+ * fix by creating a workspace (D-36).
  */
-export function noNoteWorkspaceMessage(store: LocalStore | null): string {
-  return store && store.workspaces().length > 0 ? CREATE_WORKSPACE_MESSAGE : CONNECT_ONCE_MESSAGE;
+export type NoNoteWorkspace = 'unknown' | 'none' | 'view-only';
+
+export function noNoteWorkspaceReason(store: LocalStore | null): NoNoteWorkspace {
+  if (!store) return 'unknown';
+  const workspaces = store.workspaces();
+  if (workspaces.length === 0) return store.hasPulled() ? 'none' : 'unknown';
+  return workspaces.some((w) => w.role === null) ? 'unknown' : 'view-only';
 }
+
+/** {@link noNoteWorkspaceReason} in words for the user (`newNoteWorkspace()` answered `null`). */
+export function noNoteWorkspaceMessage(store: LocalStore | null): string {
+  switch (noNoteWorkspaceReason(store)) {
+    case 'none':
+      return NO_WORKSPACE_MESSAGE;
+    case 'view-only':
+      return CREATE_WORKSPACE_MESSAGE;
+    default:
+      return CONNECT_ONCE_MESSAGE;
+  }
+}
+
+/** How long a start re-checks with the server when sync says I am in no workspace (it may be seconds old). */
+const RECHECK_MS = 1_500;
 
 export interface WorkspacesOptions {
   /** The signed-in user's local database (`null` while it isn't open). */
@@ -98,7 +126,12 @@ export class Workspaces {
       if (active) store.setState(ACTIVE_WORKSPACE_KEY, active.id);
     }
     const target = newNoteTarget(workspaces, active);
-    return { workspaces, activeId: active?.id ?? null, targetId: target?.id ?? null };
+    return {
+      workspaces,
+      activeId: active?.id ?? null,
+      targetId: target?.id ?? null,
+      synced: store.hasPulled(),
+    };
   }
 
   setActive(workspaceId: string): WorkspacesSnapshot {
@@ -119,12 +152,16 @@ export class Workspaces {
   /**
    * Where a new meeting note goes now (see the module comment). On a fresh database, waits for sync to bring
    * my workspaces (bounded). `null` when there is nowhere: it still can't be known (offline on first launch),
-   * or I can't create in any workspace I am in — `noNoteWorkspaceMessage` says which.
+   * I am in no workspace, or I can't create in any I am in — `noNoteWorkspaceMessage` says which.
    */
   async newNoteWorkspace(timeoutMs?: number): Promise<string | null> {
     const now = this.snapshot();
     if (now.targetId || now.workspaces.length > 0) return now.targetId;
-    await this.#o.sync.awaitWorkspaces(timeoutMs);
+    // No workspace here. Never synced: wait for the first pull. Synced (I am in none): only a short
+    // re-check, in case one was just created — not the full wait before saying so.
+    await this.#o.sync.awaitWorkspaces(
+      now.synced ? Math.min(timeoutMs ?? RECHECK_MS, RECHECK_MS) : timeoutMs,
+    );
     return this.snapshot().targetId;
   }
 }

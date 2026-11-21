@@ -101,6 +101,11 @@ export const workspacesSnapshotSchema = z.object({
   workspaces: z.array(desktopWorkspaceSchema).max(500),
   activeId: z.string().nullable(),
   targetId: z.string().nullable(),
+  /**
+   * A pull from the server has completed on this Mac: an empty `workspaces` then means I am in no workspace
+   * (removed from my only one, or it was deleted), not that nothing is known yet.
+   */
+  synced: z.boolean().optional(),
 });
 export type WorkspacesSnapshot = z.infer<typeof workspacesSnapshotSchema>;
 

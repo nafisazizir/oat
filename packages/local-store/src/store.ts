@@ -324,6 +324,14 @@ export class LocalStore {
     return this.workspaces()[0]?.id ?? null;
   }
 
+  /**
+   * Whether a pull from the server has completed on this database (not while the first one is still paging).
+   * It tells "no workspace here because nothing was synced yet" from "synced: the user is in no workspace".
+   */
+  hasPulled(): boolean {
+    return this.getState(STATE.workspaces) !== null && this.getState(STATE.initial) === null;
+  }
+
   // --- documents + meetings ----------------------------------------------------------------------------
 
   document(id: string): LocalDocument | undefined {

@@ -46,7 +46,7 @@ export async function switchWorkspace(workspaceId: string): Promise<ActionResult
 }
 
 /** Creates a workspace owned by the current user and switches to it. */
-export async function createTeamWorkspace(name: string): Promise<ActionResult> {
+export async function createWorkspace(name: string): Promise<ActionResult> {
   await requireSession();
   const parsed = WorkspaceName.safeParse(name);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };

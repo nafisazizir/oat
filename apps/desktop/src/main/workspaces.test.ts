@@ -14,6 +14,8 @@ import {
   ACTIVE_WORKSPACE_KEY,
   CONNECT_ONCE_MESSAGE,
   CREATE_WORKSPACE_MESSAGE,
+  NO_WORKSPACE_MESSAGE,
+  noNoteWorkspaceReason,
   newNoteTarget,
   noNoteWorkspaceMessage,
   Workspaces,
@@ -41,7 +43,10 @@ function pull(
   );
 }
 
-const workspacesOver = (db: LocalStore, awaitWorkspaces = async () => false) =>
+const workspacesOver = (
+  db: LocalStore,
+  awaitWorkspaces: (timeoutMs?: number) => Promise<boolean> = async () => false,
+) =>
   new Workspaces({
     store: () => db,
     userId: () => 'u1',
@@ -200,6 +205,118 @@ describe('Workspaces', () => {
     });
     expect(await online.newNoteWorkspace(10)).toBe('w1');
     empty.close();
+  });
+});
+
+// Review (step A) #2: synced with no workspace at all is not "check your connection".
+describe('in no workspace at all', () => {
+  /** Synced, then removed from my only workspace (or its owner deleted it): the pull drops it. */
+  function emptiedStore() {
+    const db = new LocalStore({ path: ':memory:' });
+    db.applyPull(
+      { changes: [ws('w1', 'Team', 'member')], cursor: 'c', hasMore: false, workspaceIds: ['w1'] },
+      null,
+    );
+    db.applyPull({ changes: [], cursor: 'c2', hasMore: false, workspaceIds: [] }, 'c');
+    return db;
+  }
+
+  it('never synced vs synced-and-none are told apart', () => {
+    const fresh = new LocalStore({ path: ':memory:' });
+    expect(fresh.hasPulled()).toBe(false);
+    expect(noNoteWorkspaceReason(fresh)).toBe('unknown');
+    expect(noNoteWorkspaceMessage(fresh)).toBe(CONNECT_ONCE_MESSAGE);
+    expect(workspacesOver(fresh).snapshot()).toMatchObject({ workspaces: [], synced: false });
+    // The first pull is still paging: not known yet.
+    fresh.applyPull({ changes: [], cursor: 'c', hasMore: true, workspaceIds: [] }, null);
+    expect(fresh.hasPulled()).toBe(false);
+    expect(noNoteWorkspaceReason(fresh)).toBe('unknown');
+    fresh.close();
+
+    const db = emptiedStore();
+    expect(db.workspaces()).toEqual([]);
+    expect(db.hasPulled()).toBe(true);
+    expect(noNoteWorkspaceReason(db)).toBe('none');
+    expect(noNoteWorkspaceMessage(db)).toBe(NO_WORKSPACE_MESSAGE);
+    expect(workspacesOver(db).snapshot()).toEqual({
+      workspaces: [],
+      activeId: null,
+      targetId: null,
+      synced: true,
+    });
+    expect(noNoteWorkspaceReason(null)).toBe('unknown');
+    db.close();
+  });
+
+  it('a start is refused with the create-a-workspace ask after a short re-check, not the full wait', async () => {
+    const db = emptiedStore();
+    const waits: (number | undefined)[] = [];
+    const x = workspacesOver(db, async (timeoutMs?: number) => {
+      waits.push(timeoutMs);
+      return false;
+    });
+    expect(await x.newNoteWorkspace()).toBeNull();
+    expect(await x.newNoteWorkspace(10_000)).toBeNull();
+    expect(await x.newNoteWorkspace(10)).toBeNull();
+    expect(waits).toEqual([1_500, 1_500, 10]);
+
+    const p = new MeetingPersistence({
+      store: () => db,
+      userId: () => 'u1',
+      sync: { kick() {} },
+      workspaceTimeoutMs: 10,
+      newNoteWorkspace: (t) => x.newNoteWorkspace(t),
+    });
+    const refused = await p.beginMeeting('m1', Date.now()).catch((e: unknown) => e);
+    expect(refused).toBeInstanceOf(PersistenceError);
+    expect((refused as Error).message).toBe(NO_WORKSPACE_MESSAGE);
+    expect(db.documents()).toEqual([]);
+    expect(db.outboxSize()).toBe(0);
+    db.close();
+  });
+
+  it('the re-check finds a workspace created meanwhile', async () => {
+    const db = emptiedStore();
+    const x = workspacesOver(db, async () => {
+      db.applyPull(
+        {
+          changes: [ws('w2', 'Mine', 'owner')],
+          cursor: 'c3',
+          hasMore: false,
+          workspaceIds: ['w2'],
+        },
+        null,
+      );
+      return true;
+    });
+    expect(await x.newNoteWorkspace()).toBe('w2');
+    db.close();
+  });
+});
+
+// Review (step A) #7: a row without my role is "not known yet", not "view-only".
+describe('roles not known yet', () => {
+  it('says to connect, not that I can only view', () => {
+    const db = new LocalStore({ path: ':memory:' });
+    db.applyPull(
+      { changes: [ws('old', 'Old', null)], cursor: 'c', hasMore: false, workspaceIds: ['old'] },
+      null,
+    );
+    expect(workspacesOver(db).snapshot()).toMatchObject({ activeId: 'old', targetId: null });
+    expect(noNoteWorkspaceReason(db)).toBe('unknown');
+    expect(noNoteWorkspaceMessage(db)).toBe(CONNECT_ONCE_MESSAGE);
+    // Once every role is known and all are view-only, it is.
+    db.applyPull(
+      {
+        changes: [ws('old', 'Old', 'viewer')],
+        cursor: 'c2',
+        hasMore: false,
+        workspaceIds: ['old'],
+      },
+      'c',
+    );
+    expect(noNoteWorkspaceReason(db)).toBe('view-only');
+    db.close();
   });
 });
 

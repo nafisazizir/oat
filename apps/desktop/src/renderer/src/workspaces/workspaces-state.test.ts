@@ -38,6 +38,30 @@ describe('workspace switcher state', () => {
       fallback: null,
       needsWorkspace: false,
     });
+    expect(
+      activeAndFallback({ workspaces: [], activeId: null, targetId: null, synced: false }),
+    ).toMatchObject({ needsWorkspace: false });
+  });
+
+  it('asks for a workspace when sync says I am in none (removed from my only one, or it was deleted)', () => {
+    expect(
+      activeAndFallback({ workspaces: [], activeId: null, targetId: null, synced: true }),
+    ).toEqual({ active: null, fallback: null, needsWorkspace: true });
+  });
+
+  it('does not call a workspace view-only while my role there is not known yet', () => {
+    const unknown = [ws('old', null)];
+    expect(
+      activeAndFallback({ workspaces: unknown, activeId: 'old', targetId: null, synced: true }),
+    ).toMatchObject({ active: { id: 'old' }, fallback: null, needsWorkspace: false });
+    // One known view-only row next to an unknown one: still not known.
+    expect(
+      activeAndFallback({
+        workspaces: [ws('board', 'viewer'), ws('old', null)],
+        activeId: 'board',
+        targetId: null,
+      }),
+    ).toMatchObject({ needsWorkspace: false });
   });
 
   it('switches optimistically: new notes follow when I can add to the workspace, else go to the first one where I can', () => {
