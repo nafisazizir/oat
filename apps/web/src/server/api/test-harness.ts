@@ -27,7 +27,10 @@ export type Harness = {
   db: Db;
   auth: Auth;
   api: Api;
-  signUp(label: string): Promise<TestUser>;
+  /** Every email the app sent (sign-in links, invitations, join notices), oldest first. */
+  outbox: EmailMessage[];
+  /** Signs a new user up by magic link. `domain`: their email domain (default `example.test`). */
+  signUp(label: string, domain?: string): Promise<TestUser>;
   /** A team workspace owned by `owner`, with the other users at the given roles. */
   teamWorkspace(
     owner: TestUser,
@@ -62,8 +65,8 @@ export async function createHarness(): Promise<Harness> {
   });
 
   let counter = 0;
-  async function signUp(label: string): Promise<TestUser> {
-    const email = `${label}-${Date.now()}-${counter++}@example.test`;
+  async function signUp(label: string, domain = 'example.test'): Promise<TestUser> {
+    const email = `${label}-${Date.now()}-${counter++}@${domain}`;
     const res = await auth.handler(
       new Request(`${BASE}/api/auth/sign-in/magic-link`, {
         method: 'POST',
@@ -115,6 +118,7 @@ export async function createHarness(): Promise<Harness> {
     db,
     auth,
     api,
+    outbox,
     signUp,
     teamWorkspace,
     close: async () => {

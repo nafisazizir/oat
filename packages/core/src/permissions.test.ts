@@ -914,6 +914,18 @@ describe('assertCan', () => {
       moveDocument: [wsDoc, null],
       moveFolder: [wsFolder, null, []],
       setFolderVisibility: [wsFolder, 'private', []],
+      addDomain: [TEAM, { email: 'a@acme.test', emailVerified: true }, 'acme.test'],
+      autoJoin: [
+        { id: T, joinPolicy: 'auto_join', domains: ['acme.test'], deletedAt: null },
+        { email: 'a@acme.test', emailVerified: true },
+        null,
+      ],
+      requestToJoin: [
+        { id: T, joinPolicy: 'request', domains: ['acme.test'], deletedAt: null },
+        { email: 'a@acme.test', emailVerified: true },
+        null,
+      ],
+      decideJoinRequest: [TEAM, { workspaceId: T, status: 'pending' }],
     };
     const resource = action.endsWith('Folder')
       ? wsFolder

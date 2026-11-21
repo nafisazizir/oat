@@ -6,6 +6,7 @@ import {
   findInvite,
   findInviteByToken,
   findLiveWorkspace,
+  inviteAlreadyHonoured,
   isNotFoundError,
   leaveWorkspace as leave,
   loadPermissionContext,
@@ -350,10 +351,25 @@ export async function acceptInvite(token: string): Promise<MemberActionResult> {
         error: AUTH_ERRORS.EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION!,
       };
     }
-    await getAuth().api.acceptInvitation({
-      body: { invitationId: found.id },
-      headers: await headers(),
-    });
+    const requestHeaders = await headers();
+    try {
+      await getAuth().api.acceptInvitation({
+        body: { invitationId: found.id },
+        headers: requestHeaders,
+      });
+    } catch (error) {
+      // They got in another way while accepting (an owner approved their request to join): Better Auth's
+      // accept then trips over the membership that already exists. That is a success, not an error.
+      const workspaceId = await inviteAlreadyHonoured(getDb(), {
+        invitationId: found.id,
+        userId: user.id,
+      });
+      if (workspaceId === undefined) throw error;
+      await getAuth().api.setActiveOrganization({
+        body: { organizationId: workspaceId },
+        headers: requestHeaders,
+      });
+    }
   } catch (error) {
     return failure(error, 'Couldn’t accept the invitation.');
   }

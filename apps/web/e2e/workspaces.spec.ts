@@ -309,19 +309,21 @@ test('wrong account, revoked invite, leave and delete', async ({ browser }) => {
   expect((await mailTo(guest, /invited you to/)).Subject).toContain(renamed);
 
   // D-36: an invited newcomer who signs up on their own (not through the link) gets no workspace yet —
-  // opening Oat takes them to the invitation. Declining it gives them a workspace of their own.
+  // opening Oat takes them to the join screen, which shows the invitation. Declining it leaves them with
+  // nothing to choose from, so they get a workspace of their own.
   const guestContext = await browser.newContext({ storageState: SIGNED_OUT });
   const guestPage = hydrationAware(await guestContext.newPage());
   await guestPage.goto('/sign-in');
   await signIn(guestPage, guest);
-  await expect(guestPage).toHaveURL(/\/invite\/[A-Za-z0-9_-]{20,}$/);
-  await expect(guestPage.getByRole('heading', { level: 1, name: `Join ${renamed}` })).toBeVisible();
+  await guestPage.waitForURL(/\/join$/);
+  await expect(
+    guestPage.getByRole('heading', { level: 1, name: 'Join a workspace' }),
+  ).toBeVisible();
+  await expect(guestPage.getByTestId('join-choice')).toContainText(renamed);
   await guestPage.goto('/home');
-  await expect(guestPage).toHaveURL(/\/invite\/[A-Za-z0-9_-]{20,}$/);
-  await guestPage.getByRole('button', { name: 'Decline' }).click();
-  await expect(guestPage.getByRole('heading', { name: 'Invitation declined' })).toBeVisible();
-  await guestPage.getByRole('link', { name: 'Go to Oat' }).click();
-  await expect(guestPage).toHaveURL(/\/home$/);
+  await guestPage.waitForURL(/\/join$/);
+  await guestPage.getByRole('button', { name: `Decline the invitation to ${renamed}` }).click();
+  await guestPage.waitForURL(/\/home$/);
   await expect(guestPage.getByTestId('workspace-switcher')).toContainText('My workspace');
   await guestPage.getByTestId('workspace-switcher').click();
   await expect(guestPage.getByTestId('workspace-option')).toHaveCount(1);
