@@ -1,7 +1,13 @@
 import { findInviteByToken, type InviteDetails, loadPermissionContext } from '@oat/auth';
 import { roleIn } from '@oat/core';
 import { Button } from '@oat/ui/components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@oat/ui/components/card';
+import {
+  AuthPanel,
+  AuthContent,
+  AuthDescription,
+  AuthHeader,
+  AuthTitle,
+} from '@oat/ui/components/auth-layout';
 import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 
@@ -10,9 +16,8 @@ import {
   OpenWorkspaceButton,
   SwitchAccountButton,
 } from '@/components/workspace/invite-response';
-import { WorkspaceAvatar } from '@/components/workspace/workspace-avatar';
 import { signInPath } from '@/lib/redirect';
-import { ROLE_INFO, workspaceIcon } from '@/lib/workspace';
+import { ROLE_INFO } from '@/lib/workspace';
 import { getDb } from '@/server/db';
 import { getSession } from '@/server/session';
 
@@ -36,54 +41,44 @@ function Notice({
   action?: 'home' | 'none';
 }) {
   return (
-    <Card data-testid="invite-notice">
-      <CardHeader className="text-center">
-        <CardTitle className="text-heading-24">
+    <AuthPanel data-testid="invite-notice">
+      <AuthHeader className="text-center">
+        <AuthTitle>
           <h1>{title}</h1>
-        </CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
+        </AuthTitle>
+        <AuthDescription>{description}</AuthDescription>
+      </AuthHeader>
       {action === 'home' && (
-        <CardContent>
+        <AuthContent>
           <Button
             role="link"
             nativeButton={false}
             render={<Link href="/home" />}
-            variant="outline"
             size="lg"
             className="w-full"
           >
             Go to Oat
           </Button>
-        </CardContent>
+        </AuthContent>
       )}
-    </Card>
+    </AuthPanel>
   );
 }
 
 function InviteCard({ invite, children }: { invite: InviteDetails; children: React.ReactNode }) {
   const role = ROLE_INFO[invite.role].label.toLowerCase();
   return (
-    <Card data-testid="invite-card">
-      <CardHeader className="items-center text-center">
-        <WorkspaceAvatar
-          workspace={{
-            name: invite.workspace.name,
-            kind: 'team',
-            icon: workspaceIcon(invite.workspace.logo),
-          }}
-          size="lg"
-          className="mx-auto mb-2 size-12"
-        />
-        <CardTitle className="text-heading-24">
+    <AuthPanel data-testid="invite-card">
+      <AuthHeader className="items-center text-center">
+        <AuthTitle>
           <h1>Join {invite.workspace.name}</h1>
-        </CardTitle>
-        <CardDescription>
+        </AuthTitle>
+        <AuthDescription>
           {invite.inviter.name} invited you to join as {role === 'admin' ? 'an' : 'a'} {role}.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">{children}</CardContent>
-    </Card>
+        </AuthDescription>
+      </AuthHeader>
+      <AuthContent className="flex flex-col gap-4">{children}</AuthContent>
+    </AuthPanel>
   );
 }
 

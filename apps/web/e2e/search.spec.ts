@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync } from 'node:fs';
 
+import AxeBuilder from '@axe-core/playwright';
 import { createDb, meeting, newId, transcriptSegment } from '@oat/db';
 import type { Page } from '@playwright/test';
 
@@ -62,6 +63,20 @@ test.beforeEach(async ({ page, baseURL }) => {
   await page.goto('/sign-in');
   await signInWithMagicLink(page, uniqueAddress('e2e-search'), baseURL!);
   await expect(page).toHaveURL(/\/home$/);
+});
+
+test('command palette separators do not break listbox accessibility', async ({ page }) => {
+  await page.keyboard.press('Control+k');
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('[cmdk-separator]')).toHaveAttribute('aria-hidden', 'true');
+  const { violations } = await new AxeBuilder({ page })
+    .include('[role=dialog]')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+    .analyze();
+  expect(violations).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
 });
 
 test('⌘K finds notes and transcript lines; Enter opens the hit; /search has tabs', async ({

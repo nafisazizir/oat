@@ -78,9 +78,7 @@ export function DesktopSearch({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Search</DialogTitle>
-            <DialogDescription>
-              Notes and transcripts on this Mac, available offline.
-            </DialogDescription>
+            <DialogDescription>Notes and transcripts on this Mac.</DialogDescription>
           </DialogHeader>
           <LocalSearch
             refreshKey={refreshKey}

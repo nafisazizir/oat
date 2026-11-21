@@ -2,17 +2,16 @@
 
 import { Button } from '@oat/ui/components/button';
 import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@oat/ui/components/empty';
-import { Field, FieldLabel, FieldSeparator } from '@oat/ui/components/field';
+  AuthPanel,
+  AuthHeader,
+  AuthTitle,
+  AuthDescription,
+  AuthContent,
+} from '@oat/ui/components/auth-layout';
+import { Field, FieldLabel } from '@oat/ui/components/field';
 import { Input } from '@oat/ui/components/input';
 import { Spinner } from '@oat/ui/components/spinner';
-import { IconArrowLeft, IconBrandGoogle, IconMail, IconMailCheck } from '@tabler/icons-react';
+import { IconBrandGoogle } from '@tabler/icons-react';
 import { useState } from 'react';
 
 import { authClient, GOOGLE_PROVIDER_ID } from '@/lib/auth-client';
@@ -82,20 +81,23 @@ export function SignInForm({
 
   if (state.step === 'sent') {
     return (
-      <Empty className="gap-5 p-0" data-testid="magic-link-sent">
-        <EmptyHeader>
-          <EmptyMedia variant="icon" className="bg-brand-100 text-brand-900">
-            <IconMailCheck />
-          </EmptyMedia>
-          <EmptyTitle className="text-heading-16">
-            <h2>Check your email</h2>
-          </EmptyTitle>
-          <EmptyDescription role="status">
-            We sent a sign-in link to <span className="text-gray-1000">{state.email}</span>. It
-            works once and expires in 15 minutes.
-          </EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
+      <AuthPanel data-testid="magic-link-sent">
+        <AuthHeader>
+          <AuthTitle>
+            <h1>Check your email</h1>
+          </AuthTitle>
+          <AuthDescription role="status">
+            Sign-in link sent to <span className="break-all text-gray-1000">{state.email}</span>. It
+            expires in 15 minutes.
+          </AuthDescription>
+        </AuthHeader>
+        <AuthContent className="items-center">
+          <Button
+            type="button"
+            onClick={() => setState({ step: 'form', pending: null, error: null })}
+          >
+            Use a different email
+          </Button>
           {mailpitUrl && (
             <a
               href={mailpitUrl}
@@ -106,22 +108,18 @@ export function SignInForm({
               Running locally? Open Mailpit
             </a>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            type="button"
-            onClick={() => setState({ step: 'form', pending: null, error: null })}
-          >
-            <IconArrowLeft data-icon="inline-start" />
-            Use a different email
-          </Button>
-        </EmptyContent>
-      </Empty>
+        </AuthContent>
+      </AuthPanel>
     );
   }
 
   return (
     <div>
+      <AuthHeader className="mb-6">
+        <AuthTitle>
+          <h1>Welcome to Oat</h1>
+        </AuthTitle>
+      </AuthHeader>
       <div className="flex flex-col gap-5">
         <Button
           variant="outline"
@@ -139,9 +137,9 @@ export function SignInForm({
           Continue with Google
         </Button>
 
-        <FieldSeparator aria-hidden className="text-label-12">
+        <p aria-hidden className="text-center text-label-12 text-gray-900">
           or
-        </FieldSeparator>
+        </p>
 
         <form
           className="flex flex-col gap-3"
@@ -164,11 +162,7 @@ export function SignInForm({
             />
           </Field>
           <Button type="submit" size="lg" className="w-full" disabled={disabled}>
-            {pending === 'email' ? (
-              <Spinner data-icon="inline-start" />
-            ) : (
-              <IconMail data-icon="inline-start" />
-            )}
+            {pending === 'email' && <Spinner data-icon="inline-start" />}
             Email me a sign-in link
           </Button>
         </form>

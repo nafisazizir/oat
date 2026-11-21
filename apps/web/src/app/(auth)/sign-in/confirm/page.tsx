@@ -1,7 +1,13 @@
 import { MAGIC_LINK_CONSUME_PATH } from '@oat/auth/magic-link';
 import { peekMagicLinkEmail } from '@oat/auth/magic-link-lookup';
 import { Button } from '@oat/ui/components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@oat/ui/components/card';
+import {
+  AuthPanel,
+  AuthContent,
+  AuthDescription,
+  AuthHeader,
+  AuthTitle,
+} from '@oat/ui/components/auth-layout';
 import { IconLogin } from '@tabler/icons-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -35,48 +41,43 @@ export default async function ConfirmSignInPage({
 
   if (!email) {
     return (
-      <Card>
-        <CardHeader className="text-center">
-          <CardTitle className="text-heading-24">
+      <AuthPanel>
+        <AuthHeader className="text-center">
+          <AuthTitle>
             <h1>{token ? 'This link has expired' : 'This link is incomplete'}</h1>
-          </CardTitle>
-          <CardDescription>
-            {token
-              ? 'Sign-in links work once and expire after 15 minutes. Request a new one.'
-              : 'Copy the whole link from the email, or request a new one.'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </AuthTitle>
+          <AuthDescription>Request a new sign-in link.</AuthDescription>
+        </AuthHeader>
+        <AuthContent>
           <Button
             role="link"
             nativeButton={false}
             render={<Link href="/sign-in" />}
-            variant="outline"
             size="lg"
             className="w-full"
           >
             Back to sign in
           </Button>
-        </CardContent>
-      </Card>
+        </AuthContent>
+      </AuthPanel>
     );
   }
 
   return (
-    <Card>
-      <CardHeader className="text-center">
-        <CardTitle className="text-heading-24">
+    <AuthPanel>
+      <AuthHeader className="text-center">
+        <AuthTitle>
           <h1>Finish signing in</h1>
-        </CardTitle>
-        <CardDescription>
+        </AuthTitle>
+        <AuthDescription>
           You’re signing in to Oat as
           <span className="my-1 block break-all text-gray-1000" data-testid="confirm-email">
             {email}
           </span>
           Not you? Just close this page.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+        </AuthDescription>
+      </AuthHeader>
+      <AuthContent>
         <form method="post" action={MAGIC_LINK_CONSUME_PATH} className="flex flex-col gap-3">
           <input type="hidden" name="token" value={token} />
           <input type="hidden" name="next" value={next} />
@@ -85,7 +86,7 @@ export default async function ConfirmSignInPage({
             Continue to Oat
           </Button>
         </form>
-      </CardContent>
-    </Card>
+      </AuthContent>
+    </AuthPanel>
   );
 }

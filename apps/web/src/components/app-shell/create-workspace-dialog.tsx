@@ -36,7 +36,7 @@ export function CreateWorkspaceDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent data-testid="create-workspace-dialog">
+      <DialogContent data-testid="create-workspace-dialog" className="sm:max-w-[22.5rem]">
         <form
           className="contents"
           onSubmit={(event) => {
@@ -56,9 +56,7 @@ export function CreateWorkspaceDialog({
         >
           <DialogHeader>
             <DialogTitle>Create a team workspace</DialogTitle>
-            <DialogDescription>
-              A shared space for your team’s notes. You can invite people once it exists.
-            </DialogDescription>
+            <DialogDescription>Give your team’s notes a shared space.</DialogDescription>
           </DialogHeader>
           <Field data-invalid={error ? true : undefined}>
             <FieldLabel htmlFor="workspace-name">Name</FieldLabel>
@@ -76,7 +74,7 @@ export function CreateWorkspaceDialog({
             {error && <FieldError id="workspace-name-error">{error}</FieldError>}
           </Field>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={pending}>

@@ -223,7 +223,7 @@ export function ShareDialog({ documentId }: { documentId: string }) {
                   return (
                     <FieldLabel
                       key={option.value}
-                      className="rounded-lg border border-gray-alpha-400 transition-colors hover:bg-gray-alpha-100 has-data-checked:border-gray-alpha-600 has-data-checked:bg-gray-alpha-100 has-data-disabled:cursor-not-allowed has-data-disabled:hover:bg-transparent"
+                      className="rounded-md transition-colors hover:bg-gray-alpha-100 has-data-checked:bg-gray-alpha-100 has-[>[data-slot=field]]:border-0 has-data-disabled:cursor-not-allowed has-data-disabled:hover:bg-transparent"
                     >
                       <Field orientation="horizontal" className="items-start px-3 py-2.5">
                         <RadioGroupItem
@@ -292,7 +292,7 @@ export function ShareDialog({ documentId }: { documentId: string }) {
             {sharing.kind === 'meeting' && sharing.visibility === 'link' && (
               <FieldLabel
                 htmlFor={ids.transcript}
-                className="rounded-lg border border-gray-alpha-400"
+                className="rounded-md has-[>[data-slot=field]]:border-0"
               >
                 <Field orientation="horizontal" className="items-start px-3 py-2.5">
                   <FieldContent className="gap-0">
@@ -319,9 +319,7 @@ export function ShareDialog({ documentId }: { documentId: string }) {
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Done
-          </Button>
+          <Button onClick={() => setOpen(false)}>Done</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

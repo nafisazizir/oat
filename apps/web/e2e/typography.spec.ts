@@ -4,6 +4,7 @@ import { apiCreateDocument } from './docs-helpers';
 import { expect, test } from './fixtures';
 
 async function sansTitle(title: Locator) {
+  await expect(title).toBeVisible();
   await expect(title).toHaveCSS('font-family', /Inter Variable/);
   await expect(title).toHaveCSS('font-weight', '450');
 }
@@ -13,7 +14,21 @@ for (const theme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript((value) => localStorage.setItem('oat-theme', value), theme);
     await page.goto('/home');
-    await sansTitle(page.getByRole('heading', { level: 1, name: 'Home', exact: true }));
+    const homeNote = await apiCreateDocument(page, {
+      title: `Home typography ${theme}`,
+      kind: 'page',
+    });
+    await page.goto('/home');
+    await expect(page.getByRole('heading', { level: 1, name: 'Home', exact: true })).toHaveClass(
+      'sr-only',
+    );
+    const homeTitle = page
+      .getByTestId('home-note-row')
+      .filter({ hasText: homeNote.title })
+      .locator('span');
+    await expect(homeTitle).toBeVisible();
+    await expect(homeTitle).toHaveCSS('font-family', /Inter Variable/);
+    await expect(homeTitle).toHaveCSS('font-weight', '400');
 
     for (const kind of ['page', 'meeting'] as const) {
       const doc = await apiCreateDocument(page, { title: `Typography ${kind}`, kind });

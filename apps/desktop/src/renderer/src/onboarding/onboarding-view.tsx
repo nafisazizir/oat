@@ -4,17 +4,6 @@
  * in System Settings, so the step says where and opens that pane. Every step can be skipped; "Set up later"
  * leaves at any time (Settings → Setup brings it back).
  *
- * ```
- *  Set up Oat                                        Set up later
- *  (1)───(2)───(3)───(4)   Microphone · System audio · Calendar · Test recording
- *  ┌──────────────────────────────────────────────────────────┐
- *  │ [icon]  Your microphone                     [Allowed ✓]   │
- *  │ Oat transcribes your voice live as “Me”…                  │
- *  │ [Allow microphone]   or   ⚠ Turned off → [Open System Settings] │
- *  ├──────────────────────────────────────────────────────────┤
- *  │ Back                                 Skip for now / Continue │
- *  └──────────────────────────────────────────────────────────┘
- * ```
  */
 import type { PermissionKind, PermissionsSnapshot, TestRecordingSnapshot } from '@oat/core/bridge';
 import { Button } from '@oat/ui/components/button';
@@ -53,6 +42,7 @@ import {
   type Tone,
 } from './onboarding-steps.ts';
 import { usePermissions, useTestRecording } from './onboarding-state.ts';
+import { Wordmark } from '../wordmark.tsx';
 
 export function OnboardingView({
   firstRun,
@@ -98,15 +88,11 @@ export function OnboardingView({
       data-testid="onboarding"
       data-step={current}
     >
-      <div className="flex w-full max-w-xl flex-col gap-6">
+      <div className="m-auto flex w-full max-w-[22.5rem] flex-col gap-6">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-heading-24 text-gray-1000">{firstRun ? 'Set up Oat' : 'Setup'}</h1>
-            <p className="text-copy-14 text-gray-900">
-              {firstRun
-                ? 'A minute now, so your first meeting just works.'
-                : 'Check permissions and try a test recording.'}
-            </p>
+          <div>
+            <Wordmark />
+            <h1 className="sr-only">{firstRun ? 'Set up Oat' : 'Setup'}</h1>
           </div>
           <Button
             variant="ghost"
@@ -127,13 +113,13 @@ export function OnboardingView({
 
         <section
           aria-labelledby="onboarding-step-title"
-          className="flex flex-col overflow-hidden rounded-xl border border-gray-alpha-400 bg-background-100 text-gray-1000"
+          className="flex flex-col gap-6 text-gray-1000"
           data-testid={`onboarding-step-${current}`}
         >
-          <div className="flex flex-col gap-5 p-6">
+          <div className="flex flex-col gap-5">
             {!permissions ? (
               <div role="status" aria-busy className="flex h-40 items-center justify-center">
-                <Spinner aria-label="Loading" className="size-5text-gray-900" />
+                <Spinner aria-label="Loading" className="size-5 text-gray-900" />
               </div>
             ) : current === 'microphone' ? (
               <PermissionStep
@@ -145,8 +131,8 @@ export function OnboardingView({
                 allowLabel="Allow microphone"
                 settingsPath="Privacy & Security → Microphone"
               >
-                Oat transcribes your voice live as <Voice source="mic">Me</Voice>. Audio is saved
-                only on this Mac, so you can listen back — it’s never uploaded.
+                Your voice is <Voice source="mic">Me</Voice>. Audio stays on this Mac — never
+                uploaded.
               </PermissionStep>
             ) : current === 'system-audio' ? (
               <PermissionStep
@@ -159,8 +145,7 @@ export function OnboardingView({
                 settingsPath="Privacy & Security → Screen & System Audio Recording (System Audio Recording Only)"
                 unsupported="Recording other apps needs macOS 14.4 or later. Oat still records your microphone."
               >
-                To hear everyone else, Oat records the sound your call app plays — Zoom, Meet, Teams
-                — as <Voice source="system">Them</Voice>. No bot joins your call, and your screen is
+                Call audio is <Voice source="system">Them</Voice>. No bot joins, and your screen is
                 never recorded.
               </PermissionStep>
             ) : current === 'calendar' ? (
@@ -169,7 +154,7 @@ export function OnboardingView({
               <TestStep test={test} input={input} headingRef={headingRef} />
             )}
           </div>
-          <div className="flex items-center gap-2 border-t border-gray-alpha-400 bg-gray-100 px-6 py-3">
+          <div className="flex items-center gap-2">
             {back && (
               <Button variant="ghost" disabled={testBusy} onClick={() => go(back)}>
                 Back
@@ -187,7 +172,7 @@ export function OnboardingView({
                 </Button>
               ) : (
                 <Button
-                  variant={done ? 'default' : 'outline'}
+                  variant={done ? 'default' : 'ghost'}
                   disabled={testBusy}
                   onClick={() => onDone(true)}
                   data-testid="onboarding-finish"
@@ -222,39 +207,32 @@ function Stepper({
 }) {
   return (
     <nav aria-label="Setup steps">
-      <ol className="grid grid-cols-4 gap-2">
+      <ol className="flex justify-center gap-3">
         {STEPS.map((s, i) => {
           const active = s === current;
           const complete = isDone(s);
           return (
-            <li key={s} className="flex flex-col gap-2">
-              <span
-                aria-hidden
-                className={cn(
-                  'h-1 rounded-full bg-gray-100',
-                  (active || complete) && 'bg-brand-700',
-                  complete && !active && 'bg-brand-400',
-                )}
-              />
+            <li key={s}>
               <button
                 type="button"
                 disabled={disabled}
+                title={STEP_LABELS[s]}
                 aria-current={active ? 'step' : undefined}
                 onClick={() => onSelect(s)}
                 data-testid={`onboarding-nav-${s}`}
                 className={cn(
-                  'flex min-h-6 items-center gap-1.5 rounded-sm text-start text-label-12 text-gray-900 outline-none hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 disabled:pointer-events-none',
-                  active && 'text-gray-1000',
+                  'flex size-8 items-center justify-center rounded-full text-label-12 text-gray-900 outline-none hover:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50 disabled:pointer-events-none',
+                  active && 'bg-gray-alpha-200 text-gray-1000',
                 )}
               >
                 {complete ? (
-                  <IconCheck aria-hidden className="size-3.5 shrink-0 text-green-900" />
+                  <IconCheck aria-hidden className="size-3.5 shrink-0 text-gray-900" />
                 ) : (
                   <span aria-hidden className="w-3.5 shrink-0 text-center tabular-nums">
                     {i + 1}
                   </span>
                 )}
-                <span className="truncate">{STEP_LABELS[s]}</span>
+                <span className="sr-only">{STEP_LABELS[s]}</span>
                 {complete && <span className="sr-only">(done)</span>}
               </button>
             </li>
@@ -292,14 +270,14 @@ function StepHeader({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-900">
-        <Icon aria-hidden className="size-5" />
+      <div className="shrink-0 text-gray-900">
+        <Icon aria-hidden className="size-4" />
       </div>
       <h2
         id="onboarding-step-title"
         ref={headingRef}
         tabIndex={-1}
-        className="text-heading-20 text-gray-1000 outline-none"
+        className="text-heading-24 text-gray-1000 outline-none"
       >
         {title}
       </h2>
@@ -422,21 +400,20 @@ function FixInSettings({
   path,
   pending,
   run,
+  primary = true,
 }: {
   kind: PermissionKind;
   path: string;
   pending: boolean;
   run: (fn: () => Promise<unknown>) => Promise<void>;
+  primary?: boolean;
 }) {
   return (
     <Callout tone="warn" testId="permission-blocked">
-      <p className="text-label-14 text-gray-1000">Oat isn’t allowed to use this</p>
-      <p>
-        Turn Oat on in System Settings → {path}. Then come back here — this step updates by itself.
-      </p>
+      <p>Turn Oat on in System Settings → {path}.</p>
       <Button
-        variant="outline"
-        className="mt-1 self-start text-gray-1000"
+        variant={primary ? 'default' : 'outline'}
+        className="mt-1 self-start"
         disabled={pending}
         onClick={() => void run(() => call('permissions:open-settings', { kind }))}
         data-testid="permission-open-settings"
@@ -459,17 +436,7 @@ function Callout({
 }) {
   const Icon = tone === 'ok' ? IconCheck : tone === 'info' ? IconInfoCircle : IconAlertTriangle;
   return (
-    <div
-      data-testid={testId}
-      data-tone={tone}
-      className={cn(
-        'flex gap-3 rounded-lg border px-3.5 py-3 text-copy-14 text-gray-1000',
-        tone === 'ok' && 'border-green-300 bg-green-100',
-        tone === 'info' && 'border-gray-alpha-400 bg-background-200',
-        tone === 'warn' && 'border-amber-300 bg-amber-100',
-        tone === 'problem' && 'border-red-300 bg-red-100',
-      )}
-    >
+    <div data-testid={testId} data-tone={tone} className="flex gap-2 text-copy-14 text-gray-1000">
       <Icon
         aria-hidden
         className={cn(
@@ -500,22 +467,22 @@ function CalendarStep({
     <>
       <StepHeader icon={IconCalendarEvent} title="Your calendar" headingRef={headingRef} />
       <p className="text-copy-14 text-gray-900">
-        With your calendar, Oat lists upcoming meetings, names each note after its meeting and adds
-        who was invited. It never changes your calendar. Use either one, or both.
+        See upcoming meetings and attendees. Oat never changes your calendar.
       </p>
-      <ul className="flex flex-col divide-y rounded-lg border border-gray-alpha-400">
-        <li className="flex flex-col gap-3 p-4" data-testid="calendar-mac">
-          <div className="flex items-center gap-3">
+      <ul className="flex flex-col gap-5">
+        <li className="flex flex-col gap-3" data-testid="calendar-mac">
+          <div className="flex flex-col gap-3">
             <div className="flex min-w-0 flex-col">
               <span className="text-label-14 text-gray-1000">Calendars on this Mac</span>
               <span className="text-label-12 text-gray-900">
                 iCloud, Exchange and anything else in the Calendar app
               </span>
             </div>
-            <div className="ms-auto flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2">
               <StatusPill view={macView} testId="permission-status" />
               {macView === 'ask' && (
                 <Button
+                  variant={googleConnected ? 'outline' : 'default'}
                   disabled={mac.pending}
                   onClick={() =>
                     void mac.run(() => call('permissions:request', { kind: 'calendar' }))
@@ -531,6 +498,7 @@ function CalendarStep({
           {macView === 'blocked' && (
             <FixInSettings
               kind="calendar"
+              primary={!googleConnected}
               path="Privacy & Security → Calendars (Full Access)"
               pending={mac.pending}
               run={mac.run}
@@ -540,7 +508,7 @@ function CalendarStep({
             {mac.error}
           </p>
         </li>
-        <li className="flex items-center gap-3 p-4" data-testid="calendar-google">
+        <li className="flex flex-col gap-3" data-testid="calendar-google">
           <div className="flex min-w-0 flex-col">
             <span className="text-label-14 text-gray-1000">Google Calendar</span>
             <span className="text-label-12 text-gray-900">
@@ -554,7 +522,7 @@ function CalendarStep({
               <StatusPill view="done" />
             ) : (
               <Button
-                variant="outline"
+                variant={macView === 'off' ? 'default' : 'outline'}
                 disabled={google.pending}
                 onClick={() =>
                   void google.run(() => call('calendar:connect', { provider: 'google' }))
@@ -603,15 +571,10 @@ function TestStep({
         {Math.round((test?.durationMs ?? 10_000) / 1000)} seconds and shows what it hears. Nothing
         is saved.
       </p>
-      <div
-        className="flex flex-col gap-4 rounded-lg border border-gray-alpha-400 bg-background-100 p-4"
-        data-testid="test-recording"
-        data-status={status}
-      >
+      <div className="flex flex-col gap-4" data-testid="test-recording" data-status={status}>
         <div className="flex items-center gap-3">
           {busy ? (
             <Button
-              variant="destructive"
               onClick={() => void action.run(() => call('onboarding:test-stop'))}
               data-testid="test-stop"
             >
@@ -620,7 +583,7 @@ function TestStep({
             </Button>
           ) : (
             <Button
-              variant={status === 'idle' ? 'default' : 'outline'}
+              variant={status === 'done' ? 'outline' : 'default'}
               disabled={action.pending}
               onClick={() => void start()}
               data-testid="test-start"

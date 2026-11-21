@@ -295,3 +295,31 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   sidebar expanded and transcript at its 600px maximum, native Pause/Stop remain unobscured/clickable.
   Mic-denial alert and Retry stay visible with the long note's title offscreen. Both screenshots
   reviewed under ~/shots/pr4/. See the [task](tasks/ui-calm-note-surfaces.md) for logs and limitations.
+
+## 2026-11-21 — Calm auth, setup and dialogs (UI PR 5)
+
+- Fresh main `015561c` → `devin/1795229369-calm-auth-dialogs`. Shared unboxed ~360px auth layout across
+  web passwordless sign-in/verification/invitations and desktop auth/setup. Inter and Geist Mono stay.
+  Quiet numbered setup steps, one primary action, unchanged permissions/skip/back/test recording.
+- Dialogs share plain headers, ziiz modal materials and ghost cancels; sharing stays immediate-save
+  with Done. Calm create/invite/share/search/trash and confirmation surfaces. D-35 records the layout
+  and existing-auth-model decisions. No password reset or web onboarding state machine invented.
+- Fast CI **ci: ok** (38.4s); desktop **425 passed / 55 files**; renderer built (745ms), existing chunk
+  advisory only. Required web auth/workspace/sharing/a11y cases passed; initial combined suite had
+  **20 passed, 1 skipped, 2 extra typography failures** (unchanged sr-only Home h1 weight mismatch on
+  main). Additional desktop-sign-in/templates/versions **8 passed, 1 skipped**. Final sharing/search
+  **7 passed, 1 skipped**, including a new palette axe regression. See the task for exact commands/logs.
+- Personally reviewed **36 light/dark 1440×900 PNGs** in ~/shots/pr5/; all captured-state axe scans
+  report **0 violations**. Review fixed squeezed calendar labels and a decorative listbox separator
+  exposed to AT. Keyboard/focus, permission-error/loading and setup interaction coverage retained.
+  Linux desktop evidence is simulated, not native Electron/macOS/audio verification. Browser desktop
+  handoff has e2e coverage but no separate screenshot. [task](tasks/ui-calm-auth-dialogs.md)
+
+## 2026-11-21 — PR5 follow-up: visible Home typography coverage
+
+- Corrected the typography spec rather than styling Home's sr-only h1. PR4 intentionally removed the
+  visible Home display heading; the spec now checks a visible note row for Inter/body weight 400 and
+  keeps display-weight 450 checks on visible document/meeting/settings/not-found titles. No UI change.
+- Typography Playwright **3 passed (56.9s)** including setup/light/dark. Fast-gate command/evidence:
+  `pnpm run ci --fast`, `~/shots/pr5/ci-fast-typography-fix.log`.
+  [task](tasks/ui-calm-auth-dialogs.md)
