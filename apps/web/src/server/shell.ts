@@ -2,8 +2,7 @@ import 'server-only';
 
 import {
   ensureFirstWorkspace,
-  getJoinChoices,
-  hasJoinChoices,
+  hasAnyJoinChoice,
   lastActiveWorkspaceId,
   listUserWorkspaces,
   pickActiveWorkspace,
@@ -132,12 +131,12 @@ const getContext = cache(async () => {
 /** User, workspaces and the active workspace's tree + trash for the signed-in frame. */
 export const getShellData = cache(async (): Promise<ShellData> => {
   const { db, user, workspaces, actor, active } = await getContext();
-  const [folders, documents, trash, choices] = await Promise.all([
+  const [folders, documents, trash, canJoin] = await Promise.all([
     listFolders(db, actor, active.id),
     listDocuments(db, actor, active.id),
     listDocuments(db, actor, active.id, { trash: true }),
-    // Skips the workspaces the user is already in (step B): what is left is what they could still join.
-    getJoinChoices(db, user.id),
+    // Yes or no only, with the context already loaded (never a workspace the user is in).
+    hasAnyJoinChoice(db, user.id, actor.ctx),
   ]);
   return buildShellData({
     user,
@@ -146,7 +145,7 @@ export const getShellData = cache(async (): Promise<ShellData> => {
     folders,
     documents,
     trash,
-    canJoin: hasJoinChoices(choices),
+    canJoin,
   });
 });
 

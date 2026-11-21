@@ -9,7 +9,7 @@ import { randomBytes } from 'node:crypto';
 import { ForbiddenError, type JoinPolicy, type Role } from '@oat/core';
 import { createDb, type Db, migrate, schema } from '@oat/db';
 import { createTestDatabase, type TestDatabase, testEnv } from '@oat/testkit';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { type AuthConfig, DEV_AUTH_SECRET } from './config.ts';
@@ -21,6 +21,8 @@ import {
   ensureFirstWorkspace,
   getJoinChoices,
   getJoinSettings,
+  hasAnyJoinChoice,
+  hasJoinChoices,
   JoinRequestDecidedError,
   joinWorkspace,
   listableDomain,
@@ -42,7 +44,7 @@ import {
 } from './members.ts';
 import { createMemoryRateLimiter } from './rate-limit.ts';
 import { type Auth, createAuth } from './server.ts';
-import { listUserWorkspaces } from './workspaces.ts';
+import { listUserWorkspaces, loadPermissionContext } from './workspaces.ts';
 
 const BASE = 'http://localhost:3000';
 
@@ -1252,5 +1254,115 @@ describe('many workspaces on one domain', () => {
     const offeredToSam = (await getJoinChoices(db, sam.id)).workspaces;
     expect(offeredToSam.map((w) => w.name)).toEqual(byName.slice(0, 20).map((w) => w.name));
     expect(offeredToSam.every((w) => w.memberCount === 2)).toBe(true);
+  });
+});
+
+describe('an invitation stops being offered once its invitee is a member (step C review 1)', () => {
+  const inviteOf = async (id: string) =>
+    (await db.select().from(schema.invite).where(eq(schema.invite.id, id)))[0]!;
+  const yesNo = async (userId: string) =>
+    hasAnyJoinChoice(db, userId, await loadPermissionContext(db, userId));
+
+  it('invited, then gets in by auto-join: the invitation is settled and nothing is left to join', async () => {
+    const co = await company('auto_join');
+    const sam = await person(co.domain);
+    // Invited to a different case of the address, as an admin might type it.
+    const pending = await invitationFor(co.id, co.owner.id, sam.email.toUpperCase());
+    expect((await getJoinChoices(db, sam.id)).invites.map((i) => i.token)).toEqual([pending.token]);
+    expect(await yesNo(sam.id)).toBe(true);
+
+    await joinWorkspace(db, { userId: sam.id, workspaceId: co.id });
+
+    expect(await inviteOf(pending.id)).toMatchObject({ status: 'accepted' });
+    expect((await inviteOf(pending.id)).acceptedAt).not.toBeNull();
+    expect(await getJoinChoices(db, sam.id)).toEqual({ invites: [], workspaces: [] });
+    expect(await yesNo(sam.id)).toBe(false);
+    // In with the role the route gave them, not the invitation's.
+    expect((await membershipsOf(co.id, sam.id)).map((m) => m.role)).toEqual(['member']);
+  });
+
+  it('invited, then a request of theirs is approved: settled the same way; a decline leaves it', async () => {
+    const co = await company('request');
+    const [sam, dana] = await Promise.all([person(co.domain), person(co.domain)]);
+    const [forSam, forDana] = await Promise.all([
+      invitationFor(co.id, co.owner.id, sam.email),
+      invitationFor(co.id, co.owner.id, dana.email),
+    ]);
+    const asked = await Promise.all(
+      [sam, dana].map((u) => requestToJoin(db, { userId: u.id, workspaceId: co.id })),
+    );
+    await decideJoinRequest(db, {
+      actorId: co.owner.id,
+      requestId: asked[0]!.requestId,
+      decision: { approve: 'viewer' },
+    });
+    await decideJoinRequest(db, {
+      actorId: co.owner.id,
+      requestId: asked[1]!.requestId,
+      decision: 'decline',
+    });
+
+    expect(await inviteOf(forSam.id)).toMatchObject({ status: 'accepted' });
+    expect(await getJoinChoices(db, sam.id)).toEqual({ invites: [], workspaces: [] });
+    expect(await yesNo(sam.id)).toBe(false);
+    // Declined is not "in": the invitation still stands and is the way in.
+    expect(await inviteOf(forDana.id)).toMatchObject({ status: 'pending' });
+    expect((await getJoinChoices(db, dana.id)).invites.map((i) => i.token)).toEqual([
+      forDana.token,
+    ]);
+    expect(await yesNo(dana.id)).toBe(true);
+  });
+
+  it('never lists a workspace the person belongs to, even while an invitation row still says pending', async () => {
+    const co = await company('invite_only');
+    // A member by a route that settles nothing (a row written behind the functions).
+    const sam = await addMember(co.id, newDomain(), 'member');
+    const stale = await invitationFor(co.id, co.owner.id, sam.email);
+    expect(await inviteOf(stale.id)).toMatchObject({ status: 'pending' });
+    expect(await getJoinChoices(db, sam.id)).toEqual({ invites: [], workspaces: [] });
+    expect(await yesNo(sam.id)).toBe(false);
+    // Someone else's invitation to the same workspace is untouched by any of this.
+    const other = await person(newDomain());
+    await invitationFor(co.id, co.owner.id, other.email);
+    expect((await getJoinChoices(db, other.id)).invites).toHaveLength(1);
+  });
+
+  it('the yes/no the shell asks agrees with the full list', async () => {
+    const co = await company('auto_join');
+    const quiet = await company('invite_only', co.domain);
+    const cases = await Promise.all([
+      person(co.domain), // a workspace on their domain
+      person(newDomain()), // nothing
+      person(co.domain, { verified: false }), // unverified: nothing
+      addMember(co.id, co.domain, 'member'), // already in the only one open to them
+    ]);
+    const invited = await person(newDomain());
+    await invitationFor(quiet.id, quiet.owner.id, invited.email);
+    const declined = await person(co.domain);
+    await joinWorkspace(db, { userId: declined.id, workspaceId: co.id });
+    await removeMember(db, { actorId: co.owner.id, workspaceId: co.id, userId: declined.id });
+    const expected = [true, false, false, false, true, false];
+    const people = [...cases, invited, declined];
+    for (const [i, user] of people.entries()) {
+      const full = hasJoinChoices(await getJoinChoices(db, user.id));
+      expect(full, `full list, case ${i}`).toBe(expected[i]);
+      expect(await yesNo(user.id), `yes/no, case ${i}`).toBe(full);
+    }
+    await expect(
+      hasAnyJoinChoice(db, people[0]!.id, await loadPermissionContext(db, people[1]!.id)),
+    ).rejects.toThrow(/another user/);
+  });
+
+  it('the invitation lookup can use the lower(email) index', async () => {
+    const plan = await db.execute(
+      sql`explain (format json) select id from invite where lower(email) = lower(${'x@y.test'})`,
+    );
+    await db.execute(sql`set enable_seqscan = off`);
+    const forced = await db.execute(
+      sql`explain select id from invite where lower(email) = lower(${'x@y.test'})`,
+    );
+    await db.execute(sql`set enable_seqscan = on`);
+    expect(plan.length).toBeGreaterThan(0);
+    expect(JSON.stringify(forced)).toContain('invite_email_lower_idx');
   });
 });

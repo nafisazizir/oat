@@ -96,6 +96,8 @@ export const invite = pgTable(
   (t) => [
     index('invite_workspace_id_idx').on(t.workspaceId),
     index('invite_email_idx').on(t.email),
+    // Invitations are looked up by address case-insensitively (the join screen, the app shell).
+    index('invite_email_lower_idx').on(sql`lower(${t.email})`),
     index('invite_inviter_id_idx').on(t.inviterId),
     check('invite_accepted_at_ck', sql`${t.acceptedAt} is null or ${t.status} = 'accepted'`),
   ],
