@@ -4,15 +4,9 @@
  * the note itself to a block.
  */
 
-/** One final transcript line as the document page's reader shows it. */
-export type TranscriptLine = {
-  id: string;
-  /** `mic` = me, `system` = the others on the call. */
-  source: 'mic' | 'system';
-  speaker: string;
-  startMs: number;
-  text: string;
-};
+import type { TranscriptLine } from '@oat/services/dto/meeting';
+
+export type { TranscriptLine } from '@oat/services/dto/meeting';
 
 export type DeepLinkFocus = {
   /** Seconds into the recording. */

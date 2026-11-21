@@ -8,6 +8,7 @@ import { getAuth, getAuthConfig } from '../auth';
 import { findCalendarEvent } from '../calendar';
 import { createCalendarNotesApi } from '../calendar-notes';
 import { getDb } from '../db';
+import { operationContext } from '../operation-context';
 import { createMeetingApi } from '../meeting';
 import type { NotionDeps } from '../notion';
 import { createProfileApi, profileKeyterms } from '../profile';
@@ -15,6 +16,7 @@ import { createSttTokenRoute } from '../stt-token';
 import { createApi } from './handlers';
 import { createNotionApi } from './notion';
 import type { ApiDeps } from './route';
+import { createWorkspaceApi } from './workspaces';
 
 /** The real database and Better Auth, as API deps (shared by every route family). */
 export const apiDeps: ApiDeps = {
@@ -31,6 +33,14 @@ export const apiDeps: ApiDeps = {
 
 /** The app's API handlers, bound to the real deps (route files re-export these). */
 export const api = createApi(apiDeps, { rateLimiter: () => apiRateLimiter() });
+
+export const workspaceApi = createWorkspaceApi(apiDeps, {
+  context: async (_userId, headers) => {
+    const session = await getAuth().api.getSession({ headers });
+    if (!session) throw new Error('Authenticated session disappeared.');
+    return operationContext(session.user, headers);
+  },
+});
 
 const holder = globalThis as typeof globalThis & { __oatApiRateLimiter?: RateLimiter };
 

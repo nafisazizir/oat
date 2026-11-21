@@ -103,6 +103,34 @@ export interface ApiClientOptions {
   userAgent?: string;
 }
 
+export function createApiRequester({
+  baseUrl,
+  fetch = globalThis.fetch,
+  userAgent = 'Oat-Desktop',
+}: Pick<ApiClientOptions, 'baseUrl' | 'fetch' | 'userAgent'>) {
+  return async function request(
+    path: string,
+    init: RequestInit & { token?: string; base?: string; timeoutMs?: number | null } = {},
+  ) {
+    const { token, base = baseUrl, timeoutMs = TIMEOUT_MS, signal, ...rest } = init;
+    const headers = new Headers(rest.headers);
+    headers.set('user-agent', userAgent);
+    headers.set('accept', 'application/json');
+    if (token) headers.set('authorization', `Bearer ${token}`);
+    const timeout = timeoutMs === null ? undefined : AbortSignal.timeout(timeoutMs);
+    try {
+      return await fetch(new URL(path, base), {
+        ...rest,
+        headers,
+        redirect: 'error',
+        signal: signal && timeout ? AbortSignal.any([signal, timeout]) : (signal ?? timeout),
+      });
+    } catch {
+      throw new ApiError(0, `Couldn’t reach ${new URL(base).host}.`);
+    }
+  };
+}
+
 export function createApiClient({
   baseUrl,
   syncBaseUrl = baseUrl,
@@ -110,28 +138,7 @@ export function createApiClient({
   fetch = globalThis.fetch,
   userAgent = 'Oat-Desktop',
 }: ApiClientOptions) {
-  async function request(
-    path: string,
-    init: RequestInit & { token?: string; base?: string; timeoutMs?: number } = {},
-  ) {
-    const { token, base = baseUrl, timeoutMs = TIMEOUT_MS, signal, ...rest } = init;
-    const headers = new Headers(rest.headers);
-    headers.set('user-agent', userAgent);
-    headers.set('accept', 'application/json');
-    if (token) headers.set('authorization', `Bearer ${token}`);
-    try {
-      return await fetch(new URL(path, base), {
-        ...rest,
-        headers,
-        redirect: 'error',
-        signal: signal
-          ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
-          : AbortSignal.timeout(timeoutMs),
-      });
-    } catch {
-      throw new ApiError(0, `Couldn’t reach ${new URL(base).host}.`);
-    }
-  }
+  const request = createApiRequester({ baseUrl, fetch, userAgent });
 
   return {
     /** Redeems a one-time code from the browser (PKCE). Returns the signed bearer token and the user. */

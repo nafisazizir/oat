@@ -105,6 +105,8 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 
 - [x] Human-requested Graphite theme and shared control refresh for web and desktop · [task](tasks/graphite-ui-foundation.md)
 
+- [ ] Human-requested: API foundation — REST parity, typed client and authenticated desktop text/JSON proxy implemented; independent review/verification pending (D-38) · deps: 5.1, 5.2, 7.4 · [task](tasks/api-foundation.md)
+
 - [x] Stale desktop e2e + acceptance specs updated for the calm shell; web typography/notion/auth spec races fixed · [task](tasks/e2e-calm-shell-specs.md)
 
 - [x] Human-requested: one kind of workspace — drop personal, join by domain/policy, Private + Shared (D-36); steps A model, B joining, C sidebar + exit export · deps: 5.1, 5.3, 3.9 · [task](tasks/unified-workspaces.md)

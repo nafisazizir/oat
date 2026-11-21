@@ -166,6 +166,10 @@ export type CreateFolderInput = {
 export type RenameFolderInput = { name: string };
 
 export type MoveFolderInput = { parentId: string | null; makePrivate?: boolean };
+export type DeleteFolderResult = { trashedDocumentIds: string[] };
+export type DocumentListQuery = { workspaceId: string; trash?: boolean };
+export type SetNotionTargetInput = { workspaceId: string; type: 'page' | 'database'; id: string };
+export type NotionPushInput = { timeZone?: string };
 
 // Notion (8.1): `/api/integrations/notion…`, `/api/documents/:id/notion` -----------------------------
 

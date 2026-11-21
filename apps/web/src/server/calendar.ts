@@ -9,6 +9,7 @@ import {
 import { CalendarAccessError, calendarEventKey, mergeCalendarEvents } from '@oat/calendar';
 import { GoogleCalendarSource } from '@oat/calendar/google';
 import { type CalendarEvent, upcoming } from '@oat/core';
+import type { CalendarSourceStatus, UpcomingMeetings } from '@oat/services/dto/calendar';
 
 import { googleCalendarBaseUrl, serverEnv } from '@/lib/env';
 
@@ -26,27 +27,11 @@ export const UPCOMING_LIMIT = 5;
 export const UPCOMING_HORIZON_MS = 14 * 24 * 3_600_000;
 const MAX_CACHED_SOURCES = 500;
 
-export type CalendarSourceState =
-  /** Events loaded. */
-  | 'ok'
-  /** Access was refused or lacks the calendar scope: connect again. */
-  | 'reconnect'
-  /** Google (or the network) failed; try later. */
-  | 'error';
-
-export interface CalendarSourceStatus {
-  kind: 'google';
-  state: CalendarSourceState;
-  /** The connected Google account. */
-  email: string | null;
-}
-
-export interface UpcomingMeetings {
-  /** Whether any calendar is connected. */
-  connected: boolean;
-  sources: CalendarSourceStatus[];
-  events: CalendarEvent[];
-}
+export type {
+  CalendarSourceState,
+  CalendarSourceStatus,
+  UpcomingMeetings,
+} from '@oat/services/dto/calendar';
 
 const globalForCalendar = globalThis as typeof globalThis & {
   __oatGoogleCalendarSources?: Map<string, GoogleCalendarSource>;

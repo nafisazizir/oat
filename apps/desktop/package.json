@@ -20,6 +20,7 @@
     "@oat/audio": "workspace:*",
     "@oat/auth": "workspace:*",
     "@oat/calendar": "workspace:*",
+    "@oat/client": "workspace:*",
     "@oat/core": "workspace:*",
     "@oat/detection": "workspace:*",
     "@oat/editor": "workspace:*",
