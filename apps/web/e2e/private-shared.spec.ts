@@ -390,7 +390,7 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(dialog).toContainText('including your private notes');
     await expect(dialog).toContainText('nobody else can read them');
     await expect(dialog).toContainText('you won’t be able to open them again');
-    const exportLink = dialog.getByRole('link', { name: 'Export my notes' });
+    const exportLink = dialog.getByRole('button', { name: 'Export my notes' });
     await expect(exportLink).toBeVisible();
     const found = await violations(
       page,
@@ -399,13 +399,33 @@ for (const theme of ['light', 'dark'] as const) {
     );
     await shot(page, `leave-dialog-export-${theme}`);
 
+    // A failed export says so, and never claims a download.
+    const exportUrl = `**/api/workspaces/${teamId}/export`;
+    await page.route(exportUrl, (route) =>
+      route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":{}}' }),
+    );
+    await exportLink.click();
+    await expect(dialog.getByTestId('export-error')).toHaveText(
+      'Couldn’t export your notes. Nothing was downloaded — try again.',
+    );
+    await expect(dialog).not.toContainText('to your downloads');
+    found.push(
+      ...(await violations(
+        page,
+        `leave dialog export failed ${theme}`,
+        '[data-testid="leave-workspace-dialog"]',
+      )),
+    );
+    await page.unroute(exportUrl);
+
     const [download] = await Promise.all([page.waitForEvent('download'), exportLink.click()]);
     expect(download.suggestedFilename()).toMatch(
       /^oat-notes-acme-[0-9a-f]+-\d{4}-\d{2}-\d{2}\.zip$/,
     );
     await expect(dialog.getByRole('status')).toHaveText(
-      'Your download has started. Check it before you leave.',
+      'Saved 3 notes to your downloads. Check the file before you leave.',
     );
+    await expect(dialog.getByTestId('export-error')).toHaveCount(0);
     const files = readZip(readFileSync(await download.path()));
     // Exactly my three live notes, as Markdown, under safe names.
     expect(files.map((f) => f.name).toSorted()).toEqual([

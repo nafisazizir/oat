@@ -9,7 +9,7 @@ import { document } from '@oat/db';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import type { DocumentDetail } from '@/lib/api-types';
+import type { DocumentDetail, DocumentSharing } from '@/lib/api-types';
 
 import {
   BASE,
@@ -20,6 +20,7 @@ import {
   type TestUser,
 } from '../api/test-harness';
 import { loadActor } from '../actor';
+import { loadSharedDocument } from '../sharing';
 import { EXPORTS_PER_MINUTE } from '../api/handlers';
 import { exportOwnNotes, INCOMPLETE_NOTE } from './notes';
 import { readAll, readZip, type ZipFile } from './read-zip';
@@ -285,10 +286,49 @@ describe('GET /api/workspaces/:id/export', () => {
     expect((await exportAs(owner, team)).status).toBe(200);
   });
 
-  it('after leaving, I can read neither the export nor any note I exported', async () => {
+  it('after leaving, I can read neither the export nor any note I exported; a note shared by link stays readable by its link only', async () => {
     const before = await filesOf(await exportAs(member, team));
     expect(before).toHaveLength(3);
+    // One more of theirs, shared by link before they go.
+    const linked = await createDoc(member, {
+      workspaceId: team,
+      title: 'Public write-up',
+      contentJson: text('Anyone with the link can read this.'),
+    });
+    const shared = await call<DocumentSharing>(
+      h.api.documentShare.PATCH,
+      'PATCH',
+      `/api/documents/${linked.id}/share`,
+      { as: member, body: { visibility: 'link' }, params: { id: linked.id } },
+    );
+    expect(shared.status).toBe(200);
+    const token = shared.body.sharePath!.replace('/share/', '');
+    expect((await loadSharedDocument(h.db, token))?.title).toBe('Public write-up');
+
     await leaveWorkspace(h.db, { actorId: member.id, workspaceId: team });
+
+    // The link keeps working — for anyone holding it, the leaver included: that is what a link is…
+    const viaLink = await loadSharedDocument(h.db, token);
+    expect(viaLink?.title).toBe('Public write-up');
+    expect(viaLink?.html).toContain('Anyone with the link can read this.');
+    // …but signed in, the leaver has no more access to it than to the rest (and can't change the link).
+    expect((await getDoc(member, linked.id)).status).toBe(404);
+    expect(
+      (
+        await call(h.api.documentShare.GET, 'GET', `/api/documents/${linked.id}/share`, {
+          as: member,
+          params: { id: linked.id },
+        })
+      ).status,
+    ).toBe(404);
+    // The private and workspace-shared notes have no link: no token ever resolves to them.
+    const rows = await h.db
+      .select({ id: document.id, shareToken: document.shareToken })
+      .from(document)
+      .where(eq(document.ownerId, member.id));
+    const tokens = new Map(rows.map((r) => [r.id, r.shareToken]));
+    expect(tokens.get(mine.private.id)).toBeNull();
+    expect(tokens.get(mine.shared.id)).toBeNull();
 
     expect((await exportAs(member, team)).status).toBe(404);
     for (const note of Object.values(mine)) {

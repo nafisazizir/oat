@@ -17,6 +17,10 @@ import { useState, useTransition } from 'react';
 
 import { leaveWorkspace } from '@/server/actions/members';
 
+type Exporting = { state: 'idle' | 'working' } | { state: 'done' | 'failed'; message: string };
+
+const EXPORT_FAILED = 'Couldn’t export your notes. Nothing was downloaded — try again.';
+
 /**
  * "Leave <workspace>?" confirmation (D-36). It says what leaving costs — access to everything in the
  * workspace, the leaver's private notes included; they stay behind, unreadable to anyone else — and offers
@@ -34,8 +38,50 @@ export function LeaveWorkspaceDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
-  const [exported, setExported] = useState(false);
+  const [exporting, setExporting] = useState<Exporting>({ state: 'idle' });
   const [pending, startTransition] = useTransition();
+
+  // The server decides what is mine (`/api/workspaces/:id/export`). Fetched rather than linked, so the
+  // dialog can tell a saved file from a refusal (signed out, too many exports, a server error).
+  async function exportNotes() {
+    setExporting({ state: 'working' });
+    try {
+      const response = await fetch(`/api/workspaces/${encodeURIComponent(workspace.id)}/export`, {
+        credentials: 'same-origin',
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          error?: { message?: string };
+        } | null;
+        setExporting({
+          state: 'failed',
+          message:
+            response.status === 429 && body?.error?.message ? body.error.message : EXPORT_FAILED,
+        });
+        return;
+      }
+      const blob = await response.blob();
+      const name =
+        /filename="([^"]+)"/.exec(response.headers.get('content-disposition') ?? '')?.[1] ??
+        'oat-notes.zip';
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = name;
+      link.click();
+      URL.revokeObjectURL(url);
+      const count = Number(response.headers.get('x-oat-export-count'));
+      setExporting({
+        state: 'done',
+        message:
+          count === 0
+            ? 'You have no notes of your own here, so the file is empty.'
+            : `Saved ${count === 1 ? '1 note' : `${count} notes`} to your downloads. Check the file before you leave.`,
+      });
+    } catch {
+      setExporting({ state: 'failed', message: EXPORT_FAILED });
+    }
+  }
 
   return (
     <AlertDialog
@@ -43,7 +89,7 @@ export function LeaveWorkspaceDialog({
       onOpenChange={(next) => {
         if (!next) {
           setError(null);
-          setExported(false);
+          setExporting({ state: 'idle' });
         }
         onOpenChange(next);
       }}
@@ -57,32 +103,35 @@ export function LeaveWorkspaceDialog({
             open them again.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="flex flex-col items-start gap-2" data-testid="leave-export">
+        <div className="flex flex-col items-start gap-3" data-testid="leave-export">
           <p className="text-copy-14 text-gray-900">
             To keep a copy, export the notes you created here first. You get a zip of Markdown
             files.
           </p>
           <Button
+            type="button"
             variant="outline"
             size="sm"
-            nativeButton={false}
-            role="link"
-            render={
-              // A plain download: the server decides what is mine and streams the archive.
-              <a
-                href={`/api/workspaces/${encodeURIComponent(workspace.id)}/export`}
-                download
-                data-testid="export-notes"
-              />
-            }
-            onClick={() => setExported(true)}
+            disabled={exporting.state === 'working'}
+            onClick={() => void exportNotes()}
+            data-testid="export-notes"
           >
-            <IconDownload data-icon="inline-start" />
+            {exporting.state === 'working' ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <IconDownload data-icon="inline-start" />
+            )}
             Export my notes
           </Button>
+          {/* Says what happened, only once it is known: saved, or why not. */}
           <p role="status" className="text-copy-13 text-gray-900 empty:hidden">
-            {exported ? 'Your download has started. Check it before you leave.' : null}
+            {exporting.state === 'done' ? exporting.message : null}
           </p>
+          {exporting.state === 'failed' && (
+            <p role="alert" className="text-copy-13 text-red-900" data-testid="export-error">
+              {exporting.message}
+            </p>
+          )}
         </div>
         {error && (
           <Alert variant="destructive">
