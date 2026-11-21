@@ -18,6 +18,7 @@ for (const theme of ['light', 'dark'] as const) {
       ['Preferences', 'Appearance', '/settings'],
       ['Integrations', 'Integrations', '/settings/integrations'],
       ['General', 'General', '/settings/workspace'],
+      ['Members', 'Members', '/settings/workspace/members'],
     ]) {
       await nav.getByRole('link', { name: label, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`${path}$`));
@@ -48,5 +49,11 @@ for (const theme of ['light', 'dark'] as const) {
     await page.getByTestId('workspace-switcher').click();
     await page.getByRole('menuitem', { name: 'Profile', exact: true }).click();
     await expect(page).toHaveURL(/\/settings\/profile$/);
+    const search = nav.getByRole('searchbox', { name: 'Search settings' });
+    await search.fill('calendar');
+    await expect(nav.getByRole('link', { name: 'Integrations' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'General' })).toHaveCount(0);
+    await search.fill('not-a-setting');
+    await expect(nav.getByRole('status')).toHaveText('No settings found.');
   });
 }

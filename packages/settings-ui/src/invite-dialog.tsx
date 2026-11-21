@@ -1,5 +1,6 @@
 'use client';
 
+import { useSettings, useWorkspaceAction } from './services';
 import type { Role } from '@oat/core';
 import { Button } from '@oat/ui/components/button';
 import {
@@ -29,8 +30,7 @@ import { Spinner } from '@oat/ui/components/spinner';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
-import { ROLE_INFO } from '@/lib/workspace';
-import { inviteMember } from '@/server/actions/members';
+import { ROLE_INFO } from './workspace';
 
 /** Email + role (at most the inviter's own role). The invite email links to `/invite/<token>`. */
 export function InviteDialog({
@@ -45,6 +45,8 @@ export function InviteDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const defaultRole: Role = roles.includes('member') ? 'member' : (roles.at(-1) ?? 'viewer');
+  const { client } = useSettings();
+  const run = useWorkspaceAction();
   const [role, setRole] = useState<Role>(defaultRole);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -67,7 +69,9 @@ export function InviteDialog({
             event.preventDefault();
             const email = String(new FormData(event.currentTarget).get('email') ?? '');
             startTransition(async () => {
-              const result = await inviteMember({ workspaceId: workspace.id, email, role });
+              const result = await run(() =>
+                client.workspaces.invite(workspace.id, { email, role }),
+              );
               if (!result.ok) {
                 setError(result.error);
                 return;

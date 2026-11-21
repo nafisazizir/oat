@@ -1,5 +1,6 @@
 'use client';
 
+import { useSettings, useWorkspaceAction } from './services';
 import type { JoinPolicy } from '@oat/core';
 import { Button } from '@oat/ui/components/button';
 import {
@@ -18,9 +19,8 @@ import { IconPlus } from '@tabler/icons-react';
 import { useOptimistic, useTransition } from 'react';
 import { toast } from 'sonner';
 
-import { SettingsSection } from '@/components/settings/section';
-import { allowMyDomain, removeAllowedDomain, setJoinPolicy } from '@/server/actions/joining';
-import type { JoiningView } from '@/server/workspace-settings';
+import { SettingsSection } from './section';
+import type { JoiningView } from '@oat/services/dto/workspaces';
 
 const POLICIES: { value: JoinPolicy; label: string; detail: string }[] = [
   {
@@ -53,6 +53,8 @@ export function WorkspaceJoinSettings({
   workspaceId: string;
   joining: JoiningView;
 }) {
+  const { client } = useSettings();
+  const run = useWorkspaceAction();
   const [policy, setPolicy] = useOptimistic(joining.policy);
   const [saving, startSaving] = useTransition();
   const [changingDomains, startDomains] = useTransition();
@@ -62,7 +64,9 @@ export function WorkspaceJoinSettings({
   const changePolicy = (next: JoinPolicy) => {
     startSaving(async () => {
       setPolicy(next);
-      const result = await setJoinPolicy({ workspaceId, policy: next });
+      const result = await run(() =>
+        client.workspaces.setJoinPolicy(workspaceId, { policy: next }),
+      );
       if (!result.ok) toast.error('Couldn’t save that setting', { description: result.error });
       else toast.success('Join setting saved');
     });
@@ -135,7 +139,9 @@ export function WorkspaceJoinSettings({
                     aria-label={`Remove ${domain}`}
                     onClick={() =>
                       startDomains(async () => {
-                        const result = await removeAllowedDomain({ workspaceId, domain });
+                        const result = await run(() =>
+                          client.workspaces.removeDomain(workspaceId, { domain }),
+                        );
                         if (!result.ok) {
                           toast.error('Couldn’t remove the domain', { description: result.error });
                         } else toast.success(`${domain} removed`);
@@ -165,7 +171,7 @@ export function WorkspaceJoinSettings({
                 disabled={changingDomains}
                 onClick={() =>
                   startDomains(async () => {
-                    const result = await allowMyDomain(workspaceId);
+                    const result = await run(() => client.workspaces.allowMyDomain(workspaceId));
                     if (!result.ok) {
                       toast.error('Couldn’t add the domain', { description: result.error });
                     } else toast.success(`${ownDomain.domain} allowed`);

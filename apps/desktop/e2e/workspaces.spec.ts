@@ -189,7 +189,7 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   // One workspace: nothing to switch between, so the menu has no workspace list (D-36).
   await expect(switcher).toHaveAttribute('data-switchable', 'false');
   await switcher.click();
-  await expect(page.getByRole('menu')).toContainText('Workspace settings (web)');
+  await expect(page.getByRole('menu')).toContainText('Workspace settings');
   await expect(page.getByTestId('workspace-list')).toHaveCount(0);
   await expect(page.getByTestId('workspace-option')).toHaveCount(0);
   await page.keyboard.press('Escape');

@@ -1,5 +1,6 @@
 'use client';
 
+import { useSettings, useWorkspaceAction } from './services';
 import { Alert, AlertDescription } from '@oat/ui/components/alert';
 import {
   AlertDialog,
@@ -24,8 +25,6 @@ import {
 import { Spinner } from '@oat/ui/components/spinner';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useState, useTransition } from 'react';
-
-import { deleteWorkspace } from '@/server/actions/members';
 
 import { LeaveWorkspaceDialog } from './leave-workspace-dialog';
 
@@ -60,6 +59,8 @@ function DeleteWorkspaceDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { client, onWorkspaceExited } = useSettings();
+  const run = useWorkspaceAction();
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -83,11 +84,12 @@ function DeleteWorkspaceDialog({
             event.preventDefault();
             if (!matches) return;
             startTransition(async () => {
-              const result = await deleteWorkspace({
-                workspaceId: workspace.id,
-                confirmName: confirm,
-              });
+              const result = await run(
+                () => client.workspaces.delete(workspace.id, { confirmName: confirm }),
+                false,
+              );
               if (!result.ok) setError(result.error);
+              else onWorkspaceExited();
             });
           }}
         >
@@ -152,6 +154,8 @@ export function WorkspaceDangerZone({
   lastWorkspace: boolean;
   restoreDays: number;
 }) {
+  const { client, exportNotes, onWorkspaceExited } = useSettings();
+  const run = useWorkspaceAction();
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -198,7 +202,17 @@ export function WorkspaceDangerZone({
           </Row>
         )}
       </ItemGroup>
-      <LeaveWorkspaceDialog workspace={workspace} open={leaveOpen} onOpenChange={setLeaveOpen} />
+      <LeaveWorkspaceDialog
+        workspace={workspace}
+        open={leaveOpen}
+        onOpenChange={setLeaveOpen}
+        download={() => exportNotes(workspace.id)}
+        onLeave={async () => {
+          const result = await run(() => client.workspaces.leave(workspace.id), false);
+          if (result.ok) onWorkspaceExited();
+          return result;
+        }}
+      />
       {canDelete && (
         <DeleteWorkspaceDialog
           workspace={workspace}

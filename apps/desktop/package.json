@@ -26,6 +26,7 @@
     "@oat/editor": "workspace:*",
     "@oat/local-store": "workspace:*",
     "@oat/meeting-ui": "workspace:*",
+    "@oat/settings-ui": "workspace:*",
     "@oat/stt": "workspace:*",
     "@oat/ui": "workspace:*",
     "@tanstack/react-virtual": "catalog:",

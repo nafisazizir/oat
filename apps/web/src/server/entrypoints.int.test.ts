@@ -108,6 +108,20 @@ const refusedWith = (message: RegExp) => ({ ok: false, error: expect.stringMatch
 const FORBIDDEN = /permission|can’t|only/i;
 const NOT_FOUND = /no longer exists|no longer valid|unknown/i;
 
+it('lets only desktop sessions start the consent handoff', async () => {
+  denies('POST /api/settings/consent');
+  const { POST } = await import('@/app/api/settings/consent/route');
+  const response = await POST(
+    new Request(BASE + '/api/settings/consent', {
+      method: 'POST',
+      headers: { cookie: owner.cookie, origin: BASE, 'content-type': 'application/json' },
+      body: JSON.stringify({ provider: 'notion', workspaceId: team }),
+    }),
+    { params: Promise.resolve({}) },
+  );
+  expect(response.status).toBe(403);
+});
+
 // ---------------------------------------------------------------------------------------------------
 // 1. Anonymous callers, every entry point
 // ---------------------------------------------------------------------------------------------------

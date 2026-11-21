@@ -1,5 +1,6 @@
 'use client';
 
+import { errorMessage, useSettings } from './services';
 import { cn } from '@oat/ui';
 import { Alert, AlertDescription } from '@oat/ui/components/alert';
 import { Button } from '@oat/ui/components/button';
@@ -15,13 +16,15 @@ import { Input } from '@oat/ui/components/input';
 import { Spinner } from '@oat/ui/components/spinner';
 import { Textarea } from '@oat/ui/components/textarea';
 import { IconAlertCircle } from '@tabler/icons-react';
-import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
-import type { ApiErrorBody } from '@/lib/api-types';
-import { formatDay } from '@/lib/format';
-import { parseVocabulary, PROFILE_LIMITS, type ProfileDto, type ProfileInput } from '@/lib/profile';
+import {
+  parseVocabulary,
+  PROFILE_LIMITS,
+  type ProfileDto,
+  type ProfileInput,
+} from '@oat/services/dto/profile';
 
 function Row({
   id,
@@ -67,21 +70,8 @@ function Row({
   );
 }
 
-async function saveProfile(input: ProfileInput): Promise<ProfileDto> {
-  const res = await fetch('/api/profile', {
-    method: 'PUT',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(input),
-    credentials: 'same-origin',
-    cache: 'no-store',
-  }).catch(() => null);
-  if (!res) throw new Error('You’re offline or the server can’t be reached.');
-  const json = (await res.json().catch(() => undefined)) as unknown;
-  if (!res.ok) {
-    throw new Error((json as ApiErrorBody | undefined)?.error?.message ?? 'Couldn’t save.');
-  }
-  return json as ProfileDto;
-}
+const formatDay = (date: string | Date) =>
+  new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(date));
 
 const toForm = (p: ProfileDto) => ({
   name: p.name,
@@ -93,7 +83,7 @@ const toForm = (p: ProfileDto) => ({
 
 /** "About me" (4.6): name, role, team, what I care about, names and terms to spell right. */
 export function ProfileForm({ profile }: { profile: ProfileDto }) {
-  const router = useRouter();
+  const { client, onProfileChanged } = useSettings();
   const [saved, setSaved] = useState(profile);
   const [form, setForm] = useState(() => toForm(profile));
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +108,10 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
         if (!dirty || nameMissing || pending) return;
         startTransition(async () => {
           try {
-            const next = await saveProfile({ ...form, vocabulary: terms });
+            const next = await client.profile.update({
+              ...form,
+              vocabulary: terms,
+            } satisfies ProfileInput);
             setSaved(next);
             setForm(toForm(next));
             setError(null);
@@ -126,9 +119,9 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
               description: 'New enhancements and chats will use it.',
             });
             // The sidebar shows the name.
-            router.refresh();
+            onProfileChanged?.();
           } catch (err) {
-            setError(err instanceof Error ? err.message : 'Couldn’t save.');
+            setError(errorMessage(err, 'Couldn’t save.'));
           }
         });
       }}
