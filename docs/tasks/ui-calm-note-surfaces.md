@@ -55,3 +55,20 @@ Evidence under `/home/ubuntu/shots/pr4/`:
 Linux desktop evidence uses a built renderer and simulated bridge/calendar/recording state, not native
 Electron/macOS audio, permissions or real capture. Web transcript content is seeded; real provider
 integrations and AI services were not exercised.
+
+## PR 18 review follow-up
+- Verified starting HEAD `b04c9a2`. Three findings confirmed from their reachable layout/close paths.
+- `3b57242`: desktop recording bar now follows the entire note/transcript row, not the squeezable note
+  column. Regression unit asserts the bar's parent; at 780px with expanded sidebar and transcript set
+  to its 600px maximum, Pause/Stop pass viewport, center hit-testing and click actionability checks.
+- `394747f`: recording feedback is a slot above the sticky bottom control group. The denial regression
+  creates a 120-paragraph meeting, scrolls its title offscreen, denies mic capture, asserts alert/Retry
+  in viewport and retries (two getUserMedia attempts) without opening transcript.
+- `40a898a`: closing transcript calls the existing player's pause, which pauses both local audio
+  elements. Real browser recording/playback regression closes via Escape, pill and × while playing,
+  asserts the hidden audio is paused and reopens to paused controls for every method.
+- `ci-review-fixes.log`: **ci: ok** (47.1s), including desktop meeting-view 3 tests and all desktop
+  **417 tests / 54 files**. `e2e-review-fixes.log`: **13 passed (1.4m)** across recording, recovery,
+  meeting and assistant specs. `build-review-fixes.log`: **built in 665ms**, existing chunk advisory.
+- Screenshots reviewed: `desktop-narrow-review-fixed.png` and `web-denied-review-fixed.png` under
+  ~/shots/pr4/. Desktop is simulated bridge evidence, not native Electron/audio capture.

@@ -285,3 +285,13 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   Fixed a selected desktop timestamp contrast issue caught in visual verification. Native bridge,
   recording and calendar are simulated on Linux; real macOS/audio/provider behavior is unverified.
   [task](tasks/ui-calm-note-surfaces.md)
+
+## 2026-11-21 — PR 18 review fixes
+
+- Starting HEAD confirmed `b04c9a2`. Separate fixes: desktop recording controls outside the transcript
+  row (`3b57242`); sticky web recording feedback (`394747f`); pause web audio on transcript dismissal
+  (`40a898a`). New structural and real-browser regressions cover the reported scenarios.
+- Fast CI **ci: ok** (47.1s); related web e2e **13 passed (1.4m)**; renderer built (665ms). At 780px,
+  sidebar expanded and transcript at its 600px maximum, native Pause/Stop remain unobscured/clickable.
+  Mic-denial alert and Retry stay visible with the long note's title offscreen. Both screenshots
+  reviewed under ~/shots/pr4/. See the [task](tasks/ui-calm-note-surfaces.md) for logs and limitations.
