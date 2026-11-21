@@ -22,6 +22,8 @@ export const meetingNoteSummarySchema = z.object({
   documentId,
   meetingId: z.string().nullable(),
   workspaceId: z.string(),
+  /** Who the note belongs to: with `visibility` it decides Private or Shared in the sidebar (D-36). */
+  ownerId: z.string(),
   title: z.string(),
   visibility: z.enum(['private', 'workspace', 'link']),
   /** Recording start (null: a note made on the web, never recorded). */

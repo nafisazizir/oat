@@ -337,42 +337,63 @@ export async function revokeInvite(inviteId: string): Promise<MemberActionResult
  */
 export async function acceptInvite(token: string): Promise<MemberActionResult> {
   const { user } = await requireSession();
-  try {
-    const found = await findInviteByToken(getDb(), String(token));
-    if (!found || found.state !== 'pending') {
-      return { ok: false, error: 'This invitation is no longer valid.' };
-    }
-    if (found.email.toLowerCase() !== user.email.toLowerCase()) {
-      return { ok: false, error: AUTH_ERRORS.YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION! };
-    }
-    if (!user.emailVerified) {
-      return {
-        ok: false,
-        error: AUTH_ERRORS.EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION!,
-      };
-    }
-    const requestHeaders = await headers();
+  const outcome = await (async (): Promise<MemberActionResult | 'in'> => {
     try {
-      await getAuth().api.acceptInvitation({
-        body: { invitationId: found.id },
-        headers: requestHeaders,
-      });
+      const found = await findInviteByToken(getDb(), String(token));
+      if (found && found.state === 'accepted') {
+        // Settled already — by an earlier accept, or because they got in another way first (auto-join, an
+        // approved request). For the invited, verified address that is a member, opening the link again
+        // just goes there (`inviteAlreadyHonoured` checks all three); for anyone else it is used up.
+        const workspaceId = await inviteAlreadyHonoured(getDb(), {
+          invitationId: found.id,
+          userId: user.id,
+        });
+        if (workspaceId === undefined) {
+          return { ok: false, error: 'This invitation is no longer valid.' };
+        }
+        await getAuth().api.setActiveOrganization({
+          body: { organizationId: workspaceId },
+          headers: await headers(),
+        });
+        return 'in';
+      }
+      if (!found || found.state !== 'pending') {
+        return { ok: false, error: 'This invitation is no longer valid.' };
+      }
+      if (found.email.toLowerCase() !== user.email.toLowerCase()) {
+        return { ok: false, error: AUTH_ERRORS.YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION! };
+      }
+      if (!user.emailVerified) {
+        return {
+          ok: false,
+          error: AUTH_ERRORS.EMAIL_VERIFICATION_REQUIRED_BEFORE_ACCEPTING_OR_REJECTING_INVITATION!,
+        };
+      }
+      const requestHeaders = await headers();
+      try {
+        await getAuth().api.acceptInvitation({
+          body: { invitationId: found.id },
+          headers: requestHeaders,
+        });
+      } catch (error) {
+        // They got in another way while accepting (an owner approved their request to join): Better Auth's
+        // accept then trips over the membership that already exists. That is a success, not an error.
+        const workspaceId = await inviteAlreadyHonoured(getDb(), {
+          invitationId: found.id,
+          userId: user.id,
+        });
+        if (workspaceId === undefined) throw error;
+        await getAuth().api.setActiveOrganization({
+          body: { organizationId: workspaceId },
+          headers: requestHeaders,
+        });
+      }
+      return 'in';
     } catch (error) {
-      // They got in another way while accepting (an owner approved their request to join): Better Auth's
-      // accept then trips over the membership that already exists. That is a success, not an error.
-      const workspaceId = await inviteAlreadyHonoured(getDb(), {
-        invitationId: found.id,
-        userId: user.id,
-      });
-      if (workspaceId === undefined) throw error;
-      await getAuth().api.setActiveOrganization({
-        body: { organizationId: workspaceId },
-        headers: requestHeaders,
-      });
+      return failure(error, 'Couldn’t accept the invitation.');
     }
-  } catch (error) {
-    return failure(error, 'Couldn’t accept the invitation.');
-  }
+  })();
+  if (outcome !== 'in') return outcome;
   // The shared (app) layout (switcher) must re-render on the way to Home, not just the page.
   revalidatePath('/', 'layout');
   redirect('/home');

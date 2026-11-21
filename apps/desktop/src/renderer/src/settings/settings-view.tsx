@@ -50,10 +50,11 @@ export function SettingsView({
                 className="justify-start"
                 onClick={onClose}
                 data-testid="settings-close"
-                aria-label="Back to notes"
               >
                 <IconArrowLeft data-icon="inline-start" />
-                Back<Kbd className="ms-auto">Esc</Kbd>
+                {/* Named by what it shows ("Back …"), with where it goes for screen readers. */}
+                Back<span className="sr-only"> to notes</span>
+                <Kbd className="ms-auto">Esc</Kbd>
               </Button>
               <SettingsNavGroup label="Account">
                 <button

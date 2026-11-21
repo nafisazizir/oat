@@ -1,3 +1,4 @@
+import { visibilityBadge } from '@oat/core/sections';
 import { Badge } from '@oat/ui/components/badge';
 import { Item, ItemContent, ItemMedia, ItemTitle } from '@oat/ui/components/item';
 import {
@@ -24,7 +25,6 @@ import { EmptyState, PageContainer, PageHeader } from '@/components/page';
 import { formatDay } from '@/lib/format';
 import { parseDeepLink, wantsTranscript } from '@/lib/transcript';
 import { titleOf } from '@/lib/tree';
-import { audienceLabel } from '@/lib/workspace';
 import {
   getShellData,
   loadDocumentMeeting,
@@ -138,7 +138,7 @@ export default async function DocumentPage({ params, searchParams }: Props) {
               ) : (
                 <IconUsers data-icon="inline-start" />
               )}
-              {isPrivate ? 'Private folder' : audienceLabel(workspace)}
+              {isPrivate ? 'Private folder' : visibilityBadge('workspace', workspace.name)}
             </Badge>
             <span>Edited {formatDay(folder.updatedAt)}</span>
           </>

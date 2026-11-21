@@ -24,6 +24,7 @@ import {
 import {
   IconCheck,
   IconChecklist,
+  IconDoorEnter,
   IconHome,
   IconLayoutGrid,
   IconLogout,
@@ -65,14 +66,17 @@ function memberLabel(workspace: Workspace) {
 }
 
 function WorkspaceSwitcher() {
-  const { workspace: loadedWorkspace, workspaces } = useShellData();
+  const { workspace: loadedWorkspace, workspaces, canJoin } = useShellData();
   // The picked workspace shows in the switcher right away; the rest of the shell follows the refresh.
   const [currentWorkspace, showWorkspace] = useOptimistic(loadedWorkspace);
   const [createOpen, setCreateOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  // D-36: the last workspace can't be left, so the menu only offers it when there is another one.
-  const canLeave = workspaces.length > 1;
+  // D-36: with one workspace there is nothing to switch between, so the button is just "where I am" and
+  // the menu has no workspace list. Settings, inviting and "Create workspace" stay in it either way.
+  const canSwitch = workspaces.length > 1;
+  // The last workspace can't be left, so the menu only offers it when there is another one.
+  const canLeave = canSwitch;
   const canInvite = currentWorkspace.role === 'owner' || currentWorkspace.role === 'admin';
 
   const switchTo = (workspace: Workspace) =>
@@ -92,6 +96,7 @@ function WorkspaceSwitcher() {
               className="data-popup-open:bg-gray-alpha-100 group-data-[collapsible=icon]:ps-1!"
               tooltip={currentWorkspace.name}
               data-testid="workspace-switcher"
+              data-switchable={canSwitch}
               aria-busy={pending || undefined}
             />
           }
@@ -103,30 +108,37 @@ function WorkspaceSwitcher() {
               {memberLabel(currentWorkspace)}
             </span>
           </div>
-          <IconSelector className="ms-auto text-gray-900" />
+          {canSwitch && <IconSelector className="ms-auto text-gray-900" />}
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" align="start" className="w-(--anchor-width) min-w-56">
+          {canSwitch && (
+            <>
+              <DropdownMenuGroup data-testid="workspace-list">
+                <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+                {workspaces.map((workspace) => (
+                  <DropdownMenuItem
+                    key={workspace.id}
+                    data-testid="workspace-option"
+                    onClick={() => {
+                      if (workspace.id !== currentWorkspace.id) switchTo(workspace);
+                    }}
+                  >
+                    <WorkspaceTile workspace={workspace} className="size-5" />
+                    <div className="flex min-w-0 flex-col">
+                      <span className="truncate">{workspace.name}</span>
+                      <span className="truncate text-label-12 text-gray-900">
+                        {memberLabel(workspace)}
+                      </span>
+                    </div>
+                    {workspace.id === currentWorkspace.id && <IconCheck className="ms-auto" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuGroup>
-            <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-            {workspaces.map((workspace) => (
-              <DropdownMenuItem
-                key={workspace.id}
-                data-testid="workspace-option"
-                onClick={() => {
-                  if (workspace.id !== currentWorkspace.id) switchTo(workspace);
-                }}
-              >
-                <WorkspaceTile workspace={workspace} className="size-5" />
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate">{workspace.name}</span>
-                  <span className="truncate text-label-12 text-gray-900">
-                    {memberLabel(workspace)}
-                  </span>
-                </div>
-                {workspace.id === currentWorkspace.id && <IconCheck className="ms-auto" />}
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
+            {!canSwitch && <DropdownMenuLabel>Workspace</DropdownMenuLabel>}
             <DropdownMenuItem nativeButton={false} render={<Link href="/settings/workspace" />}>
               <IconSettings />
               Workspace settings
@@ -144,6 +156,16 @@ function WorkspaceSwitcher() {
               <IconPlus />
               Create workspace
             </DropdownMenuItem>
+            {canJoin && (
+              // Only while something is open to me: an invitation, or a workspace on my email domain.
+              <DropdownMenuItem
+                nativeButton={false}
+                render={<Link href="/join" data-testid="join-workspace" />}
+              >
+                <IconDoorEnter />
+                Join a workspace
+              </DropdownMenuItem>
+            )}
             {canLeave && (
               <DropdownMenuItem onClick={() => setLeaveOpen(true)}>
                 <IconLogout />
@@ -230,9 +252,9 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Every workspace can be shared with (D-36): the section is always there. */}
-        <TreeSection area="shared" label="Shared" />
-        <TreeSection area="private" label="Private" />
+        {/* D-36: the two places a note can be. New notes start in Private. */}
+        <TreeSection area="private" />
+        <TreeSection area="shared" />
       </SidebarContent>
 
       <SidebarFooter>

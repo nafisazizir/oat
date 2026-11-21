@@ -72,7 +72,6 @@ export function WorkspaceGeneralForm({
                     size="lg"
                     className="gap-2 ps-1.5"
                     disabled={!canEdit || pending}
-                    aria-label="Choose workspace icon"
                     data-testid="workspace-icon-button"
                   />
                 }

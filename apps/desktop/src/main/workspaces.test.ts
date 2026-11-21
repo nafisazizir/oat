@@ -221,6 +221,71 @@ describe('in no workspace at all', () => {
     return db;
   }
 
+  // The ordering behind "You’re not in a workspace any more" right after sign-in (storage.spec, ~1 in 5):
+  // the server's list of my workspaces arrives with every pull page, their rows come from the change log.
+  it('a pull that names my workspace before its row arrives is not "in no workspace"', async () => {
+    // The last page of the first pull, while the transaction that made my workspace is held back (D-22).
+    const lagging = new LocalStore({ path: ':memory:' });
+    lagging.applyPull(
+      { changes: [], cursor: 'c1', hasMore: false, workspaceIds: ['w1'], lagging: true },
+      null,
+    );
+    expect(lagging.workspaces()).toEqual([]);
+    expect(lagging.hasPulled()).toBe(false);
+    expect(noNoteWorkspaceReason(lagging)).toBe('unknown');
+    expect(noNoteWorkspaceMessage(lagging)).not.toBe(NO_WORKSPACE_MESSAGE);
+    expect(workspacesOver(lagging).snapshot()).toMatchObject({ workspaces: [], synced: false });
+    // A start now waits for sync (the full wait, not the 1.5 s re-check) and gets the workspace.
+    const waits: (number | undefined)[] = [];
+    const started = new Workspaces({
+      store: () => lagging,
+      userId: () => 'me',
+      sync: {
+        awaitWorkspaces: async (timeoutMs) => {
+          waits.push(timeoutMs);
+          // The retry after `lagging` brings the row.
+          lagging.applyPull(
+            {
+              changes: [ws('w1', 'My workspace', 'owner')],
+              cursor: 'c2',
+              hasMore: false,
+              workspaceIds: ['w1'],
+            },
+            'c1',
+          );
+          return true;
+        },
+      },
+      onChange: () => {},
+    });
+    expect(await started.newNoteWorkspace(10_000)).toBe('w1');
+    expect(waits).toEqual([10_000]);
+    expect(lagging.hasPulled()).toBe(true);
+    lagging.close();
+
+    // Synced and in none, then I join one: the pull restarts from the beginning before any row is applied.
+    const joined = emptiedStore();
+    expect(noNoteWorkspaceReason(joined)).toBe('none');
+    expect(
+      joined.applyPull({ changes: [], cursor: 'c3', hasMore: false, workspaceIds: ['w2'] }, 'c2'),
+    ).toEqual({ restart: true });
+    expect(joined.workspaces()).toEqual([]);
+    expect(joined.hasPulled()).toBe(false);
+    expect(noNoteWorkspaceReason(joined)).toBe('unknown');
+    joined.applyPull(
+      {
+        changes: [ws('w2', 'Joined', 'member')],
+        cursor: 'c4',
+        hasMore: false,
+        workspaceIds: ['w2'],
+      },
+      null,
+    );
+    expect(joined.hasPulled()).toBe(true);
+    expect(workspacesOver(joined).snapshot()).toMatchObject({ targetId: 'w2', synced: true });
+    joined.close();
+  });
+
   it('never synced vs synced-and-none are told apart', () => {
     const fresh = new LocalStore({ path: ':memory:' });
     expect(fresh.hasPulled()).toBe(false);

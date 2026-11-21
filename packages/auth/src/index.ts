@@ -105,6 +105,7 @@ export {
   ensureFirstWorkspace,
   type FirstWorkspace,
   getJoinChoices,
+  hasAnyJoinChoice,
   getJoinSettings,
   hasJoinChoices,
   type InviteChoice,

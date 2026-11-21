@@ -124,8 +124,8 @@ describe('buildShellData (session + memberships + tree → shell)', () => {
       ],
       trash: [doc('d4', 'Old', null, { deletedAt: at })],
     });
-    expect(rootsOf(data.documents, 'private').map((d) => d.id)).toEqual(['f1', 'd1']);
-    expect(rootsOf(data.documents, 'shared').map((d) => d.id)).toEqual(['d3']);
+    expect(rootsOf(data.documents, 'private', user.id).map((d) => d.id)).toEqual(['f1', 'd1']);
+    expect(rootsOf(data.documents, 'shared', user.id).map((d) => d.id)).toEqual(['d3']);
     const [reading] = childrenOf(data.documents, 'f1');
     expect(reading).toMatchObject({ id: 'd2', kind: 'meeting', parentId: 'f1', version: 3 });
     expect(data.trash.map((d) => d.id)).toEqual(['d4']);

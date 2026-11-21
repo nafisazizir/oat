@@ -325,11 +325,23 @@ export class LocalStore {
   }
 
   /**
-   * Whether a pull from the server has completed on this database (not while the first one is still paging).
-   * It tells "no workspace here because nothing was synced yet" from "synced: the user is in no workspace".
+   * Whether this database holds a complete picture of the user's workspaces: a pull has finished (not
+   * while the first one is still paging) **and** every workspace the server said they are in has its row
+   * here. It tells "no workspace here because sync isn't there yet" from "synced: the user is in no
+   * workspace".
+   *
+   * The second half matters because the list of workspaces and their rows arrive separately: a pull page
+   * carries `workspaceIds` (the server's memberships right now), while the rows come from the change log,
+   * which can be behind — the last page of a pull is `lagging` while the transaction that created a
+   * workspace is still held back (D-22), and a pull that names a workspace the user just joined is
+   * restarted from the beginning before any row is applied. In both cases the pull "completed" and the
+   * workspace table is still empty; that is not "in no workspace".
    */
   hasPulled(): boolean {
-    return this.getState(STATE.workspaces) !== null && this.getState(STATE.initial) === null;
+    const known = this.getState(STATE.workspaces);
+    if (known === null || this.getState(STATE.initial) !== null) return false;
+    const here = new Set(this.workspaces().map((w) => w.id));
+    return (JSON.parse(known) as string[]).every((id) => here.has(id));
   }
 
   // --- documents + meetings ----------------------------------------------------------------------------

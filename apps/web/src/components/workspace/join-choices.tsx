@@ -12,6 +12,7 @@ import {
   ItemTitle,
 } from '@oat/ui/components/item';
 import { Spinner } from '@oat/ui/components/spinner';
+import Link from 'next/link';
 import { useState, useTransition } from 'react';
 
 import { createMyWorkspace, joinWorkspace, requestAccess } from '@/server/actions/joining';
@@ -38,7 +39,14 @@ type Result = { ok: true } | { ok: false; error: string };
  * primary action of the screen, "Create my own workspace" the quiet alternative underneath. Every action
  * is a server action that decides again on the server; this only shows what came back.
  */
-export function JoinChoiceList({ choices }: { choices: JoinChoice[] }) {
+export function JoinChoiceList({
+  choices,
+  member = false,
+}: {
+  choices: JoinChoice[];
+  /** They already have a workspace (they came from the workspace menu): offer the way back instead. */
+  member?: boolean;
+}) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -146,16 +154,29 @@ export function JoinChoiceList({ choices }: { choices: JoinChoice[] }) {
       </ItemGroup>
 
       <div className="flex flex-col gap-3">
-        <Button
-          size="lg"
-          variant={primary === undefined ? 'default' : 'ghost'}
-          className="w-full"
-          disabled={pending}
-          onClick={() => run('create', () => createMyWorkspace())}
-        >
-          {spinner('create')}
-          Create my own workspace
-        </Button>
+        {member ? (
+          <Button
+            size="lg"
+            variant="ghost"
+            className="w-full"
+            nativeButton={false}
+            role="link"
+            render={<Link href="/home" />}
+          >
+            Back to Oat
+          </Button>
+        ) : (
+          <Button
+            size="lg"
+            variant={primary === undefined ? 'default' : 'ghost'}
+            className="w-full"
+            disabled={pending}
+            onClick={() => run('create', () => createMyWorkspace())}
+          >
+            {spinner('create')}
+            Create my own workspace
+          </Button>
+        )}
         <p role="status" className="text-center text-copy-13 text-gray-900 empty:hidden">
           {notice}
         </p>

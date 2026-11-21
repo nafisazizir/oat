@@ -28,7 +28,8 @@ for (const theme of ['light', 'dark'] as const) {
     await page.keyboard.press('Escape');
 
     await page.getByTestId('workspace-switcher').click();
-    await expect(page.getByRole('menu')).toContainText('Workspaces');
+    // "Workspace" with one workspace, "Workspaces" (the list) with more (D-36).
+    await expect(page.getByRole('menu')).toContainText('Workspace');
     await expect(page.getByRole('menu')).toContainText('Account');
     await expect(page.getByRole('menuitem', { name: 'Sign out', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');

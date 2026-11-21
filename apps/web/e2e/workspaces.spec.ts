@@ -85,7 +85,7 @@ test('invite → accept → change role → remove, with two users', async ({ br
     teamName,
   );
   await expect(owner.page.getByTestId('workspace-slug').filter({ visible: true })).toBeVisible();
-  await owner.page.getByRole('button', { name: 'Choose workspace icon' }).click();
+  await owner.page.getByTestId('workspace-icon-button').click();
   await owner.page.getByRole('option', { name: '🌾' }).click();
   await owner.page.getByRole('button', { name: 'Save changes' }).click();
   await expect(owner.page.getByText('Workspace saved')).toBeVisible();
@@ -149,8 +149,13 @@ test('invite → accept → change role → remove, with two users', async ({ br
   await invitee.waitForURL(/\/home$/, { waitUntil: 'load' });
   await expect(invitee.getByTestId('workspace-switcher')).toContainText(teamName);
   // D-36: someone who signs up through an invitation joins that workspace and gets no other one.
+  await expect(invitee.getByTestId('workspace-switcher')).toHaveAttribute(
+    'data-switchable',
+    'false',
+  );
   await invitee.getByTestId('workspace-switcher').click();
-  await expect(invitee.getByTestId('workspace-option')).toHaveCount(1);
+  await expect(invitee.getByRole('menu')).toBeVisible();
+  await expect(invitee.getByTestId('workspace-option')).toHaveCount(0);
   await shot(invitee, 'invitee-switcher');
   await invitee.keyboard.press('Escape');
 
@@ -194,8 +199,13 @@ test('invite → accept → change role → remove, with two users', async ({ br
   await invitee.goto('/home');
   await expect(invitee.getByTestId('workspace-switcher')).toContainText('My workspace');
   await expect(invitee.getByTestId('workspace-switcher')).not.toContainText(teamName);
+  await expect(invitee.getByTestId('workspace-switcher')).toHaveAttribute(
+    'data-switchable',
+    'false',
+  );
   await invitee.getByTestId('workspace-switcher').click();
-  await expect(invitee.getByTestId('workspace-option')).toHaveCount(1);
+  await expect(invitee.getByRole('menu')).toBeVisible();
+  await expect(invitee.getByTestId('workspace-option')).toHaveCount(0);
 
   // The used invite link now says so.
   await invitee.goto(inviteLink);
@@ -271,8 +281,13 @@ test('wrong account, revoked invite, leave and delete', async ({ browser }) => {
   await confirm.click();
   await owner.page.waitForURL(/\/home$/, { waitUntil: 'load' });
   await expect(owner.page.getByTestId('workspace-switcher')).toContainText('My workspace');
+  await expect(owner.page.getByTestId('workspace-switcher')).toHaveAttribute(
+    'data-switchable',
+    'false',
+  );
   await owner.page.getByTestId('workspace-switcher').click();
-  await expect(owner.page.getByTestId('workspace-option')).toHaveCount(1);
+  await expect(owner.page.getByRole('menu')).toBeVisible();
+  await expect(owner.page.getByTestId('workspace-option')).toHaveCount(0);
   // The last workspace can't be left, so the menu doesn't offer it.
   await expect(owner.page.getByRole('menuitem', { name: /^Leave / })).toHaveCount(0);
   await owner.page.keyboard.press('Escape');
@@ -325,8 +340,13 @@ test('wrong account, revoked invite, leave and delete', async ({ browser }) => {
   await guestPage.getByRole('button', { name: `Decline the invitation to ${renamed}` }).click();
   await guestPage.waitForURL(/\/home$/);
   await expect(guestPage.getByTestId('workspace-switcher')).toContainText('My workspace');
+  await expect(guestPage.getByTestId('workspace-switcher')).toHaveAttribute(
+    'data-switchable',
+    'false',
+  );
   await guestPage.getByTestId('workspace-switcher').click();
-  await expect(guestPage.getByTestId('workspace-option')).toHaveCount(1);
+  await expect(guestPage.getByRole('menu')).toBeVisible();
+  await expect(guestPage.getByTestId('workspace-option')).toHaveCount(0);
   await guestContext.close();
 
   await owner.context.close();

@@ -3,6 +3,7 @@
 import type { JSONContent } from '@oat/editor';
 import { OatEditor, type OatEditorProps } from '@oat/editor/react';
 import { Alert, AlertAction, AlertTitle } from '@oat/ui/components/alert';
+import { visibilityBadge } from '@oat/core/sections';
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@oat/ui/components/popover';
@@ -33,7 +34,7 @@ import { announceDocumentChange } from '@/lib/api-client';
 import type { DocumentDetail } from '@/lib/api-types';
 import { formatDay } from '@/lib/format';
 import { documentNode } from '@/lib/tree';
-import { audienceLabel, isWorkspaceOfOne, type WorkspaceAudience } from '@/lib/workspace';
+import type { WorkspaceAudience } from '@/lib/workspace';
 
 import { EnhanceError } from './enhance/enhance-controls';
 import { EnhancePreview } from './enhance/enhance-preview';
@@ -352,12 +353,10 @@ function VisibilityBadge({
   visibility: DocumentDetail['visibility'];
   workspace: WorkspaceAudience;
 }) {
-  const [Icon, label] =
-    visibility === 'private'
-      ? [IconLock, 'Private']
-      : visibility === 'link'
-        ? [IconLink, `${audienceLabel(workspace)} + link`]
-        : [isWorkspaceOfOne(workspace) ? IconLock : IconUsers, audienceLabel(workspace)];
+  // The item's own visibility, never the member count: shared with the workspace reads as shared even
+  // while I am its only member (D-36).
+  const Icon = visibility === 'private' ? IconLock : visibility === 'link' ? IconLink : IconUsers;
+  const label = visibilityBadge(visibility, workspace.name);
   return (
     <Badge variant="secondary" data-testid="visibility-badge">
       <Icon data-icon="inline-start" />

@@ -455,7 +455,7 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     expect(shareLink).toMatch(/\/share\/[A-Za-z0-9_-]{22,}$/);
     await evidence(web, 'web-share-dialog', TASK);
     await web.keyboard.press('Escape');
-    await expect(web.getByTestId('visibility-badge')).toHaveText('Only you + link');
+    await expect(web.getByTestId('visibility-badge')).toHaveText(/^Everyone in .+ \+ link$/);
 
     const strangerContext = await browser.newContext();
     const stranger = hydrationAware(await strangerContext.newPage());

@@ -79,16 +79,9 @@ export function expiresIn(expiresAt: Date, now: Date = new Date()): string {
   return days === 1 ? 'in 1 day' : `in ${days} days`;
 }
 
-/** What visibility labels need to know about a document's workspace. */
-export type WorkspaceAudience = { name: string; members: number };
-
-/** Whether the workspace has nobody but the viewer in it (so "the workspace" is just them, for now). */
-export const isWorkspaceOfOne = (workspace: { members: number }): boolean => workspace.members <= 1;
-
 /**
- * Who "workspace" visibility reaches, for badges: "Only you" while the workspace has no other member, else
- * "Shared with <workspace>" (9.3: never "Shared with" a workspace nobody else is in).
+ * What visibility labels need to know about a document's workspace: its name. Not how many people are in
+ * it — a label says what the item's visibility is (`@oat/core` `visibilityLabel`), and a note shared with
+ * the workspace is shared with it even while its owner is the only member (whoever joins next can read it).
  */
-export function audienceLabel(workspace: WorkspaceAudience): string {
-  return isWorkspaceOfOne(workspace) ? 'Only you' : `Shared with ${workspace.name}`;
-}
+export type WorkspaceAudience = { name: string };

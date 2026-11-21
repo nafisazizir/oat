@@ -74,11 +74,12 @@ Step B
       declined user can't spam (one pending request per user per workspace).
 - [x] Only owner/admin can see or decide requests and edit policy/domains.
 Step C
-- [ ] Sidebar shows Private and Shared sections on web and desktop; a note moves between them when its
+- [x] Sidebar shows Private and Shared sections on web and desktop; a note moves between them when its
       visibility changes, without reload; another member never sees my Private items (e2e with two users).
-- [ ] Switcher is absent with one workspace and present with two.
-- [ ] Export downloads a zip containing only my documents; after leaving, I can no longer read any of them.
-- [ ] axe: 0 violations on the join screen, join settings, requests list and sidebar, light and dark.
+- [x] With one workspace the workspace menu shows no workspace list and no selector arrows; with two or more
+      it shows both. The menu button itself stays (settings, invite, Create and Join remain reachable).
+- [x] Export downloads a zip containing only my documents; after leaving, I can no longer read any of them.
+- [x] axe: 0 violations on the join screen, join settings, requests list and sidebar, light and dark.
 
 ## Verification
 - `pnpm run ci` (full) on each step's branch — migration check must pass from a DB at `main`'s schema.
@@ -321,6 +322,104 @@ What was decided, and what step C needs to know.
 had two rows (`border-gray-alpha-300` coloured all four sides of `Item`'s border); now bottom edge only. It
 shows in the members list too. `apps/web/e2e/workspaces.spec.ts`: the invited-newcomer part now goes through
 `/join`. `test-harness.ts`: `signUp(label, domain?)` and `outbox`.
+
+### Step C (branch `task/unified-workspaces-c`, from step B's `96f938b`)
+What was decided, and what a reviewer needs to know.
+
+**The split** (`packages/core/src/sections.ts`, unit tests `sections.test.ts`; shared by web and desktop)
+- `sidebarSection(item, userId)`: **Private** = `visibility === 'private'` **and** `ownerId === userId`;
+  everything else the viewer can read is **Shared**. `splitSections` (flat lists, desktop), `sectionTree`
+  (tree: a section's items and its top level), `SECTION_INFO` (labels + empty-state lines), `visibilityLabel`
+  / `visibilityBadge` (wording). Display only: nothing here authorises a read and `permissions.ts` is
+  untouched. A private item that is not the viewer's is never filed under Private.
+- Decided: the split is **per item**, not per top-level ancestor. My private page inside a shared folder is a
+  top-level item of Private (before, it sat inside the folder under Shared with a lock icon); the folder's own
+  page still lists it for me, with the lock. So "Private" is exactly "what nobody else can see".
+- Order: Private first (where a new note starts), then Shared. Empty states: "Notes only you can see." /
+  "Notes everyone here can see." No boxes; the existing `SidebarGroupLabel`s.
+- Web: `lib/tree.ts` (`areaOf`, `sectionOf`, `rootsOf` take the user id), `page-tree.tsx`. A note changes
+  section without reload because the Share dialog already refreshes the shell data. Dropping a row on the
+  other section's label is still refused (now: "To change who can see it, open it and use Share").
+- Desktop: `MeetingNoteSummary` gained `ownerId`; `MeetingList` renders the two sections from
+  `splitSections`; a change arriving by sync re-renders it (`meetings:changed`). `MeetingNotes.list()` also
+  drops a private note that isn't mine should one ever be in the local store (sync never sends one).
+- New notes are Private everywhere — verified, no change needed: web "New note" and the `+` of Private, web
+  calendar notes (`calendar-notes.ts`), sync push (`push.ts`), desktop `createMeeting` (recordings and
+  "Start notes" on a calendar event; asserted in the desktop e2e). The `+` of **Shared** on the web still
+  creates a shared page on purpose.
+
+**Switcher**
+- With one workspace the bottom button stays (workspace name, the menu with Workspace settings, Invite
+  members, Create workspace, account) but has no selector arrows and **no workspace list**; with two or
+  more the list is back. Same on the desktop (its menu keeps "Workspace settings (web)").
+- **The test id `workspace-switcher` is still on that button in both cases** (≈100 uses across web, desktop
+  and acceptance specs, some being edited on another branch). "Absent" is asserted as
+  `data-switchable="false"`, no `workspace-list`, zero `workspace-option`. Renaming the id is a follow-up.
+- Joining stays reachable: `ShellData.canJoin` (`getJoinChoices` non-empty, one extra query set per shell
+  load) shows "Join a workspace" → `/join`, which now shows a member their choices with "Back to Oat"
+  instead of "Create my own workspace". A member with nothing to join is still sent Home (step B's spec).
+  The desktop has no create/join UI (as before: the hint sends people to the web).
+
+**Labels** (step A review finding 6)
+- `audienceLabel` / `isWorkspaceOfOne` are gone. Badges come from `visibilityBadge`: "Private", "Everyone in
+  <workspace>", "Everyone in <workspace> + link" — never "Only you" for a `workspace`/`link` item, whatever
+  the member count. Web document and meeting headers, shared folder page, desktop note header. The Share
+  dialog already said "Everyone in X (only you, so far)" and is unchanged.
+
+**Leaving and export**
+- Leave dialog: says access to everything is lost, private notes included, that they stay behind unreadable
+  to anyone else; offers "Export my notes" (a plain download link) above Cancel / Leave.
+- `GET /api/workspaces/:id/export` (`server/export/notes.ts`): the caller's **own, live** documents of that
+  workspace (pages and meeting notes, any visibility) as `# Title` + `content_md`, one `.md` each, flat.
+  Member check first (`requireMember` → 404, same as an unknown workspace); each row must be
+  `ownerId === caller` **and** pass `canReadDocument`, checked on the list and again on the rows as read.
+  No new rule was added to `permissions.ts` (another branch is editing it) — a named `canExportDocument`
+  would be the tidier form.
+- **Trash is not exported** (decided): it is what the owner threw away; restore first to take it along.
+  Also not exported: transcripts, audio, other people's notes even when readable, folder structure.
+- Bounded: 2000 notes (`MAX_EXPORT_DOCUMENTS`; beyond it the archive carries a file saying it is
+  incomplete, plus an `x-oat-export-truncated` header), read 20 at a time while the response streams
+  (nothing is read before the client pulls). **No rate limit** on the route — like the other GETs.
+- Zip: own small writer (`server/export/zip.ts`, deflate, UTF-8 names, no ZIP64, no new dependency), read
+  back in tests by `read-zip.ts` and, where installed, the system `unzip`; checked by hand with Python
+  `zipfile` and macOS `ditto`. File names (`names.ts`): separators, control/invisible characters and
+  reserved punctuation become spaces, no leading dot, no trailing dot/space, ≤ 80 characters, Windows
+  device names prefixed, duplicates numbered case-insensitively; the writer refuses unsafe names as well.
+- After leaving nothing is readable: unchanged rule ("doc owner" requires membership); asserted in the int
+  test and the e2e (documents, list, export, page).
+
+**Tests**
+- Unit: `@oat/core` `sections.test.ts`; web `navigation.test.ts`, `export/zip.test.ts`; desktop
+  `meeting-list.test.tsx`, `workspace-switcher.test.tsx`, `meeting-notes.test.ts`.
+- Int: `export/notes.int.test.ts` (deny cases carry `denies('GET /api/workspaces/[id]/export')`).
+- Web e2e: new `private-shared.spec.ts` (7 tests; sidebar and leave dialog scanned with axe, any impact,
+  light and dark). Desktop e2e: `workspaces.spec.ts` (new test + assertions; sidebar axe light/dark).
+- Screenshots (1440×900): `sidebar-empty-*`, `sidebar-private-shared-*`, `leave-dialog-export-*`,
+  `workspace-menu-{one-workspace,two-workspaces}-light`, `desktop-sidebar-private-shared-*`.
+
+**Specs changed because step C changes what they cover**
+- Web: `auth.spec`, `join.spec`, `workspaces.spec` ("exactly one workspace" was `workspace-option` count 1,
+  now `data-switchable="false"` and count 0), `sharing.spec` (badge text), `calm-shell.spec` (menu label).
+  `join.spec`'s helpers moved to `e2e/people-helpers.ts`, shared with the new spec.
+- Desktop: `e2e/workspaces.spec.ts` only. Acceptance: `journey.spec.ts` line 446, the badge text
+  ("Only you + link" → `/^Everyone in .+ \+ link$/`) — one line; that journey still fails earlier for the
+  known reason, so this line is **not run**.
+
+**For the human (review observations 6 and 8; no code change)**
+- Leaving and the desktop app: on its next pull after you leave a workspace, the desktop deletes that
+  workspace's local notes, meetings, transcripts and search entries — **including notes recorded on the
+  desktop that never synced** (offline, or parked). Those were never on the server, so they were never in
+  the export either. Sync the desktop before leaving. Until that pull happens (desktop offline) the local
+  copies stay readable, and audio files of meetings you recorded stay in the local archive.
+- A private page inside a shared folder shows under **Private** in the sidebar (top level), while its
+  breadcrumb and "Move to…" still show the shared folder; a shared folder holding only such pages looks
+  empty in the sidebar to everyone, its owner included. Nobody else can see the page.
+
+**Not done / to know**
+- Desktop evidence has no screenshot of an empty Private/Shared pair (covered by unit and e2e assertions).
+- Export is offered only in the leave dialog; a removed member gets no chance to export (D-36 says
+  "before leaving").
+- `canJoin` adds `getJoinChoices` to every shell load.
 
 ## Review
 
@@ -602,6 +701,177 @@ from a throwaway int test added to `joining.int.test.ts` and reverted (not commi
    the orchestrator raises it with the human.
 7. No code change (decided): not reachable today; one line added to Design notes → Step B.
 
+### Step C
+Verdict: **approve** (2026-11-21, reviewer; diff `35ca216...task/unified-workspaces-c` at 775fc7e, plus the merge
+`0093ade` against both parents). I found no path on which another member's private item, its title, folder
+name, count or existence reaches a client, and none on which the export hands out anything but the caller's
+own live notes. Nothing below blocks the merge; 1 and 2 should be settled before the task is closed (1 is a
+small bug this step makes visible, 2 is a wording/decision gap), 3–5 are small fixes, 6–9 are for the
+orchestrator to note.
+
+Ran on this branch: `@oat/core` test (100 % coverage), web `export/notes.int.test.ts` (8), web unit
+`export/*`, `navigation.test.ts`, `shell.test.ts` (23), desktop `meeting-notes`, `meeting-list`,
+`workspace-switcher` tests (21) — all pass. "Confirmed by running" below means a throwaway test or script,
+reverted, not committed. I did not run the full `pnpm run ci`, any e2e or axe (verifier's job).
+
+**Should fix / decide**
+
+1. A member is offered a workspace they are already in — `packages/auth/src/joining.ts:136-185`
+   (`pendingInvitesFor` does not skip workspaces the person belongs to), made visible by this step's
+   `apps/web/src/server/shell.ts:140,149` (`canJoin`) and `apps/web/src/app/(auth)/join/page.tsx:41-47`.
+   Scenario: an admin invites sam@acme.io; Sam gets in another way before answering (auto-join called
+   directly, or a request of his that an admin approves — `/join` itself shows only the invitation for that
+   workspace). The invitation stays `pending` until it expires. From then on Sam's workspace menu shows
+   "Join a workspace" on every page, and `/join` lists "… invited you as a member" for the workspace he is
+   in; Accept is absorbed by `inviteAlreadyHonoured` (no error, role not raised), so nothing breaks, but
+   the menu entry and the row are wrong for up to the invite's lifetime. Before step C a member never saw
+   this (`/join` sent members Home). **Confirmed by running**: throwaway case in `joining.int.test.ts`
+   (invite, then `joinWorkspace`, then `getJoinChoices`) returned the invitation for a workspace with a
+   live membership. Fix direction: drop invitations to workspaces the person is a member of in
+   `pendingInvitesFor` (or settle them when a membership is created some other way); add the case to the
+   int test and to `private-shared.spec.ts`.
+2. "Switcher is absent with one workspace" is not what was built, and D-36 says "the switcher is hidden" —
+   `apps/web/src/components/app-shell/app-sidebar.tsx:92-101,114-141`,
+   `apps/desktop/src/renderer/src/workspaces/workspace-switcher.tsx:91-93,110-137`. With one workspace the
+   bottom button is still there under the test id `workspace-switcher`; what is absent is the selector
+   arrows and the workspace list. I think that is the right product call: step A's note requires "Create
+   workspace" to stay reachable, and the menu still holds Workspace settings, Invite members, Create
+   workspace, Join a workspace and the account items, so it is not a dead control — it opens a menu with
+   items, labelled "Workspace", keyboard behaviour unchanged, nothing announced that isn't there. But the
+   ticked criterion and D-36's wording now say something the code doesn't do. Reword the criterion ("no
+   workspace list and no selector with one workspace; the workspace menu stays") and add one line to D-36's
+   agent refinements; renaming the test id can stay a follow-up. Confirmed by reading; the e2e asserts
+   `data-switchable="false"`, no `workspace-list`, zero `workspace-option`, and that creating is reachable.
+3. Export file names can exceed what file systems accept — `apps/web/src/server/export/names.ts:8,31-34`.
+   The cap is 80 characters, not bytes. Scenario: a note titled with 80+ emoji (or other 4-byte
+   characters) is written as a 323-byte entry name; APFS, ext4 and most unzip tools refuse names over 255
+   bytes, so that one note is not unpacked — and the person has left by then. **Confirmed by running** the
+   namer (`'😀'.repeat(100)` → 83 characters, 323 bytes; 3-byte scripts stay at 243–248, fine). Cap by
+   UTF-8 bytes (e.g. ≤ 200) as well. Same file, smaller: `con.notes` → `con.notes.md` is still a reserved
+   name on Windows 10 and earlier (the device-name test only looks at the whole base, line 15/35).
+4. Export has no bound per user — `apps/web/src/server/api/handlers.ts:148-154`. Is it an abuse vector?
+   A small one: only a signed-in member can call it and it returns only their own notes, but one request
+   costs up to 101 queries and a synchronous deflate of up to 2000 notes on the server's event loop
+   (`zip.ts:68`), and a loop of requests from one account repeats that with no limit, where the other GETs
+   are one query each. Smallest sensible bound: the existing per-user limiter (`apiRateLimiter()`, already
+   used for chat) at a few exports per minute, answering 429. Traced, not load-tested.
+5. `canJoin` costs 3 queries on every shell load for anyone not on a public mailbox domain, up to 6 when a
+   workspace lists their domain (`joining.ts:219-283`: person, invitations, domain rows, then permission
+   context, latest requests and member counts — the counts are not needed for a yes/no). The invitation
+   lookup compares `lower(invite.email)` (line 160), which `invite_email_idx` (plain `email`) can't serve,
+   so it is a scan of `invite` per page view. Fine at today's size; worth a boolean-only variant before the
+   table grows. It does not offer a workspace to a removed or declined person (`joinOption` takes the
+   latest request; the e2e added in 775fc7e and step B's int tests cover it) — the only wrong offer I found
+   is 1. Traced.
+
+**Observations (no change asked in this step)**
+
+6. Leaving and the desktop — `packages/local-store/src/store.ts:917-918,1122-1133`. On the first pull after
+   leaving, the desktop deletes that workspace's documents, meetings, transcript and search rows (cascade +
+   FTS triggers), so nothing stays readable or searchable there. Two edges, both older than this step but
+   now next to a dialog that says "export first": (a) a note recorded on the desktop that has not synced
+   yet (offline, or parked) is deleted with the rest, outbox entry included, and was never in the export,
+   which reads the server; (b) until that pull happens (desktop offline) the local copies stay readable,
+   and the audio files of meetings the leaver recorded stay in the local archive (they are never uploaded).
+   Traced, not run. Worth a line in the leave dialog ("sync the desktop app first") or a follow-up task.
+7. "After leaving, I can no longer read any of them" holds for every signed-in path (documents API, list,
+   export, page — asserted in the int test and the e2e). A note the leaver had set to `link` stays readable
+   through its share link, by them as by anyone holding it; that is what link sharing means and the int/e2e
+   tests don't cover `link`. The leave dialog speaks about private notes only, so it is not wrong.
+8. Per-item split and D-18. A private page inside a shared folder can exist (D-18 only constrains private
+   folders; the e2e creates one) and now sits at the top level of Private, which states correctly who sees
+   it. Side effects: its sidebar position no longer matches its breadcrumb and "Move to…" location, and a
+   shared folder holding only such pages looks empty in the sidebar to everyone, its owner included. Delete
+   still says "Pages inside go to the trash" (the count uses all documents, `tree-actions.tsx:365`), a
+   teammate's delete of that folder is refused server-side (`folders.ts:296-300`), and the folder page lists
+   the page with a lock for its owner only. No leak; a small surprise at most.
+9. Scope: the branch re-takes 30-odd evidence screenshots of other tasks (`docs/tasks/evidence/1.6`, `3.9`,
+   `5.1`, `5.3`) because their specs ran; the leave dialog's "Your download has started" appears on click
+   whether or not the request succeeded (`leave-workspace-dialog.tsx:78`).
+
+**Checked and fine**
+
+- Split: `sidebarSection` is exactly `visibility === 'private' && ownerId === userId`
+  (`packages/core/src/sections.ts:29-31`); web (`lib/tree.ts`, `page-tree.tsx`, move dialog, drop refusal)
+  and desktop (`meeting-list.tsx`) call it and nothing else decides a section. It is display only; no read
+  is authorised by it.
+- What reaches a client is unchanged by this step and filtered by `canReadDocument` / `canReadFolder`
+  server-side: `listDocuments`, `listRecentDocuments` (Home), folders, sync pull (`sync/pull.ts:167-175`,
+  and meetings, participants and segments through their document), with a `delete` sent when a row stops
+  being readable. I did not re-audit search and the assistant (not touched here).
+- Desktop `MeetingNotes.list()` filter: I found no way for another member's private note to be in the
+  local store — rows come from pulls (filtered as above, one database file per account) or are created
+  locally with the signed-in user as owner; a note its owner turns private is deleted by the next pull. The
+  filter matches the rule `get` already had (`meeting-notes.ts:92`) and hides nothing of the user's own
+  (owner id is always set). The test's `d-private` row is a fixture, not a reachable state.
+- Export: session required (401), member check before any read (404, same body as an unknown workspace,
+  so no id probing; a deleted workspace too); rows are `workspace_id = :id AND owner_id = caller AND
+  deleted_at IS NULL`, re-checked with `canReadDocument` on the list and on each row as read; no folder
+  traversal exists (flat query). A viewer gets their own notes, or an empty archive. Names: separators,
+  control and bidi characters, leading dots, `..`, absolute paths and case-only duplicates are neutralised
+  and the writer refuses unsafe names again (probed: `../../etc/passwd`, `C:\x`, `..`, `.`, RTL override,
+  `CON`, `aux.`). Memory is one batch of 20 notes; the stream is pulled, not buffered. Headers: the file
+  name is ASCII `[a-z0-9-]` only (no injection through the workspace name), `no-store`, `nosniff`. A
+  cross-site GET can at most start a download on the member's own machine; the response is not readable
+  cross-origin, so no CSRF concern. `content_md` is derived on every write path (`prepareContent`), so
+  desktop-made notes export with their text.
+- Labels: no member-count wording is left on badges (web document and meeting headers, shared folder page,
+  desktop note header all use `visibilityBadge`). The Share dialog's "Everyone in X (only you, so far)" is
+  accurate; the lock "Only you" on the folder page marks a private child, which only its owner is shown.
+- Merge `0093ade`: against the step C parent it brings exactly step B's reviewed files; against 35ca216 the
+  only non-step-C changes are the two described (`auth.spec.ts` waits with `waitForURL`; the join screen
+  address on its own truncating line). No retries or timeouts changed.
+- Tests: the two-user e2e proves non-visibility through the sidebar, the shared folder's page, direct
+  address, `GET /api/documents/:id` (404) and the list API, not just one list; export deny cases
+  (anonymous, stranger, unknown id, someone else's workspace, other owners, trash, other workspace, a row
+  changing between list and read, after leaving) are there. UI uses `@oat/ui` components and token classes
+  only. Clean-room and D-11: nothing touches `research/` or an external service; no new dependency.
+- Criteria: 1, 3 and 4 met as written (4 on the implementer's evidence); 2 met in substance, see finding 2.
+
+**Resolutions (implementer, 2026-11-21, after merging `task/unified-workspaces` at ef2ddaf)**
+
+1. Fixed. `joining.ts`: `settlePendingInvites` marks a pending invitation accepted when its invitee gets in
+   by auto-join or an approved request (role of the other route kept); `pendingInviteRows` never returns a
+   workspace the person is a member of, whatever the row says. Int tests in `joining.int.test.ts` ("an
+   invitation stops being offered once its invitee is a member").
+2. No behaviour change. The acceptance criterion now says what was built (no list, no arrows; the menu
+   stays). D-36's wording is the orchestrator's.
+3. Fixed. `names.ts`: base names are cut to 200 UTF-8 bytes on a character boundary (≤ 210 with a duplicate
+   number and `.md`); a Windows device name is reserved with any extensions (`con.notes` → `_con.notes`).
+   Unit tests in `export/zip.test.ts`.
+4. Fixed. The export route sits behind `apiRateLimiter()`: 5 per minute per user across workspaces
+   (`EXPORTS_PER_MINUTE`), 429 `rate_limited` with `retry-after` beyond. Int test in `notes.int.test.ts`.
+5. Fixed. Migration `0015_invite_email_lower` adds `invite_email_lower_idx` on `lower(email)` (the lookup
+   compares lower-cased on both sides; an int test checks the planner can use it). The shell calls the new
+   `hasAnyJoinChoice(db, userId, ctx)`: the user row and their invitations (2 queries) for most people; the
+   domain query only when the address can be listed and there is no invitation; latest requests only when a
+   workspace lists that domain. No member counts, no second permission-context load, no cache.
+6. Noted under Design notes → Step C ("For the human").
+7. Added to `notes.int.test.ts` "after leaving, I can read neither the export nor any note I exported; a
+   note shared by link stays readable by its link only": the link resolves after the owner left; signed in
+   they get 404 on the document and its share settings. "A non-link note is not readable by them
+   afterwards" was already that test (documents, list, export → 404) and `private-shared.spec.ts` "leaving".
+8. Noted under Design notes → Step C ("For the human").
+9. Fixed. The dialog fetches the export and says "Saved N notes to your downloads…" only after a 200; any
+   other answer shows "Couldn’t export your notes. Nothing was downloaded — try again." (the server's own
+   message for a 429). More space above the button. E2e covers the failure (a stubbed 500) and the success.
+   The re-taken evidence screenshots of other tasks were not reverted.
+
+Carried over from the e2e work:
+- A. Fixed in `packages/local-store/src/store.ts` `hasPulled()`. Ordering: every pull page carries
+  `workspaceIds` (the server's memberships now) and `applyPull` stores it at once, but the workspace **rows**
+  come from the change log — the last page of a first pull can be `lagging` while the transaction that made
+  the workspace is held back (D-22), and a pull that names a newly joined workspace is restarted before any
+  row is applied. In both, "a pull completed" was true with an empty workspace table, so a start got the
+  1.5 s re-check and then "You’re not in a workspace any more". `hasPulled()` is now also false while a
+  named workspace has no row, so the start waits for sync (the normal bounded wait) and the sidebar shows no
+  hint. Unit test in `apps/desktop/src/main/workspaces.test.ts` ("a pull that names my workspace before its
+  row arrives…"). `storage.spec.ts` runs: see Evidence.
+- B. Fixed. Desktop `settings-close` has no `aria-label` any more; its name is its content, "Back to notes
+  Esc" ("to notes" visually hidden). Web General settings had the same kind of mismatch on the icon button
+  (`aria-label="Choose workspace icon"`, visible "Add icon" / "Change icon"): label removed, the visible
+  text names it; `workspaces.spec.ts` uses its test id.
+
 ## Evidence
 
 ### Step A
@@ -868,3 +1138,82 @@ line up. Notes, none blocking:
 
 **Could not run / not done:** `main` was not re-run (baseline taken as given). The approve-vs-accept
 interleaving (review 4) has only the sequential test, as the implementer noted.
+
+### Step C — implementer's full `pnpm run ci` (2026-11-21, `task/unified-workspaces-c`)
+
+```
+step             status     time  note
+format           pass       8.9s
+actionlint       pass       0.7s
+typecheck        pass      20.1s
+lint             pass       4.8s
+test             FAIL      16.3s  pnpm run test --concurrency=7 exited with 1
+stack            pass       0.2s
+migrate          pass       2.4s
+swift:release    pass      13.2s
+test:int         pass     182.0s
+e2e              FAIL     694.6s  failing package(s): @oat/desktop
+acceptance       FAIL      50.9s  pnpm --filter @oat/acceptance run acceptance exited with 1
+swift:build      pass       6.5s
+swift:test       pass       8.7s
+swift:synthetic  pass       2.4s
+total                    1011.8s
+```
+
+- `test`: one failure, `@oat/desktop` `src/main/recording-service.test.ts` "fixture → live two-source
+  transcript (interim → final)…" (line 173: no interim segment was seen) — a file this step does not touch,
+  run next to the rest of the gate. Re-run alone three times: 24/24 each; `pnpm run ci --only test`
+  afterwards: `pass`. Recorded as a timing flake under load, not fixed here.
+- Web e2e: 87 passed, 0 failed (incl. the 7 `private-shared.spec.ts` tests and the specs touched above).
+- Desktop e2e: 9 passed / 10 failed / 10 not run — the same ten stale specs as on `main` and steps A/B;
+  `workspaces.spec.ts` 5/5 pass (incl. the new Private / Shared test).
+- Acceptance: the known failure, before any step this branch changes.
+- Axe criterion: the sidebar (web and desktop) is this step's; the join screen, join settings and requests
+  list are step B's `join.spec.ts`, which passed in this run.
+
+### Step C — after merging step B's review fixes (2026-11-21, merge `0093ade` of `task/unified-workspaces` at 35ca216)
+
+- Conflict: this file only (both sides appended to *Evidence*); kept both, step B's verifier section first.
+  Code merged cleanly; `join.spec.ts` was not changed on the other side, so `people-helpers.ts` stands.
+- Step C on top of it: `getJoinChoices` (shell `canJoin`, `/join` for members) now skips a removed or
+  declined person — asserted in `private-shared.spec.ts` (removed from an `auto_join` workspace whose domain
+  is still listed: no "Join a workspace", `/join` goes Home). Leaving on one's own writes no "declined"
+  record, so the leave + export flow is unchanged (spec passes).
+- `auth.spec.ts` Google sign-in: `waitForURL` instead of the URL assertion, so the spec waits for hydration
+  (`html[data-hydrated]`) before clicking the menu. No retries, no timeouts changed.
+- Join screen: the signed-in address sits on its own line and truncates instead of breaking mid-domain
+  (`join-screen-*` screenshots retaken).
+
+### Step C — after the review fix round (2026-11-21, `task/unified-workspaces-c`)
+
+Full `pnpm install && pnpm run ci` at ca25025 (all review items in, stale specs merged):
+
+```
+step             status     time  note
+format           pass       5.0s
+actionlint       pass       0.2s
+typecheck        pass       5.6s
+lint             pass       4.5s
+test             pass      18.3s
+stack            pass       0.2s
+migrate          pass       1.8s
+swift:release    pass       0.4s
+test:int         FAIL      15.8s  pnpm run test:int --concurrency=7 exited with 1
+e2e              pass     509.3s
+acceptance       pass      71.7s
+swift:build      pass       0.4s
+swift:test       pass       4.1s
+swift:synthetic  pass       2.2s
+total                     639.5s
+```
+
+- `test:int`: one failure, caused by this round — web `entrypoints.int.test.ts` "acceptInvite: an invitation
+  whose invitee got in by an approved request meanwhile still succeeds". With item 1 the invitation is
+  already `accepted` by the time its link is opened, and `acceptInvite` answered "no longer valid". Fixed
+  in 20b706b: for the invited, verified address that is a member, a settled invitation's link opens the
+  workspace (`inviteAlreadyHonoured`); anyone else still gets "no longer valid".
+- After that fix (head 20b706b): `pnpm run ci --only test:int` → `test:int pass 180.8s`, `ci: ok`;
+  `pnpm run ci --fast` → `ci: ok`; web e2e `workspaces` + `join` + `private-shared` → 13 passed. **The full
+  gate was not run again after 20b706b.**
+- In the full run: desktop e2e 29 passed (0 failed), web e2e 87 passed, acceptance 1 passed.
+- `apps/desktop/e2e/storage.spec.ts` alone, 8 runs after fix A: 8 × `1 passed`.

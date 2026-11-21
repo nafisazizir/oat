@@ -36,6 +36,8 @@ export type Harness = {
     owner: TestUser,
     members: Array<[TestUser, 'admin' | 'member' | 'viewer']>,
   ): Promise<string>;
+  /** Forgets every per-user API rate-limit count (a test that calls a limited route many times). */
+  resetRateLimits(): void;
   close(): Promise<void>;
 };
 
@@ -58,11 +60,15 @@ export async function createHarness(): Promise<Harness> {
     mailer: { send: async (message) => void outbox.push(message) },
     rateLimiter: createMemoryRateLimiter(),
   });
-  const api = createApi({
-    db: () => db,
-    getSession: (headers) => auth.api.getSession({ headers }),
-    allowedOrigins: () => [BASE],
-  });
+  let limiter = createMemoryRateLimiter();
+  const api = createApi(
+    {
+      db: () => db,
+      getSession: (headers) => auth.api.getSession({ headers }),
+      allowedOrigins: () => [BASE],
+    },
+    { rateLimiter: () => limiter },
+  );
 
   let counter = 0;
   async function signUp(label: string, domain = 'example.test'): Promise<TestUser> {
@@ -121,6 +127,9 @@ export async function createHarness(): Promise<Harness> {
     outbox,
     signUp,
     teamWorkspace,
+    resetRateLimits: () => {
+      limiter = createMemoryRateLimiter();
+    },
     close: async () => {
       await db.$client.end();
       await testDb.drop();

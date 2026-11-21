@@ -27,6 +27,7 @@ import {
   joinOption,
   type JoinPolicy,
   type JoinRequestStatus,
+  type PermissionContext,
   normalizeDomain,
   type Role,
   roleIn,
@@ -133,7 +134,12 @@ export interface JoinChoices {
 export const hasJoinChoices = (choices: JoinChoices): boolean =>
   choices.invites.length + choices.workspaces.length > 0;
 
-async function pendingInvitesFor(db: Db | Tx, me: Person): Promise<InviteChoice[]> {
+/**
+ * Pending, unexpired invitations to the person's address into live workspaces they are **not** a member
+ * of (someone who got in another way is not invited any more, whatever the row still says), whose sender
+ * may still send them. The address is compared lower-cased on both sides (`invite_email_lower_idx`).
+ */
+async function pendingInviteRows(db: Db | Tx, me: Person) {
   // Accepting needs a verified address (Better Auth and `acceptInvite` both check).
   if (!me.emailVerified) return [];
   const rows = await db
@@ -161,27 +167,29 @@ async function pendingInvitesFor(db: Db | Tx, me: Person): Promise<InviteChoice[
         eq(invite.status, 'pending'),
         gt(invite.expiresAt, sql`now()`),
         isNull(workspace.deletedAt),
+        sql`not exists (select 1 from membership mine
+                        where mine.workspace_id = ${invite.workspaceId} and mine.user_id = ${me.id})`,
       ),
     )
     .orderBy(asc(invite.createdAt), asc(invite.id));
-  return (
-    rows
-      // An invite only carries its sender's authority while they still have it (as when accepting).
-      .filter((r) => {
-        if (!r.inviterRole) return false;
-        const ctx = createPermissionContext({
-          userId: r.inviterId,
-          memberships: [{ workspaceId: r.workspaceId, userId: r.inviterId, role: r.inviterRole }],
-        });
-        return canInvite(ctx, { id: r.workspaceId }, r.role);
-      })
-      .map((r) => ({
-        token: r.token,
-        role: r.role,
-        workspace: { id: r.workspaceId, name: r.workspaceName, logo: r.workspaceLogo },
-        invitedBy: displayName({ name: r.inviterName, email: r.inviterEmail }),
-      }))
-  );
+  // An invite only carries its sender's authority while they still have it (as when accepting).
+  return rows.filter((r) => {
+    if (!r.inviterRole) return false;
+    const ctx = createPermissionContext({
+      userId: r.inviterId,
+      memberships: [{ workspaceId: r.workspaceId, userId: r.inviterId, role: r.inviterRole }],
+    });
+    return canInvite(ctx, { id: r.workspaceId }, r.role);
+  });
+}
+
+async function pendingInvitesFor(db: Db | Tx, me: Person): Promise<InviteChoice[]> {
+  return (await pendingInviteRows(db, me)).map((r) => ({
+    token: r.token,
+    role: r.role,
+    workspace: { id: r.workspaceId, name: r.workspaceName, logo: r.workspaceLogo },
+    invitedBy: displayName({ name: r.inviterName, email: r.inviterEmail }),
+  }));
 }
 
 /** The status of the person's latest request to each workspace they ever asked (or were removed from). */
@@ -216,7 +224,16 @@ async function latestRequest(
   return row ?? null;
 }
 
-async function joinableWorkspacesFor(db: Db | Tx, me: Person): Promise<JoinableWorkspace[]> {
+/**
+ * Workspaces the person's domain opens to them, by the rules, capped — without member counts. `ctx`: the
+ * person's permission context when the caller already has it (the shell), else it is loaded.
+ */
+async function offeredWorkspacesFor(
+  db: Db | Tx,
+  me: Person,
+  limit: number,
+  ctx?: PermissionContext,
+): Promise<Omit<JoinableWorkspace, 'memberCount'>[]> {
   const { domain } = listableDomain(me);
   if (domain === null) return [];
   // Every candidate, then the rules, then the cap: rows the person can't act on (already a member,
@@ -240,8 +257,8 @@ async function joinableWorkspacesFor(db: Db | Tx, me: Person): Promise<JoinableW
     )
     .orderBy(asc(sql`lower(${workspace.name})`), asc(workspace.id));
   if (rows.length === 0) return [];
-  const [ctx, previous] = await Promise.all([
-    loadPermissionContext(db, me.id),
+  const [mine, previous] = await Promise.all([
+    ctx ?? loadPermissionContext(db, me.id),
     latestRequests(db, me.id),
   ]);
   const offered: Omit<JoinableWorkspace, 'memberCount'>[] = [];
@@ -252,11 +269,16 @@ async function joinableWorkspacesFor(db: Db | Tx, me: Person): Promise<JoinableW
       domains: [domain],
       deletedAt: row.deletedAt,
     };
-    const option = joinOption(ctx, access, me, previous.get(row.id) ?? null);
+    const option = joinOption(mine, access, me, previous.get(row.id) ?? null);
     if (option === null) continue;
     offered.push({ id: row.id, name: row.name, logo: row.logo, option });
-    if (offered.length === MAX_JOINABLE) break;
+    if (offered.length === limit) break;
   }
+  return offered;
+}
+
+async function joinableWorkspacesFor(db: Db | Tx, me: Person): Promise<JoinableWorkspace[]> {
+  const offered = await offeredWorkspacesFor(db, me, MAX_JOINABLE);
   if (offered.length === 0) return [];
   const counts = await db
     .select({ workspaceId: membership.workspaceId, n: count() })
@@ -290,6 +312,25 @@ async function joinChoicesFor(db: Db | Tx, me: Person): Promise<JoinChoices> {
 export async function getJoinChoices(db: Db, userId: string): Promise<JoinChoices> {
   const me = await findPerson(db, userId);
   return me ? joinChoicesFor(db, me) : { invites: [], workspaces: [] };
+}
+
+/**
+ * Whether {@link getJoinChoices} would return anything — for the app shell, which asks on every page load
+ * and only needs yes or no ("Join a workspace" in the workspace menu). Same rules, less work: no member
+ * counts, the caller's own permission context instead of loading it again, and the domain side is only
+ * looked at when there is no invitation. Two queries for most people (the user row and their
+ * invitations), one more when their domain can be listed, one more when a workspace lists it.
+ */
+export async function hasAnyJoinChoice(
+  db: Db,
+  userId: string,
+  ctx: PermissionContext,
+): Promise<boolean> {
+  if (ctx.userId !== userId) throw new Error('hasAnyJoinChoice: context of another user');
+  const me = await findPerson(db, userId);
+  if (!me) return false;
+  if ((await pendingInviteRows(db, me)).length > 0) return true;
+  return (await offeredWorkspacesFor(db, me, 1, ctx)).length > 0;
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -411,8 +452,34 @@ export async function joinWorkspace(
       .onConflictDoNothing({ target: [membership.workspaceId, membership.userId] })
       .returning({ id: membership.id });
     await settlePendingRequests(tx, ws.id, me.id, 'member');
+    await settlePendingInvites(tx, ws.id, me.id);
     return { joined: inserted.length > 0 };
   });
+}
+
+/**
+ * A person who became a member some other way (auto-join, an approved request) is no longer invited: an
+ * invitation to their address that was still waiting is marked accepted, so it is not offered to them
+ * again ("Join a workspace", the join screen) and no longer counts as pending for the workspace. The role
+ * it carried is not applied — they are in with the role the other route gave them. Unverified addresses
+ * are left alone (they could not have accepted).
+ */
+export async function settlePendingInvites(
+  db: Db | Tx,
+  workspaceId: string,
+  userId: string,
+): Promise<void> {
+  await db
+    .update(invite)
+    .set({ status: 'accepted', acceptedAt: sql`now()` })
+    .where(
+      and(
+        eq(invite.workspaceId, workspaceId),
+        eq(invite.status, 'pending'),
+        sql`lower(${invite.email}) = (select lower(u.email) from "user" u
+                                      where u.id = ${userId} and u.email_verified)`,
+      ),
+    );
 }
 
 /**
@@ -569,6 +636,7 @@ export async function decideJoinRequest(
         .insert(membership)
         .values({ workspaceId: request.workspaceId, userId: request.userId, role })
         .onConflictDoNothing({ target: [membership.workspaceId, membership.userId] });
+      await settlePendingInvites(tx, request.workspaceId, request.userId);
     }
     const status = role === undefined ? 'declined' : 'approved';
     await tx
