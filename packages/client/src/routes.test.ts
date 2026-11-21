@@ -2,14 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 
-import { createOatClient } from './index.ts';
-
-type Endpoint = { method: string; path: string };
-function endpoints(value: unknown): Endpoint[] {
-  if (typeof value === 'function' && 'endpoint' in value) return [value.endpoint as Endpoint];
-  if (!value || typeof value !== 'object') return [];
-  return Object.values(value).flatMap(endpoints);
-}
+import { apiRoutes } from './index.ts';
 
 it('covers every non-skipped API route and HTTP method (OAuth redirects use browser navigation)', async () => {
   const root = fileURLToPath(new URL('../../../apps/web/src/app/api/', import.meta.url));
@@ -40,9 +33,8 @@ it('covers every non-skipped API route and HTTP method (OAuth redirects use brow
     expect(methods.length, file).toBeGreaterThan(0);
     for (const method of methods) expected.push(method + ' ' + path);
   }
-  const client = createOatClient(async () => {
-    throw new Error('Inventory must not dispatch');
-  });
-  const actual = endpoints(client).map(({ method, path }) => method + ' ' + path);
+  const actual = apiRoutes.flatMap(({ methods, path }) =>
+    methods.map((method) => method + ' ' + path),
+  );
   expect([...new Set(actual)].sort()).toEqual([...new Set(expected)].sort());
 });

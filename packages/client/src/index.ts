@@ -8,3 +8,4 @@ export {
   type OatResponse,
 } from './transport.ts';
 export { readLines, readSse, type SseEvent } from './streams.ts';
+export { apiRoutes, type ApiRoute } from './routes.ts';

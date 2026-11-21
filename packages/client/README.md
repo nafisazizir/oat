@@ -25,10 +25,40 @@ Add `"@oat/client": "workspace:*"` to a consumer's dependencies. There is no bui
 `{status, headers?, json(), body?}`. Paths are `/api/...` without a query; query values are strings,
 numbers or booleans (null/undefined omitted). Bodies are JSON. Streaming transports must provide the
 raw `ReadableStream<Uint8Array>` and response headers (especially AI SDK stream headers and export
-content type). The same methods can use a future desktop bridge transport. The main process will attach
-the Keychain bearer token; the renderer must never receive it. This package does not implement auth.
+content type). The desktop bridge transport below uses the same methods for JSON/text APIs. Main attaches
+the Keychain bearer token; the renderer never receives it. This package does not implement auth.
 
-## Methods
+## Desktop bridge transport
+
+`@oat/client/bridge` exports `bridgeTransport(oat)`, structurally typed against the invoke/subscribe
+portion of `OatBridge` (type-only core imports, no Electron dependency):
+
+```ts
+import { createOatClient } from '@oat/client';
+import { bridgeTransport } from '@oat/client/bridge';
+
+const transport = bridgeTransport(window.oat);
+const client = createOatClient(transport);
+// AI SDK: new DefaultChatTransport({ api: '/api/chat', fetch: toFetch(transport) })
+```
+
+Main owns authentication and the Keychain token. The renderer receives only JSON results or UTF-8
+stream events. Main matches methods/paths against the exported `apiRoutes` inventory, rejects ambiguous
+paths/unsafe IDs, disables redirects, and returns only safe stream headers. Sign-out or owner
+destruction/navigation aborts its streams. No feature UI is wired to the ready desktop renderer client.
+
+HTTP failure envelopes still become `OatApiError`; bridge unauthorized/forbidden map to 401/403,
+offline/unavailable to status 0. Subscriptions are installed before opening, so early chunks cannot be
+lost. Reader cancellation or AbortSignal abort sends stream-cancel and unsubscribes. If aborted while
+stream-open is still waiting for HTTP headers, the renderer stops waiting immediately and sends cancel
+when the stream id arrives; the protocol cannot cancel a not-yet-returned id. Plain-request abort also
+stops renderer waiting; main retains its existing ten-second timeout.
+
+The specified bridge carries text, not binary: main refuses ZIP/binary streaming responses rather than
+corrupting bytes through UTF-8. Workspace export remains available through the web/fetch transport;
+desktop binary download support needs a separate binary/file-download contract.
+
+## Feature methods
 
 ID arguments are positional; request bodies/queries use shared DTOs; the final argument accepts
 `{signal?: AbortSignal}`. Each HTTP method has `.endpoint = {method, path}` metadata with bracketed

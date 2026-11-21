@@ -37,7 +37,8 @@ import {
   type WebContents,
 } from 'electron';
 
-import { ApiError, createApiClient } from './api-client.ts';
+import { ApiError, createApiClient, createApiRequester } from './api-client.ts';
+import { registerApiProxy } from './api-proxy.ts';
 import { AudioPlayback, PlaybackError } from './audio-playback.ts';
 import { AudioStorage, StorageError } from './audio-storage.ts';
 import { AuthController } from './auth.ts';
@@ -271,9 +272,20 @@ async function start() {
     if (recording.busy) await recording.shutdown();
     await testRecording.stop(); // 9.2: nothing to save, but it uses this account's transcription
     grace.flush(); // 7.5: a meeting in its grace period ends now, in this account's database
+    apiProxy.cancelAll();
     await auth.signOut();
   });
   bridge.handle('api:me', () => auth.me());
+  const apiProxy = registerApiProxy({
+    bridge,
+    baseUrl: config.webUrl,
+    auth,
+    store,
+    request: createApiRequester({
+      baseUrl: config.webUrl,
+      userAgent: `Oat-Desktop/${app.getVersion()} (${process.platform})`,
+    }),
+  });
   bridge.handle('window:open-widget', () => {
     if (!auth.signedIn) throw new BridgeError('unauthorized', 'Sign in first.');
     openWidgetWindow();

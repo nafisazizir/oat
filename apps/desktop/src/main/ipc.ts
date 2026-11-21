@@ -23,6 +23,15 @@ import type { FrameLike } from './security.ts';
 
 export interface IpcEventLike {
   readonly senderFrame: FrameLike | null;
+  readonly sender?: ApiSender;
+}
+
+export interface ApiSender {
+  readonly id: number;
+  isDestroyed(): boolean;
+  send(channel: string, payload: unknown): void;
+  on(event: string, listener: () => void): unknown;
+  removeListener(event: string, listener: () => void): unknown;
 }
 
 export interface IpcMainLike {

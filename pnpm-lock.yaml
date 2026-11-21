@@ -399,6 +399,9 @@ importers:
       '@oat/calendar':
         specifier: workspace:*
         version: link:../../packages/calendar
+      '@oat/client':
+        specifier: workspace:*
+        version: link:../../packages/client
       '@oat/core':
         specifier: workspace:*
         version: link:../../packages/core

@@ -18,7 +18,7 @@ Out: packages/ui, visual changes, replacing local-first meeting notes, removing 
 - [x] Cookie writes enforce CSRF; bearer headers reach Better Auth; anonymous/non-member/non-admin deny tests pass.
 - [x] Client-safe response DTOs and request schemas support a typed injectable client.
 - [x] Browser-safe `@oat/client` covers feature REST routes with injectable transports, streams and tests.
-- [ ] Desktop proxy keeps Keychain token out of renderer and supports stream subscribe/cancel.
+- [x] Desktop proxy keeps Keychain token out of renderer and supports stream subscribe/cancel.
 
 ## Verification
 - pnpm run ci --fast
@@ -112,3 +112,78 @@ found a missing local TranscriptLine type import, a type-only test variable lint
 needing a second Prettier pass; all corrected. Diff review additionally found and fixed prototype-named
 query parameters in toFetch, with regression coverage. Final diff whitespace check clean.
 No additional integration/e2e/visual checks or independent review/verification in this handoff.
+
+### Handoff 3 — authenticated desktop API bridge
+
+Implemented strict api:request, api:stream-open, api:stream-cancel invoke schemas and api:stream-chunk,
+api:stream-end subscriptions in core. Preload channel sets are generated from bridgeContract, so no
+separate preload allowlist needed updating.
+
+Main registers the proxy through the existing sender-checked/schema-validated createBridge helpers.
+It shares api-client.ts's extracted requester (base URL, user agent, bearer attachment, redirects
+disabled, existing ten-second plain timeout). Streams have no overall timeout. AuthController.withSession
+provides the same rejected-token handling as api:me: clear persisted token and publish signed-out state.
+HTTP statuses/envelopes remain response values, including 401 after session invalidation.
+
+The single exported apiRoutes inventory is derived from actual typed-client endpoint declarations.
+Main matches methods/route patterns, prefers static routes over dynamic IDs, rejects traversal,
+percent encodings, duplicate separators, backslashes, query/fragment paths, unsafe IDs and non-ASCII/control
+characters, and rechecks new URL's origin/pathname. Auth/sign-in/STT/sync/health and Notion OAuth paths
+are absent. Only content-type, cache-control and x-vercel-ai-ui-message-stream headers cross the bridge.
+No new rate or payload-size limits were added.
+
+Streams are owned by webContents and cancelled on reader cancel, signal abort, owner destruction/navigation,
+and sign-out (explicit sign-out cancels before waiting for server revocation; auth state invalidation also
+cancels). Lifecycle listeners are removed after close/error/cancel. Chunk decoding preserves split UTF-8.
+Renderer bridgeTransport pre-subscribes/buffers early events, then exposes ReadableStreams and cleans up
+subscriptions on terminal events. The ready renderer api/apiTransport exports are not wired into UI.
+
+`settings:open-web` remains intact but is now unnecessary for phase 2's API-backed settings UI.
+Desktop meeting notes stay local-first (D-28); packages/ui is unchanged.
+
+Protocol limitations, explicitly documented in the package README:
+- Text-only chunk events cannot transport ZIP bytes: binary streams are refused rather than corrupted.
+  Workspace ZIP export works through the web/fetch transport; desktop file downloads need a binary/file
+  contract in a follow-up.
+- Stream cancellation during stream-open stops renderer waiting immediately, then sends cancel when
+  main returns the stream id. With this protocol, upstream pre-header cancellation cannot target an id
+  that has not been returned. Destroy/navigation/sign-out can still abort pending opens in main.
+  Plain-request AbortSignal likewise stops renderer waiting; main keeps its existing timeout.
+
+Final `pnpm run ci --fast`:
+```text
+step        status     time  note
+format      pass      28.6s
+actionlint  pass       0.5s
+typecheck   pass      15.4s
+lint        pass      10.8s
+test        pass      27.1s
+total                 82.5s
+
+ci: ok
+```
+
+Client/core results from CI: client 5 files / 59 tests passed; core 15 files / 489 tests passed.
+Initial CI found ESLint's no-control-regex on the path rejection expression; replaced it with a
+printable-ASCII exclusion with equivalent behavior. Diff review also added static-route precedence
+and wrong-method regression cases before the final green run.
+
+`pnpm --filter @oat/desktop test`:
+```text
+ Test Files  58 passed (58)
+      Tests  499 passed (499)
+   Duration  26.22s (tests 66%, import 16%, transform 12%, environment 6%)
+```
+
+`DATABASE_URL=postgres://oat:oat@localhost:54329/oat pnpm --filter @oat/web test:int src/server/api/workspaces.int.test.ts src/server/entrypoints.int.test.ts`:
+```text
+ Test Files  2 passed (2)
+      Tests  139 passed (139)
+   Duration  10.41s (tests 55%, import 26%, transform 19%)
+```
+
+Tests cover allow/deny tables, traversal/encoding/wrong-method attacks, sender checks, token/header
+isolation, signed-out/offline/401 handling with the real AuthController, stream ordering/UTF-8,
+cross-window cancel denial, upstream cancellation, owner lifecycle/sign-out, source errors, timeouts,
+and renderer bridge buffering/errors/cancel. Final git diff whitespace check clean.
+No UI/visual or desktop e2e verification and no independent review/verification in this handoff.

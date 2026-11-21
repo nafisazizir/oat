@@ -12,6 +12,7 @@
  * session token) is ever part of a schema here.
  */
 import { z } from 'zod';
+import { apiInvokeChannels, apiSubscribeChannels } from './bridge-api.ts';
 
 import { autoStopInvokeChannels, autoStopSubscribeChannels } from './bridge-auto-stop.ts';
 import { calendarInvokeChannels, calendarSubscribeChannels } from './bridge-calendar.ts';
@@ -26,6 +27,7 @@ import { storageInvokeChannels, storageSubscribeChannels } from './bridge-storag
 import { transcriptInvokeChannels } from './bridge-transcript.ts';
 
 export * from './bridge-auto-stop.ts';
+export * from './bridge-api.ts';
 export * from './bridge-calendar.ts';
 export * from './bridge-meetings.ts';
 export * from './bridge-onboarding.ts';
@@ -311,6 +313,7 @@ const none = z.undefined();
 
 export const bridgeContract = {
   invoke: {
+    ...apiInvokeChannels,
     'app:info': { request: none, response: appInfoSchema },
     'state:get': { request: none, response: mainStateSnapshotSchema },
     /** Opens the system browser at the web sign-in page. */
@@ -410,6 +413,7 @@ export const bridgeContract = {
     ...meetingSendChannels,
   },
   subscribe: {
+    ...apiSubscribeChannels,
     'state:changed': mainStateSnapshotSchema,
     /** Detailed recording state (levels, per-source STT status, issues), at most ~10 per second. */
     'recording:state': recordingSnapshotSchema,
