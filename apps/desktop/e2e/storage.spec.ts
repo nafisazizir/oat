@@ -29,7 +29,14 @@ import { AudioIndex } from '@oat/local-store';
 import { uniqueAddress } from '@oat/testkit';
 import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
 
-import { evidence, launchApp, scaled, signInDesktop, writeEvidence } from './helpers';
+import {
+  evidence,
+  launchApp,
+  openTranscript,
+  scaled,
+  signInDesktop,
+  writeEvidence,
+} from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
 
@@ -154,13 +161,14 @@ test('storage settings: list, show in Finder, delete audio (transcript kept), si
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
   const meetingId = ((await invoke(page, 'recording:get')).value as { meetingId: string })
     .meetingId;
+  await openTranscript(page);
   await expect(
     page.locator('[data-testid=transcript-segment][data-final=true]').nth(2),
   ).toBeVisible({ timeout: scaled(30_000) });
 
   // While it records: listed as "Recording", and its audio can't be deleted.
   await page.getByTestId('workspace-switcher').click();
-  await page.getByRole('menuitem', { name: 'Settings' }).click();
+  await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
   await page.getByTestId('settings-section-storage').click();
   await expect(page.getByTestId('storage-settings')).toBeVisible();
   const live = page.locator(`[data-testid=storage-meeting][data-meeting-id="${meetingId}"]`);

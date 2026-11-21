@@ -159,9 +159,10 @@ test.describe('Google (mock issuer)', () => {
     const email = uniqueAddress('e2e-google');
     await page.goto('/sign-in');
     await signInWithGoogle(page, email, 'Grace Hopper');
-    // `waitForURL` (not just the URL assertion) also waits for React to hydrate the page the provider
-    // redirected to; a click on the menu button before that lands on a dead button.
+    // The provider redirects back here (no `goto`): wait for /home to hydrate, or the click on the
+    // switcher below lands on a dead button (ci-flakes; seen 1 run in 2).
     await page.waitForURL(/\/home$/);
+    await expect(page).toHaveURL(/\/home$/);
     // Named after their first name.
     await expect(page.getByTestId('workspace-switcher')).toContainText('Grace’s workspace');
     await page.getByTestId('workspace-switcher').click();

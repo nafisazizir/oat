@@ -21,7 +21,16 @@ import { type ElectronApplication, expect, type Page, test } from '@playwright/t
 import postgres from 'postgres';
 
 import { databaseUrlFile } from '../../web/e2e/paths';
-import { evidence, launchApp, scaled, signInDesktop } from './helpers';
+import {
+  closeAttendees,
+  evidence,
+  home,
+  launchApp,
+  openAttendees,
+  openTranscript,
+  scaled,
+  signInDesktop,
+} from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
 test.describe.configure({ mode: 'serial' });
@@ -197,8 +206,9 @@ test('detected call during an event → "Start notes?" → note from the event, 
   });
   await signInDesktop(electronApp, page, browser, email);
 
-  // "Upcoming": today's review (in progress) and tomorrow's 1:1; the Mac calendar is readable: no CTA.
-  const upcoming = page.getByTestId('upcoming');
+  // "Coming up" on Home: today's review (in progress) and tomorrow's 1:1; the Mac calendar is readable:
+  // no CTA.
+  const upcoming = home(page).getByTestId('upcoming');
   await expect(upcoming.getByTestId('upcoming-event-title')).toHaveText([
     'Design review',
     tomorrowTitle,
@@ -225,27 +235,33 @@ test('detected call during an event → "Start notes?" → note from the event, 
     timeout: scaled(20_000),
   });
   await expect(page.getByTestId('note-title')).toHaveValue('Design review');
+  await expect(page.getByTestId('attendees-toggle')).toHaveText('2 attendees');
+  await openAttendees(page);
   const chips = page.getByTestId('participant-chip');
   await expect(chips).toHaveCount(2);
   // All from the calendar; order among attendees added together isn't defined.
   await expect(chips.and(page.locator('[data-source=calendar]'))).toHaveCount(2);
   for (const name of ['Jordan Lee', 'Priya Nair'])
     await expect(chips.filter({ hasText: name })).toHaveCount(1);
+  await closeAttendees(page);
   const scheduled = page.getByTestId('note-calendar-event');
   await expect(scheduled).toContainText('Scheduled');
   await expect(scheduled.getByRole('button', { name: 'Join Zoom' })).toBeVisible();
   await expect(page.getByTestId('meeting-time')).toHaveAttribute('data-in-progress', 'true');
   expect((await notifications(electronApp))[0]!.closed).toBe(true);
-  // The event in "Upcoming" now has its note.
+  const { meetingId } = await invoke<{ meetingId: string }>(page, 'recording:get');
+  await expect(
+    (await openTranscript(page)).locator('[data-testid=transcript-segment]').first(),
+  ).toBeVisible({ timeout: scaled(20_000) });
+  await shots(page, 'desktop-recording-from-event');
+  // The event in "Coming up" (Home) now has its note; back to the note, still recording.
+  await page.getByTestId('home-nav').click();
   await expect(upcoming.getByTestId('upcoming-event').first()).toHaveAttribute(
     'data-has-note',
     'true',
   );
-  const { meetingId } = await invoke<{ meetingId: string }>(page, 'recording:get');
-  await expect(
-    page.getByTestId('transcript-panel').locator('[data-testid=transcript-segment]').first(),
-  ).toBeVisible({ timeout: scaled(20_000) });
-  await shots(page, 'desktop-recording-from-event');
+  await page.getByTestId('meeting-list-item').filter({ hasText: 'Design review' }).click();
+  await expect(page.getByTestId('note-title')).toHaveValue('Design review');
 
   await page.getByRole('button', { name: 'Stop recording' }).click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
@@ -278,15 +294,19 @@ test('detected call during an event → "Start notes?" → note from the event, 
 
 test('Upcoming → Start notes opens the event’s note; again reopens the same one', async () => {
   test.setTimeout(scaled(90_000));
-  const upcoming = page.getByTestId('upcoming');
+  // "Coming up" is on Home (the note recorded above is still open).
+  await page.getByTestId('home-nav').click();
+  const upcoming = home(page).getByTestId('upcoming');
   const tomorrow = upcoming.getByTestId('upcoming-event').filter({ hasText: tomorrowTitle });
   await expect(tomorrow).toHaveAccessibleName(new RegExp(`^Start notes for ${tomorrowTitle}`));
   const listed = await page.getByTestId('meeting-list-item').count();
   await tomorrow.click();
   await expect(page.getByTestId('note-title')).toHaveValue(tomorrowTitle);
   await expect(page.getByTestId('meeting-time')).toContainText('Not recorded yet');
+  await openAttendees(page);
   await expect(page.getByTestId('participant-chip')).toHaveCount(1);
   await expect(page.getByTestId('participant-chip')).toContainText('Sam Okafor');
+  await closeAttendees(page);
   await expect(page.getByTestId('note-calendar-event')).toContainText('Scheduled');
   // Recording can start into it (nothing recorded yet): no "recorded on another device" hint.
   await expect(page.getByRole('button', { name: 'Start recording' })).toBeVisible();
@@ -301,6 +321,7 @@ test('Upcoming → Start notes opens the event’s note; again reopens the same 
   // Open another note, then the event again: the same note, no second one.
   await page.getByTestId('meeting-list-item').filter({ hasText: 'Design review' }).click();
   await expect(page.getByTestId('note-title')).toHaveValue('Design review');
+  await page.getByTestId('home-nav').click();
   await expect(tomorrow).toHaveAttribute('data-has-note', 'true');
   await tomorrow.click();
   await expect(page.getByTestId('note-title')).toHaveValue(tomorrowTitle);
@@ -310,22 +331,45 @@ test('Upcoming → Start notes opens the event’s note; again reopens the same 
   ).toHaveAttribute('data-document-id', documentId!);
 });
 
-test('no calendar access: "Connect calendar" (never asked on its own) → events', async () => {
+test('no calendar access: connect it in Settings → Setup (never asked on its own) → events', async () => {
   test.setTimeout(scaled(90_000));
   // Relaunch (same profile: still signed in) with a Mac calendar that hasn't been granted, detection off.
-  await launch({ OAT_CALENDAR: `fixture:${join(dir, 'calendar-no-access.json')}` });
+  // Microphone and system audio are allowed (a fixture: nothing here may ask macOS), so setup opens at the
+  // calendar.
+  writeFileSync(
+    join(dir, 'permissions.json'),
+    JSON.stringify({ microphone: 'granted', system_audio: 'granted' }),
+  );
+  await launch({
+    OAT_CALENDAR: `fixture:${join(dir, 'calendar-no-access.json')}`,
+    OAT_PERMISSIONS: `fixture:${join(dir, 'permissions.json')}`,
+  });
   await expect(page.getByTestId('signed-in-email')).toHaveText(email);
-  const upcoming = page.getByTestId('upcoming');
-  const connect = upcoming.getByTestId('calendar-connect');
-  await expect(connect).toContainText('See your meetings here');
-  await expect(upcoming.getByTestId('upcoming-event')).toHaveCount(0);
+  // Home has the notes but no "Coming up": no calendar can be read, and nothing asked for it.
+  await expect(home(page).getByTestId('home-note-row')).toHaveCount(2);
+  const upcoming = home(page).getByTestId('upcoming');
+  await expect(upcoming).toHaveCount(0);
+  expect(await invoke<{ eventkit: string }>(page, 'calendar:get')).toMatchObject({
+    eventkit: 'not_determined',
+  });
+  // Connecting a calendar lives in Settings → Setup since the calm shell (ui-calm-note-surfaces): the
+  // calendar row says it isn't allowed yet, "Open setup" goes to the calendar step.
+  await page.getByTestId('workspace-switcher').click();
+  await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
+  await expect(page.getByTestId('setup-calendar')).toHaveAttribute('data-state', 'ask');
+  await page.getByTestId('open-setup').click();
+  const setup = page.getByTestId('onboarding');
+  await expect(setup).toHaveAttribute('data-step', 'calendar');
+  const mac = setup.getByTestId('calendar-mac');
+  await expect(mac.getByTestId('permission-status')).toHaveAttribute('data-state', 'ask');
   await shots(page, 'desktop-connect');
-  await connect.getByRole('button', { name: 'Connect calendar' }).click();
+  await mac.getByRole('button', { name: 'Allow calendars' }).click();
+  await expect(mac.getByTestId('permission-status')).toHaveAttribute('data-state', 'done');
+  await page.getByTestId('onboarding-later').click();
   await expect(upcoming.getByTestId('upcoming-event-title')).toHaveText([
     'Design review',
     tomorrowTitle,
   ]);
-  await expect(connect).toHaveCount(0);
   // Both notes made earlier are recognised.
   await expect(upcoming.getByTestId('upcoming-event').first()).toHaveAttribute(
     'data-has-note',

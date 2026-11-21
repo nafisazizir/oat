@@ -30,8 +30,11 @@ import { type ElectronApplication, expect, type Page, test } from '@playwright/t
 import {
   deliverDeepLink,
   evidence,
+  home,
   launchApp,
+  openTranscript,
   scaled,
+  syncStatus,
   waitForSignInUrl,
   writeEvidence,
 } from '../../apps/desktop/e2e/helpers';
@@ -243,7 +246,7 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     const { redirectUrl } = (await (await codeResponse).json()) as { redirectUrl: string };
     await deliverDeepLink(app!, redirectUrl);
     await expect(page.getByTestId('signed-in-email')).toHaveText(ownerEmail);
-    await expect(page.getByTestId('meeting-start')).toBeVisible();
+    await expect(home(page)).toContainText('No notes yet');
   });
 
   let meetingId!: string;
@@ -267,6 +270,9 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     });
 
     await page.getByTestId('new-meeting').click();
+    // The note opens; its transcript is closed until asked for (ui-calm), so open it at once: the latency
+    // below is measured to the first *visible* segment.
+    await openTranscript(page);
     await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
     const started = await invoke<{ meetingId: string; startedAt: number }>(page, 'recording:get');
     meetingId = started.meetingId;
@@ -351,7 +357,7 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
         timeout: scaled(30_000),
       })
       .toBe(0);
-    await expect(page.getByTestId('sync-status')).toHaveText('All changes synced');
+    await expect(syncStatus(page)).toHaveAccessibleName('All changes synced');
     record('syncDrainMs', Date.now() - t0);
   });
 
@@ -397,7 +403,9 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     const content = JSON.stringify(detail.contentJson);
     expect(content).toContain('"origin":"ai"');
     expect(content).toContain(NOTE);
-    await expect(web.getByTestId('transcript-panel')).toBeVisible();
+    await expect(
+      (await openTranscript(web)).getByTestId('transcript-segment').first(),
+    ).toBeVisible();
     await evidence(web, 'web-enhanced', TASK);
 
     // …and on the desktop, through sync.
@@ -416,9 +424,13 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
 
   await test.step('Notion (mock) received the page', async () => {
     await web.reload();
+    // The Notion link and button are in the note's "More actions" menu (ui-calm; as in web pipeline.spec).
+    await web.getByTestId('document-more').click();
     const link = web.getByTestId('notion-link');
     await expect(link).toContainText('In Notion');
     const href = (await link.getAttribute('href'))!;
+    await web.keyboard.press('Escape');
+    await expect(link).toBeHidden();
     const mocksUrl = readFileSync(mocksUrlFile(new URL(webUrl).port), 'utf8').trim();
     const log = (await (await fetch(`${mocksUrl}/_requests?provider=notion`)).json()) as {
       requests: { method: string; path: string; body: string | null }[];
@@ -500,11 +512,15 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     await transcriptHit.first().click();
     await expect(web).toHaveURL(new RegExp(`/d/${documentId}\\?t=\\d+`));
 
+    // The desktop's search is a dialog behind the sidebar's Search button (ui-calm-shell).
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
     const local = page.getByLabel('Search notes and transcripts on this Mac');
     await local.fill('staging');
     await expect(page.getByTestId('local-search-results')).toContainText(TITLE);
     await evidence(page, 'desktop-search', TASK);
     await local.fill('');
+    await page.keyboard.press('Escape');
+    await expect(local).toBeHidden();
   });
 
   let teammate!: Page;
@@ -627,7 +643,7 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     await page.keyboard.type(TEAM_NOTE);
     await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', 'saved');
     await expect(
-      page.getByTestId('transcript-panel').locator('[data-testid=transcript-segment]').first(),
+      (await openTranscript(page)).locator('[data-testid=transcript-segment]').first(),
     ).toBeVisible({ timeout: scaled(20_000) });
     await page.getByRole('button', { name: 'Stop recording' }).click();
     await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {

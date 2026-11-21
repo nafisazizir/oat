@@ -19,7 +19,16 @@ import { type ElectronApplication, expect, type Page, test } from '@playwright/t
 import postgres from 'postgres';
 
 import { databaseUrlFile } from '../../web/e2e/paths';
-import { evidence, launchApp, scaled, signInDesktop, writeEvidence } from './helpers';
+import {
+  evidence,
+  home,
+  launchApp,
+  openTranscript,
+  scaled,
+  signInDesktop,
+  syncStatus,
+  writeEvidence,
+} from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
 test.describe.configure({ mode: 'serial' });
@@ -196,8 +205,8 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   );
   await signInDesktop(electronApp, page, browser, uniqueAddress('rec'));
 
-  // Empty state before the first recording.
-  await expect(page.getByTestId('transcript-empty')).toContainText('No transcript yet');
+  // Empty state before the first recording: Home without notes (a transcript belongs to a note now).
+  await expect(home(page)).toContainText('No notes yet');
   await expect(page.getByTestId('audio-input')).toContainText(`Fixture: ${FIXTURE}`);
   await evidence(page, 'empty', '2.5');
 
@@ -216,6 +225,9 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   });
 
   await page.getByRole('button', { name: 'Start recording' }).click();
+  // The note it records into opens; its transcript is closed until asked for, so open it at once (the
+  // latency below is measured to the first *visible* segment).
+  await openTranscript(page);
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
   const started = await recordingState(page);
   expect(started).toMatchObject({ status: 'recording', input: 'file', fixture: FIXTURE });
@@ -355,8 +367,8 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
 
   // 2.6: the finals went to the local database and through sync into Postgres, ids and text intact.
   expect(await syncNow(page)).toMatchObject({ state: 'idle', pending: 0 });
-  await expect(page.getByTestId('sync-status')).toHaveAttribute('data-state', 'idle');
-  await expect(page.getByTestId('sync-status')).toHaveText('All changes synced');
+  await expect(syncStatus(page)).toHaveAttribute('data-state', 'idle');
+  await expect(syncStatus(page)).toHaveAccessibleName('All changes synced');
   const expected = sortedFinals(final.segments);
   expect(expected.length).toBeGreaterThan(5);
   expect(await serverSegments(meetingId)).toEqual(expected);
@@ -410,6 +422,8 @@ test('transcription down: the error is shown and recording + archive carry on', 
   expect(after.status).toBe('recording');
   expect(after.elapsedMs).toBeGreaterThan(before.elapsedMs + 2_000);
   expect(after.levels.mic).not.toBeNull();
+  // (The transcript panel was open when the app was last used: it still is.)
+  await openTranscript(page);
   await expect(page.getByTestId('transcript-empty')).toContainText('Waiting for transcription');
   await evidence(page, 'stt-down', '2.5');
 
@@ -462,8 +476,8 @@ test('sync API down: the outbox grows while recording, then drains into Postgres
   expect(offline.state).toBe('offline');
   // The document, the meeting and every final are waiting in the outbox.
   expect(offline.pending).toBeGreaterThanOrEqual(finals.length + 2);
-  await expect(page.getByTestId('sync-status')).toHaveAttribute('data-state', 'offline');
-  await expect(page.getByTestId('sync-status')).toContainText('saved on this Mac');
+  await expect(syncStatus(page)).toHaveAttribute('data-state', 'offline');
+  await expect(syncStatus(page)).toHaveAccessibleName(/saved on this Mac/);
   await evidence(page, 'offline', '2.6');
   expect(await serverSegments(meetingId)).toEqual([]);
   expect((await sql`select 1 from meeting where id = ${meetingId}`).length).toBe(0);
@@ -479,7 +493,7 @@ test('sync API down: the outbox grows while recording, then drains into Postgres
       select count(*)::int as n, count(distinct id)::int as ids from transcript_segment
       where meeting_id = ${meetingId}`;
     expect(counts).toEqual({ n: finals.length, ids: finals.length });
-    await expect(page.getByTestId('sync-status')).toHaveText('All changes synced');
+    await expect(syncStatus(page)).toHaveAccessibleName('All changes synced');
     await evidence(page, 'drained', '2.6');
     writeEvidence(
       'sync.json',

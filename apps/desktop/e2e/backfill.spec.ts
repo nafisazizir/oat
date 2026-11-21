@@ -22,7 +22,7 @@ import { type RunningMocks, startMocks, sttProvider } from '@oat/mocks';
 import { uniqueAddress } from '@oat/testkit';
 import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
 
-import { evidence, launchApp, scaled, signInDesktop } from './helpers';
+import { evidence, launchApp, openTranscript, scaled, signInDesktop } from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
 test.describe.configure({ mode: 'serial' });
@@ -150,7 +150,8 @@ test('STT down past the end of the recording → filled in from the saved audio 
     timeout: scaled(60_000),
   });
 
-  // The note says what is missing and that it will be filled in.
+  // The note's transcript says what is missing and that it will be filled in.
+  await openTranscript(page);
   const notice = page.getByTestId('transcript-notice');
   await expect(notice.first()).toBeVisible({ timeout: scaled(20_000) });
   await expect(notice.first()).toHaveAttribute('data-kind', /^(filling|retrying)$/);
@@ -249,6 +250,7 @@ test('killed while recording → relaunch repairs the audio, closes the meeting,
     )
     .not.toBeNull();
   await expect(page.getByTestId('meeting-time')).not.toHaveAttribute('data-in-progress');
+  await openTranscript(page);
   const recovered = page.locator('[data-testid=transcript-notice][data-kind=recovered]');
   await expect(recovered).toContainText('Oat quit unexpectedly — recording saved up to');
   const storage = await invoke<{ meetings: { meetingId: string; status: string }[] }>(

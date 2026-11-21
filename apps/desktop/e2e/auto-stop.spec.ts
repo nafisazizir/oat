@@ -24,7 +24,14 @@ import { type ElectronApplication, expect, type Page, test } from '@playwright/t
 import postgres from 'postgres';
 
 import { databaseUrlFile } from '../../web/e2e/paths';
-import { evidence, launchApp, scaled, signInDesktop, writeEvidence } from './helpers';
+import {
+  evidence,
+  launchApp,
+  openTranscript,
+  scaled,
+  signInDesktop,
+  writeEvidence,
+} from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
 test.describe.configure({ mode: 'serial' });
@@ -159,8 +166,10 @@ const notifications = (electronApp: ElectronApplication) =>
   );
 
 const bar = () => page.getByTestId('recording-bar');
-const segments = () =>
-  page.getByTestId('transcript-panel').locator('[data-testid=transcript-segment]');
+/** The open note's transcript lines (its panel is opened first: closed by default in the calm shell). */
+async function segments() {
+  return (await openTranscript(page)).locator('[data-testid=transcript-segment]');
+}
 
 async function synced() {
   await expect
@@ -187,7 +196,7 @@ test('the call ends near its event’s end → toast → stopped → grace → P
   await expect(page.getByTestId('note-title')).toHaveValue('Weekly sync');
   const { meetingId } = await invoke<{ meetingId: string }>(page, 'recording:get');
   // A few lines of transcript (the e2e agents want ≥ 5 s of speech to auto-enhance).
-  await expect(segments().nth(2)).toBeVisible({ timeout: scaled(30_000) });
+  await expect((await segments()).nth(2)).toBeVisible({ timeout: scaled(30_000) });
 
   // Zoom lets go of the mic, 4 min before the event ends: clearly over → the undo toast.
   micApps([]);
@@ -256,7 +265,7 @@ test('undo keeps recording; Continue recording within the grace period starts no
   await page.getByRole('button', { name: 'New meeting note' }).click();
   await expect(bar()).toHaveAttribute('data-status', 'recording', { timeout: scaled(20_000) });
   const { meetingId } = await invoke<{ meetingId: string }>(page, 'recording:get');
-  await expect(segments().first()).toBeVisible({ timeout: scaled(30_000) });
+  await expect((await segments()).first()).toBeVisible({ timeout: scaled(30_000) });
 
   // The call ends → toast → "Keep recording": still recording well past the undo window.
   micApps([]);
@@ -322,7 +331,7 @@ test('in-person silence → "Meeting over?" → Keep going; the Recording settin
 
   // Settings → Recording: on by default; switching it off is kept (per Mac).
   await page.getByTestId('workspace-switcher').click();
-  await page.getByRole('menuitem', { name: 'Settings' }).click();
+  await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
   await page.getByTestId('settings-section-recording').click();
   const settings = page.getByTestId('recording-settings');
   const enabled = settings.getByTestId('autostop-enabled');
@@ -344,7 +353,7 @@ test('a crash inside the grace period: the relaunch ends the meeting and the pip
   await page.getByRole('button', { name: 'New meeting note' }).click();
   await expect(bar()).toHaveAttribute('data-status', 'recording', { timeout: scaled(20_000) });
   const { meetingId } = await invoke<{ meetingId: string }>(page, 'recording:get');
-  await expect(segments().nth(2)).toBeVisible({ timeout: scaled(30_000) });
+  await expect((await segments()).nth(2)).toBeVisible({ timeout: scaled(30_000) });
   await page.getByRole('button', { name: 'Stop recording' }).click();
   await expect(bar()).toHaveAttribute('data-status', 'idle', { timeout: scaled(30_000) });
   await expect(page.getByTestId('meeting-grace')).toBeVisible();
