@@ -30,15 +30,19 @@ const members = (n: number) => (n === 1 ? '1 member' : `${n} members`);
  * Where a signed-in user without a workspace chooses one (D-36; D-35: one calm column, not a wizard):
  * invitations to their address and workspaces that are open to the domain of their verified email, with
  * "Create my own workspace" as the alternative. With nothing to choose from they never see it — they go
- * straight into a workspace made for them. Someone who already has a workspace goes Home.
+ * straight into a workspace made for them.
+ *
+ * Someone who already has a workspace reaches it from the workspace menu ("Join a workspace", shown only
+ * while there is something to join): the same list, with a way back instead of "Create my own workspace".
+ * With nothing to choose from they go Home.
  */
 export default async function JoinPage() {
   const { user } = await requireSession();
   const db = getDb();
-  if ((await listUserWorkspaces(db, user.id)).length > 0) redirect('/home');
+  const member = (await listUserWorkspaces(db, user.id)).length > 0;
   const choices = await getJoinChoices(db, user.id);
   if (!hasJoinChoices(choices)) {
-    await ensureFirstWorkspace(db, user.id);
+    if (!member) await ensureFirstWorkspace(db, user.id);
     redirect('/home');
   }
 
@@ -54,6 +58,7 @@ export default async function JoinPage() {
       </AuthHeader>
       <AuthContent className="gap-6">
         <JoinChoiceList
+          member={member}
           choices={[
             ...choices.invites.map((invite) => ({
               kind: 'invite' as const,

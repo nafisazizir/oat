@@ -2,6 +2,8 @@ import 'server-only';
 
 import {
   ensureFirstWorkspace,
+  getJoinChoices,
+  hasJoinChoices,
   lastActiveWorkspaceId,
   listUserWorkspaces,
   pickActiveWorkspace,
@@ -62,6 +64,7 @@ export function buildShellData(input: {
   folders?: readonly FolderSummary[];
   documents?: readonly DocumentSummary[];
   trash?: readonly DocumentSummary[];
+  canJoin?: boolean;
 }): ShellData {
   const active = pickActiveWorkspace(
     input.workspaces,
@@ -84,6 +87,7 @@ export function buildShellData(input: {
       ...(input.documents ?? []).map(documentNode),
     ],
     trash: (input.trash ?? []).map(documentNode),
+    canJoin: input.canJoin ?? false,
   };
 }
 
@@ -128,10 +132,12 @@ const getContext = cache(async () => {
 /** User, workspaces and the active workspace's tree + trash for the signed-in frame. */
 export const getShellData = cache(async (): Promise<ShellData> => {
   const { db, user, workspaces, actor, active } = await getContext();
-  const [folders, documents, trash] = await Promise.all([
+  const [folders, documents, trash, choices] = await Promise.all([
     listFolders(db, actor, active.id),
     listDocuments(db, actor, active.id),
     listDocuments(db, actor, active.id, { trash: true }),
+    // Skips the workspaces the user is already in (step B): what is left is what they could still join.
+    getJoinChoices(db, user.id),
   ]);
   return buildShellData({
     user,
@@ -140,6 +146,7 @@ export const getShellData = cache(async (): Promise<ShellData> => {
     folders,
     documents,
     trash,
+    canJoin: hasJoinChoices(choices),
   });
 });
 

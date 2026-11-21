@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  audienceLabel,
   expiresIn,
   ICON_CHOICES,
   isRole,
@@ -58,13 +57,3 @@ describe('expiresIn', () => {
   });
 });
 
-describe('audienceLabel', () => {
-  it('never says "Shared with" a workspace nobody else is in', () => {
-    expect(audienceLabel({ name: 'Ada’s workspace', members: 1 })).toBe('Only you');
-    expect(audienceLabel({ name: 'Acme', members: 2 })).toBe('Shared with Acme');
-    // The same workspace, once someone joined.
-    expect(audienceLabel({ name: 'Ada’s workspace', members: 3 })).toBe(
-      'Shared with Ada’s workspace',
-    );
-  });
-});

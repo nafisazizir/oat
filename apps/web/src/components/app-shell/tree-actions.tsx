@@ -481,13 +481,13 @@ function MoveDialog({
   onClose: () => void;
   onPick: (folderId: string | null) => void;
 }) {
-  const { documents, workspace } = useShellData();
+  const { documents, workspace, user } = useShellData();
   const excluded = node ? subtreeIds(documents, node.id) : new Set<string>();
   const folders = documents
     .filter((d) => d.kind === 'folder' && d.access.edit && !excluded.has(d.id))
     .map((folder) => ({ folder, path: pathOf(documents, folder.id) }))
     .toSorted((a, b) => a.path.localeCompare(b.path));
-  const root = node ? areaOf(node) : 'private';
+  const root = node ? areaOf(node, user.id) : 'private';
 
   return (
     <CommandDialog
