@@ -1,5 +1,13 @@
 # Factory Log
 
+## 2026-11-21 — UI redesign PR 4: home and notes (in progress)
+
+- Reset PR 3 to 615f6a3 and branched `devin/1795226919-calm-note-surfaces`. Date-grouped home lists,
+  toolbar action portals, opt-in per-user transcript and bottom controls under implementation.
+  Rebase onto PR 3 d679651 before finishing (teamWorkspace Settings prop from lead).
+  PR #17 checks failure notification received; CI loop is not delegated to this PR 4 task, so lead must
+  handle it. No investigation of that PR undertaken. [task](tasks/ui-calm-note-surfaces.md)
+
 Append-only. Newest at the bottom. Orchestrator writes one entry per state change.
 
 ## Waiting on human

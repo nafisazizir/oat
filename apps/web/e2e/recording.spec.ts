@@ -57,7 +57,7 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   );
   await page.getByRole('button', { name: 'Mic only', exact: true }).click();
   await expect(page.getByTestId('web-recording')).toHaveAttribute('data-status', 'recording');
-  await expect(page.getByTestId('document-actions').getByTestId('web-recording')).toBeVisible();
+  await expect(page.getByTestId('note-bottom-bar').getByTestId('web-recording')).toBeVisible();
   const response = await pushed;
   const headers = await response.request().allHeaders();
   expect(headers['origin']).toBe(baseURL);
@@ -80,6 +80,8 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   await expect(page.locator('html')).toHaveAttribute('data-sync-live', '');
   const connectionsAfterTabSwitch = syncConnections;
   await expect(page.getByTestId('web-recording')).toHaveAttribute('data-status', 'recording');
+  await expect(page.getByTestId('transcript-panel')).toHaveCount(0);
+  await page.getByTestId('transcript-toggle').click();
   await expect(page.getByTestId('transcript-segment').first()).toBeVisible({ timeout: 30000 });
   await expect
     .poll(async () => {

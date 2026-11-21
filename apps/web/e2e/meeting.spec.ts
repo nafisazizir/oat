@@ -120,6 +120,8 @@ test('meeting header, attendees, transcript panel (collapse, resize, click → d
   await expect(chips(page).first()).toHaveAttribute('data-source', 'calendar');
   await expect(chips(page).first()).toContainText('Riley Chen');
 
+  await expect(panel(page)).toHaveCount(0);
+  await page.getByTestId('transcript-toggle').click();
   // Transcript panel beside the note, me/them lines.
   await expect(panel(page)).toBeVisible();
   await expect(panel(page)).toContainText('40');
@@ -208,10 +210,9 @@ test('meeting header, attendees, transcript panel (collapse, resize, click → d
 test('a ?t= deep link opens the (collapsed) panel at that moment', async ({ page }) => {
   await page.goto('/home');
   const { doc, lines } = await seedMeeting(page);
-  // Remember the panel as closed: the link must open it anyway.
+  // Closed by default: the link must open it anyway.
   await page.goto(`/d/${doc.id}`);
   await settled(page);
-  await page.getByRole('button', { name: 'Hide transcript' }).click();
   await expect(panel(page)).toHaveCount(0);
 
   // 11:45 into the meeting → the line spoken then (line 35 starts at 11:40), far down the list.

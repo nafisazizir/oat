@@ -29,7 +29,7 @@ export function TopBarProvider({ children }: { children: ReactNode }) {
           <div
             ref={setContainer}
             data-testid="top-bar-actions"
-            className="flex min-w-0 items-center gap-2"
+            className="flex min-w-0 items-center gap-2 overflow-x-auto"
           />
         </div>
       </header>

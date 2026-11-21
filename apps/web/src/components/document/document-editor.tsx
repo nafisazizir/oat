@@ -22,6 +22,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { TopBarActions } from '@/components/app-shell/top-bar';
 import { useTreeActions } from '@/components/app-shell/tree-actions';
 import { useRegisterOpenDocument } from '@/components/assistant/open-document';
 import { NotionExportButton } from '@/components/notion/notion-export-button';
@@ -74,8 +75,6 @@ export function DocumentEditor({
 }) {
   const router = useRouter();
   const actions = useTreeActions();
-  const headerRef = useRef<HTMLElement>(null);
-  const compact = useNarrow(headerRef, COMPACT_HEADER_PX);
   const secondaryActions = (history: React.ReactNode) => (
     <NotionExportButton
       documentId={doc.id}
@@ -240,59 +239,25 @@ export function DocumentEditor({
         </Alert>
       )}
 
-      <header ref={headerRef} className="flex flex-col gap-3">
-        <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2 text-label-13 text-gray-900">
-          <VisibilityBadge visibility={doc.visibility} workspace={workspace} />
-          {!trashed && !doc.access.edit && (
-            <Badge variant="outline">
-              <IconEye data-icon="inline-start" />
-              View only
-            </Badge>
-          )}
-          <span>Edited {formatDay(updatedAt)}</span>
-          {editable && (
-            <SaveStatus
-              state={autosave.state}
-              error={autosave.error}
-              onRetry={autosave.retry}
-              onReload={reload}
-            />
-          )}
-          {!trashed && (
-            <>
-              {isMeeting && (
-                <PipelineStatus
-                  documentId={doc.id}
-                  canRun={editable}
-                  onEnhancing={enhancement.follow}
-                />
-              )}
-              <div
-                className={
-                  // Narrow (transcript + assistant open): the actions get a tidy row of their own.
-                  compact
-                    ? 'flex w-full shrink-0 items-center gap-2'
-                    : 'ms-auto flex shrink-0 items-center gap-2'
-                }
-                data-testid="document-actions"
-                data-compact={compact || undefined}
-              >
-                {headerActions}
-                {editable && isMeeting ? (
-                  <EnhanceToolbar
-                    enhancement={enhancement}
-                    versions={versions}
-                    workspaceId={doc.workspaceId}
-                    renderSecondaryActions={secondaryActions}
-                  />
-                ) : (
-                  secondaryActions(null)
-                )}
-                <ShareDialog documentId={doc.id} />
-              </div>
-            </>
-          )}
-        </div>
+      {!trashed && (
+        <TopBarActions>
+          <div className="flex min-w-0 items-center gap-2" data-testid="document-actions">
+            {headerActions}
+            {editable && isMeeting ? (
+              <EnhanceToolbar
+                enhancement={enhancement}
+                versions={versions}
+                workspaceId={doc.workspaceId}
+                renderSecondaryActions={secondaryActions}
+              />
+            ) : (
+              secondaryActions(null)
+            )}
+            <ShareDialog documentId={doc.id} />
+          </div>
+        </TopBarActions>
+      )}
+      <header className="flex flex-col gap-3">
         <textarea
           aria-label="Title"
           data-testid="document-title"
@@ -315,7 +280,36 @@ export function DocumentEditor({
             }
           }}
         />
-        {meta}
+        <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2 text-label-13 text-gray-900">
+          <VisibilityBadge visibility={doc.visibility} workspace={workspace} />
+          {!trashed && !doc.access.edit && (
+            <Badge variant="outline">
+              <IconEye data-icon="inline-start" />
+              View only
+            </Badge>
+          )}
+          {!isMeeting && (
+            <span className="rounded-full bg-gray-alpha-100 px-2 py-1 text-label-12">
+              Edited {formatDay(updatedAt)}
+            </span>
+          )}
+          {editable && (
+            <SaveStatus
+              state={autosave.state}
+              error={autosave.error}
+              onRetry={autosave.retry}
+              onReload={reload}
+            />
+          )}
+          {!trashed && isMeeting && (
+            <PipelineStatus
+              documentId={doc.id}
+              canRun={editable}
+              onEnhancing={enhancement.follow}
+            />
+          )}
+          {meta}
+        </div>
       </header>
 
       <EnhanceError enhancement={enhancement} />
@@ -428,24 +422,6 @@ function SaveStatus({
         </span>
       );
   }
-}
-
-/** Below this header width the primary actions get a row of their own (9.3b). */
-const COMPACT_HEADER_PX = 560;
-
-/** The element is narrower than `px` (ResizeObserver; `false` before the first measurement). */
-function useNarrow(ref: React.RefObject<HTMLElement | null>, px: number): boolean {
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setNarrow(entry.contentRect.width < px);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [ref, px]);
-  return narrow;
 }
 
 /**

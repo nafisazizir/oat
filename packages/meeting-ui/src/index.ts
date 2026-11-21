@@ -21,6 +21,9 @@ export {
   type TranscriptItem,
 } from './format.ts';
 export { MeetingTime } from './meeting-time.tsx';
+export { groupNotesByDate } from './note-groups.ts';
+export { usePanelEscape } from './panel-escape.ts';
+export { TranscriptToggle } from './transcript-toggle.tsx';
 export { PlaybackBar, playerKey, type MeetingPlayback } from './playback-bar.tsx';
 export {
   PlaybackClock,

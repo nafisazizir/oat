@@ -7,7 +7,7 @@
  */
 import { Button } from '@oat/ui/components/button';
 import { cn } from '@oat/ui/lib/utils';
-import { IconLayoutSidebarRightCollapse } from '@tabler/icons-react';
+import { IconX } from '@tabler/icons-react';
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -19,6 +19,7 @@ import {
 } from 'react';
 
 import { clampWidth } from './format.ts';
+import { usePanelEscape } from './panel-escape.ts';
 
 function readStored(key: string): string | null {
   try {
@@ -70,6 +71,7 @@ export function useStoredState<T extends string | number | boolean>(
 const STEP = 16;
 
 export interface SidePanelProps {
+  id?: string;
   title: ReactNode;
   /** Extra header content (a count, a status) after the title. */
   meta?: ReactNode;
@@ -98,6 +100,7 @@ export function SidePanel({
   children,
   ...rest
 }: SidePanelProps) {
+  usePanelEscape(true, onClose);
   const [stored, setStored] = useStoredState(storageKey, defaultWidth);
   const width = clampWidth(stored, minWidth, maxWidth, defaultWidth);
   const [dragging, setDragging] = useState(false);
@@ -184,7 +187,7 @@ export function SidePanel({
           onClick={onClose}
           data-testid="panel-close"
         >
-          <IconLayoutSidebarRightCollapse />
+          <IconX />
         </Button>
       </header>
       {children}

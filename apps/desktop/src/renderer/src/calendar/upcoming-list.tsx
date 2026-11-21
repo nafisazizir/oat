@@ -20,7 +20,9 @@ export function UpcomingList({
   snapshot,
   onOpen,
   otherWorkspace,
+  compact = false,
 }: {
+  compact?: boolean;
   snapshot: CalendarSnapshot | null;
   onOpen: (documentId: string) => void;
   /** 3.9: the name of the workspace a note lives in when it isn't the one the sidebar shows. */
@@ -33,6 +35,7 @@ export function UpcomingList({
   const now = new Date();
   const groups = groupByDay(snapshot.events, now);
   const cta = connectAction(snapshot);
+  if (compact && snapshot.events.length === 0) return null;
 
   async function start(event: UpcomingEvent) {
     if (pending) return;
@@ -63,14 +66,14 @@ export function UpcomingList({
   return (
     <section
       aria-labelledby="upcoming-heading"
-      className="flex flex-col gap-1"
+      className={compact ? 'flex flex-col gap-2' : 'flex flex-col gap-1'}
       data-testid="upcoming"
     >
       <h2
         id="upcoming-heading"
         className="flex h-8 items-center px-2.5 text-label-12 text-gray-900"
       >
-        Upcoming
+        {compact ? 'Coming up' : 'Upcoming'}
       </h2>
       {groups.length === 0 ? (
         !cta && (
@@ -79,7 +82,13 @@ export function UpcomingList({
           </p>
         )
       ) : (
-        <div className="-mx-1 flex max-h-56 flex-col gap-1 overflow-y-auto px-1">
+        <div
+          className={
+            compact
+              ? 'flex max-h-72 flex-col gap-1 overflow-y-auto rounded-lg border border-gray-alpha-300 bg-background-200 p-2'
+              : '-mx-1 flex max-h-56 flex-col gap-1 overflow-y-auto px-1'
+          }
+        >
           {groups.map((group) => (
             <div key={group.label} className="flex flex-col">
               <h3 className="px-2.5 pt-1 pb-0.5 text-label-12 text-gray-900">{group.label}</h3>
@@ -102,7 +111,7 @@ export function UpcomingList({
           ))}
         </div>
       )}
-      {cta && (
+      {cta && !compact && (
         <div
           className="mx-1 flex flex-col gap-2 rounded-lg border border-dashed border-gray-alpha-400 p-3"
           data-testid="calendar-connect"

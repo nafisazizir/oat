@@ -1,10 +1,8 @@
 import { Button } from '@oat/ui/components/button';
-import { Skeleton } from '@oat/ui/components/skeleton';
 import type { CalendarEvent, ConferenceProvider } from '@oat/core';
-import { IconAlertCircle, IconCalendarEvent, type Icon as TablerIcon } from '@tabler/icons-react';
+import { IconAlertCircle, type Icon as TablerIcon } from '@tabler/icons-react';
 import Link from 'next/link';
 
-import { SectionHeading } from '@/components/page';
 import { listUpcomingMeetings } from '@/server/calendar';
 import { requireSession } from '@/server/session';
 
@@ -32,14 +30,14 @@ function toView(event: CalendarEvent, now: Date): UpcomingMeetingView {
 }
 
 const listClass =
-  'flex flex-col divide-y divide-gray-alpha-400 overflow-hidden rounded-xl border border-gray-alpha-400';
+  'flex flex-col overflow-hidden rounded-lg border border-gray-alpha-300 bg-background-200';
 
 function Section({ children }: { children: React.ReactNode }) {
   return (
     <section aria-labelledby="upcoming" className="flex flex-col gap-3">
-      <SectionHeading>
-        <span id="upcoming">Upcoming</span>
-      </SectionHeading>
+      <h2 id="upcoming" className="text-label-14 text-gray-900">
+        Coming up
+      </h2>
       {children}
     </section>
   );
@@ -59,7 +57,7 @@ function Notice({
 }) {
   return (
     <div
-      className="flex flex-col gap-3 rounded-xl border border-dashed border-gray-alpha-400 px-4 py-3 sm:min-h-14 sm:flex-row sm:items-center"
+      className="flex flex-col gap-3 px-0 py-2 sm:min-h-14 sm:flex-row sm:items-center"
       data-testid={testId}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3 text-copy-14 text-gray-900">
@@ -91,19 +89,7 @@ export async function UpcomingMeetings() {
   const { connected, sources, events } = await listUpcomingMeetings(session.user.id, { now });
   const state = sources[0]?.state;
 
-  if (!connected) {
-    return (
-      <Section>
-        <Notice
-          icon={IconCalendarEvent}
-          testId="upcoming-connect"
-          action={settingsLink('Connect Google Calendar')}
-        >
-          Connect your calendar to see upcoming meetings here and join them in one click.
-        </Notice>
-      </Section>
-    );
-  }
+  if (!connected) return null;
   if (state === 'reconnect') {
     return (
       <Section>
@@ -126,13 +112,10 @@ export async function UpcomingMeetings() {
       </Section>
     );
   }
+  if (events.length === 0) return null;
   return (
     <Section>
-      {events.length === 0 ? (
-        <Notice icon={IconCalendarEvent} testId="upcoming-empty">
-          No meetings in the next two weeks.
-        </Notice>
-      ) : (
+      {events.length > 0 && (
         <ul className={listClass} data-testid="upcoming-meetings">
           {events.map((event) => (
             <li key={event.id}>
@@ -146,31 +129,5 @@ export async function UpcomingMeetings() {
 }
 
 export function UpcomingMeetingsSkeleton() {
-  return (
-    <Section>
-      <div className={listClass} role="status" aria-label="Loading meetings">
-        {/* Mirrors UpcomingMeetingRow box for box. */}
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:flex-nowrap"
-          >
-            <div className="flex h-8 w-32 shrink-0 flex-col justify-center gap-1.5">
-              <Skeleton className="h-3 w-16" />
-              <Skeleton className="h-3 w-24" />
-            </div>
-            <div className="flex min-w-0 flex-1 basis-40 flex-col gap-0.5">
-              <div className="flex h-5 items-center">
-                <Skeleton className="h-3.5 w-1/2" />
-              </div>
-              <div className="flex h-[18px] items-center">
-                <Skeleton className="h-3 w-1/3" />
-              </div>
-            </div>
-            <Skeleton className="ms-auto h-8 w-28 shrink-0 rounded-md" />
-          </div>
-        ))}
-      </div>
-    </Section>
-  );
+  return null;
 }
