@@ -18,15 +18,13 @@ function legacyCopy(value: string) {
   textArea.select();
   textArea.setSelectionRange(0, value.length);
 
-  let copied = false;
   try {
-    copied = document.execCommand('copy');
+    return document.execCommand('copy');
   } catch {
-    copied = false;
+    return false;
+  } finally {
+    textArea.remove();
   }
-
-  document.body.removeChild(textArea);
-  return copied;
 }
 
 export function useCopyToClipboard({
@@ -38,19 +36,11 @@ export function useCopyToClipboard({
   const copyToClipboard = async (value: string) => {
     if (typeof window === 'undefined' || !value) return false;
 
-    let copied = false;
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(value);
-        copied = true;
-      } catch {
-        copied = legacyCopy(value);
-      }
-    } else {
-      copied = legacyCopy(value);
-    }
-
-    if (!copied) return false;
+    const copied = await navigator.clipboard?.writeText(value).then(
+      () => true,
+      () => false,
+    );
+    if (!copied && !legacyCopy(value)) return false;
 
     setIsCopied(true);
     onCopy?.();
