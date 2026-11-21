@@ -54,17 +54,17 @@ Out: purge/retention of a departed member's private notes; transferring note own
 
 ## Acceptance criteria
 Step A
-- [ ] No `kind` column, enum, type or "personal" special case remains (`grep` above returns only migrations,
+- [x] No `kind` column, enum, type or "personal" special case remains (`grep` above returns only migrations,
       this file and docs).
-- [ ] A user who existed before the migration keeps every document under the same workspace id; their former
+- [x] A user who existed before the migration keeps every document under the same workspace id; their former
       personal workspace is listed under its new name and can now invite members and be renamed.
-- [ ] A brand-new user with no invite lands in an auto-created workspace as `owner`; signing up twice
+- [x] A brand-new user with no invite lands in an auto-created workspace as `owner`; signing up twice
       concurrently creates exactly one.
-- [ ] Leaving or deleting your only workspace is refused (rule in `permissions.ts`, with deny tests); it works
+- [x] Leaving or deleting your only workspace is refused (rule in `permissions.ts`, with deny tests); it works
       once you belong to a second one.
-- [ ] Desktop: with a view-only workspace active, a new recording lands in a workspace where I can create; with
+- [x] Desktop: with a view-only workspace active, a new recording lands in a workspace where I can create; with
       none, the user is asked to create one and no recording is lost.
-- [ ] Desktop upgrades an existing local store without re-download or data loss (migration test from a
+- [x] Desktop upgrades an existing local store without re-download or data loss (migration test from a
       fixture DB containing a `personal` row).
 Step B
 - [ ] `invite_only` workspace is never shown to a matching-domain stranger; `request` shows "Request access";
@@ -152,8 +152,9 @@ What was decided, and what steps B/C need to know.
 - Removed: the "Personal workspace" settings note (`settings/workspace/layout.tsx`, `create-team-button.tsx`
   deleted), the brand-coloured avatar, "Personal space" labels, Members hidden for personal, the personal
   wording in the share dialog, templates pages and sign-in page.
-- "Only you" badges / the hidden "Shared" sidebar section now depend on the workspace having one member
-  (`isWorkspaceOfOne`), not on a kind. **Step C** replaces the sidebar sections anyway.
+- "Only you" badges now depend on the workspace having one member (`isWorkspaceOfOne`), not on a kind. The
+  sidebar's "Shared" section is always shown (it used to be hidden in a personal workspace). **Step C**
+  replaces the sidebar sections anyway.
 - Danger zone: Leave and Delete (owners) are shown disabled with "This is your only workspace…" for the last
   workspace (`WorkspaceSettings.lastWorkspace`); the actions return the same reason. The switcher offers
   "Leave …" only with more than one workspace. **Step C** (switcher hidden with one workspace) must keep a
@@ -178,7 +179,14 @@ migration test, and Google-**calendar** fixtures/tests where a calendar is title
 workspaces and left alone.
 
 **Out of scope touched:** `docs/DEV.md` and `.env.example` (two paragraphs/one comment describing the old
-model); test fixtures in `packages/ai`, `packages/indexing`, `agents` (dropped `kind`, renamed identifiers).
+model); test fixtures in `packages/ai`, `packages/indexing`, `agents` (dropped `kind`, renamed identifiers);
+`apps/desktop/e2e/workspaces.spec.ts` was already failing on `main` (stale against the ui-calm shell:
+transcript behind its toggle, Upcoming on Home) — adapted so the spec runs again, all 4 tests pass.
+
+**Known red on `main`, not caused by this step** (reproduced on `main` at d3b92e2): the other desktop e2e
+specs and the acceptance journey fail on selectors the ui-calm tasks removed (`meeting-start`, the transcript
+panel, `sync-status`, …). So `pnpm run ci` reports `e2e` (package `@oat/desktop`) and `acceptance` as FAIL
+on this branch exactly as on `main`; they need their own task.
 
 ## Review
 

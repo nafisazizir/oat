@@ -197,9 +197,10 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   });
   await expect(page.getByTestId('note-workspace')).toHaveText(DESIGN);
   await expect(page.getByTestId('meeting-list-item')).toHaveCount(1);
-  await expect(
-    page.getByTestId('transcript-panel').locator('[data-testid=transcript-segment]').first(),
-  ).toBeVisible({ timeout: scaled(20_000) });
+  // The transcript sits behind its toggle (ui-calm): the toggle counts the lines as they arrive.
+  await expect(page.getByRole('button', { name: /^Transcript [1-9]/ })).toBeVisible({
+    timeout: scaled(20_000),
+  });
   const { meetingId } = await invoke<{ meetingId: string }>(page, 'recording:get');
   await page.getByRole('button', { name: 'Stop recording' }).click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
@@ -226,10 +227,14 @@ test('as a viewer, new notes go to the first workspace I can add to (and the sid
   await expect(page.getByTestId('meeting-list-empty')).toBeVisible();
 
   // "Start notes" on an Upcoming event: the note is made in Design team.
+  // Upcoming lives on Home (ui-calm).
+  const home = () => page.getByTestId('home-nav').click();
   const upcoming = page.getByTestId('upcoming');
+  await home();
   await upcoming.getByTestId('upcoming-event').filter({ hasText: EVENT }).click();
   await expect(page.getByTestId('note-title')).toHaveValue(EVENT);
   await expect(page.getByTestId('note-workspace')).toHaveText(DESIGN);
+  await home();
   await expect(upcoming.getByTestId('upcoming-event-workspace')).toHaveText(`in ${DESIGN}`);
   await evidence(page, 'desktop-viewer-hint', TASK);
   await synced();
@@ -243,6 +248,8 @@ test('as a viewer, new notes go to the first workspace I can add to (and the sid
   await choose(DESIGN);
   await expect(page.getByTestId('meeting-list-item')).toHaveCount(2);
   await expect(page.getByTestId('meeting-list-item').filter({ hasText: EVENT })).toHaveCount(1);
+  await home();
+  await expect(upcoming.getByTestId('upcoming-event')).not.toHaveCount(0);
   await expect(upcoming.getByTestId('upcoming-event-workspace')).toHaveCount(0);
   await choose(OWN);
   await expect(page.getByTestId('meeting-list-empty')).toHaveText(
