@@ -629,3 +629,120 @@ Web e2e: 81 passed, 0 failed (incl. the 4 `join.spec.ts` tests, `workspaces.spec
 `notion.spec.ts` and `typography.spec.ts`). Desktop e2e: 8 passed / 10 failed / 10 not run — the same specs as
 on step A and `main` (stale selectors; `workspaces.spec.ts` 4/4 pass). Acceptance fails at
 `getByTestId('meeting-start')` in the desktop cold-start step, before any workspace step — the known failure.
+
+### Step B — verifier (2026-11-21, `task/unified-workspaces-b` at 68e271b)
+Verdict: **pass**, with one intermittent web e2e failure outside the known baseline (a test race, below).
+
+**Full `pnpm install && pnpm run ci`** (install exit 0; ci exit 1)
+
+```
+step             status     time  note
+format           pass       5.6s
+actionlint       pass       0.3s
+typecheck        pass       0.5s
+lint             pass       1.0s
+test             pass       0.2s
+stack            pass       0.3s
+migrate          pass       1.9s
+swift:release    pass       0.6s
+test:int         pass     206.8s
+e2e              FAIL     512.5s  failing package(s): @oat/desktop, @oat/web
+acceptance       FAIL      51.8s  pnpm --filter @oat/acceptance run acceptance exited with 1
+swift:build      pass       0.7s
+swift:test       pass       4.2s
+swift:synthetic  pass       2.2s
+total                     788.6s
+```
+
+- `test:int`: `@oat/auth` 126 passed, `@oat/web` 304 passed (19 files), `@oat/db` 56 passed / 1 skipped.
+- Desktop e2e: 8 passed / 10 failed / 10 did not run. Failing set compared one by one with the baseline —
+  `a11y:156`, `auto-stop:173`, `backfill:133`, `calendar-notes:190`, `meeting:94`, `onboarding:74`,
+  `playback:132`, `recording:188`, `storage:133`, `sync:51` — identical, nothing extra.
+- Acceptance: `journey.spec.ts:246` `getByTestId('meeting-start')` not visible — the baseline failure.
+- Web e2e: 80 passed / 1 failed / 17 skipped. `join.spec.ts` 4/4, `notion.spec.ts` and `typography.spec.ts`
+  (light and dark) passed. The one failure is **not on the baseline list**:
+  `e2e/auth.spec.ts:152` "Google (mock issuer) › signs in through the provider page and lands on /home" —
+  `getByRole('menu')` never appears after clicking the workspace switcher (line 160).
+  - Re-run alone (`playwright test e2e/auth.spec.ts`): 9/9 pass.
+  - Intermittent, and only seen when `join.spec.ts` is in the same run: with the four Verification specs
+    **plus** `join.spec.ts` it failed 2 of 4 runs on this branch; the four specs without `join.spec.ts`
+    passed 3 of 3 here and 3 of 3 on the step A checkout (0fb193f). Machine load average was about 16.
+  - Cause as far as I traced it (not proven): the page reaches `/home` through the provider redirect, which
+    is none of the navigations the `page` fixture waits for hydration on (`goto`, `waitForURL`, …), so the
+    switcher can be clicked before it is hydrated. `auth.spec.ts`, `fixtures.ts` and the app shell are
+    unchanged by step B; `join.spec.ts` adds several browser contexts to the same `next dev`. A test race
+    this step makes more likely to show, not a product defect — but it will make full CI red some of the
+    time until line 157 waits for hydration.
+
+**Step B commands**
+
+```
+pnpm --filter @oat/core test permissions      2 files, 357 passed (coverage 100 %)
+pnpm --filter @oat/auth test                  11 files, 70 passed
+pnpm --filter @oat/local-store test           8 files, 83 passed
+pnpm --filter @oat/auth run test:int          5 files, 126 passed
+playwright workspaces + auth + calm-auth + sharing + join   21 passed (2 of 4 runs; the other 2: 20 passed,
+                                                            auth.spec.ts:152 failed, see above)
+```
+
+(`pnpm --filter @oat/core test email-domains` runs 9/9 but exits 1 on the 100 % coverage threshold, as any
+single-file run of that package does; the file passes in the full `test` step.)
+
+**Acceptance criteria (Step B)**
+
+1. Three policies — met. e2e `join.spec.ts:158` (invite_only: stranger lands in "My workspace", `/join`
+   sends them Home, workspace not in the switcher), `:205` light + dark (request → "Request access"), `:312`
+   (auto_join → role shown as Member). Integration: `joining.int.test.ts` "invite_only: never shown; request:
+   "request"; auto_join: "join"" and "joins as member, once, however often and however concurrently". Ran.
+2. Unverified / public mailbox / not the admin's own domain — met. `permissions.join.test.ts` `canAddDomain`
+   "denies a domain other than their own", "denies an unverified email", "denies a public mailbox domain,
+   even the actor’s own"; `matchingJoinDomain` "never matches an unverified address / a public mailbox
+   domain". Ran (357 passed).
+3. Approve / decline — met. `joining.int.test.ts` "approve creates the membership with the chosen role",
+   "decline creates no membership, and the person can’t ask again", "one pending request per person per
+   workspace, however concurrently", "a request mails every owner and admin; a decision mails the
+   requester"; e2e `:205` approves as Viewer, declines the second, and reads both decision mails in Mailpit.
+4. Owner/admin only — met. `joining.int.test.ts` "only owners and admins change the policy or the domains",
+   "only owners and admins decide, and nobody approves above their own role"; `entrypoints.int.test.ts`
+   `setJoinPolicy, allowMyDomain, removeAllowedDomain…` and `approveJoinRequest and declineJoinRequest…`;
+   seeing: `workspace-settings.test.ts` "member and viewer: no join settings, no requests, nothing to approve
+   with"; e2e `:312` (a member's settings page has no `join-settings`).
+
+**Review fixes as behaviours** (all in `packages/auth/src/joining.int.test.ts` unless named; all ran green)
+
+- (a) removed by an admin: "a removed member stays out although the domain is still listed; others on it
+  still get in" (join and request both `NotFoundError`), "an invitation still works after a removal, and is
+  the way back"; web: `entrypoints.int.test.ts` "removeMember: someone removed can’t come back through the
+  domain, only by invitation". Would fail without `recordRemoval` / the `declined` check in `canAutoJoin`.
+- (b) leaving on one's own: "leaving on one’s own is not a "no"" (no `join_request` row, offered `join`).
+- (c) lister loses authority: "a removed admin can’t rejoin through the domain they opened, and nobody else
+  can either" (removed), "a demoted admin’s domain goes; so does one whose lister leaves" (demoted, leaves).
+- (d) "a declined requester is not let in when the policy later becomes auto_join".
+- (e) `email-domains.test.ts` "covers the big providers’ country domains by rule" (`live.ca`,
+  `outlook.com.au` public) and "a company domain that merely contains such a name is not public"
+  (`liveperson.com`). **Gap:** these assert `isPublicMailboxDomain` only; no test puts a family domain
+  through `canAddDomain` / `addOwnDomain` (those tests use `gmail.com`, `outlook.com`, …). The unit test
+  does fail without the fix, and `canAddDomain` calls that function, so the behaviour is covered
+  indirectly. Checked directly with a throwaway script against `permissions.ts` (not committed):
+  `live.ca` and `outlook.com.au` → `canAddDomain` false, `matchingJoinDomain` null; `liveperson.com` →
+  true / matches.
+- (f) "filters first, then caps: workspaces the person can’t act on don’t use up the list" (45 workspaces,
+  member of the first 41 → offered the last 4; a newcomer → the first 20). Fails with a cap before the filter.
+
+**Screenshots** (`docs/tasks/evidence/unified-workspaces/`, all 1440×900, all opened)
+
+Present: `join-screen-match-{light,dark}`, `join-screen-requested-{light,dark}`, `join-screen-auto-join-light`,
+`join-no-match-home-{light,dark}`, `join-settings-{light,dark}`, `join-requests-{light,dark}`,
+`join-request-email-{light,dark}`. Nothing overflows, text is readable in both themes, rows and buttons
+line up. Notes, none blocking:
+- "No match" is shown as the Home of a requester who was declined (workspace of their own, switcher open),
+  not of a newcomer whose domain matches nothing; both end on the same screen.
+- Join screen: the signed-in address wraps at the hyphen inside the domain ("…@co-" / "e15a46cf.test").
+- `join-settings-*`: the "Allowed email domains" row sits at the bottom edge of the 900 px viewport; the
+  "Allow <domain>" button state is not in any screenshot (the domain is already listed).
+- `join-request-email-dark` is the same light email as the light one (the email has no dark variant).
+- These were taken at 0ae76df, before the review fixes; the fixes did not touch these screens, and I did not
+  regenerate them.
+
+**Could not run / not done:** `main` was not re-run (baseline taken as given). The approve-vs-accept
+interleaving (review 4) has only the sequential test, as the implementer noted.
