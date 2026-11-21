@@ -23,9 +23,11 @@ import { StorageSettings } from './storage-settings.tsx';
 export function SettingsView({
   onClose,
   onOpenSetup,
+  teamWorkspace = false,
 }: {
   onClose: () => void;
   onOpenSetup: () => void;
+  teamWorkspace?: boolean;
 }) {
   const [section, setSection] = useState<'preferences' | 'recording' | 'storage'>('preferences');
   const action = useRecordingAction();
@@ -100,7 +102,10 @@ export function SettingsView({
                 </button>
               </SettingsNavGroup>
               <SettingsNavGroup label="Workspace">
-                {(['workspace', 'members'] as const).map((id) => (
+                {(teamWorkspace
+                  ? (['workspace', 'members'] as const)
+                  : (['workspace'] as const)
+                ).map((id) => (
                   <button
                     key={id}
                     type="button"
