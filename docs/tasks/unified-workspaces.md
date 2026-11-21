@@ -318,3 +318,124 @@ re-run the full `pnpm run ci` or any e2e (verifier's job).
   adapted rather than removed (auth int 83, members deny cases kept and extended).
 
 ## Evidence
+
+### Step A
+Verifier, 2026-11-21, branch `task/unified-workspaces-a` at a1329ce. Verdict: **pass for Step A** — every
+Step A criterion holds and no failure is caused by this branch — **but the gate is not green**: `e2e` and
+`acceptance` are red here exactly as on `main` (d3b92e2), see "Baseline". Steps B/C not checked.
+
+**1. `pnpm install && pnpm run ci` (full)** — install: "Already up to date".
+```
+step             status     time  note
+format           pass       4.8s
+actionlint       pass       0.2s
+typecheck        pass       0.5s
+lint             pass       0.8s
+test             pass       0.2s
+stack            pass       0.2s
+migrate          pass       1.8s
+swift:release    pass       0.5s
+test:int         pass     179.3s
+e2e              FAIL     448.9s  failing package(s): @oat/desktop, @oat/web
+acceptance       FAIL      35.1s  pnpm --filter @oat/acceptance run acceptance exited with 1
+swift:build      pass       0.5s
+swift:test       pass       4.1s
+swift:synthetic  pass       2.2s
+total                     679.1s
+ci: FAILED (e2e, acceptance)
+```
+(typecheck/lint/test were turbo cache hits; the Step A packages were re-run uncached below.)
+- e2e `@oat/desktop`: 8 passed, 10 failed, 10 did not run. `workspaces.spec.ts` 4/4 and `desktop.spec.ts` 4/4 pass.
+- e2e `@oat/web`: 76 passed, 17 skipped, 1 failed — `typography.spec.ts:13` (dark): "browser console errors",
+  4× `Failed to load resource: … 429 (Too Many Requests)`. `notion.spec.ts` passed in this run.
+- e2e `@oat/editor`: 16 passed, 2 skipped.
+- acceptance: 1 failed — `journey.spec.ts:159`, step "desktop: cold start, sign in through the browser",
+  `getByTestId('meeting-start')` not visible (line 246).
+
+**2. Step A verification commands** (run directly, not through turbo)
+```
+pnpm --filter @oat/core test permissions      320 passed; coverage 100 % statements/branches/functions/lines
+pnpm --filter @oat/auth test                  10 files, 64 passed
+pnpm --filter @oat/auth test:int              4 files, 86 passed
+pnpm --filter @oat/local-store test           8 files, 83 passed
+pnpm --filter @oat/db test:int                7 files passed, 1 skipped; 56 passed, 1 skipped
+pnpm --filter @oat/desktop test workspaces    3 files, 30 passed
+web   playwright workspaces/auth/calm-auth/sharing .spec.ts   17 passed (28.2s)
+desktop playwright e2e/workspaces.spec.ts                      4 passed (23.2s)
+web   playwright e2e/typography.spec.ts (alone, re-run)        3 passed (light + dark)
+web   playwright notion.spec.ts + documents.spec.ts            9 passed
+```
+
+**Acceptance criteria, Step A**
+1. No `kind`/"personal" left — **pass**. `git grep -Il -iE "personal|WorkspaceKind|kind === 'team'" -- apps packages`
+   (tracked files; a plain `grep -r` also walks `.next*` build output) returns only: `packages/db/drizzle/*`
+   (0001, 0003, 0013 + snapshots/journal), `packages/db/src/unified-workspaces-migration.int.test.ts`,
+   `packages/local-store/src/{migrations.ts (migration 1), migration-5.test.ts, fixtures/v4-two-kinds.sql}` and
+   `packages/calendar/src/google/source.test.ts` (a Google calendar titled "Personal"). Outside apps/packages:
+   calendar fixtures, `tools/mocks` gcal test, READMEs. `schema/workspace.ts`, `enums.ts`, `core/sync.ts`,
+   `core/types.ts` carry no workspace kind. Not a special case, but still named after the old model:
+   test-harness helper `teamWorkspace`, option `maxTeamWorkspaces` / `AUTH_MAX_TEAM_WORKSPACES`, and "team
+   workspace" in test comments and `e2e/acceptance/journey.spec.ts`.
+2. Existing user keeps documents under the same workspace id; renamed; can invite/rename — **pass**. Read
+   `0013_unified_workspaces.sql` (updates name/slug only, then drops constraint, index, column, enum; ids
+   untouched) and ran `unified-workspaces-migration.int.test.ts` (5 tests: ids + documents kept, rename with
+   fallback, slugs, change log, drops) inside `@oat/db test:int`; CI `migrate` passes. Invite + rename + slug
+   change of a first workspace: `auth.int.test.ts` "a first workspace is an ordinary one…" (passed). The
+   invite/rename test uses a freshly created first workspace, not a migrated row; after the migration the two
+   are indistinguishable in the schema.
+3. New user lands in an auto-created workspace as owner; concurrent sign-up creates one — **pass**.
+   `auth.int.test.ts` "concurrent calls for a user without one create exactly one, as owner" (8 parallel
+   `ensureFirstWorkspace`, one id, one `created`, role owner); web e2e `auth.spec.ts:68` "signs up, lands on the
+   requested page in a workspace of their own" and `:137` "signing in again keeps one workspace".
+4. Leaving/deleting the only workspace refused; works with a second — **pass**. `permissions.ts:410-429`
+   (`isLastWorkspace` in `canRemoveMember`/`canDeleteWorkspace`); deny cases in `permissions.test.ts:748-857`;
+   `members.int.test.ts` "nobody leaves their last workspace; with a second one they can", "the last workspace
+   can’t be deleted; with a second one it can"; `entrypoints.int.test.ts:235`; web e2e `workspaces.spec.ts:210`.
+5. Desktop record target — **pass**. Desktop e2e `workspaces.spec.ts:221` (viewer → first workspace I can add
+   to) and `:285` (view-only everywhere: hint, "Create a workspace of your own in Oat on the web, then try
+   again.", recorder stays idle, meeting count unchanged, records again once a role returns); unit
+   `workspaces.test.ts` "in no workspace at all" / "view-only everywhere" (30 passed). The zero-workspace case
+   (review finding 2) is covered by unit tests only, not by an e2e.
+6. Desktop upgrade without re-download or loss — **pass**. `migration-5.test.ts` (4 tests) upgrades the
+   version-4 fixture `v4-two-kinds.sql` with a `personal` row: rows, outbox, cursor, search kept; reopen no-op.
+
+**3. Baseline: `main` at d3b92e2** — throwaway worktree in the session scratch directory (`git worktree add
+--detach <scratch>/main-base d3b92e2`, `pnpm install`), removed afterwards. Same machine, same stack, run right
+after the branch runs. The ten failing desktop spec files and `journey.spec.ts` line 246 are byte-identical on
+both sides except `apps/desktop/e2e/workspaces.spec.ts` (rewritten on the branch) and a 2-line change in
+`journey.spec.ts`.
+
+`pnpm --filter @oat/desktop run e2e` on main: **4 passed, 11 failed, 12 did not run**. The extracted
+(test, error, locator, failing line) list of the branch run and the main run was compared with `diff`: the
+ten entries below are identical; main has one more (`workspaces.spec.ts`).
+
+| # | spec (desktop) | error on branch = error on main | class |
+|---|---|---|---|
+| 1 | `a11y.spec.ts:156` | `getByTestId('meeting-start')` not visible (line 203) | same failure on main |
+| 2 | `auto-stop.spec.ts:173` | `transcript-panel` › `transcript-segment` nth(2) not visible (190) | same failure on main |
+| 3 | `backfill.spec.ts:133` | `transcript-notice` first() not visible (155) | same failure on main |
+| 4 | `calendar-notes.spec.ts:190` | `participant-chip` count: expected 2, received 0 (229) | same failure on main |
+| 5 | `meeting.spec.ts:94` | `meeting-start` not visible (102) | same failure on main |
+| 6 | `onboarding.spec.ts:74` | `meeting-start` not visible (158) | same failure on main |
+| 7 | `playback.spec.ts:132` | `playback` `data-state` "paused": element not found (159) | same failure on main |
+| 8 | `recording.spec.ts:188` | `transcript-empty` "No transcript yet": element not found (200) | same failure on main |
+| 9 | `storage.spec.ts:133` | `transcript-segment[data-final=true]` nth(2) not visible (159) | same failure on main |
+| 10 | `sync.spec.ts:51` | `sync-status` expected "All changes synced", received "" (58) | same failure on main |
+| — | `workspaces.spec.ts` | main: `:152` fails (`transcript-panel` segment not visible, line 196), 3 not run; branch: 4/4 pass | fails on main, **fixed** by this branch |
+| 11 | acceptance `journey.spec.ts:159` | `meeting-start` not visible (246), step "desktop: cold start, sign in through the browser" | same failure on main |
+| 12 | web `typography.spec.ts:13` (dark) | branch full run: console errors, 4× HTTP 429. Alone on branch: pass. Main: pass with `notion.spec.ts` and in a full `@oat/web` e2e run (77 passed, 17 skipped, 0 failed) | flaky (passes alone on both) |
+| 13 | web `notion.spec.ts:35` | did **not** fail on the branch in this verification (full run and with `documents.spec.ts`: pass). On main: passes next to `typography.spec.ts` and in the full run; fails once next to `documents.spec.ts` (`scrollWidth` 1178 > 390, line 202) | flaky; seen failing on main only |
+
+Apparent cause of 1–11: the specs wait for elements the calm shell no longer shows at that point
+(`meeting-start`, the transcript panel/segments/notice/empty state, `sync-status` text; `participant-chip` and
+`playback` test ids are not in `apps/desktop/src` at all, on either side). The branch's renderer changes are
+limited to the workspace switcher/state, the settings view and one line each in `upcoming-list.tsx` and
+`main-window.tsx`. The claim "fails identically on `main`" is confirmed for desktop e2e and acceptance.
+Not confirmed as stated: `typography` (dark) did not fail on main in my runs — it is a load/rate-limit flake
+(429s), not a deterministic main failure; and `notion.spec.ts` "fails whenever it runs next to other specs" did
+not hold on the branch (passed next to `documents.spec.ts`), though it did fail that way on main.
+
+**Failures caused by this branch:** none found.
+**Could not run / not done:** nothing skipped. Notes: the 1440×900 screenshots in *Verification* are for B/C
+screens; `desktop-create-workspace-hint` is taken by the desktop spec. Each comparison run was made once per
+side (plus the single re-run of `typography`), so the flaky classification rests on few samples.
