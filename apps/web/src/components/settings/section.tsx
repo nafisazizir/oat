@@ -28,17 +28,21 @@ export function SettingsSection({
   );
 }
 
-/** Flat, bordered list of `Item` rows separated by hairlines (one inset for every row). */
+/** Quiet settings rows, without an enclosing card. */
 export function SettingsList({ className, ...props }: React.ComponentProps<typeof ItemGroup>) {
   return (
     <ItemGroup
       role="group"
       className={cn(
-        'gap-0 overflow-hidden rounded-lg border border-gray-alpha-400',
-        '*:data-[slot=item]:rounded-none *:data-[slot=item]:not-last:border-b-gray-alpha-400',
+        'gap-0',
+        '*:data-[slot=item]:rounded-none *:data-[slot=item]:border-0 *:data-[slot=item]:px-0 *:data-[slot=item]:py-4',
         className,
       )}
       {...props}
     />
   );
+}
+
+export function SettingsHeading({ children }: { children: React.ReactNode }) {
+  return <h1 className="text-heading-24 text-gray-1000">{children}</h1>;
 }

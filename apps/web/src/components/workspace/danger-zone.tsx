@@ -39,7 +39,7 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <Item className="flex-col items-stretch rounded-none not-last:border-b not-last:border-gray-alpha-400 sm:flex-row sm:items-center">
+    <Item className="flex-col items-stretch rounded-none border-0 px-0 py-3 sm:flex-row sm:items-center">
       <ItemContent>
         <ItemTitle>{title}</ItemTitle>
         <ItemDescription>{description}</ItemDescription>
@@ -148,10 +148,7 @@ export function WorkspaceDangerZone({
 
   return (
     <>
-      <ItemGroup
-        role="group"
-        className="gap-0 overflow-hidden rounded-lg border border-gray-alpha-400"
-      >
+      <ItemGroup role="group" className="gap-0">
         <Row
           title="Leave workspace"
           description={
@@ -160,7 +157,12 @@ export function WorkspaceDangerZone({
               : 'You’re the only owner. Make someone else an owner before you leave.'
           }
         >
-          <Button variant="outline" disabled={!canLeave} onClick={() => setLeaveOpen(true)}>
+          <Button
+            variant="ghost"
+            className="text-red-900 hover:bg-red-100 hover:text-red-1000"
+            disabled={!canLeave}
+            onClick={() => setLeaveOpen(true)}
+          >
             Leave workspace
           </Button>
         </Row>
@@ -169,7 +171,11 @@ export function WorkspaceDangerZone({
             title="Delete workspace"
             description={`Removes it for everyone. Restorable for ${restoreDays} days.`}
           >
-            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+            <Button
+              variant="ghost"
+              className="text-red-900 hover:bg-red-100 hover:text-red-1000"
+              onClick={() => setDeleteOpen(true)}
+            >
               Delete workspace
             </Button>
           </Row>

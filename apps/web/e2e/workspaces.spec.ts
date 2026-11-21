@@ -80,7 +80,10 @@ test('invite → accept → change role → remove, with two users', async ({ br
 
   // General settings: icon + name; the address is read-only.
   await owner.page.goto('/settings/workspace');
-  await expect(owner.page.getByRole('heading', { level: 1, name: teamName })).toBeVisible();
+  await expect(owner.page.getByRole('heading', { level: 1, name: 'General' })).toBeVisible();
+  await expect(owner.page.getByRole('navigation', { name: 'Settings sections' })).toContainText(
+    teamName,
+  );
   await expect(owner.page.getByTestId('workspace-slug').filter({ visible: true })).toBeVisible();
   await owner.page.getByRole('button', { name: 'Choose workspace icon' }).click();
   await owner.page.getByRole('option', { name: '🌾' }).click();

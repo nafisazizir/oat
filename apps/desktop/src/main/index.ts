@@ -7,6 +7,8 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { webSettingsUrl } from './web-settings.ts';
+
 import { DESKTOP_SCHEME, findDeepLinkArg } from '@oat/auth/desktop-link';
 import {
   type PermissionsSnapshot,
@@ -248,6 +250,9 @@ async function start() {
     coldStartMs,
   }));
   bridge.handle('state:get', () => store.snapshot());
+  bridge.handle('settings:open-web', async ({ section }) => {
+    await shell.openExternal(webSettingsUrl(config.webUrl, section));
+  });
   bridge.handle('auth:sign-in', () => {
     // D-28: no account switch while recording (the meeting belongs to the account that started it).
     if (auth.signedIn && recording.busy) {

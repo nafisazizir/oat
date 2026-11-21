@@ -68,8 +68,7 @@ export function PipelineSwitch({
   );
 }
 
-const ROW =
-  'flex items-start justify-between gap-4 rounded-lg border border-gray-alpha-400 px-3 py-2.5';
+const ROW = 'flex items-start justify-between gap-4 py-3';
 
 /** The same row while its setting loads: identical geometry, so nothing moves when it arrives. */
 export function PipelineSwitchSkeleton({ label }: { label: string }) {

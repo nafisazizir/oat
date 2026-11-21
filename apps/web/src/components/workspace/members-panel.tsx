@@ -45,7 +45,7 @@ import { InviteDialog } from './invite-dialog';
 type Apply = (action: MembersAction) => void;
 
 /** Rows share one column grid so roles and actions line up down the list. */
-const ROW = 'px-4 py-3 not-last:border-b not-last:border-gray-alpha-400 rounded-none';
+const ROW = 'px-0 py-3 not-last:border-b not-last:border-gray-alpha-300 rounded-none';
 
 function RoleControl({
   workspaceId,
@@ -259,7 +259,9 @@ function Section({
   title,
   action,
   children,
+  primary = false,
 }: {
+  primary?: boolean;
   title: string;
   action?: React.ReactNode;
   children: React.ReactNode;
@@ -267,7 +269,11 @@ function Section({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex min-h-9 items-center justify-between gap-4">
-        <h2 className="text-heading-16">{title}</h2>
+        {primary ? (
+          <h1 className="text-heading-24 text-gray-1000">{title}</h1>
+        ) : (
+          <h2 className="text-heading-16">{title}</h2>
+        )}
         {action}
       </div>
       {children}
@@ -288,6 +294,7 @@ export function MembersPanel({ settings }: { settings: WorkspaceSettings }) {
     <>
       <Section
         title="Members"
+        primary
         action={
           inviteRoles.length > 0 && (
             <Button onClick={() => setInviteOpen(true)}>
@@ -297,10 +304,7 @@ export function MembersPanel({ settings }: { settings: WorkspaceSettings }) {
           )
         }
       >
-        <ItemGroup
-          className="gap-0 overflow-hidden rounded-lg border border-gray-alpha-400"
-          data-testid="member-list"
-        >
+        <ItemGroup className="gap-0" data-testid="member-list">
           {members.map((member) => (
             <MemberRow key={member.userId} workspace={workspace} member={member} apply={apply} />
           ))}
@@ -309,10 +313,7 @@ export function MembersPanel({ settings }: { settings: WorkspaceSettings }) {
 
       {settings.canManage && invites.length > 0 && (
         <Section title="Pending invites">
-          <ItemGroup
-            className="gap-0 overflow-hidden rounded-lg border border-gray-alpha-400"
-            data-testid="invite-list"
-          >
+          <ItemGroup className="gap-0" data-testid="invite-list">
             {invites.map((invite) => (
               <InviteRow key={invite.id} invite={invite} apply={apply} />
             ))}

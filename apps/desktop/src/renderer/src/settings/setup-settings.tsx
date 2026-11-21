@@ -25,23 +25,23 @@ const ROWS = [
   ['Calendar', 'calendar'],
 ] as const;
 
-export function SetupSettings({ onOpenSetup }: { onOpenSetup: () => void }) {
+export function SetupSettings({
+  onOpenSetup,
+  title = 'Setup',
+}: {
+  onOpenSetup: () => void;
+  title?: string;
+}) {
   const permissions = usePermissions();
   return (
     <div className="flex flex-col gap-4" data-testid="setup-settings">
-      <SettingsHeader
-        title="Setup"
-        description="What Oat may use on this Mac. Run setup again to change a permission or try a test recording."
-      />
-      <div className="flex flex-col rounded-lg border border-gray-alpha-400">
-        <dl
-          className="flex flex-col divide-y divide-gray-alpha-400"
-          aria-busy={permissions ? undefined : true}
-        >
+      <SettingsHeader title={title} />
+      <div className="flex flex-col">
+        <dl className="flex flex-col" aria-busy={permissions ? undefined : true}>
           {ROWS.map(([label, step]) => {
             const view = permissions ? stepView(step, permissions)! : null;
             return (
-              <div key={label} className="flex h-11 items-center justify-between gap-4 px-4">
+              <div key={label} className="flex min-h-12 items-center justify-between gap-4 py-3">
                 <dt className="text-label-14 text-gray-1000">{label}</dt>
                 {view ? (
                   <dd
@@ -62,7 +62,8 @@ export function SetupSettings({ onOpenSetup }: { onOpenSetup: () => void }) {
             );
           })}
         </dl>
-        <div className="border-t border-gray-alpha-400 p-3">
+        <div className="flex items-center justify-between gap-4 py-3">
+          <span className="text-copy-14 text-gray-900">Permissions and a test recording</span>
           <Button variant="outline" size="sm" onClick={onOpenSetup} data-testid="open-setup">
             Open setup
             <IconChevronRight data-icon="inline-end" />
