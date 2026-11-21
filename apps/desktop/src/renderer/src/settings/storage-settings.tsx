@@ -6,7 +6,6 @@ import type {
 } from '@oat/core/bridge';
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@oat/ui/components/card';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,13 +34,7 @@ import {
 } from '@oat/ui/components/select';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import { Spinner } from '@oat/ui/components/spinner';
-import {
-  IconDeviceDesktop,
-  IconFolderOpen,
-  IconMicrophone,
-  IconTrash,
-  IconUsers,
-} from '@tabler/icons-react';
+import { IconFolderOpen, IconMicrophone, IconTrash, IconUsers } from '@tabler/icons-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { BridgeCallError, bridge, call } from '../bridge.ts';
@@ -93,7 +86,7 @@ export function StorageSettings() {
   return (
     <div className="flex flex-col gap-5" data-testid="storage-settings">
       <div className="flex flex-col gap-1">
-        <h2 className="text-heading-16 text-gray-1000">Storage</h2>
+        <h1 className="text-heading-24 text-gray-1000">Storage</h1>
         <p className="text-copy-14 text-gray-900">
           Meeting audio is saved only on this Mac and never uploaded. Deleting audio keeps the
           transcript and your notes.
@@ -128,22 +121,18 @@ export function StorageSettings() {
 function UsageCard({ summary }: { summary: StorageSummary }) {
   const count = summary.meetingCount;
   return (
-    <Card size="sm">
-      <CardContent className="flex items-center gap-4">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-900">
-          <IconDeviceDesktop className="size-5" />
-        </div>
-        <div className="flex min-w-0 flex-col">
-          <p className="text-heading-24 text-gray-1000 tabular-nums" data-testid="storage-total">
-            {formatBytes(summary.totalBytes)}
-          </p>
-          <p className="text-copy-14 text-gray-900">
-            Your audio of {count} {count === 1 ? 'meeting' : 'meetings'} on this Mac
-            {summary.deletedMeetings > 0 && ` · ${summary.deletedMeetings} with audio deleted`}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex items-center justify-between gap-6 py-3">
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="text-label-14 text-gray-1000">Audio on this Mac</p>
+        <p className="text-copy-13 text-gray-900">
+          {count} {count === 1 ? 'meeting' : 'meetings'}
+          {summary.deletedMeetings > 0 && ` · ${summary.deletedMeetings} with audio deleted`}
+        </p>
+      </div>
+      <p className="text-label-16-mono text-gray-1000" data-testid="storage-total">
+        {formatBytes(summary.totalBytes)}
+      </p>
+    </div>
   );
 }
 
@@ -223,17 +212,15 @@ function RetentionCard({
 
   const unit = kind === 'age' ? 'days' : 'GB';
   return (
-    <Card size="sm" data-testid="retention">
-      <CardHeader>
-        <CardTitle>
-          <h3>Keep audio</h3>
-        </CardTitle>
-        <CardDescription>
+    <section className="flex flex-col gap-4 py-4" data-testid="retention">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-label-14 text-gray-1000">Keep audio</h2>
+        <p className="text-copy-13 text-gray-900">
           Checked when Oat starts, after each recording and every 6 hours. The meeting being
           recorded and audio from the last hour are never deleted.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+        </p>
+      </div>
+      <div className="flex flex-col gap-3">
         <form
           className="flex flex-wrap items-center gap-2"
           onSubmit={(event) => {
@@ -302,7 +289,7 @@ function RetentionCard({
         <p role="alert" className="text-copy-14 text-red-900 empty:hidden">
           {error}
         </p>
-      </CardContent>
+      </div>
       {confirming && (
         <AlertDialog open onOpenChange={(open) => !open && setConfirming(null)}>
           <AlertDialogContent data-testid="retention-confirm">
@@ -325,7 +312,7 @@ function RetentionCard({
           </AlertDialogContent>
         </AlertDialog>
       )}
-    </Card>
+    </section>
   );
 }
 
@@ -392,7 +379,7 @@ function RecordingsList({
         {error}
       </p>
       {sorted.length === 0 ? (
-        <Empty className="border border-gray-alpha-400 px-6 py-10" data-testid="storage-empty">
+        <Empty className="px-0 py-6" data-testid="storage-empty">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <IconMicrophone aria-hidden />
@@ -402,14 +389,11 @@ function RecordingsList({
           </EmptyHeader>
         </Empty>
       ) : (
-        <ul
-          className="flex flex-col divide-y rounded-xl border border-gray-alpha-400"
-          data-testid="storage-list"
-        >
+        <ul className="flex flex-col divide-y divide-gray-alpha-300" data-testid="storage-list">
           {sorted.map((m) => (
             <li
               key={m.meetingId}
-              className="flex items-center gap-3 px-3 py-2.5"
+              className="flex items-center gap-3 py-3"
               data-testid="storage-meeting"
               data-meeting-id={m.meetingId}
             >
@@ -470,7 +454,7 @@ function RecordingsList({
       )}
       {others.meetings > 0 && (
         <div
-          className="flex items-center gap-3 rounded-xl border border-dashed border-gray-alpha-400 px-3 py-2.5 text-gray-900"
+          className="flex items-center gap-3 border-t border-gray-alpha-300 py-3 text-gray-900"
           data-testid="storage-other-accounts"
         >
           <IconUsers className="size-4 shrink-0" />

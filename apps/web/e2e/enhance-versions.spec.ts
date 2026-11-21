@@ -114,8 +114,9 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
   await expect(page.getByLabel('Names and terms', { exact: true })).toHaveValue(
     'Brightsmile\nDentaCore',
   );
-  // The sidebar shows the new name.
-  await expect(page.getByTestId('app-sidebar')).toContainText('Riley Versions');
+  await page.getByTestId('workspace-switcher').click();
+  await expect(page.getByRole('menu')).toContainText('Riley Versions');
+  await page.keyboard.press('Escape');
   await evidence(page, 'profile');
 
   // --- Enhance (v1) ----------------------------------------------------------------------------------

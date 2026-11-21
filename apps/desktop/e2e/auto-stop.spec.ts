@@ -323,6 +323,7 @@ test('in-person silence → "Meeting over?" → Keep going; the Recording settin
   // Settings → Recording: on by default; switching it off is kept (per Mac).
   await page.getByTestId('workspace-switcher').click();
   await page.getByRole('menuitem', { name: 'Settings' }).click();
+  await page.getByTestId('settings-section-recording').click();
   const settings = page.getByTestId('recording-settings');
   const enabled = settings.getByTestId('autostop-enabled');
   await expect(enabled).toBeChecked();

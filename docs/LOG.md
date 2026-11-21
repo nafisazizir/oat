@@ -252,3 +252,20 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   simulated, not native/audio verification. Initial selector/link-role/tooltip typing failures fixed.
   Origin/main still does not contain PR 1 feedback commit 48b4708; main rebase remains pending.
   [task](tasks/ui-calm-shell.md)
+
+## 2026-11-21 — UI redesign PR 3: settings
+
+- Confirmed PR 2 rebase at f8f60da: local fast CI **ci: ok** (13.5s). Started
+  `devin/1795225960-calm-settings` from PR 2. Shared Account/Workspace navigation, 640px content column,
+  quiet rows and bottom danger actions. Web-managed sections have explicit desktop browser links;
+  native Preferences/permissions, Recording and Storage stay native. Fast CI **ci: ok** (33.5s).
+  Web settings/workspaces/calendar/Notion/pipeline/profile/smoke/typography/axe **24 passed** initially;
+  stale profile selector fixed, focused profile + two-theme axe rerun **4 passed**. Desktop settings,
+  shell, storage-format and configured web URL unit tests **26 passed**. Built renderer + six native
+  axe scans passed; 20 light/dark 1440×900 screenshots under `/home/ubuntu/shots/pr3/` reviewed.
+  Browser links retain browser session/workspace; no new native editing APIs. Native macOS/audio and
+  browser launch unverified on Linux. Rebase onto refreshed PR 2 while it awaits merge.
+  Rebased onto `f6be005`, keeping the CI-gate and shell LOG entries. Visual review then fixed the native
+  sticky-nav offset on Storage; final local fast CI **ci: ok** (47.8s), refreshed six native screenshots
+  and axe scans **0 violations**. Web settings remain visually unchanged by that renderer-only offset.
+  [task](tasks/ui-calm-settings.md)

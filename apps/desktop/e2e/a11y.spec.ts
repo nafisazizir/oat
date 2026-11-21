@@ -267,8 +267,12 @@ test('every desktop screen: axe clean in light and dark (+ sweep screenshots)', 
   await page.getByTestId('workspace-switcher').click();
   await page.getByRole('menuitem', { name: 'Settings' }).click();
   await expect(page.getByTestId('settings')).toBeVisible();
+  await sweep(page, '14-settings-preferences');
+  await page.getByTestId('settings-section-recording').click();
+  await sweep(page, '14-settings-recording');
+  await page.getByTestId('settings-section-storage').click();
   await expect(page.getByTestId('storage-total')).toBeVisible();
-  await sweep(page, '14-settings');
+  await sweep(page, '14-settings-storage');
 
   // Signed out again (account card after sign-out).
   await page.getByTestId('settings-close').click();

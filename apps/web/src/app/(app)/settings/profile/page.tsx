@@ -1,12 +1,12 @@
 import { getUserProfile } from '@oat/db';
 import type { Metadata } from 'next';
 
-import { BackLink, PageContainer, PageHeader } from '@/components/page';
+import { SettingsHeading } from '@/components/settings/section';
 import { ProfileForm } from '@/components/settings/profile-form';
 import { getDb } from '@/server/db';
 import { requireSession } from '@/server/session';
 
-export const metadata: Metadata = { title: 'About me' };
+export const metadata: Metadata = { title: 'Profile' };
 
 /**
  * `/settings/profile` (4.6): "About me". What the AI should know about the note-taker when it writes notes
@@ -18,13 +18,9 @@ export default async function ProfileSettingsPage() {
   if (!profile) throw new Error('signed-in user has no row');
 
   return (
-    <PageContainer className="gap-8">
-      <PageHeader
-        title="About me"
-        description="Only you see this. The AI reads it as background, never as instructions, when it enhances your notes and answers questions."
-        eyebrow={<BackLink href="/settings">Settings</BackLink>}
-      />
+    <>
+      <SettingsHeading>Profile</SettingsHeading>
       <ProfileForm profile={profile} />
-    </PageContainer>
+    </>
   );
 }

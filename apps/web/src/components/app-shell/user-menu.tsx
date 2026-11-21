@@ -6,7 +6,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@oat/ui/components/dropdown-menu';
-import { IconLogout } from '@tabler/icons-react';
+import Link from 'next/link';
+
+import { IconLogout, IconUser, IconSettings } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import { toast } from 'sonner';
@@ -39,6 +41,14 @@ export function AccountMenuItems() {
           <span className="block truncate">{user.name}</span>
           <span className="block truncate text-label-12 text-gray-900">{user.email}</span>
         </DropdownMenuLabel>
+        <DropdownMenuItem nativeButton={false} render={<Link href="/settings/profile" />}>
+          <IconUser />
+          Profile
+        </DropdownMenuItem>
+        <DropdownMenuItem nativeButton={false} render={<Link href="/settings" />}>
+          <IconSettings />
+          Preferences
+        </DropdownMenuItem>
         <DropdownMenuItem disabled={pending} onClick={signOut}>
           <IconLogout />
           Sign out
