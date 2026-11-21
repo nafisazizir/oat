@@ -67,12 +67,12 @@ Step A
 - [x] Desktop upgrades an existing local store without re-download or data loss (migration test from a
       fixture DB containing a `personal` row).
 Step B
-- [ ] `invite_only` workspace is never shown to a matching-domain stranger; `request` shows "Request access";
+- [x] `invite_only` workspace is never shown to a matching-domain stranger; `request` shows "Request access";
       `auto_join` joins as `member` — each covered by an e2e and an integration test.
-- [ ] Unverified email, public mailbox domain, or a domain other than the admin's own: denied (unit deny tests).
-- [ ] Approve creates the membership with the chosen role; decline does not; both notify the requester; a
+- [x] Unverified email, public mailbox domain, or a domain other than the admin's own: denied (unit deny tests).
+- [x] Approve creates the membership with the chosen role; decline does not; both notify the requester; a
       declined user can't spam (one pending request per user per workspace).
-- [ ] Only owner/admin can see or decide requests and edit policy/domains.
+- [x] Only owner/admin can see or decide requests and edit policy/domains.
 Step C
 - [ ] Sidebar shows Private and Shared sections on web and desktop; a note moves between them when its
       visibility changes, without reload; another member never sees my Private items (e2e with two users).
@@ -196,6 +196,118 @@ reproduced on `main` with `playwright test e2e/notion.spec.ts e2e/documents.spec
 both. `typography.spec.ts` (dark) failed once in the full run and is listed as flaky under load in `LOG.md`.
 Final full run on this branch: web e2e 75 passed / 2 failed (those two), desktop 8 passed / 10 failed / 10
 not run (all pre-existing; `workspaces.spec.ts` 4/4 pass), everything else `pass`.
+
+### Step B (branch `task/unified-workspaces-b`, from step A's `a1329ce`)
+What was decided, and what step C needs to know.
+
+**Model**
+- Postgres migration `0014_join_policy` (after step A's 0013; `db:generate` reports no drift; additive only):
+  enum `join_policy` + `workspace.join_policy` (default `invite_only`), table `workspace_domain(workspace_id,
+  domain, added_by, created_at)` with primary key `(workspace_id, domain)` and a check that the domain is
+  stored normalised, enum `join_request_status` + table `join_request(id, workspace_id, user_id, status,
+  decided_by, decided_at, role, created_at, updated_at)` with the partial unique index
+  `join_request_one_pending_uq (workspace_id, user_id) WHERE status = 'pending'`. `role` is the role granted
+  on approval (null otherwise); `decided_by` is null for a request settled without a decider (below).
+- **Not synced to the desktop.** `workspace_domain` and `join_request` have no change-log trigger and no sync
+  DTO, and `join_policy` is not in `syncWorkspaceRowSchema` (rows stay `{ id, name, role }`): they are
+  owner/admin settings and a pre-membership flow that only the web has UI for, and a non-member's desktop has
+  no workspace to sync them under. `SYNC_PULL_SCOPE` and the local store are untouched. Side effect: changing
+  the policy updates the `workspace` row, so its existing trigger writes one change-log entry and desktops
+  re-pull that (unchanged) row — harmless. A joined member's desktop learns about the workspace through the
+  `membership` trigger, as with an accepted invite.
+- Better Auth: `join_policy` is not an organization field (`auth-mapping.ts` unchanged) and
+  `beforeUpdateOrganization` still refuses every key but name/slug/logo, so it can't be set through
+  `organization/update`.
+
+**Rules** (`packages/core`)
+- `email-domains.ts`: `PUBLIC_MAILBOX_DOMAINS` (about 140 consumer, ISP and disposable providers),
+  `normalizeDomain`, `emailDomain`, `isPublicMailboxDomain`. The list can't be exhaustive; the second half of
+  the rule is that only one's *own* verified domain can be listed.
+- `permissions.ts` (table in the file header; deny tests in `permissions.join.test.ts`, coverage still 100 %):
+  `matchingJoinDomain` (verified email, non-public domain, listed, workspace not deleted — exact match, no
+  subdomains), `canEditJoinSettings` (owner/admin: policy, removing a domain), `canAddDomain` (owner/admin,
+  verified, only their own email's domain, never public), `canAutoJoin`, `canRequestToJoin`,
+  `joinOption` (`join` | `request` | `requested` | `null` — `null` is "not shown at all", which is what an
+  `invite_only` workspace always is to a stranger), `canDecideJoinRequest` (owner/admin of the request's
+  workspace, pending only, approving with a role ≤ their own).
+- **Decided: a declined request is final.** `canRequestToJoin` takes the status of the person's latest request
+  to that workspace: `pending` or `declined` → no. So "can't spam" is both the unique index (one pending) and
+  "a no stands": the workspace is no longer offered to them and asking again is refused; an owner/admin can
+  still invite them. Someone approved once and removed since may ask again.
+- The person is always an `EmailIdentity { email, emailVerified }` built from the user row; no rule takes an
+  address or a domain from a request.
+
+**Server** (`packages/auth/src/joining.ts`; int tests `joining.int.test.ts`)
+- `getJoinChoices(db, userId)` → `{ invites, workspaces }`: pending, unexpired invitations to the user's
+  (verified) address whose sender may still send them, and workspaces offered by `joinOption`. A workspace
+  that invited them appears once, as the invitation.
+- `ensureFirstWorkspace` **moved here from `workspaces.ts`** and now returns
+  `{ workspaceId: undefined, created: false, choices: true }` (was `pendingInviteToken`) whenever
+  `getJoinChoices` is non-empty; `createOwnWorkspace` is the same thing without that check ("Create my own
+  workspace"; still only for a user with no workspace, so pressing twice creates one). `workspaces.ts` keeps
+  `createWorkspaceFor`, `lockUser` (now also returns `emailVerified`) and the lists.
+- `joinWorkspace` (auto-join, as `member`), `requestToJoin`, `decideJoinRequest`, `setJoinPolicy`,
+  `addOwnDomain`, `removeDomain`, `listJoinRequests`, `getJoinSettings`. Locks in the same order as step A:
+  the actor's `lockUser`, then the workspace row `FOR UPDATE` (`lockWorkspace` from `members.ts`, now
+  exported) — so a join, a decision, a policy change and a soft delete of one workspace are serialised.
+  Memberships are inserted `ON CONFLICT DO NOTHING` on `membership_workspace_user_uq`. Tested concurrently:
+  8 joins → one membership; 8 requests → one row; approve/approve/decline/decline → exactly one wins, the
+  rest get `JoinRequestDecidedError`; join racing a delete never ends in a membership of a live workspace.
+- `addOwnDomain` has **no domain parameter**: the domain is read from the actor's user row. `removeDomain`
+  takes one, only as the key of the row to delete.
+- To a non-member, "may not join/ask" is `NotFoundError`, exactly like an unknown or deleted workspace, so
+  ids can't be probed; a member/viewer deciding or editing gets `ForbiddenError`.
+- Someone who gets in another way has their pending request settled as `approved` with `decided_by` null:
+  on auto-join (policy changed while they waited) and on accepting an invitation (`afterAcceptInvitation`
+  hook in `server.ts`). An approval for someone who is already a member keeps the role they have.
+- Pending requests stay decidable after the policy goes back to `invite_only` or the domain is removed (the
+  decider is granting membership, like an invite). People who joined stay when a domain is removed.
+- Email (`email.ts` `joinRequestEmail`, `joinDecisionEmail`; same escaping/unlinkable rules as the
+  invitation): a new request mails every owner and admin once (re-asking while pending sends nothing); a
+  decision mails the requester. Sent after the transaction commits, through the same SMTP config
+  (`apps/web` `getMailer()`; Mailpit in dev); a failed send is logged and never fails the request/decision.
+  The request email links to `/settings/workspace/members`, which shows the *active* workspace — the text
+  names the workspace to switch to (a link that switches workspace on GET was not added).
+
+**Web**
+- `/join` (`app/(auth)/join/page.tsx`, the calm 360 px auth column; in the proxy matcher): rows for
+  invitations (Accept / Decline) and matching workspaces (Join / Request access / "Requested"); the first
+  actionable row is the one primary button, "Create my own workspace" the ghost alternative (it becomes the
+  primary when the only thing left is a request that is waiting). No choices → the page creates the
+  workspace and goes Home, so nobody ever sees an empty join screen; a user who already has a workspace is
+  sent Home. The shell (`getContext`) redirects a workspace-less user with choices to `/join` — this replaces
+  step A's redirect to `/invite/<token>`. `/invite/<token>` itself is unchanged (email links, signed-out).
+- Settings → Workspace → General gets a **Joining** section (owners/admins only; not rendered for others):
+  three radios, saved on change, and "Allowed email domains" with Remove and one "Allow <my domain>" button —
+  no text field. An owner on a public mailbox address is told why there is nothing to add.
+- Members page: **Requests to join** (owners/admins; hidden when empty) — role select (roles ≤ own), Approve,
+  Decline. `WorkspaceSettings` gained `joining`, `joinRequests`, `approveRoles`.
+- Actions in `server/actions/joining.ts`; deny cases for each in `entrypoints.int.test.ts` (`createMyWorkspace`
+  is `SELF_SCOPED` in the authz registry).
+
+**For step C / follow-ups**
+- A user with a workspace has no way to find other workspaces open to their domain (`/join` sends them
+  Home). If C adds "Join a workspace" next to "Create workspace", `getJoinChoices` already works for members
+  (it skips workspaces they are in); the page's two redirects are what to relax.
+- `auto_join` + step A's finding 6: a `workspace`-visibility note in a workspace of one reads "Only you" and
+  becomes readable by whoever auto-joins. Turning on `request`/`auto_join` is now a second way that happens;
+  settle the wording with Private / Shared.
+- A member removed from an `auto_join` workspace can join again at once (and one removed from a `request`
+  workspace can ask again). Blocking that needs a "removed" record — not in scope here.
+- Desktop: someone who signs in on the desktop only and has choices gets no workspace until they open the web
+  (step A's "You’re not in a workspace… on the web" message covers it). No join UI on the desktop.
+- `/change-email` is disabled (`DISABLED_AUTH_PATHS`). If it is ever enabled, the new address must be
+  verified before `emailVerified` stays true — domain matching trusts that flag.
+- Axe: the join screen is scanned whole (0 violations of any impact, light and dark); the Joining section and
+  the requests list are scanned as sections (`include`), because the pages around them belong to the main
+  sweep. Seen while scanning the whole General page, **not fixed (pre-existing, outside step B)**:
+  `label-content-name-mismatch` (serious) on the "Choose workspace icon" button (visible text "Add icon"),
+  a page `a11y.spec.ts` doesn't visit; plus `region` (moderate) findings in the app shell.
+
+**Out of scope touched:** `members-panel.tsx` `ROW` — rows drew a box instead of a divider as soon as a list
+had two rows (`border-gray-alpha-300` coloured all four sides of `Item`'s border); now bottom edge only. It
+shows in the members list too. `apps/web/e2e/workspaces.spec.ts`: the invited-newcomer part now goes through
+`/join`. `test-harness.ts`: `signUp(label, domain?)` and `outbox`.
 
 ## Review
 
