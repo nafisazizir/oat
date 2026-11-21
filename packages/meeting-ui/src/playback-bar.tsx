@@ -171,7 +171,7 @@ function Notice({
 }) {
   return (
     <div className="flex items-start gap-2.5" data-testid="playback-notice">
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-900 [&_svg]:size-3.5">
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-900 [&_svg]:size-3.5">
         {icon}
       </span>
       <div className="flex min-w-0 flex-1 flex-col">
@@ -198,7 +198,6 @@ function Player({ player, info }: { player: MeetingPlayback; info: PlaybackInfo 
           <Button
             size="icon-sm"
             variant="default"
-            className="rounded-full"
             onClick={player.toggle}
             aria-label={player.playing ? 'Pause' : 'Play'}
             title={player.playing ? 'Pause (Space)' : 'Play (Space)'}
@@ -221,7 +220,7 @@ function Player({ player, info }: { player: MeetingPlayback; info: PlaybackInfo 
           </span>
           {partial && (
             <Badge
-              variant="outline"
+              variant="secondary"
               title="Part of this recording was recovered after the app quit unexpectedly."
             >
               Partial
@@ -297,7 +296,7 @@ function SourceToggle({
             else if (event.key === 'ArrowLeft') move(event, -1);
           }}
           className={cn(
-            'min-h-6 rounded-[5px] px-1.5 text-label-12 text-gray-900 transition-colors outline-none hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 disabled:cursor-not-allowed disabled:text-gray-700',
+            'min-h-6 rounded-md px-1.5 text-label-12 text-gray-900 transition-colors outline-none hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 disabled:cursor-not-allowed disabled:text-gray-700',
             value === s && 'bg-background-100 text-gray-1000 ring-1 ring-gray-alpha-400',
           )}
         >

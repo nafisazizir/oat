@@ -230,7 +230,7 @@ export function SearchView({ workspaceId }: { workspaceId: string }) {
         onSubmit={(event) => event.preventDefault()}
         className="flex flex-col gap-2"
       >
-        <InputGroup size="lg" className="rounded-xl">
+        <InputGroup size="lg">
           <InputGroupInput
             autoFocus
             type="search"
@@ -260,7 +260,7 @@ export function SearchView({ workspaceId }: { workspaceId: string }) {
           icon={IconSearchOff}
           title="Search isn’t available right now"
           action={
-            <Button variant="outline" onClick={() => setAttempt((n) => n + 1)}>
+            <Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
               Try again
             </Button>
           }

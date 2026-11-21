@@ -64,7 +64,7 @@ export function SetupSettings({
         </dl>
         <div className="flex items-center justify-between gap-4 py-3">
           <span className="text-copy-14 text-gray-900">Permissions and a test recording</span>
-          <Button variant="outline" size="sm" onClick={onOpenSetup} data-testid="open-setup">
+          <Button variant="secondary" size="sm" onClick={onOpenSetup} data-testid="open-setup">
             Open setup
             <IconChevronRight data-icon="inline-end" />
           </Button>

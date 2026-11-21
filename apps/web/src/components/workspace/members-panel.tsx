@@ -78,6 +78,7 @@ function RoleControl({
   return (
     <Select
       size="sm"
+      variant="ghost"
       items={options.map((value) => ({ value, label: ROLE_INFO[value].label }))}
       value={member.role}
       onValueChange={(value) => {
@@ -311,6 +312,7 @@ function JoinRequestRow({ request, roles }: { request: JoinRequestView; roles: R
       <ItemActions className="gap-1">
         <Select
           size="sm"
+          variant="ghost"
           items={options.map((value) => ({ value, label: ROLE_INFO[value].label }))}
           value={role}
           disabled={deciding}
@@ -344,7 +346,7 @@ function JoinRequestRow({ request, roles }: { request: JoinRequestView; roles: R
           Decline
         </Button>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           disabled={deciding}
           aria-label={`Approve ${request.name}`}

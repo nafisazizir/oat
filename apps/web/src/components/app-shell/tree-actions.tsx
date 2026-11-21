@@ -496,7 +496,7 @@ function MoveDialog({
       title={node ? `Move ${titleOf(node)}` : 'Move'}
       description="Pick a folder to move it into."
     >
-      <Command>
+      <Command size="sm">
         <CommandInput placeholder="Move to…" />
         <CommandList data-testid="move-dialog">
           <CommandEmpty>No folders match.</CommandEmpty>

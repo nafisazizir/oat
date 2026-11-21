@@ -127,7 +127,7 @@ for (const theme of ['light', 'dark'] as const) {
       await shoot(page, `template-builtin-${tag}`);
       await visit(page, '/templates/new', (p) => p.getByRole('textbox', { name: 'Template name' }));
       await shoot(page, `template-new-${tag}`);
-      await visit(page, '/settings', h1('Settings'));
+      await visit(page, '/settings', h1('Appearance'));
       await shoot(page, `settings-${tag}`);
       await visit(page, '/settings/profile', (p) => p.locator('h1'));
       await shoot(page, `settings-profile-${tag}`);

@@ -3,15 +3,15 @@
 import * as React from 'react';
 import { Menu as MenuPrimitive } from '@base-ui/react/menu';
 
-import { cn } from '../lib/utils.ts';
-import { useGlide } from '../hooks/use-glide.ts';
+import { cn } from '@oat/ui/lib/utils';
+import { useGlide } from '@oat/ui/hooks/use-glide';
 import { IconChevronRight, IconCheck } from '@tabler/icons-react';
 
-type Size = 'default' | 'lg';
+type Size = 'sm' | 'default' | 'lg';
 
 const SizeContext = React.createContext<Size>('default');
 
-function DropdownMenu({ size = 'default', ...props }: MenuPrimitive.Root.Props & { size?: Size }) {
+function DropdownMenu({ size = 'sm', ...props }: MenuPrimitive.Root.Props & { size?: Size }) {
   return (
     <SizeContext.Provider value={size}>
       <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />
@@ -86,7 +86,7 @@ function DropdownMenuLabel({
       data-slot="dropdown-menu-label"
       data-inset={inset}
       className={cn(
-        'px-2 py-1.5 text-label-12 text-gray-900 in-data-[size=lg]:px-3 data-inset:ps-8 data-inset:in-data-[size=lg]:ps-9',
+        'px-2 py-1.5 text-label-12 text-gray-900 in-data-[size=lg]:px-3 in-data-[size=sm]:py-1 data-inset:ps-8 data-inset:in-data-[size=lg]:ps-9',
         className,
       )}
       {...props}
@@ -109,7 +109,7 @@ function DropdownMenuItem({
       data-inset={inset}
       data-variant={variant}
       className={cn(
-        "group/dropdown-menu-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-label-14 outline-hidden select-none focus:text-gray-1000 not-data-[variant=destructive]:focus:**:text-gray-1000 in-data-[size=lg]:px-3 in-data-[size=lg]:py-2 data-inset:ps-8 data-inset:in-data-[size=lg]:ps-9 data-[variant=destructive]:text-red-800 data-[variant=destructive]:focus:text-red-800 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-[variant=destructive]:*:[svg]:text-red-800",
+        "group/dropdown-menu-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-label-14 outline-hidden select-none focus:text-gray-1000 not-data-[variant=destructive]:focus:**:text-gray-1000 in-data-[size=lg]:px-3 in-data-[size=lg]:py-2 in-data-[size=sm]:py-1 data-inset:ps-8 data-inset:in-data-[size=lg]:ps-9 data-[variant=destructive]:text-red-800 data-[variant=destructive]:focus:text-red-800 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-[variant=destructive]:*:[svg]:text-red-800",
         className,
       )}
       {...props}
@@ -134,7 +134,7 @@ function DropdownMenuSubTrigger({
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-label-14 outline-hidden select-none focus:text-gray-1000 not-data-[variant=destructive]:focus:**:text-gray-1000 in-data-[size=lg]:px-3 in-data-[size=lg]:py-2 data-inset:ps-8 data-inset:in-data-[size=lg]:ps-9 data-popup-open:text-gray-1000 data-open:text-gray-1000 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-label-14 outline-hidden select-none focus:text-gray-1000 not-data-[variant=destructive]:focus:**:text-gray-1000 in-data-[size=lg]:px-3 in-data-[size=lg]:py-2 in-data-[size=sm]:py-1 data-inset:ps-8 data-inset:in-data-[size=lg]:ps-9 data-popup-open:text-gray-1000 data-open:text-gray-1000 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}
@@ -180,7 +180,7 @@ function DropdownMenuCheckboxItem({
       data-slot="dropdown-menu-checkbox-item"
       data-inset={inset}
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 ps-2 pe-8 text-label-14 outline-hidden select-none focus:text-gray-1000 focus:**:text-gray-1000 in-data-[size=lg]:py-2 in-data-[size=lg]:ps-3 in-data-[size=lg]:pe-9 data-inset:ps-8 data-inset:in-data-[size=lg]:ps-9 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 ps-2 pe-8 text-label-14 outline-hidden select-none focus:text-gray-1000 focus:**:text-gray-1000 in-data-[size=lg]:py-2 in-data-[size=lg]:ps-3 in-data-[size=lg]:pe-9 in-data-[size=sm]:py-1 data-inset:ps-8 data-inset:in-data-[size=lg]:ps-9 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       checked={checked}
@@ -216,7 +216,7 @@ function DropdownMenuRadioItem({
       data-slot="dropdown-menu-radio-item"
       data-inset={inset}
       className={cn(
-        "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 ps-2 pe-8 text-label-14 outline-hidden select-none focus:text-gray-1000 focus:**:text-gray-1000 in-data-[size=lg]:py-2 in-data-[size=lg]:ps-3 in-data-[size=lg]:pe-9 data-inset:ps-8 data-inset:in-data-[size=lg]:ps-9 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 ps-2 pe-8 text-label-14 outline-hidden select-none focus:text-gray-1000 focus:**:text-gray-1000 in-data-[size=lg]:py-2 in-data-[size=lg]:ps-3 in-data-[size=lg]:pe-9 in-data-[size=sm]:py-1 data-inset:ps-8 data-inset:in-data-[size=lg]:ps-9 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}

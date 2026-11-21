@@ -68,7 +68,7 @@ export function WorkspaceGeneralForm({
                 render={
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="secondary"
                     size="lg"
                     className="gap-2 ps-1.5"
                     disabled={!canEdit || pending}
@@ -119,6 +119,7 @@ export function WorkspaceGeneralForm({
           <FieldLabel htmlFor="workspace-settings-name">Name</FieldLabel>
           <Input
             id="workspace-settings-name"
+            size="sm"
             value={name}
             onChange={(event) => {
               setName(event.target.value);

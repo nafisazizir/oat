@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { Toast as ToastPrimitive } from '@base-ui/react/toast';
 
-import { cn } from '../lib/utils.ts';
-import { Button } from './button.tsx';
+import { cn } from '@oat/ui/lib/utils';
+import { Button } from '@oat/ui/components/button';
 import {
   IconAlertTriangle,
   IconCircleCheck,

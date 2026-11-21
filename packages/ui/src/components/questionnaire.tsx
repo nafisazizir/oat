@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { Questionnaire as QuestionnairePrimitive } from '@shadcn/react/questionnaire';
 
-import { cn } from '../lib/utils.ts';
-import { buttonVariants, type Button } from './button.tsx';
+import { cn } from '@oat/ui/lib/utils';
+import { buttonVariants, type Button } from '@oat/ui/components/button';
 import { IconCheck } from '@tabler/icons-react';
 
 function Questionnaire({

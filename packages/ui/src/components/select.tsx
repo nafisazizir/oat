@@ -4,9 +4,9 @@ import * as React from 'react';
 import { Select as SelectPrimitive } from '@base-ui/react/select';
 import { type VariantProps } from 'class-variance-authority';
 
-import { cn } from '../lib/utils.ts';
-import { useGlide } from '../hooks/use-glide.ts';
-import { inputVariants } from './input.tsx';
+import { cn } from '@oat/ui/lib/utils';
+import { useGlide } from '@oat/ui/hooks/use-glide';
+import { inputVariants } from '@oat/ui/components/input';
 import { IconSelector, IconCheck, IconChevronUp, IconChevronDown } from '@tabler/icons-react';
 
 type Size = 'sm' | 'default' | 'lg';
@@ -143,7 +143,10 @@ function SelectLabel({ className, ...props }: SelectPrimitive.GroupLabel.Props) 
   return (
     <SelectPrimitive.GroupLabel
       data-slot="select-label"
-      className={cn('px-2 py-1.5 text-label-12 text-gray-900 in-data-[size=lg]:px-3', className)}
+      className={cn(
+        'px-2 py-1.5 text-label-12 text-gray-900 in-data-[size=lg]:px-3 in-data-[size=sm]:py-1',
+        className,
+      )}
       {...props}
     />
   );
@@ -154,7 +157,7 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 ps-2 pe-8 text-label-14 outline-hidden select-none focus:text-gray-1000 not-data-[variant=destructive]:focus:**:text-gray-1000 in-data-[size=lg]:py-2 in-data-[size=lg]:ps-3 in-data-[size=lg]:pe-9 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 ps-2 pe-8 text-label-14 outline-hidden select-none focus:text-gray-1000 not-data-[variant=destructive]:focus:**:text-gray-1000 in-data-[size=lg]:py-2 in-data-[size=lg]:ps-3 in-data-[size=lg]:pe-9 in-data-[size=sm]:py-1 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className,
       )}
       {...props}

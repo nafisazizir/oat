@@ -10,7 +10,7 @@ import type { Metadata } from 'next';
 import { connection } from 'next/server';
 
 import { SettingsHeading, SettingsList, SettingsSection } from '@/components/settings/section';
-import { ThemeTabs } from '@/components/theme-toggle';
+import { ThemeMenu } from '@/components/theme-toggle';
 import { integrationModes, serverEnv } from '@/lib/env';
 
 export const metadata: Metadata = { title: 'Settings' };
@@ -42,7 +42,7 @@ export default async function SettingsPage() {
             </ItemDescription>
           </ItemContent>
           <ItemActions>
-            <ThemeTabs />
+            <ThemeMenu showValue />
           </ItemActions>
         </Item>
       </SettingsList>

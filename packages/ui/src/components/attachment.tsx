@@ -3,8 +3,8 @@ import { mergeProps } from '@base-ui/react/merge-props';
 import { useRender } from '@base-ui/react/use-render';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '../lib/utils.ts';
-import { Button } from './button.tsx';
+import { cn } from '@oat/ui/lib/utils';
+import { Button } from '@oat/ui/components/button';
 
 const attachmentVariants = cva(
   'group/attachment relative flex w-fit max-w-full min-w-0 shrink-0 flex-wrap rounded-xl border border-gray-alpha-400 bg-background-100 text-gray-1000 transition-colors focus-within:border-gray-600 focus-within:ring-3 focus-within:ring-gray-600/50 has-[>a,>button]:hover:bg-gray-100 data-[state=error]:border-red-400 data-[state=idle]:border-dashed',

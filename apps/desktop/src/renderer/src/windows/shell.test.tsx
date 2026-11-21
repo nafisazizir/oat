@@ -112,7 +112,7 @@ describe('desktop shell', () => {
   it('keeps new meeting recording behavior for click and shortcut', async () => {
     render(<MainWindow />);
     const button = screen.getByTestId('new-meeting');
-    expect(button.className).toContain('rounded-full');
+    expect(button.className).not.toContain('rounded-full');
     expect(button.closest('header')).not.toBeNull();
     expect(
       document.querySelector('[data-sidebar="header"] [data-testid="new-meeting"]'),

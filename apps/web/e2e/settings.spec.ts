@@ -35,6 +35,15 @@ for (const theme of ['light', 'dark'] as const) {
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
         .analyze();
       expect(violations).toEqual([]);
+      if (path === '/settings') {
+        const current = theme === 'light' ? 'Light' : 'Dark';
+        const trigger = page.getByRole('button', { name: `Theme: ${current}` });
+        await expect(trigger).toHaveText(current);
+        await trigger.click();
+        await expect(page.getByRole('menuitemradio', { name: current })).toBeChecked();
+        await page.keyboard.press('Escape');
+        await expect(trigger).toBeFocused();
+      }
     }
     await page.getByTestId('workspace-switcher').click();
     await page.getByRole('menuitem', { name: 'Profile', exact: true }).click();

@@ -15,7 +15,7 @@ export default async function SearchPage() {
     <PageContainer className="gap-8">
       <PageHeader title="Search" description={`Notes and transcripts in ${workspace.name}.`} />
       {/* `useSearchParams` needs a boundary; the view takes over from the URL on the client. */}
-      <Suspense fallback={<Skeleton className="h-10 w-full rounded-xl" />}>
+      <Suspense fallback={<Skeleton className="h-10 w-full" />}>
         <SearchView workspaceId={workspace.id} />
       </Suspense>
     </PageContainer>

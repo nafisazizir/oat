@@ -62,11 +62,7 @@ export function DesktopSearch({
   return (
     <>
       <SidebarMenuItem>
-        <SidebarMenuButton
-          className="rounded-full border border-gray-alpha-400 bg-background-100"
-          tooltip="Search"
-          onClick={() => setOpen(true)}
-        >
+        <SidebarMenuButton tooltip="Search · ⌘K" onClick={() => setOpen(true)}>
           <IconSearch aria-hidden />
           <span>Search</span>
         </SidebarMenuButton>

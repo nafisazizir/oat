@@ -206,11 +206,7 @@ export function AppSidebar() {
       <SidebarHeader>
         <SidebarMenu className="gap-0.5">
           <SidebarMenuItem>
-            <SidebarMenuButton
-              className="rounded-full border border-gray-alpha-400 bg-background-100"
-              tooltip="Search · ⌘K"
-              onClick={() => openCommandMenu(true)}
-            >
+            <SidebarMenuButton tooltip="Search · ⌘K" onClick={() => openCommandMenu(true)}>
               <IconSearch />
               <span>Search</span>
             </SidebarMenuButton>

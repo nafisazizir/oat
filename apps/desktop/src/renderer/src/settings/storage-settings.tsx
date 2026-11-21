@@ -229,6 +229,8 @@ function RetentionCard({
           }}
         >
           <Select
+            size="sm"
+            variant="ghost"
             items={Object.entries(KIND_LABELS).map(([value, label]) => ({ value, label }))}
             value={kind}
             onValueChange={(v) => changeKind(v as PolicyKind)}
@@ -248,7 +250,8 @@ function RetentionCard({
             <div className="flex items-center gap-1.5">
               <Input
                 id="retention-amount"
-                className="h-8 w-20 tabular-nums"
+                size="sm"
+                className="w-20 tabular-nums"
                 inputMode="decimal"
                 value={amount}
                 aria-invalid={policy === null}
@@ -262,6 +265,7 @@ function RetentionCard({
           )}
           <Button
             type="submit"
+            size="sm"
             className="ms-auto"
             disabled={!dirty || !ready || saving}
             data-testid="retention-save"
@@ -358,11 +362,13 @@ function RecordingsList({
         </h3>
         {meetings.length > 1 && (
           <Select
+            size="sm"
+            variant="ghost"
             items={Object.entries(SORT_LABELS).map(([value, label]) => ({ value, label }))}
             value={sort}
             onValueChange={(v) => setSort(v as StorageSort)}
           >
-            <SelectTrigger size="sm" aria-label="Sort recordings" data-testid="storage-sort">
+            <SelectTrigger aria-label="Sort recordings" data-testid="storage-sort">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

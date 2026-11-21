@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import { cn } from '../lib/utils.ts';
+import { cn } from '@oat/ui/lib/utils';
 
 function Card({
   className,

@@ -59,7 +59,7 @@ export function AssistantToggleAnchor({
       )}
     >
       {feedback && <div className="w-full max-w-content empty:hidden">{feedback}</div>}
-      <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-2xl border border-gray-alpha-300 bg-background-100 p-2">
+      <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-md border border-gray-alpha-300 bg-background-100 p-2">
         {children}
         {slot?.node}
       </div>
@@ -253,7 +253,7 @@ export function DocumentAssistant({
         aria-keyshortcuts="Meta+J"
         onClick={() => toggle(true)}
         className={cn(
-          'rounded-full bg-background-100 px-3 hover:bg-gray-alpha-100',
+          'bg-background-100 px-3 hover:bg-gray-alpha-100',
           !anchored && 'fixed end-6 bottom-6 z-20',
         )}
       >

@@ -18,9 +18,8 @@ export function TranscriptToggle({
   return (
     <Button
       ref={ref}
-      variant="outline"
+      variant="secondary"
       size="sm"
-      className="shrink-0 rounded-full"
       onClick={onClick}
       aria-expanded={open}
       aria-controls="transcript-panel"

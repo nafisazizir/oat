@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Collapsible as CollapsiblePrimitive } from '@base-ui/react/collapsible';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { useRender } from '@base-ui/react/use-render';
-import { cn } from '../lib/utils.ts';
+import { cn } from '@oat/ui/lib/utils';
 import { IconChevronRight } from '@tabler/icons-react';
 
 function Nav({

@@ -235,8 +235,7 @@ export function RecordingBar({
       {(status === 'idle' || status === 'error') && (
         <Button
           size="sm"
-          variant="outline"
-          className="rounded-full"
+          variant="secondary"
           disabled={action.pending || !snapshot}
           onClick={() => void start()}
         >
@@ -263,7 +262,7 @@ export function RecordingBar({
       {(active || status === 'error') && (
         <Button
           size="sm"
-          variant="outline"
+          variant="secondary"
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:stop'))}
           aria-label={status === 'error' ? 'Dismiss' : 'Stop recording'}

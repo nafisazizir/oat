@@ -10,9 +10,8 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@oat/ui/components/dropdown-menu';
-import { ToggleGroup, ToggleGroupItem } from '@oat/ui/components/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
-import { IconDeviceDesktop, IconMoon, IconSun } from '@tabler/icons-react';
+import { IconDeviceDesktop, IconMoon, IconSelector, IconSun } from '@tabler/icons-react';
 
 import { parsePreference } from '@/lib/theme';
 
@@ -24,31 +23,40 @@ const options = [
   { value: 'system', label: 'System', Icon: IconDeviceDesktop },
 ] as const;
 
-/** Sidebar theme menu. The icon follows what's on screen (sun in light, moon in dark). */
-export function ThemeMenu() {
+export function ThemeMenu({ showValue = false }: { showValue?: boolean }) {
   const { theme, setTheme } = useTheme();
+  const current = options.find(({ value }) => value === theme) ?? options[2];
   return (
     <DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Theme"
-                  data-testid="theme-menu"
-                />
-              }
-            />
-          }
+      {showValue ? (
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="sm" aria-label={`Theme: ${current.label}`} />}
         >
-          <IconSun className="dark:hidden" />
-          <IconMoon className="hidden dark:block" />
-        </TooltipTrigger>
-        <TooltipContent>Theme</TooltipContent>
-      </Tooltip>
+          {current.label}
+          <IconSelector data-icon="inline-end" aria-hidden className="text-gray-900" />
+        </DropdownMenuTrigger>
+      ) : (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Theme"
+                    data-testid="theme-menu"
+                  />
+                }
+              />
+            }
+          >
+            <IconSun className="dark:hidden" />
+            <IconMoon className="hidden dark:block" />
+          </TooltipTrigger>
+          <TooltipContent>Theme</TooltipContent>
+        </Tooltip>
+      )}
       <DropdownMenuContent align="end" className="w-40">
         <DropdownMenuGroup>
           <DropdownMenuLabel>Theme</DropdownMenuLabel>
@@ -66,31 +74,5 @@ export function ThemeMenu() {
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-/**
- * Segmented light / dark / system control (Settings › Appearance). A radio-style toggle group, not tabs:
- * there is no panel to switch, and an empty value (clicking the active item) is ignored.
- */
-export function ThemeTabs() {
-  const { theme, setTheme } = useTheme();
-  return (
-    <ToggleGroup
-      variant="outline"
-      spacing={0.5}
-      aria-label="Theme"
-      value={[theme]}
-      onValueChange={([value]) => {
-        if (value) setTheme(parsePreference(value));
-      }}
-    >
-      {options.map(({ value, label, Icon }) => (
-        <ToggleGroupItem key={value} value={value} className="gap-1.5 px-3">
-          <Icon />
-          {label}
-        </ToggleGroupItem>
-      ))}
-    </ToggleGroup>
   );
 }

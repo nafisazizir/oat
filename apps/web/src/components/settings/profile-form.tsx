@@ -136,6 +136,7 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
       <FieldGroup className="gap-5">
         <Row id="profile-name" label="Name" hint="How notes refer to you.">
           <Input
+            size="sm"
             id="profile-name"
             value={form.name}
             onChange={set('name')}
@@ -150,6 +151,7 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
         </Row>
         <Row id="profile-role" label="Role" hint="For example Account executive or Designer.">
           <Input
+            size="sm"
             id="profile-role"
             value={form.role}
             onChange={set('role')}
@@ -162,6 +164,7 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
         </Row>
         <Row id="profile-team" label="Team or company">
           <Input
+            size="sm"
             id="profile-team"
             value={form.team}
             onChange={set('team')}

@@ -3,8 +3,8 @@
 import { NavigationMenu as NavigationMenuPrimitive } from '@base-ui/react/navigation-menu';
 import { cva } from 'class-variance-authority';
 
-import { cn } from '../lib/utils.ts';
-import { useGlide } from '../hooks/use-glide.ts';
+import { cn } from '@oat/ui/lib/utils';
+import { useGlide } from '@oat/ui/hooks/use-glide';
 import { IconChevronDown } from '@tabler/icons-react';
 
 function NavigationMenu({

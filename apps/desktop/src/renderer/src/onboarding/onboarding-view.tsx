@@ -221,7 +221,7 @@ function Stepper({
                 onClick={() => onSelect(s)}
                 data-testid={`onboarding-nav-${s}`}
                 className={cn(
-                  'flex size-8 items-center justify-center rounded-full text-label-12 text-gray-900 outline-none hover:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50 disabled:pointer-events-none',
+                  'flex size-8 items-center justify-center rounded-md text-label-12 text-gray-900 outline-none hover:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50 disabled:pointer-events-none',
                   active && 'bg-gray-alpha-200 text-gray-1000',
                 )}
               >

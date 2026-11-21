@@ -300,7 +300,7 @@ function EmptyChat({
         {suggestions.map((s) => (
           <Button
             key={s}
-            variant="outline"
+            variant="secondary"
             className="h-auto min-h-9 justify-start py-2 text-start whitespace-normal"
             onClick={() => onPick(s)}
           >
@@ -339,7 +339,7 @@ function Composer({
         send();
       }}
     >
-      <InputGroup className="h-auto rounded-xl">
+      <InputGroup>
         <InputGroupTextarea
           aria-label="Ask the assistant"
           data-testid="chat-input"

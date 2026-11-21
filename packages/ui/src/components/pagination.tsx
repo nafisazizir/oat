@@ -1,7 +1,7 @@
 import * as React from 'react';
 
-import { cn } from '../lib/utils.ts';
-import { Button } from './button.tsx';
+import { cn } from '@oat/ui/lib/utils';
+import { Button } from '@oat/ui/components/button';
 import { IconChevronLeft, IconChevronRight, IconDots } from '@tabler/icons-react';
 
 function Pagination({ className, ...props }: React.ComponentProps<'nav'>) {
@@ -48,7 +48,6 @@ function PaginationLink({
       size={size}
       shape={shape}
       className={cn(className)}
-      role="link"
       nativeButton={false}
       render={
         <a

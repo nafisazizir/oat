@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Input as InputPrimitive } from '@base-ui/react/input';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '../lib/utils.ts';
+import { cn } from '@oat/ui/lib/utils';
 
 // Shared by the field-style controls. Focus darkens the default border and
 // leaves secondary and ghost as they rest; the caret shows it. A pill fits
@@ -30,7 +30,7 @@ function Input({
   className,
   type,
   size = 'default',
-  variant = 'default',
+  variant = 'secondary',
   shape = 'default',
   ...props
 }: Omit<React.ComponentProps<'input'>, 'size'> &

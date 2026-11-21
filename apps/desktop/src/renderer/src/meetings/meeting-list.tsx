@@ -43,9 +43,9 @@ export function NewMeetingButton({
 
   return (
     <Button
-      variant="outline"
+      variant="secondary"
       size="sm"
-      className="app-no-drag shrink-0 rounded-full"
+      className="app-no-drag shrink-0"
       aria-label="New meeting note"
       disabled={disabled || pending}
       onClick={onClick}

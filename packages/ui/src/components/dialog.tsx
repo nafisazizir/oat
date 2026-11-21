@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 
-import { cn } from '../lib/utils.ts';
-import { Button } from './button.tsx';
+import { cn } from '@oat/ui/lib/utils';
+import { Button } from '@oat/ui/components/button';
 import { IconX } from '@tabler/icons-react';
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
@@ -28,7 +28,7 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        'fixed inset-0 isolate z-50 bg-gray-alpha-400 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0',
+        'fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0',
         className,
       )}
       {...props}
@@ -50,7 +50,7 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-5 material-modal p-6 text-copy-14 text-gray-1000 duration-100 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
+          'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 material-modal p-6 text-copy-14 text-gray-1000 duration-100 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
           className,
         )}
         {...props}
@@ -74,7 +74,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn('flex flex-col gap-1.5 pe-8', className)}
+      className={cn('flex flex-col gap-2 pe-8', className)}
       {...props}
     />
   );
