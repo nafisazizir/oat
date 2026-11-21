@@ -51,8 +51,11 @@ import { InviteDialog } from './invite-dialog';
 
 type Apply = (action: MembersAction) => void;
 
-/** Rows share one column grid so roles and actions line up down the list. */
-const ROW = 'px-0 py-3 not-last:border-b not-last:border-gray-alpha-300 rounded-none';
+/**
+ * Rows share one column grid so roles and actions line up down the list. Only the bottom edge is drawn
+ * (`Item` has a border on all four sides, transparent by default).
+ */
+const ROW = 'px-0 py-3 not-last:border-b not-last:border-b-gray-alpha-300 rounded-none';
 
 function RoleControl({
   workspaceId,
@@ -341,6 +344,7 @@ function JoinRequestRow({ request, roles }: { request: JoinRequestView; roles: R
           Decline
         </Button>
         <Button
+          variant="outline"
           size="sm"
           disabled={deciding}
           aria-label={`Approve ${request.name}`}
@@ -359,14 +363,16 @@ function Section({
   action,
   children,
   primary = false,
+  testId,
 }: {
   primary?: boolean;
   title: string;
   action?: React.ReactNode;
   children: React.ReactNode;
+  testId?: string;
 }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-3" data-testid={testId}>
       <div className="flex min-h-9 items-center justify-between gap-4">
         {primary ? (
           <h1 className="text-heading-24 text-gray-1000">{title}</h1>
@@ -414,7 +420,7 @@ export function MembersPanel({ settings }: { settings: WorkspaceSettings }) {
       </Section>
 
       {settings.joinRequests.length > 0 && (
-        <Section title="Requests to join">
+        <Section title="Requests to join" testId="join-requests">
           <ItemGroup className="gap-0" data-testid="join-request-list">
             {settings.joinRequests.map((request) => (
               <JoinRequestRow key={request.id} request={request} roles={settings.approveRoles} />

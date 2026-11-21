@@ -74,10 +74,10 @@ export default async function JoinPage() {
               workspace: { name: workspace.name, icon: workspaceIcon(workspace.logo) },
               detail:
                 workspace.option === 'join'
-                  ? `${members(workspace.memberCount)} · open to your email domain`
+                  ? `${members(workspace.memberCount)} · open to your domain`
                   : workspace.option === 'request'
-                    ? `${members(workspace.memberCount)} · an owner or admin approves`
-                    : 'Waiting for an owner or admin to approve',
+                    ? `${members(workspace.memberCount)} · needs approval`
+                    : 'Waiting for approval',
             })),
           ]}
         />
