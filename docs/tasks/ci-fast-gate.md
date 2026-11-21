@@ -99,6 +99,9 @@ GitHub Actions run times for PR #14 (job durations come from the Actions jobs AP
 | Run | Cache | Fast (static) | Fast (typecheck) | Fast (unit) | Swift (macOS) | Wall clock |
 | --- | ----- | ------------- | ---------------- | ----------- | ------------- | ---------- |
 | [44852204771](https://github.com/nafisazizir/oat/actions/runs/44852204771) | cold (new keys) | 1m15s | 1m18s | 1m19s | 1m51s | **1m56s** |
+| [44852432051](https://github.com/nafisazizir/oat/actions/runs/44852432051) | warm (turbo hits) | 47s | 32s | 19s | 1m41s | **1m45s** |
 
-`Checks (Linux)` shows `skipped` on PRs, as intended. Locally, `pnpm run ci --only format,actionlint` passed
+`Checks (Linux)` shows `skipped` on PRs, as intended. The slowest job is now the unchanged macOS Swift job (~1m45s),
+not the Linux gate. The `workflow_dispatch` path for the full suite was not run from this session (the session's
+GitHub token can't dispatch workflows); the job and its steps are unchanged apart from the `if:` and cache key. Locally, `pnpm run ci --only format,actionlint` passed
 (13.7 s).
