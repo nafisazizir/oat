@@ -1,0 +1,188 @@
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
+import { asciiSlug, createFileNamer, safeBaseName } from './names';
+import { readZip } from './read-zip';
+import { ZipWriter } from './zip';
+
+function archive(files: Array<[string, string]>, at = new Date('2026-11-21T10:20:30Z')) {
+  const zip = new ZipWriter();
+  const parts = files.map(([name, text]) => zip.add(name, text, at));
+  parts.push(zip.finish());
+  return Buffer.concat(parts);
+}
+
+describe('ZipWriter', () => {
+  it('writes an archive that reads back: names, text, time, checksums', () => {
+    const long = 'Lorem ipsum dolor sit amet. '.repeat(4000);
+    const files = readZip(
+      archive([
+        ['Plan.md', '# Plan\n\nShip it.\n'],
+        ['Žluťoučký kůň – 日本語 🌾.md', 'Unicode names and text: ‘ok’ ✓\n'],
+        ['Empty.md', ''],
+        ['Long.md', long],
+      ]),
+    );
+    expect(files.map((f) => f.name)).toEqual([
+      'Plan.md',
+      'Žluťoučký kůň – 日本語 🌾.md',
+      'Empty.md',
+      'Long.md',
+    ]);
+    expect(files[0]!.text).toBe('# Plan\n\nShip it.\n');
+    expect(files[1]!.text).toBe('Unicode names and text: ‘ok’ ✓\n');
+    expect(files[2]!.text).toBe('');
+    expect(files[3]!.text).toBe(long);
+    expect(files[0]!.modifiedAt.toISOString()).toBe('2026-11-21T10:20:30.000Z');
+  });
+
+  it('compresses, and counts what it wrote', () => {
+    const zip = new ZipWriter();
+    const part = zip.add('a.md', 'a'.repeat(100_000));
+    expect(part.length).toBeLessThan(2000);
+    const tail = zip.finish();
+    expect(zip.size).toBe(part.length + tail.length);
+  });
+
+  it('an empty archive is still an archive', () => {
+    expect(readZip(archive([]))).toEqual([]);
+  });
+
+  it('refuses names that could leave the folder, whatever the caller passes', () => {
+    const zip = new ZipWriter();
+    for (const name of [
+      '',
+      '/etc/passwd',
+      '../up.md',
+      'a/../../b.md',
+      'a\\b.md',
+      './x',
+      'a//b',
+      'x\0y',
+    ]) {
+      expect(() => zip.add(name, 'x'), name).toThrow(/unsafe/);
+    }
+    expect(readZip(Buffer.concat([zip.finish()]))).toEqual([]);
+  });
+
+  it('cannot be added to or finished twice', () => {
+    const zip = new ZipWriter();
+    zip.finish();
+    expect(() => zip.add('a.md', 'x')).toThrow(/finished/);
+    expect(() => zip.finish()).toThrow(/finished/);
+  });
+
+  // The reader above was written next to the writer; this asks an independent implementation. (Checked
+  // by hand as well: Python's `zipfile` and macOS `ditto -x -k` read the Unicode names.)
+  const unzip = spawnSync('unzip', ['-v']).status === 0;
+  it.skipIf(!unzip)('is accepted by the system `unzip`, which extracts the same files', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'oat-zip-'));
+    try {
+      // Integrity (sizes, checksums) of an archive with non-ASCII names…
+      const unicode = join(dir, 'unicode.zip');
+      writeFileSync(unicode, archive([['Čaj 🌾.md', 'tea\n']]));
+      execFileSync('unzip', ['-tq', unicode]);
+      // …and a real extraction (ASCII names: Info-ZIP writes names in the process locale).
+      const file = join(dir, 'notes.zip');
+      writeFileSync(
+        file,
+        archive([
+          ['Plan.md', '# Plan\n'],
+          ['Plan (2).md', 'x'.repeat(5000)],
+        ]),
+      );
+      execFileSync('unzip', ['-q', file, '-d', join(dir, 'out')]);
+      expect(readdirSync(join(dir, 'out')).toSorted()).toEqual(['Plan (2).md', 'Plan.md']);
+      expect(readFileSync(join(dir, 'out', 'Plan.md'), 'utf8')).toBe('# Plan\n');
+      expect(readFileSync(join(dir, 'out', 'Plan (2).md'), 'utf8')).toBe('x'.repeat(5000));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('safeBaseName', () => {
+  it('keeps ordinary titles, Unicode included', () => {
+    expect(safeBaseName('Weekly sync — Q4 plan')).toBe('Weekly sync — Q4 plan');
+    expect(safeBaseName('日本語のメモ')).toBe('日本語のメモ');
+    expect(safeBaseName('  spaced   out  ')).toBe('spaced out');
+  });
+
+  it('never yields a path: separators, dots and traversal are neutralised', () => {
+    const hostile = [
+      '../../etc/passwd',
+      '..\\..\\Windows\\system32',
+      '/absolute/path',
+      'C:\\Users\\me',
+      '..',
+      '.',
+      '.hidden',
+      '....',
+      'a/b/c',
+      'nul\0byte',
+      'line\nbreak\ttab',
+      'right\u202eto-left',
+      'zero\u200bwidth',
+      '~/.ssh/id_rsa',
+      '%2e%2e%2f',
+    ];
+    for (const title of hostile) {
+      const name = safeBaseName(title);
+      expect(name, title).not.toMatch(/[\\/:*?"<>|]/);
+      expect(name, title).not.toMatch(/^\./);
+      expect(name, title).not.toMatch(/[.\s]$/);
+      expect(name, title).not.toMatch(/[\p{Cc}\p{Cf}]/u);
+      expect(name.length, title).toBeGreaterThan(0);
+      // And the archive writer accepts it as a single path segment.
+      expect(() => new ZipWriter().add(`${name}.md`, '')).not.toThrow();
+    }
+    expect(safeBaseName('../../etc/passwd')).toBe('etc passwd');
+    expect(safeBaseName('..')).toBe('Untitled');
+    expect(safeBaseName('.hidden')).toBe('hidden');
+  });
+
+  it('falls back for empty titles and avoids reserved device names', () => {
+    expect(safeBaseName('')).toBe('Untitled');
+    expect(safeBaseName('   ')).toBe('Untitled');
+    expect(safeBaseName('???')).toBe('Untitled');
+    expect(safeBaseName('CON')).toBe('_CON');
+    expect(safeBaseName('nul')).toBe('_nul');
+    expect(safeBaseName('LPT1')).toBe('_LPT1');
+    expect(safeBaseName('Console')).toBe('Console');
+  });
+
+  it('caps the length by characters, not bytes, and never ends on a dot or space', () => {
+    expect([...safeBaseName('x'.repeat(500))]).toHaveLength(80);
+    expect([...safeBaseName('🌾'.repeat(200))]).toHaveLength(80);
+    expect(safeBaseName(`${'x'.repeat(79)}. tail`)).toBe('x'.repeat(79));
+  });
+});
+
+describe('createFileNamer', () => {
+  it('numbers duplicates, also when they differ only by case or were made equal by cleaning', () => {
+    const name = createFileNamer();
+    expect(name('Plan')).toBe('Plan.md');
+    expect(name('Plan')).toBe('Plan (2).md');
+    expect(name('plan')).toBe('plan (3).md');
+    expect(name('Pl/an')).toBe('Pl an.md');
+    expect(name('Pl:an')).toBe('Pl an (2).md');
+    expect(name('')).toBe('Untitled.md');
+    expect(name('')).toBe('Untitled (2).md');
+    // A title that looks like an earlier numbered name can't take its place.
+    expect(name('Plan (2)')).toBe('Plan (2) (2).md');
+  });
+});
+
+describe('asciiSlug', () => {
+  it('makes a header-safe part of the download name', () => {
+    expect(asciiSlug('Acme Design')).toBe('acme-design');
+    expect(asciiSlug('Ada’s workspace')).toBe('ada-s-workspace');
+    expect(asciiSlug('"; filename=evil')).toBe('filename-evil');
+    expect(asciiSlug('日本語')).toBe('workspace');
+    expect(asciiSlug('x'.repeat(100))).toHaveLength(40);
+  });
+});

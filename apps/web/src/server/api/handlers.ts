@@ -11,6 +11,7 @@ import {
   trashDocument,
   updateDocument,
 } from '../documents';
+import { exportOwnNotes, exportResponse } from '../export/notes';
 import { createFolder, deleteFolder, listFolders, moveFolder, renameFolder } from '../folders';
 import { getSharing, updateSharing } from '../sharing';
 import { badRequest } from './errors';
@@ -39,6 +40,8 @@ import { type ApiDeps, apiRoute, readJson } from './route';
  *   PATCH  /api/folders/:id                          { name }
  *   DELETE /api/folders/:id                          delete folder + subfolders, trash their documents
  *   POST   /api/folders/:id/move                     { parentId, makePrivate? }
+ *   GET    /api/workspaces/:id/export                 my own notes in that workspace, as a zip of Markdown
+ *                                                    (D-36; 404 unless I am a member)
  */
 
 const Id = z.string().min(1).max(100);
@@ -140,6 +143,14 @@ export function createApi(deps: ApiDeps) {
       PATCH: apiRoute<IdParams>(deps, async ({ db, actor, params, request }) =>
         updateSharing(db, actor, params.id, await readJson(request, UpdateSharing)),
       ),
+    },
+    /** `/api/workspaces/[id]/export` */
+    workspaceExport: {
+      GET: apiRoute<IdParams>(deps, async ({ db, actor, params }) => {
+        const id = Id.safeParse(params.id);
+        if (!id.success) throw badRequest('Unknown workspace.');
+        return exportResponse(await exportOwnNotes(db, actor, id.data));
+      }),
     },
     /** `/api/folders` */
     folders: {
