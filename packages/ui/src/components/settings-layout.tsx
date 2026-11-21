@@ -4,14 +4,19 @@ import { cn } from '../lib/utils';
 
 export function SettingsLayout({
   navigation,
+  navigationClassName,
   children,
 }: {
   navigation: ReactNode;
+  navigationClassName?: string;
   children: ReactNode;
 }) {
   return (
     <div className="mx-auto grid w-full max-w-5xl items-start gap-8 px-6 py-8 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-12">
-      <nav aria-label="Settings sections" className="flex flex-col gap-6 md:sticky md:top-20">
+      <nav
+        aria-label="Settings sections"
+        className={cn('flex flex-col gap-6 md:sticky md:top-20', navigationClassName)}
+      >
         {navigation}
       </nav>
       <div

@@ -265,4 +265,7 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   axe scans passed; 20 light/dark 1440×900 screenshots under `/home/ubuntu/shots/pr3/` reviewed.
   Browser links retain browser session/workspace; no new native editing APIs. Native macOS/audio and
   browser launch unverified on Linux. Rebase onto refreshed PR 2 while it awaits merge.
+  Rebased onto `f6be005`, keeping the CI-gate and shell LOG entries. Visual review then fixed the native
+  sticky-nav offset on Storage; final local fast CI **ci: ok** (47.8s), refreshed six native screenshots
+  and axe scans **0 violations**. Web settings remain visually unchanged by that renderer-only offset.
   [task](tasks/ui-calm-settings.md)

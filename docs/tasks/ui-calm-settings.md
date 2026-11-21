@@ -17,7 +17,7 @@ integration behavior. No new billing/account deletion features or APIs where non
 - [x] Narrow grouped navigation, one plain title per section, quiet rows and bottom danger actions.
 - [x] Workspace/account selection clearly distinguished and settings links go to specific sections.
 - [x] Web settings/workspaces/integrations/a11y e2e and desktop settings unit tests pass.
-- [x] Fast CI passes locally; Linux PR CI is disabled, so local checks are the gate.
+- [x] Fast CI passes locally; refreshed PR 2 also includes the main/PR CI fast-gate split (D-34).
 - [x] Light/dark 1440×900 screenshots of all web settings sections and desktop settings in ~/shots/pr3/.
 
 ## Verification
@@ -27,6 +27,11 @@ PR 2 rebase confirmed at f8f60da: `pnpm run ci --fast` **ci: ok** (13.5s), log
 PR 3 local evidence under `/home/ubuntu/shots/pr3/`:
 - `ci-fast-gate.log`: **ci: ok** (33.5s), all six steps green. Initial new unit assertion exposed a
   missing accessible-name space on browser buttons; explicit names fixed it.
+- Rebased onto refreshed PR 2 `f6be005` with both LOG entries retained (not yet merged to main).
+  Visual review caught the native sticky-nav offset drifting on the taller Storage panel; made
+  that offset renderer-specific. `ci-fast-final-visual.log`: **ci: ok** (47.8s), including all 26 focused
+  desktop settings/shell/URL unit tests. `capture-desktop-final.log`: six refreshed PNGs and axe scans,
+  **0 violations**, with the native navigation alignment rechecked in both themes.
 - `e2e.log`: settings, workspaces, calendar, Notion, pipeline, smoke, typography, a11y and
   enhance-versions: **24 passed, 2 failed**. A11y light hit a transient Next router-init error during
   concurrent source/HMR changes; enhance-versions still expected the account name in the sidebar.

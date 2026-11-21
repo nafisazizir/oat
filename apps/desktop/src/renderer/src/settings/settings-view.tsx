@@ -41,6 +41,7 @@ export function SettingsView({
     <section className="flex min-w-0 flex-1 flex-col" aria-label="Settings" data-testid="settings">
       <div className="min-h-0 flex-1 overflow-auto">
         <SettingsLayout
+          navigationClassName="md:top-8"
           navigation={
             <>
               <Button
