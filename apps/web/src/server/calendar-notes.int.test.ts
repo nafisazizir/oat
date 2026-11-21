@@ -8,8 +8,8 @@
 import { findFirstWorkspaceId } from '@oat/auth';
 import type { CalendarEvent, CalendarEventInput } from '@oat/core';
 import { CalendarEventSchema } from '@oat/core';
-import { document, meeting, membership, participant, workspace } from '@oat/db';
-import { and, asc, eq } from 'drizzle-orm';
+import { document, meeting, participant } from '@oat/db';
+import { asc, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { BASE, call, createHarness, denies, type Harness, type TestUser } from './api/test-harness';

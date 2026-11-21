@@ -148,8 +148,9 @@ test('invite → accept → change role → remove, with two users', async ({ br
   await invitee.getByRole('button', { name: 'Accept invitation' }).click();
   await invitee.waitForURL(/\/home$/, { waitUntil: 'load' });
   await expect(invitee.getByTestId('workspace-switcher')).toContainText(teamName);
+  // D-36: someone who signs up through an invitation joins that workspace and gets no other one.
   await invitee.getByTestId('workspace-switcher').click();
-  await expect(invitee.getByTestId('workspace-option')).toHaveCount(2);
+  await expect(invitee.getByTestId('workspace-option')).toHaveCount(1);
   await shot(invitee, 'invitee-switcher');
   await invitee.keyboard.press('Escape');
 
@@ -188,9 +189,11 @@ test('invite → accept → change role → remove, with two users', async ({ br
   await expect(owner.page.getByTestId('member-row').filter({ visible: true })).toHaveCount(1);
   await expect(owner.page.getByText(/^Removed /)).toBeVisible();
 
-  // Removed: the invitee is back in their personal workspace and can't see the team.
+  // Removed from their only workspace: they can't see the team any more, and are not left without a
+  // workspace — one of their own is made on the next visit.
   await invitee.goto('/home');
-  await expect(invitee.getByTestId('workspace-switcher')).toContainText('Personal');
+  await expect(invitee.getByTestId('workspace-switcher')).toContainText('My workspace');
+  await expect(invitee.getByTestId('workspace-switcher')).not.toContainText(teamName);
   await invitee.getByTestId('workspace-switcher').click();
   await expect(invitee.getByTestId('workspace-option')).toHaveCount(1);
 
@@ -258,7 +261,7 @@ test('wrong account, revoked invite, leave and delete', async ({ browser }) => {
   await expect(leave.getByRole('alert')).toContainText('only owner');
   await leave.getByRole('button', { name: 'Cancel' }).click();
 
-  // Delete (type the name to confirm): gone from the switcher, back in Personal.
+  // Delete (type the name to confirm): gone from the switcher, back in the workspace made at sign-up.
   await owner.page.getByRole('button', { name: 'Delete workspace' }).click();
   const del = owner.page.getByTestId('delete-workspace-dialog');
   const confirm = del.getByRole('button', { name: 'Delete workspace' });
@@ -267,18 +270,43 @@ test('wrong account, revoked invite, leave and delete', async ({ browser }) => {
   await shot(owner.page, 'delete-workspace-dialog');
   await confirm.click();
   await owner.page.waitForURL(/\/home$/, { waitUntil: 'load' });
-  await expect(owner.page.getByTestId('workspace-switcher')).toContainText('Personal');
+  await expect(owner.page.getByTestId('workspace-switcher')).toContainText('My workspace');
   await owner.page.getByTestId('workspace-switcher').click();
   await expect(owner.page.getByTestId('workspace-option')).toHaveCount(1);
+  // The last workspace can't be left, so the menu doesn't offer it.
+  await expect(owner.page.getByRole('menuitem', { name: /^Leave / })).toHaveCount(0);
   await owner.page.keyboard.press('Escape');
 
-  // A personal workspace only explains itself.
+  // D-36: that workspace is an ordinary one — it has the same settings as any other (rename, members,
+  // invitations) — but as the owner's last workspace it can't be left or deleted, and the page says why.
   await owner.page.goto('/settings/workspace');
+  await expect(owner.page.getByRole('heading', { level: 1, name: 'General' })).toBeVisible();
+  const danger = owner.page.getByTestId('danger-zone').filter({ visible: true });
+  await expect(danger.getByRole('button', { name: 'Leave workspace' })).toBeDisabled();
+  await expect(danger.getByTestId('delete-workspace')).toBeDisabled();
   await expect(
-    owner.page.getByTestId('personal-workspace-note').filter({ visible: true }),
-  ).toBeVisible();
-  await expect(owner.page.getByRole('link', { name: 'Members' })).toHaveCount(0);
-  await shot(owner.page, 'settings-personal');
+    danger.getByText('This is your only workspace. Create or join another one first.'),
+  ).toHaveCount(2);
+  await shot(owner.page, 'settings-last-workspace');
+
+  const renamed = `Solo ${Math.random().toString(36).slice(2, 6)}`;
+  await owner.page.getByLabel('Name', { exact: true }).fill(renamed);
+  await owner.page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(owner.page.getByText('Workspace saved')).toBeVisible();
+  await expect(owner.page.getByTestId('workspace-switcher')).toContainText(renamed);
+
+  await owner.page.getByRole('link', { name: 'Members' }).click();
+  await expect(owner.page).toHaveURL(/\/settings\/workspace\/members$/);
+  await expect(memberRow(owner.page, owner.email)).toContainText('You');
+  await owner.page.getByRole('button', { name: 'Invite people' }).click();
+  const guest = uniqueAddress('guest');
+  await owner.page.getByTestId('invite-dialog').getByLabel('Email').fill(guest);
+  await owner.page
+    .getByTestId('invite-dialog')
+    .getByRole('button', { name: 'Send invite' })
+    .click();
+  await expect(owner.page.getByTestId('invite-row').filter({ visible: true })).toContainText(guest);
+  expect((await mailTo(guest, /invited you to/)).Subject).toContain(renamed);
 
   await owner.context.close();
 });

@@ -17,7 +17,7 @@ for (const theme of ['light', 'dark'] as const) {
       ['Profile', 'Profile', '/settings/profile'],
       ['Preferences', 'Appearance', '/settings'],
       ['Integrations', 'Integrations', '/settings/integrations'],
-      ['General', 'Personal workspace', '/settings/workspace'],
+      ['General', 'General', '/settings/workspace'],
     ]) {
       await nav.getByRole('link', { name: label, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`${path}$`));

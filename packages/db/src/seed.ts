@@ -178,7 +178,8 @@ export async function seed(
         .returning({ id: workspace.id }),
     );
     const slugId = async (slug: string) =>
-      (await tx.select({ id: workspace.id }).from(workspace).where(eq(workspace.slug, slug)))[0]?.id;
+      (await tx.select({ id: workspace.id }).from(workspace).where(eq(workspace.slug, slug)))[0]
+        ?.id;
     const ownWs = existing?.id ?? (await slugId(ownSlug));
     const teamWs = await slugId(teamSlug);
     if (!ownWs || !teamWs) throw new Error('seed: demo workspaces missing after insert');
@@ -258,10 +259,7 @@ export async function seed(
             kind: 'page',
             title: 'Welcome to Oat',
             visibility: 'private',
-            ...doc([
-              { h: 'Welcome' },
-              { p: 'This page is private. Only you can see it.' },
-            ]),
+            ...doc([{ h: 'Welcome' }, { p: 'This page is private. Only you can see it.' }]),
           },
           {
             id: SEED.documents.roadmap,

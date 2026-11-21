@@ -11,7 +11,8 @@ setup('sign in by magic link', async ({ page, baseURL }) => {
   await page.goto('/sign-in');
   await signInWithMagicLink(page, uniqueAddress('e2e'), baseURL!);
   await expect(page).toHaveURL(/\/home$/);
-  await expect(page.getByTestId('workspace-switcher')).toContainText('Personal');
+  // A new user without a name gets an ordinary workspace called "My workspace" (D-36).
+  await expect(page.getByTestId('workspace-switcher')).toContainText('My workspace');
   mkdirSync(dirname(STORAGE_STATE), { recursive: true });
   await page.context().storageState({ path: STORAGE_STATE });
 });
