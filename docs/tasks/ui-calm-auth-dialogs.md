@@ -84,7 +84,8 @@ the repo root with `pnpm --filter @oat/web exec playwright test`):
   **20 passed (1.8m), 1 skipped, 2 failed**. Both failures are the extra typography spec expecting
   weight 450 on the sr-only Home h1, which inherits 400. Home, typography spec and shared styles are
   unchanged from origin/main; main already has `<h1 className="sr-only">Home</h1>`. This unrelated
-  mismatch was left untouched. Required auth/workspace/sharing/a11y cases passed.
+  mismatch was initially left untouched; the follow-up below corrects the stale spec. Required
+  auth/workspace/sharing/a11y cases passed.
 - Desktop-sign-in, templates and enhance-versions (`web-e2e-additional.log`):
   **8 passed (1.3m), 1 skipped**.
 - After final sharing/palette edits, sharing and search with
@@ -115,4 +116,20 @@ Desktop screenshots exercise the built renderer with a simulated bridge on Linux
 Electron, macOS permission prompts, real browser launch or real microphone/system-audio capture.
 Google/calendar providers and email delivery use local/mocked services, not real integrations.
 No separate signup/reset routes or web onboarding wizard were invented. Browser desktop-handoff
-behavior is covered by e2e, not a separate screenshot. Extra typography mismatch is documented above.
+behavior is covered by e2e, not a separate screenshot.
+
+## Follow-up — visible Home typography coverage
+The display-weight assertion was wrong for Home's sr-only h1 after PR4 removed the visible page
+heading. Keep that accessibility heading unstyled; do not add display weight just to satisfy a test.
+The spec now seeds a note and checks its visible Home row title for Inter at body weight 400. Visible
+document/meeting/settings/not-found titles still require Inter at heading weight 450, with explicit
+visibility assertions; editor body and Geist Mono checks remain intact. No product UI changed.
+
+```sh
+DATABASE_URL=postgres://oat:oat@localhost:54329/oat OAT_NEXT_DIST_DIR=.next-pr5-e2e E2E_PORT=3105 pnpm --filter @oat/web exec playwright test e2e/typography.spec.ts
+```
+```text
+3 passed (56.9s)
+```
+Includes setup and both themes. Log: `~/shots/pr5/typography-fix.log`.
+Follow-up gate: `pnpm run ci --fast`; log: `~/shots/pr5/ci-fast-typography-fix.log`.

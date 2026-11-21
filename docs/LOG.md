@@ -314,3 +314,12 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   exposed to AT. Keyboard/focus, permission-error/loading and setup interaction coverage retained.
   Linux desktop evidence is simulated, not native Electron/macOS/audio verification. Browser desktop
   handoff has e2e coverage but no separate screenshot. [task](tasks/ui-calm-auth-dialogs.md)
+
+## 2026-11-21 — PR5 follow-up: visible Home typography coverage
+
+- Corrected the typography spec rather than styling Home's sr-only h1. PR4 intentionally removed the
+  visible Home display heading; the spec now checks a visible note row for Inter/body weight 400 and
+  keeps display-weight 450 checks on visible document/meeting/settings/not-found titles. No UI change.
+- Typography Playwright **3 passed (56.9s)** including setup/light/dark. Fast-gate command/evidence:
+  `pnpm run ci --fast`, `~/shots/pr5/ci-fast-typography-fix.log`.
+  [task](tasks/ui-calm-auth-dialogs.md)
