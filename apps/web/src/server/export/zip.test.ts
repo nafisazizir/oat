@@ -155,10 +155,35 @@ describe('safeBaseName', () => {
     expect(safeBaseName('Console')).toBe('Console');
   });
 
-  it('caps the length by characters, not bytes, and never ends on a dot or space', () => {
-    expect([...safeBaseName('x'.repeat(500))]).toHaveLength(80);
-    expect([...safeBaseName('🌾'.repeat(200))]).toHaveLength(80);
-    expect(safeBaseName(`${'x'.repeat(79)}. tail`)).toBe('x'.repeat(79));
+  const bytes = (name: string) => new TextEncoder().encode(name).length;
+
+  it('caps the length in UTF-8 bytes, never splits a character, never ends on a dot or space', () => {
+    expect(safeBaseName('x'.repeat(500))).toBe('x'.repeat(200));
+    // 4-byte characters: 50 of them, not 80 (which would be 320 bytes).
+    expect(safeBaseName('😀'.repeat(100))).toBe('😀'.repeat(50));
+    // 3-byte characters, and a cut that would fall inside one.
+    expect(bytes(safeBaseName('日'.repeat(300)))).toBe(198);
+    expect(safeBaseName(`${'x'.repeat(199)}日本`)).toBe('x'.repeat(199));
+    expect(safeBaseName(`${'x'.repeat(199)}. tail`)).toBe('x'.repeat(199));
+    for (const title of ['😀'.repeat(300), '日'.repeat(300), 'é'.repeat(300), 'x'.repeat(300)]) {
+      expect(bytes(safeBaseName(title)), title.slice(0, 4)).toBeLessThanOrEqual(200);
+      // Still whole characters: encoding and decoding gives the same text back.
+      const name = safeBaseName(title);
+      expect(new TextDecoder('utf-8', { fatal: true }).decode(new TextEncoder().encode(name))).toBe(
+        name,
+      );
+      expect(name.isWellFormed()).toBe(true);
+    }
+  });
+
+  it('treats a device name as reserved with any extensions after it', () => {
+    expect(safeBaseName('con.notes')).toBe('_con.notes');
+    expect(safeBaseName('NUL.tar.gz')).toBe('_NUL.tar.gz');
+    expect(safeBaseName('aux .txt')).toBe('_aux .txt');
+    expect(safeBaseName('COM1.md')).toBe('_COM1.md');
+    // Not device names.
+    expect(safeBaseName('console.log')).toBe('console.log');
+    expect(safeBaseName('my.con')).toBe('my.con');
   });
 });
 
@@ -174,6 +199,16 @@ describe('createFileNamer', () => {
     expect(name('')).toBe('Untitled (2).md');
     // A title that looks like an earlier numbered name can't take its place.
     expect(name('Plan (2)')).toBe('Plan (2) (2).md');
+  });
+
+  it('keeps every name well under 255 bytes, extension and duplicate number included', () => {
+    const name = createFileNamer();
+    const title = '😀'.repeat(100);
+    const names = Array.from({ length: 1200 }, () => name(title));
+    expect(new Set(names).size).toBe(1200);
+    expect(names.at(-1)).toBe(`${'😀'.repeat(50)} (1200).md`);
+    for (const n of names) expect(new TextEncoder().encode(n).length).toBeLessThanOrEqual(210);
+    expect(name('con.notes')).toBe('_con.notes.md');
   });
 });
 
