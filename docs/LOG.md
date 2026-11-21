@@ -231,3 +231,8 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
   Updated D-33, gallery and typography tests. The earlier serif screenshots are superseded.
   Fast CI **ci: ok** (52.1s); revised light/dark typography E2E **3 passed** (including auth setup).
   Product title files match their pre-PR 1 Inter sources. [task](tasks/ui-type-geist-mono.md)
+
+## 2026-11-21 — CI fast gate (D-34)
+
+- Human: Linux CI "takes forever", target < 3 min. Looked at 55 runs: 20 green, 14 red, 20 cancelled by newer pushes. A full run takes 11.7–17.2 min, and e2e (median 517 s) + test:int (202 s) are ~90 % of that. 8 of 14 failures were flakes (timing on the slow runner, test races), and 6 were real (lockfile, typecheck, and 4 e2e-only: axe contrast, specs broken by UI changes). [task](tasks/ci-fast-gate.md)
+- PRs now run `fast`: format/actionlint/lint, typecheck and unit as 3 parallel jobs with per-job turbo caches. The full `pnpm run ci` runs on pushes to main and on demand. Run times in the task file.

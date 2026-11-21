@@ -1,5 +1,8 @@
-# CI (D-12): runs the same `pnpm run ci` as a laptop (scripts/ci.mjs, docs/DEV.md "CI").
-# Runs on pushes to main and on PRs; the `actionlint` step of `pnpm run ci` lints this file.
+# CI (D-12, D-34). Two tiers, both built on `pnpm run ci` (scripts/ci.mjs, docs/DEV.md "CI"):
+# - `fast`: the `pnpm run ci --fast` steps split over parallel jobs. Runs on every PR and push; the PR gate
+#   (< 3 min wall clock).
+# - `checks`: the full `pnpm run ci` (compose stack, migrate, test:int, Playwright e2e; ~15 min). Runs on pushes
+#   to main and on demand (Actions → CI → Run workflow, any branch) — not on PRs.
 # No secrets: every external dependency is the compose stack (D-11), started by the `stack` step.
 name: CI
 
@@ -23,10 +26,59 @@ env:
   E2E_TIMEOUT_SCALE: '2'
 
 jobs:
+  fast:
+    name: Fast (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      # Balanced by cold-cache timings: typecheck and unit tests are ~60-75 s each, the rest ~50 s together.
+      matrix:
+        include:
+          - name: format, actionlint, lint
+            key: static
+            steps: format,actionlint,lint
+          - name: typecheck
+            key: typecheck
+            steps: typecheck
+          - name: unit tests
+            key: test
+            steps: test
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore turbo cache
+        id: turbo-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ matrix.key }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-${{ matrix.key }}-
+
+      - name: pnpm run ci --only ${{ matrix.steps }}
+        run: pnpm run ci --only ${{ matrix.steps }}
+
+      - name: Save turbo cache
+        if: always() && steps.turbo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .turbo/cache
+          key: ${{ steps.turbo-cache.outputs.cache-primary-key }}
+
   checks:
     name: Checks (Linux)
-    # Temporarily manual-only: runs take 15-20 min and are flaky; under investigation. Run `pnpm run ci` locally.
-    if: github.event_name == 'workflow_dispatch'
+    # Not on PRs (D-34): ~15 min, dominated by e2e (8-16 min) and test:int (~3.5 min).
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -49,8 +101,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .turbo/cache
-          key: turbo-${{ runner.os }}-${{ github.sha }}
-          restore-keys: turbo-${{ runner.os }}-
+          key: turbo-${{ runner.os }}-full-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-full-
 
       - name: Restore Playwright browsers
         id: playwright-cache

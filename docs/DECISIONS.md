@@ -259,3 +259,12 @@ UI redesign direction: a Granola-inspired calm layout, described in
 Self-host Geist Mono through Fontsource for all mono roles. Headings, page/document titles and UI/body
 text stay Inter. Newsreader remains available for editor blockquotes only. Per human feedback, no serif
 display-title roles are introduced. Layout changes follow in later PRs.
+
+## D-34 · 2026-11-21 · accepted · human
+CI has two tiers (refines D-12; `pnpm run ci` is still the local gate). The human asked for PR CI under 3 min
+wall clock. The **PR gate** is the `--fast` steps (format, actionlint, typecheck, lint, unit) as 3 parallel GitHub
+jobs, each running `pnpm run ci --only …` with its own turbo cache. The **full** `pnpm run ci` (stack, migrate,
+test:int, e2e; ~15 min) runs on every push to `main` and on demand (`workflow_dispatch`, any branch), not on PRs.
+Why: in 55 runs, e2e + test:int were ~90 % of the time and caused most red runs (8 of 14 were flakes). The
+real e2e catches (axe contrast/a11y, specs broken by UI changes) still run post-merge and on demand. Revisit when
+web e2e is sharded or runs against a production build fast enough for PRs. Evidence: `docs/tasks/ci-fast-gate.md`.
