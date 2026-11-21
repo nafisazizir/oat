@@ -1,12 +1,14 @@
 /**
- * Team workspace membership (5.1/5.2): listing members and invites, changing roles, removing members,
+ * Workspace membership (5.1/5.2): listing members and invites, changing roles, removing members,
  * leaving, and soft-deleting a workspace.
  *
  * Every decision comes from `@oat/core` (`assertCan`), evaluated on rows read **inside the same
  * transaction, under a lock**: the workspace row is locked first (a per-workspace mutex), then every
  * membership row of the workspace `FOR UPDATE`. Two owners demoting/removing each other or leaving at the
  * same time therefore run one after the other, and the second sees the first one's change in its owner
- * count, so a team workspace always keeps at least one owner.
+ * count, so a workspace always keeps at least one owner. Leaving and deleting also take the actor's own
+ * user lock first (`lockUser`) and read all their live memberships inside it, so nobody ends up without a
+ * workspace by leaving two at once (D-36: the last one can't be left or deleted).
  *
  * Better Auth's own member endpoints (`update-member-role`, `remove-member`, `leave`) can't take part in
  * that transaction, so `server.ts` blocks them; invitations still go through Better Auth (see the web
@@ -23,6 +25,8 @@ import {
 } from '@oat/core';
 import { type Db, invite, membership, session, user, workspace } from '@oat/db';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+
+import { loadPermissionContext, lockUser } from './workspaces.ts';
 
 /** How long an invitation link stays valid (Better Auth `invitationExpiresIn`). */
 export const INVITE_EXPIRES_IN = 7 * 24 * 60 * 60;
@@ -60,7 +64,7 @@ async function lockWorkspace(
   actorId: string,
 ): Promise<LockedWorkspace> {
   const [ws] = await tx
-    .select({ id: workspace.id, kind: workspace.kind, deletedAt: workspace.deletedAt })
+    .select({ id: workspace.id, deletedAt: workspace.deletedAt })
     .from(workspace)
     .where(eq(workspace.id, workspaceId))
     .for('update');
@@ -79,7 +83,7 @@ async function lockWorkspace(
     .for('update');
   if (!members.some((m) => m.userId === actorId)) throw new NotFoundError('Workspace not found.');
   return {
-    access: { id: ws.id, kind: ws.kind },
+    access: { id: ws.id },
     members,
     ownerCount: members.filter((m) => m.role === 'owner').length,
   };
@@ -94,7 +98,19 @@ function targetOf(locked: LockedWorkspace, userId: string): MemberTarget {
 const contextOf = (locked: LockedWorkspace, actorId: string) =>
   createPermissionContext({ userId: actorId, memberships: locked.members });
 
-/** Sessions that had `workspaceId` active fall back to the personal workspace on their next request. */
+/**
+ * The actor's context for leaving or deleting: **all** their live memberships (the last-workspace rule
+ * counts them), read under their user lock. Call before {@link lockWorkspace} (user lock, then workspace).
+ */
+async function lockedActorContext(tx: Tx, actorId: string) {
+  if (!(await lockUser(tx, actorId))) throw new NotFoundError('Workspace not found.');
+  return loadPermissionContext(tx, actorId);
+}
+
+/**
+ * Sessions that had `workspaceId` active fall back to another of the user's workspaces on their next
+ * request (`pickActiveWorkspace`).
+ */
 async function clearActiveWorkspace(tx: Tx, workspaceId: string, userId?: string) {
   await tx
     .update(session)
@@ -148,7 +164,7 @@ export async function inviterMayStillInvite(
   input: { inviterId: string; workspaceId: string; role: string },
 ): Promise<boolean> {
   const [row] = await db
-    .select({ kind: workspace.kind, deletedAt: workspace.deletedAt, memberRole: membership.role })
+    .select({ deletedAt: workspace.deletedAt, memberRole: membership.role })
     .from(workspace)
     .leftJoin(
       membership,
@@ -163,10 +179,10 @@ export async function inviterMayStillInvite(
       { workspaceId: input.workspaceId, userId: input.inviterId, role: row.memberRole },
     ],
   });
-  return canInvite(ctx, { id: input.workspaceId, kind: row.kind }, input.role as Role);
+  return canInvite(ctx, { id: input.workspaceId }, input.role as Role);
 }
 
-/** Changes `userId`'s role in a team workspace (`@oat/core` `changeRole`, incl. last-owner protection). */
+/** Changes `userId`'s role in a workspace (`@oat/core` `changeRole`, incl. last-owner protection). */
 export async function changeMemberRole(
   db: Db,
   input: { actorId: string; workspaceId: string; userId: string; role: Role },
@@ -187,17 +203,21 @@ export async function changeMemberRole(
 }
 
 /**
- * Removes `userId` from a team workspace; `userId === actorId` is leaving. `@oat/core` `removeMember`
- * decides (anyone may leave, owners remove anyone, admins only members/viewers, never the last owner).
+ * Removes `userId` from a workspace; `userId === actorId` is leaving. `@oat/core` `removeMember` decides
+ * (anyone may leave unless it is their last workspace, owners remove anyone, admins only members/viewers,
+ * never the last owner). A member removed from their only workspace gets a new one of their own the next
+ * time they open Oat (`ensureFirstWorkspace`).
  */
 export async function removeMember(
   db: Db,
   input: { actorId: string; workspaceId: string; userId: string },
 ): Promise<void> {
   await db.transaction(async (tx) => {
+    const leaving = input.userId === input.actorId;
+    const own = leaving ? await lockedActorContext(tx, input.actorId) : undefined;
     const locked = await lockWorkspace(tx, input.workspaceId, input.actorId);
     const target = targetOf(locked, input.userId);
-    assertCan('removeMember', contextOf(locked, input.actorId), locked.access, target);
+    assertCan('removeMember', own ?? contextOf(locked, input.actorId), locked.access, target);
     await tx
       .delete(membership)
       .where(
@@ -217,16 +237,19 @@ export function leaveWorkspace(
 }
 
 /**
- * Soft-deletes a team workspace (owner only, D-22): sets `deleted_at`, after which it is hidden from
- * workspace lists and permission contexts. Data stays for {@link WORKSPACE_RESTORE_DAYS} days.
+ * Soft-deletes a workspace (owner only, never the actor's last one; D-22, D-36): sets `deleted_at`, after
+ * which it is hidden from workspace lists and permission contexts. Data stays for
+ * {@link WORKSPACE_RESTORE_DAYS} days. Other members for whom it was the only workspace get a new one of
+ * their own the next time they open Oat (`ensureFirstWorkspace`).
  */
 export async function deleteWorkspace(
   db: Db,
   input: { actorId: string; workspaceId: string },
 ): Promise<void> {
   await db.transaction(async (tx) => {
+    const own = await lockedActorContext(tx, input.actorId);
     const locked = await lockWorkspace(tx, input.workspaceId, input.actorId);
-    assertCan('deleteWorkspace', contextOf(locked, input.actorId), locked.access);
+    assertCan('deleteWorkspace', own, locked.access);
     await tx
       .update(workspace)
       .set({ deletedAt: sql`now()` })
@@ -239,7 +262,6 @@ export interface WorkspaceSummary {
   id: string;
   name: string;
   slug: string;
-  kind: 'personal' | 'team';
   logo: string | null;
 }
 
@@ -253,7 +275,6 @@ export async function findLiveWorkspace(
       id: workspace.id,
       name: workspace.name,
       slug: workspace.slug,
-      kind: workspace.kind,
       logo: workspace.logo,
     })
     .from(workspace)
@@ -367,8 +388,8 @@ export interface InviteDetails {
 }
 
 /**
- * The invitation behind an `/invite/<token>` link, or `undefined` for an unknown token or a deleted /
- * non-team workspace. The token is the secret; accepting additionally needs the invited, verified email.
+ * The invitation behind an `/invite/<token>` link, or `undefined` for an unknown token or a deleted
+ * workspace. The token is the secret; accepting additionally needs the invited, verified email.
  */
 export async function findInviteByToken(db: Db, token: string): Promise<InviteDetails | undefined> {
   if (token.length < 16 || token.length > 128) return undefined;
@@ -383,7 +404,6 @@ export async function findInviteByToken(db: Db, token: string): Promise<InviteDe
       workspaceId: workspace.id,
       workspaceName: workspace.name,
       workspaceLogo: workspace.logo,
-      workspaceKind: workspace.kind,
       workspaceDeletedAt: workspace.deletedAt,
       inviterName: user.name,
       inviterEmail: user.email,
@@ -392,7 +412,7 @@ export async function findInviteByToken(db: Db, token: string): Promise<InviteDe
     .innerJoin(workspace, eq(workspace.id, invite.workspaceId))
     .innerJoin(user, eq(user.id, invite.inviterId))
     .where(eq(invite.token, token));
-  if (!row || row.workspaceDeletedAt !== null || row.workspaceKind !== 'team') return undefined;
+  if (!row || row.workspaceDeletedAt !== null) return undefined;
   return {
     id: row.id,
     token: row.token,

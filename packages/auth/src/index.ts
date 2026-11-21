@@ -96,14 +96,17 @@ export {
   type CreateAuthOptions,
 } from './server.ts';
 export {
-  ensurePersonalWorkspace,
-  findPersonalWorkspaceId,
+  ensureFirstWorkspace,
+  FALLBACK_WORKSPACE_NAME,
+  findFirstWorkspaceId,
+  type FirstWorkspace,
+  firstWorkspaceName,
+  lastActiveWorkspaceId,
   listUserWorkspaces,
   loadPermissionContext,
-  PERSONAL_SLUG_PREFIX,
-  PERSONAL_WORKSPACE_NAME,
-  personalWorkspaceSlug,
   pickActiveWorkspace,
-  teamWorkspaceSlug,
+  rememberActiveWorkspace,
+  startingWorkspaceId,
   type UserWorkspace,
+  workspaceSlug,
 } from './workspaces.ts';

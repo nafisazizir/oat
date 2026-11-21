@@ -13,19 +13,20 @@ import {
   testEnv,
   uniqueAddress,
 } from '@oat/testkit';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { type AuthConfig, DEV_AUTH_SECRET } from './config.ts';
 import { type Auth, createAuth } from './server.ts';
 import { MAGIC_LINK_CONFIRM_PATH, magicLinkVerifyUrl } from './magic-link.ts';
 import { peekMagicLinkEmail } from './magic-link-lookup.ts';
+import { deleteWorkspace } from './members.ts';
 import { createRedisRateLimiter, type RateLimiter } from './rate-limit.ts';
 import {
-  ensurePersonalWorkspace,
+  ensureFirstWorkspace,
+  findFirstWorkspaceId,
   listUserWorkspaces,
   loadPermissionContext,
-  personalWorkspaceSlug,
 } from './workspaces.ts';
 
 const BASE = 'http://localhost:3000';
@@ -161,17 +162,14 @@ async function userByEmail(email: string) {
   return row;
 }
 
-async function personalWorkspacesOf(userId: string) {
-  return db
-    .select()
-    .from(schema.workspace)
-    .where(and(eq(schema.workspace.createdBy, userId), eq(schema.workspace.kind, 'personal')));
+async function workspacesCreatedBy(userId: string) {
+  return db.select().from(schema.workspace).where(eq(schema.workspace.createdBy, userId));
 }
 
 // ---------------------------------------------------------------------------------------------------
 
 describe('magic link', () => {
-  it('signs up: verified user, personal workspace + owner membership, active in the session', async () => {
+  it('signs up: verified user, a workspace of their own + owner membership, active in the session', async () => {
     const email = uniqueAddress('magic');
     const jar = new Jar();
     const { verify, message } = await signInWithMagicLink(jar, email);
@@ -188,28 +186,27 @@ describe('magic link', () => {
     const user = await userByEmail(email);
     expect(user).toMatchObject({ email, emailVerified: true });
 
-    const personal = await personalWorkspacesOf(user!.id);
-    expect(personal).toHaveLength(1);
-    expect(personal[0]).toMatchObject({
-      name: 'Personal',
-      slug: personalWorkspaceSlug(user!.id),
-      kind: 'personal',
-    });
+    // D-36: an ordinary workspace (no kind), named for a user without a name, with a generated address.
+    const own = await workspacesCreatedBy(user!.id);
+    expect(own).toHaveLength(1);
+    expect(own[0]).toMatchObject({ name: 'My workspace', deletedAt: null });
+    expect(own[0]!.slug).toMatch(/^my-workspace-[0-9a-f]{8}$/);
+    expect(own[0]).not.toHaveProperty('kind');
     const members = await db
       .select()
       .from(schema.membership)
-      .where(eq(schema.membership.workspaceId, personal[0]!.id));
+      .where(eq(schema.membership.workspaceId, own[0]!.id));
     expect(members).toMatchObject([{ userId: user!.id, role: 'owner' }]);
 
-    // The session cookie authenticates, and the personal workspace is active.
+    // The session cookie authenticates, and that workspace is active.
     const session = await auth.api.getSession({ headers: jar.headers() });
     expect(session?.user.email).toBe(email);
-    expect(session?.session.activeOrganizationId).toBe(personal[0]!.id);
+    expect(session?.session.activeOrganizationId).toBe(own[0]!.id);
     const [row] = await db.select().from(schema.session).where(eq(schema.session.userId, user!.id));
-    expect(row?.activeWorkspaceId).toBe(personal[0]!.id);
+    expect(row?.activeWorkspaceId).toBe(own[0]!.id);
   });
 
-  it('a second sign-in reuses the user and the personal workspace', async () => {
+  it('a second sign-in reuses the user and their workspace', async () => {
     const email = uniqueAddress('magic-again');
     await signInWithMagicLink(new Jar(), email);
     const first = await userByEmail(email);
@@ -219,7 +216,7 @@ describe('magic link', () => {
     expect(verify.status).toBe(302);
     const again = await userByEmail(email);
     expect(again?.id).toBe(first?.id);
-    expect(await personalWorkspacesOf(first!.id)).toHaveLength(1);
+    expect(await workspacesCreatedBy(first!.id)).toHaveLength(1);
     expect(await listUserWorkspaces(db, first!.id)).toHaveLength(1);
     const sessions = await db
       .select()
@@ -301,7 +298,7 @@ describe('magic link limits', () => {
 });
 
 describe('Google (mock OIDC issuer)', () => {
-  it('creates a user with a google account and a personal workspace', async () => {
+  it('creates a user with a google account and a workspace named after them', async () => {
     const email = uniqueAddress('google');
     const jar = new Jar();
     const res = await signInWithGoogle(jar, email, 'Grace Hopper');
@@ -315,7 +312,9 @@ describe('Google (mock OIDC issuer)', () => {
       .from(schema.account)
       .where(eq(schema.account.userId, user!.id));
     expect(accounts).toMatchObject([{ providerId: 'google', accountId: email }]);
-    expect(await personalWorkspacesOf(user!.id)).toHaveLength(1);
+    const own = await workspacesCreatedBy(user!.id);
+    expect(own.map((w) => w.name)).toEqual(['Grace’s workspace']);
+    expect(own[0]!.slug).toMatch(/^grace-s-workspace-[0-9a-f]{8}$/);
 
     const session = await auth.api.getSession({ headers: jar.headers() });
     expect(session?.user.id).toBe(user!.id);
@@ -338,7 +337,7 @@ describe('Google (mock OIDC issuer)', () => {
     expect(accounts.map((a) => a.providerId)).toContain('google');
     const users = await db.select().from(schema.user).where(eq(schema.user.email, email));
     expect(users).toHaveLength(1);
-    expect(await personalWorkspacesOf(user!.id)).toHaveLength(1);
+    expect(await workspacesCreatedBy(user!.id)).toHaveLength(1);
   });
 });
 
@@ -383,23 +382,25 @@ describe('workspaces and roles', () => {
     return { jar, user, headers: jar.headers() };
   }
 
-  it('API-created workspaces are always team workspaces, created by the caller', async () => {
+  it('API-created workspaces are created by the caller, next to their first one', async () => {
     const owner = await signedIn('owner');
     const org = await auth.api.createOrganization({
       body: { name: 'Acme', slug: `acme-${owner.user.id}` },
       headers: owner.headers,
     });
     const [ws] = await db.select().from(schema.workspace).where(eq(schema.workspace.id, org!.id));
-    expect(ws).toMatchObject({ kind: 'team', createdBy: owner.user.id });
+    expect(ws).toMatchObject({ createdBy: owner.user.id });
+    // Listed by name; nothing tells them apart but that (D-36).
     const list = await listUserWorkspaces(db, owner.user.id);
-    expect(list.map((w) => [w.kind, w.role, w.memberCount])).toEqual([
-      ['personal', 'owner', 1],
-      ['team', 'owner', 1],
+    expect(list.map((w) => [w.name, w.role, w.memberCount])).toEqual([
+      ['Acme', 'owner', 1],
+      ['My workspace', 'owner', 1],
     ]);
   });
 
-  // 1.6 review #2: `kind`/slug tampering through the HTTP API.
-  describe('workspace kind and slug tampering', () => {
+  // 1.6 review #2: tampering through the HTTP API. Since D-36 there is no `kind` to flip and no reserved
+  // address; what stays server-owned is who created a workspace.
+  describe('workspace field tampering', () => {
     const create = (jar: Jar, body: Record<string, unknown>) =>
       postJson(jar, '/api/auth/organization/create', body);
     const update = (jar: Jar, organizationId: string, data: Record<string, unknown>) =>
@@ -407,94 +408,270 @@ describe('workspaces and roles', () => {
     const row = async (id: string) =>
       (await db.select().from(schema.workspace).where(eq(schema.workspace.id, id)))[0]!;
 
-    it('create: `kind` from the body is ignored and `personal-` slugs are reserved', async () => {
+    it('create: `createdBy` from the body is ignored', async () => {
       const owner = await signedIn('tamper-create');
-      const withKind = await create(owner.jar, {
+      const res = await create(owner.jar, {
         name: 'Sneaky',
         slug: `sneaky-${owner.user.id}`,
-        kind: 'personal',
+        createdBy: 'someone-else',
       });
-      // Better Auth drops `input: false` fields from the body: the workspace is a plain team one.
-      expect(withKind.status).toBe(200);
-      const created = (await withKind.json()) as { id: string };
-      expect((await row(created.id)).kind).toBe('team');
-      const reserved = await create(owner.jar, { name: 'X', slug: `personal-${owner.user.id}x` });
-      expect(reserved.status).toBe(403);
-      expect(await personalWorkspacesOf(owner.user.id)).toHaveLength(1);
-      const teams = await db
-        .select()
-        .from(schema.workspace)
-        .where(
-          and(eq(schema.workspace.createdBy, owner.user.id), eq(schema.workspace.kind, 'team')),
-        );
-      expect(teams.map((t) => t.id)).toEqual([created.id]);
-    });
-
-    it('personal workspace: kind and slug are immutable, name can change', async () => {
-      const owner = await signedIn('tamper-personal');
-      const [personal] = await personalWorkspacesOf(owner.user.id);
-      const id = personal!.id;
-
-      expect((await update(owner.jar, id, { kind: 'team' })).status).toBeGreaterThanOrEqual(400);
-      expect((await update(owner.jar, id, { createdBy: 'x' })).status).toBeGreaterThanOrEqual(400);
-      expect((await update(owner.jar, id, { slug: `moved-${owner.user.id}` })).status).toBe(403);
-      expect(await row(id)).toMatchObject({
-        kind: 'personal',
-        slug: personalWorkspaceSlug(owner.user.id),
+      expect(res.status).toBe(200);
+      const created = (await res.json()) as { id: string };
+      expect(await row(created.id)).toMatchObject({
+        slug: `sneaky-${owner.user.id}`,
         createdBy: owner.user.id,
       });
-
-      // Flipping it to team would have allowed invites; still refused.
-      await expect(
-        auth.api.createInvitation({
-          body: { email: uniqueAddress('inv'), role: 'member', organizationId: id },
-          headers: owner.headers,
-        }),
-      ).rejects.toThrow();
-
-      const renamed = await update(owner.jar, id, { name: 'My notes' });
-      expect(renamed.status).toBe(200);
-      expect((await row(id)).name).toBe('My notes');
-
-      // Signing in again still finds the same, single personal workspace.
-      await signInWithMagicLink(new Jar(), owner.user.email);
-      const all = await personalWorkspacesOf(owner.user.id);
-      expect(all.map((w) => w.id)).toEqual([id]);
+      expect((await workspacesCreatedBy(owner.user.id)).map((w) => w.id)).toContain(created.id);
     });
 
-    it('team workspace: kind is immutable and `personal-` slugs are reserved', async () => {
+    it('a first workspace is an ordinary one: rename it, change its address, invite into it', async () => {
+      const owner = await signedIn('tamper-first');
+      const id = (await findFirstWorkspaceId(db, owner.user.id))!;
+
+      expect((await update(owner.jar, id, { createdBy: 'x' })).status).toBeGreaterThanOrEqual(400);
+      expect((await row(id)).createdBy).toBe(owner.user.id);
+
+      const moved = await update(owner.jar, id, { slug: `moved-${owner.user.id}` });
+      expect(moved.status).toBe(200);
+      const renamed = await update(owner.jar, id, { name: 'My notes' });
+      expect(renamed.status).toBe(200);
+      expect(await row(id)).toMatchObject({ name: 'My notes', slug: `moved-${owner.user.id}` });
+
+      const invitation = await auth.api.createInvitation({
+        body: { email: uniqueAddress('inv'), role: 'member', organizationId: id },
+        headers: owner.headers,
+      });
+      expect(invitation.status).toBe('pending');
+
+      // Signing in again still finds the same, single workspace.
+      await signInWithMagicLink(new Jar(), owner.user.email);
+      expect((await listUserWorkspaces(db, owner.user.id)).map((w) => w.id)).toEqual([id]);
+    });
+
+    it('updates: the address must be valid and only owners change it', async () => {
       const owner = await signedIn('tamper-team');
       const org = (await auth.api.createOrganization({
         body: { name: 'Team', slug: `team-${owner.user.id}` },
         headers: owner.headers,
       }))!;
-      expect((await update(owner.jar, org.id, { kind: 'personal' })).status).toBeGreaterThanOrEqual(
-        400,
-      );
-      expect((await update(owner.jar, org.id, { slug: `personal-${newId()}` })).status).toBe(403);
-      expect(await row(org.id)).toMatchObject({ kind: 'team', slug: `team-${owner.user.id}` });
+      expect((await update(owner.jar, org.id, { slug: 'Not A Slug' })).status).toBe(400);
+      expect(await row(org.id)).toMatchObject({ slug: `team-${owner.user.id}` });
       const ok = await update(owner.jar, org.id, { slug: `team-renamed-${owner.user.id}` });
       expect(ok.status).toBe(200);
       expect((await row(org.id)).slug).toBe(`team-renamed-${owner.user.id}`);
     });
+  });
 
-    it('the database allows one personal workspace per user', async () => {
-      const owner = await signedIn('tamper-db');
-      await expect(
-        db.insert(schema.workspace).values({
-          name: 'Second',
-          slug: `second-${owner.user.id}`,
-          kind: 'personal',
-          createdBy: owner.user.id,
-        }),
-      ).rejects.toThrow();
-      expect(await ensurePersonalWorkspace(db, owner.user.id)).toBe(
-        (await personalWorkspacesOf(owner.user.id))[0]!.id,
+  // D-36: nobody is left without a workspace, and nobody gets one they don't need.
+  describe('first workspace', () => {
+    const newUser = async (prefix: string, name: string | null = null) =>
+      (
+        await db
+          .insert(schema.user)
+          .values({ email: uniqueAddress(prefix), name, emailVerified: true })
+          .returning()
+      )[0]!;
+
+    /** An invitation row as Better Auth writes it (no email is sent). */
+    const invited = async (
+      inviter: { user: { id: string } },
+      workspaceId: string,
+      email: string,
+      overrides: Partial<typeof schema.invite.$inferInsert> = {},
+    ) =>
+      (
+        await db
+          .insert(schema.invite)
+          .values({
+            workspaceId,
+            email,
+            role: 'member',
+            inviterId: inviter.user.id,
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+            ...overrides,
+          })
+          .returning()
+      )[0]!;
+
+    it('concurrent calls for a user without one create exactly one, as owner', async () => {
+      const user = await newUser('race', 'Race Car');
+      const results = await Promise.all(
+        Array.from({ length: 8 }, () => ensureFirstWorkspace(db, user.id)),
       );
+      expect(new Set(results.map((r) => r.workspaceId)).size).toBe(1);
+      expect(results.filter((r) => r.created)).toHaveLength(1);
+      expect(await workspacesCreatedBy(user.id)).toHaveLength(1);
+      const list = await listUserWorkspaces(db, user.id);
+      expect(list.map((w) => [w.name, w.role, w.memberCount])).toEqual([
+        ['Race’s workspace', 'owner', 1],
+      ]);
+    });
+
+    it('does nothing for a user who already has a workspace (their oldest is returned)', async () => {
+      const owner = await signedIn('ensure-again');
+      const first = (await findFirstWorkspaceId(db, owner.user.id))!;
+      await auth.api.createOrganization({
+        body: { name: 'Aardvark', slug: `aardvark-${owner.user.id}` },
+        headers: owner.headers,
+      });
+      expect(await ensureFirstWorkspace(db, owner.user.id)).toEqual({
+        workspaceId: first,
+        created: false,
+      });
+      expect(await workspacesCreatedBy(owner.user.id)).toHaveLength(2);
+      await expect(ensureFirstWorkspace(db, 'no-such-user')).rejects.toThrow(/unknown user/);
+    });
+
+    it('an invited newcomer gets no workspace until they answer; declining gives them their own', async () => {
+      const owner = await signedIn('inviter');
+      const first = (await findFirstWorkspaceId(db, owner.user.id))!;
+      const email = uniqueAddress('newcomer');
+      const invitation = await invited(owner, first, email);
+
+      const jar = new Jar();
+      await signInWithMagicLink(jar, email);
+      const user = (await userByEmail(email))!;
+      expect(await listUserWorkspaces(db, user.id)).toEqual([]);
+      expect(await workspacesCreatedBy(user.id)).toEqual([]);
+      const session = await auth.api.getSession({ headers: jar.headers() });
+      expect(session?.session.activeOrganizationId ?? null).toBeNull();
+      // Asking again changes nothing, and says which invitation is waiting.
+      expect(await ensureFirstWorkspace(db, user.id)).toEqual({
+        workspaceId: undefined,
+        created: false,
+        pendingInviteToken: invitation.token,
+      });
+
+      await auth.api.rejectInvitation({
+        body: { invitationId: invitation.id },
+        headers: jar.headers(),
+      });
+      const own = await ensureFirstWorkspace(db, user.id);
+      expect(own.created).toBe(true);
+      expect((await listUserWorkspaces(db, user.id)).map((w) => [w.id, w.name, w.role])).toEqual([
+        [own.workspaceId, 'My workspace', 'owner'],
+      ]);
+    });
+
+    it('an invited newcomer who accepts is only in that workspace, and starts there', async () => {
+      const owner = await signedIn('inviter-yes');
+      const first = (await findFirstWorkspaceId(db, owner.user.id))!;
+      const email = uniqueAddress('joiner');
+      const invitation = await invited(owner, first, email);
+
+      const jar = new Jar();
+      await signInWithMagicLink(jar, email);
+      const user = (await userByEmail(email))!;
+      await auth.api.acceptInvitation({
+        body: { invitationId: invitation.id },
+        headers: jar.headers(),
+      });
+      expect((await listUserWorkspaces(db, user.id)).map((w) => [w.id, w.role])).toEqual([
+        [first, 'member'],
+      ]);
+      expect(await ensureFirstWorkspace(db, user.id)).toEqual({
+        workspaceId: first,
+        created: false,
+      });
+      expect(await workspacesCreatedBy(user.id)).toEqual([]);
+
+      const again = new Jar();
+      await signInWithMagicLink(again, email);
+      const session = await auth.api.getSession({ headers: again.headers() });
+      expect(session?.session.activeOrganizationId).toBe(first);
+    });
+
+    it('an expired, answered or revoked invitation, or one into a deleted workspace, holds nothing back', async () => {
+      const owner = await signedIn('inviter-stale');
+      const first = (await findFirstWorkspaceId(db, owner.user.id))!;
+      const gone = (await auth.api.createOrganization({
+        body: { name: 'Gone', slug: `gone-${owner.user.id}` },
+        headers: owner.headers,
+      }))!;
+      await deleteWorkspace(db, { actorId: owner.user.id, workspaceId: gone.id });
+
+      const user = await newUser('stale');
+      await invited(owner, first, user.email, { expiresAt: new Date(Date.now() - 1000) });
+      await invited(owner, first, user.email, { status: 'canceled' });
+      await invited(owner, first, user.email, { status: 'rejected' });
+      await invited(owner, gone.id, user.email);
+      // Someone else's pending invitation is not mine.
+      await invited(owner, first, uniqueAddress('other'));
+
+      const own = await ensureFirstWorkspace(db, user.id);
+      expect(own.created).toBe(true);
+      // A pending invitation is matched whatever the case of the address.
+      const shouty = await newUser('shouty');
+      const waiting = await invited(owner, first, shouty.email.toUpperCase());
+      expect(await ensureFirstWorkspace(db, shouty.id)).toMatchObject({
+        workspaceId: undefined,
+        pendingInviteToken: waiting.token,
+      });
     });
   });
 
-  it('caps the team workspaces one user can create', async () => {
+  // D-36: a new session starts in the workspace last switched to, else the oldest membership.
+  describe('where a session starts', () => {
+    const activeOf = async (jar: Jar) =>
+      (await auth.api.getSession({ headers: jar.headers() }))?.session.activeOrganizationId;
+    const freshSession = async (email: string) => {
+      const jar = new Jar();
+      await signInWithMagicLink(jar, email);
+      return jar;
+    };
+
+    it('last active workspace, else the oldest membership; a workspace that is gone is skipped', async () => {
+      const me = await signedIn('starter');
+      const email = me.user.email;
+      const first = (await findFirstWorkspaceId(db, me.user.id))!;
+      // Names sort before "My workspace": the list order must not decide.
+      const b = (await auth.api.createOrganization({
+        body: { name: 'Aardvark', slug: `b-${me.user.id}` },
+        headers: me.headers,
+      }))!;
+      const c = (await auth.api.createOrganization({
+        body: { name: 'Beaver', slug: `c-${me.user.id}` },
+        headers: me.headers,
+      }))!;
+
+      // Nothing chosen yet: the oldest membership.
+      const second = await freshSession(email);
+      expect(await activeOf(second)).toBe(first);
+
+      // Switching over HTTP is remembered for the next sign-in…
+      const switched = await postJson(second, '/api/auth/organization/set-active', {
+        organizationId: b.id,
+      });
+      expect(switched.status).toBe(200);
+      const third = await freshSession(email);
+      expect(await activeOf(third)).toBe(b.id);
+
+      // …and so is the app's own in-process call (the web's `switchWorkspace` action).
+      await auth.api.setActiveOrganization({
+        body: { organizationId: c.id },
+        headers: third.headers(),
+      });
+      const [row] = await db.select().from(schema.user).where(eq(schema.user.id, me.user.id));
+      expect(row?.lastActiveWorkspaceId).toBe(c.id);
+
+      // A refused switch (not a member) is not remembered.
+      const stranger = await signedIn('starter-stranger');
+      const theirs = (await findFirstWorkspaceId(db, stranger.user.id))!;
+      const refused = await postJson(third, '/api/auth/organization/set-active', {
+        organizationId: theirs,
+      });
+      expect(refused.status).toBeGreaterThanOrEqual(400);
+      const fourth = await freshSession(email);
+      expect(await activeOf(fourth)).toBe(c.id);
+
+      // The remembered workspace is deleted: back to the oldest membership.
+      await deleteWorkspace(db, { actorId: me.user.id, workspaceId: c.id });
+      const fifth = await freshSession(email);
+      expect(await activeOf(fifth)).toBe(first);
+    });
+  });
+
+  it('caps the workspaces one user can create (on top of their first)', async () => {
     const owner = await signedIn('cap');
     for (let i = 0; i < 3; i++) {
       await auth.api.createOrganization({
@@ -524,7 +701,7 @@ describe('workspaces and roles', () => {
     await auth.api.addMember({
       body: { userId: member.user.id, role: 'member', organizationId: org.id },
     });
-    const team = { id: org.id, kind: 'team' as const };
+    const team = { id: org.id };
 
     // @oat/core is the source of truth.
     expect(canCreateInWorkspace(await loadPermissionContext(db, viewer.user.id), team)).toBe(false);
@@ -541,33 +718,28 @@ describe('workspaces and roles', () => {
     expect(await can(viewer.headers)).toBe(false);
     expect(await can(member.headers)).toBe(true);
 
-    // Viewers can't invite; owners can't invite into a personal workspace.
+    // Viewers can't invite, and nobody invites into a workspace they aren't in.
     await expect(
       auth.api.createInvitation({
         body: { email: uniqueAddress('x'), role: 'viewer', organizationId: org.id },
         headers: viewer.headers,
       }),
     ).rejects.toThrow();
-    const ownerPersonal = (await listUserWorkspaces(db, owner.user.id)).find(
-      (w) => w.kind === 'personal',
-    )!;
+    const ownerFirst = (await findFirstWorkspaceId(db, owner.user.id))!;
     await expect(
       auth.api.createInvitation({
-        body: { email: uniqueAddress('y'), role: 'member', organizationId: ownerPersonal.id },
-        headers: owner.headers,
+        body: { email: uniqueAddress('y'), role: 'member', organizationId: ownerFirst },
+        headers: member.headers,
       }),
-    ).rejects.toThrow(/one member|can’t invite/);
-    await expect(
-      auth.api.addMember({
-        body: { userId: member.user.id, role: 'member', organizationId: ownerPersonal.id },
-      }),
-    ).rejects.toThrow(/one member/);
+    ).rejects.toThrow();
 
-    // Owners can invite into a team workspace.
-    const invite = await auth.api.createInvitation({
-      body: { email: uniqueAddress('z'), role: 'member', organizationId: org.id },
-      headers: owner.headers,
-    });
-    expect(invite.status).toBe('pending');
+    // Owners can invite into any workspace of theirs — the one made for them at sign-up too (D-36).
+    for (const organizationId of [org.id, ownerFirst]) {
+      const invite = await auth.api.createInvitation({
+        body: { email: uniqueAddress('z'), role: 'member', organizationId },
+        headers: owner.headers,
+      });
+      expect(invite.status).toBe('pending');
+    }
   });
 });

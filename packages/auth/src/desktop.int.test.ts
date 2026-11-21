@@ -19,7 +19,7 @@ import type { EmailMessage } from './email.ts';
 import { magicLinkVerifyUrl } from './magic-link.ts';
 import { createMemoryRateLimiter } from './rate-limit.ts';
 import { type Auth, createAuth } from './server.ts';
-import { findPersonalWorkspaceId } from './workspaces.ts';
+import { findFirstWorkspaceId } from './workspaces.ts';
 
 const BASE = 'http://localhost:3000';
 
@@ -211,7 +211,7 @@ describe('desktop code (browser side)', () => {
 });
 
 describe('desktop token exchange', () => {
-  it('returns a signed bearer token for a new session in the personal workspace', async () => {
+  it('returns a signed bearer token for a new session in the user’s workspace', async () => {
     const browser = await signedInBrowser();
     const { state, verifier, challenge } = await desktopRequest();
     const code = await codeFrom(await issueCode(browser.jar, state, challenge), state);
@@ -227,10 +227,10 @@ describe('desktop token exchange', () => {
 
     const session = await (await call('/api/auth/get-session', { bearer: token! })).json();
     expect(session.user.id).toBe(browser.userId);
-    // Its own session (signing out on one side doesn't end the other), starting in Personal.
+    // Its own session (signing out on one side doesn't end the other), starting in their workspace.
     expect(session.session.id).not.toBe(browser.sessionId);
     expect(session.session.activeOrganizationId).toBe(
-      await findPersonalWorkspaceId(db, browser.userId),
+      await findFirstWorkspaceId(db, browser.userId),
     );
     // The code is gone.
     const left = await db

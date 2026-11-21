@@ -92,7 +92,7 @@ const ENDPOINTS: Record<string, Policy> = {
   // Workspaces (organization plugin): Better Auth role checks (access.ts) + our hooks
   'POST /organization/create': {
     status: 'served',
-    why: 'Always a team workspace created by the caller; per-user cap; personal- slugs reserved.',
+    why: 'Always created by the caller (`createdBy` is not client-settable); per-user cap.',
   },
   'POST /organization/update': {
     status: 'served',
