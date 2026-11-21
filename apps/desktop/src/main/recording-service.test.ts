@@ -32,6 +32,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TranscriptStore } from '../shared/transcript.ts';
 import type { Logger } from './ipc.ts';
 import { MeetingPersistence } from './meeting-persistence.ts';
+import { Workspaces } from './workspaces.ts';
 import {
   type InputSpec,
   type PowerEvents,
@@ -546,7 +547,8 @@ describe('RecordingService: system sleep (review 2.5 #2)', () => {
 });
 
 describe('RecordingService + local database (2.6)', () => {
-  function localDb(withWorkspace = true) {
+  /** `withWorkspace`: mine (I own it), `'view-only'` (I can only view it), or none yet (never synced). */
+  function localDb(withWorkspace: boolean | 'view-only' = true) {
     const store = new LocalStore({ path: ':memory:' });
     if (withWorkspace) {
       store.applyPull(
@@ -555,7 +557,11 @@ describe('RecordingService + local database (2.6)', () => {
             {
               op: 'upsert',
               table: 'workspace',
-              row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+              row: {
+                id: 'ws',
+                name: 'Me',
+                role: withWorkspace === 'view-only' ? 'viewer' : 'owner',
+              },
             },
           ],
           cursor: 'c',
@@ -570,10 +576,15 @@ describe('RecordingService + local database (2.6)', () => {
       store: () => store,
       userId: () => 'u1',
       workspaceTimeoutMs: 10,
-      sync: {
-        kick: () => void kicks++,
-        personalWorkspace: async () => store.personalWorkspaceId(),
-      },
+      sync: { kick: () => void kicks++ },
+      // The real rule (3.9, D-36): the active workspace if I can create there, else the first where I can.
+      newNoteWorkspace: (timeoutMs) => workspaces.newNoteWorkspace(timeoutMs),
+    });
+    const workspaces = new Workspaces({
+      store: () => store,
+      userId: () => 'u1',
+      sync: { awaitWorkspaces: async () => store.firstWorkspaceId() !== null },
+      onChange: () => {},
     });
     return { store, persistence, kicks: () => kicks };
   }
@@ -661,6 +672,42 @@ describe('RecordingService + local database (2.6)', () => {
       message: expect.stringMatching(/connect once/),
     });
     expect(h.service.status).toBe('idle');
+    db.store.close();
+  });
+
+  // D-36: no workspace is a fallback of last resort any more.
+  it('only view-only workspaces: the start is refused before any audio, asking to create a workspace', async () => {
+    const db = localDb('view-only');
+    const h = setup({ persistence: db.persistence });
+    await expect(h.service.start({ spec: fixture })).rejects.toMatchObject({
+      code: 'unavailable',
+      message: expect.stringMatching(/Create a workspace of your own/),
+    });
+    // Nothing started, so nothing can be lost: no capture, no meeting, nothing queued for sync.
+    expect(h.service.status).toBe('idle');
+    expect(h.service.snapshot().meetingId ?? null).toBeNull();
+    expect(db.store.documents()).toEqual([]);
+    expect(db.store.outboxSize()).toBe(0);
+
+    // Once I have a workspace I can create in (made on the web; joining one makes sync pull from the
+    // start again), recording works and the note lands there — not in the view-only one that is still
+    // active.
+    db.store.applyPull(
+      {
+        changes: [
+          { op: 'upsert', table: 'workspace', row: { id: 'ws', name: 'Me', role: 'viewer' } },
+          { op: 'upsert', table: 'workspace', row: { id: 'new', name: 'Mine', role: 'owner' } },
+        ],
+        cursor: 'c2',
+        hasMore: false,
+        workspaceIds: ['ws', 'new'],
+      },
+      null,
+    );
+    await h.service.start({ spec: fixture });
+    await h.waitFor('recording');
+    await h.service.stop();
+    expect(db.store.documents().map((d) => d.workspaceId)).toEqual(['new']);
     db.store.close();
   });
 

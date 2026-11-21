@@ -497,7 +497,6 @@ function SignedInShell({
                 </>
               )}
               <SettingsView
-                teamWorkspace={workspaces.active?.kind === 'team'}
                 onClose={() => setSettingsOpen(false)}
                 onOpenSetup={() => setSetupOpen(true)}
               />

@@ -1,7 +1,8 @@
 /**
- * Sidebar workspace switcher (3.9), like the web app's: my personal and team workspaces as synced to this
- * Mac. The meeting list shows the active workspace's notes, and new notes go there — unless I can only view
- * it, which the hint under the switcher says (they go to my personal workspace then).
+ * Sidebar workspace switcher (3.9), like the web app's: my workspaces as synced to this Mac. The meeting
+ * list shows the active workspace's notes, and new notes go there — unless I can only view it, which the
+ * hint under the switcher says: they go to the first workspace I can add notes to, and when there is none
+ * the hint asks me to create one (D-36).
  */
 import type { DesktopWorkspace } from '@oat/core/bridge';
 import {
@@ -26,15 +27,14 @@ export function WorkspaceTile({
   workspace,
   className,
 }: {
-  workspace: Pick<DesktopWorkspace, 'name' | 'kind'>;
+  workspace: Pick<DesktopWorkspace, 'name'>;
   className?: string;
 }) {
   return (
     <span
       aria-hidden
       className={cn(
-        'flex size-8 shrink-0 items-center justify-center rounded-md text-label-13',
-        workspace.kind === 'personal' ? 'bg-brand-700 text-brand-on' : 'bg-gray-200 text-gray-1000',
+        'flex size-8 shrink-0 items-center justify-center rounded-md bg-gray-200 text-label-13 text-gray-1000',
         className,
       )}
     >
@@ -55,7 +55,7 @@ export function WorkspaceSwitcher({
   email: string;
 }) {
   const [error, setError] = useState<string | null>(null);
-  const { snapshot, active, fallback } = view;
+  const { snapshot, active, fallback, needsWorkspace } = view;
 
   async function choose(id: string) {
     setError(null);
@@ -88,7 +88,7 @@ export function WorkspaceSwitcher({
           data-testid="workspace-switcher"
           data-workspace-id={active?.id}
         >
-          <WorkspaceTile workspace={active ?? { name: label, kind: 'personal' }} />
+          <WorkspaceTile workspace={active ?? { name: label }} />
           <span className="sr-only" data-testid="signed-in-email">
             {email}
           </span>
@@ -129,7 +129,7 @@ export function WorkspaceSwitcher({
             <DropdownMenuItem onClick={() => void openSettings('workspace')}>
               Workspace settings (web)
             </DropdownMenuItem>
-            {active?.kind === 'team' && (
+            {active && (
               <DropdownMenuItem onClick={() => void openSettings('members')}>
                 Members (web)
               </DropdownMenuItem>
@@ -138,7 +138,7 @@ export function WorkspaceSwitcher({
           {account}
         </DropdownMenuContent>
       </DropdownMenu>
-      {fallback && (
+      {(fallback || needsWorkspace) && (
         <p
           role="note"
           className="flex gap-1.5 px-1.5 text-copy-13 text-gray-900"
@@ -146,7 +146,10 @@ export function WorkspaceSwitcher({
         >
           <IconEye aria-hidden className="mt-0.5 size-3.5 shrink-0" />
           <span>
-            You can view {active?.name} but not add notes to it. New notes go to {fallback.name}.
+            You can view {active?.name} but not add notes to it.{' '}
+            {fallback
+              ? `New notes go to ${fallback.name}.`
+              : 'Create a workspace of your own on the web to take notes.'}
           </span>
         </p>
       )}

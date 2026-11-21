@@ -280,14 +280,14 @@ export class SyncService {
   }
 
   /**
-   * The user's personal workspace (where new meetings go). Known after the first pull; if it isn't yet,
-   * keeps syncing (bounded by `timeoutMs`; a pull can come back empty for a moment, D-22). `null` when it
-   * still can't be known (offline on a fresh database).
+   * Whether the user's workspaces are on this Mac (new notes need one to go to). They are after the first
+   * pull; if they aren't yet, keeps syncing (bounded by `timeoutMs`; a pull can come back empty for a
+   * moment, D-22). `false` when they still can't be known (offline on a fresh database).
    */
-  async personalWorkspace(timeoutMs = 10_000): Promise<string | null> {
+  async awaitWorkspaces(timeoutMs = 10_000): Promise<boolean> {
     await this.#chain;
     const deadline = Date.now() + timeoutMs;
-    const known = () => this.#store?.personalWorkspaceId() ?? null;
+    const known = () => (this.#store?.firstWorkspaceId() ?? null) !== null;
     for (let engine = this.#engine; engine?.started && !known() && Date.now() < deadline;) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       await Promise.race([

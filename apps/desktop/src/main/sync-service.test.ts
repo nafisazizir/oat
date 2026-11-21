@@ -27,7 +27,7 @@ const page = (workspace: string): SyncPullResponse => ({
     {
       op: 'upsert',
       table: 'workspace',
-      row: { id: workspace, name: 'Me', kind: 'personal', role: 'owner' },
+      row: { id: workspace, name: 'Me', role: 'owner' },
     },
   ],
   cursor: '1.1',
@@ -90,7 +90,7 @@ const meeting = (s: SyncService, id = 'm1') =>
   s.store!.createMeeting({
     meetingId: id,
     documentId: `d-${id}`,
-    workspaceId: s.store!.personalWorkspaceId()!,
+    workspaceId: s.store!.firstWorkspaceId()!,
     ownerId: s.storeUser!,
     title: 'T',
     startedAt: null,
@@ -103,7 +103,7 @@ describe('SyncService', () => {
     await s.setUser('u1');
     expect(existsSync(join(dir, 'oat-u1.sqlite'))).toBe(true);
     expect(await s.syncNow()).toMatchObject({ state: 'idle', pending: 0, parked: 0 });
-    expect(s.store!.personalWorkspaceId()).toBe('ws-u1');
+    expect(s.store!.firstWorkspaceId()).toBe('ws-u1');
     meeting(s);
     s.kick();
     expect(statuses.at(-1)).toMatchObject({ pending: 2 });
@@ -208,14 +208,15 @@ describe('SyncService', () => {
     await vi.waitFor(() => expect(s.store).not.toBeNull());
   });
 
-  it('learns the personal workspace on demand (bounded), null when offline', async () => {
+  it('learns the user’s workspaces on demand (bounded), not while offline', async () => {
     const s = service();
-    expect(await s.personalWorkspace(10)).toBeNull(); // nobody signed in
+    expect(await s.awaitWorkspaces(10)).toBe(false); // nobody signed in
     online = false;
     await s.setUser('u1');
-    expect(await s.personalWorkspace(50)).toBeNull();
+    expect(await s.awaitWorkspaces(50)).toBe(false);
     online = true;
-    expect(await s.personalWorkspace(1_000)).toBe('ws-u1');
+    expect(await s.awaitWorkspaces(1_000)).toBe(true);
+    expect(s.store!.firstWorkspaceId()).toBe('ws-u1');
   });
 
   it('a 401 stops syncing and tells the app', async () => {

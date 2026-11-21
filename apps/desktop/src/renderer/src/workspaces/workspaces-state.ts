@@ -14,6 +14,11 @@ export interface WorkspacesView {
   active: DesktopWorkspace | null;
   /** Where new notes go when that isn't the active workspace (I can only view it), else `null`. */
   fallback: DesktopWorkspace | null;
+  /**
+   * I can only view the active workspace and there is no other one to put new notes in (D-36): the sidebar
+   * asks me to create a workspace.
+   */
+  needsWorkspace: boolean;
   setActive(workspaceId: string): Promise<void>;
 }
 
@@ -61,29 +66,30 @@ export function withActive(
   workspaceId: string,
 ): WorkspacesSnapshot | null {
   if (!snapshot) return snapshot;
-  const target = snapshot.workspaces.find((w) => w.id === workspaceId);
-  const personal = snapshot.workspaces.find((w) => w.kind === 'personal');
-  return {
-    ...snapshot,
-    activeId: workspaceId,
-    targetId: target?.canCreate ? workspaceId : (personal?.id ?? snapshot.targetId),
-  };
+  const active = snapshot.workspaces.find((w) => w.id === workspaceId);
+  // The rule main applies (`newNoteTarget`): here when I can create here, else the first one where I can.
+  const target = active?.canCreate ? active : snapshot.workspaces.find((w) => w.canCreate);
+  return { ...snapshot, activeId: workspaceId, targetId: target?.id ?? null };
 }
 
-/** The active workspace and, when new notes can't go there, where they go instead. */
+/** The active workspace and, when new notes can't go there, where they go instead (if anywhere). */
 export function activeAndFallback(snapshot: WorkspacesSnapshot | null): {
   active: DesktopWorkspace | null;
   fallback: DesktopWorkspace | null;
+  needsWorkspace: boolean;
 } {
   const find = (id: string | null) => snapshot?.workspaces.find((w) => w.id === id) ?? null;
   const active = find(snapshot?.activeId ?? null);
   const target = find(snapshot?.targetId ?? null);
-  return { active, fallback: active && target && target.id !== active.id ? target : null };
+  return {
+    active,
+    fallback: active && target && target.id !== active.id ? target : null,
+    needsWorkspace: active !== null && target === null,
+  };
 }
 
 /** The second line under a workspace's name in the switcher. */
 export function roleLabel(w: DesktopWorkspace): string {
-  if (w.kind === 'personal') return 'Personal space';
   switch (w.role) {
     case 'owner':
       return 'Owner';
@@ -94,6 +100,6 @@ export function roleLabel(w: DesktopWorkspace): string {
     case 'viewer':
       return 'View only';
     default:
-      return 'Team';
+      return 'Workspace';
   }
 }

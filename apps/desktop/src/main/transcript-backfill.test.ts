@@ -64,7 +64,7 @@ function harness(
         {
           op: 'upsert',
           table: 'workspace',
-          row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+          row: { id: 'ws', name: 'Me', role: 'owner' },
         },
       ],
       cursor: 'c',
@@ -79,7 +79,8 @@ function harness(
     store: () => store,
     userId: () => user,
     workspaceTimeoutMs: 10,
-    sync: { kick: () => {}, personalWorkspace: async () => store.personalWorkspaceId() },
+    sync: { kick: () => {} },
+    newNoteWorkspace: async () => store.firstWorkspaceId(),
   });
   const gaps: (TranscriptGap & { recording: boolean })[] = [];
   const batch = new FakeSttProvider({ segments: truth, ...fake });
@@ -468,7 +469,7 @@ describe('review 2.7', () => {
           {
             op: 'upsert',
             table: 'workspace',
-            row: { id: 'ws', name: 'Me', kind: 'personal', role: 'owner' },
+            row: { id: 'ws', name: 'Me', role: 'owner' },
           },
         ],
         cursor: 'c',
