@@ -15,7 +15,17 @@ import { type ElectronApplication, expect, type Page, test } from '@playwright/t
 import postgres from 'postgres';
 
 import { databaseUrlFile } from '../../web/e2e/paths';
-import { evidence, launchApp, scaled, signInDesktop, signInOnWeb } from './helpers';
+import {
+  closeAttendees,
+  evidence,
+  home,
+  launchApp,
+  openAttendees,
+  openTranscript,
+  scaled,
+  signInDesktop,
+  signInOnWeb,
+} from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
 test.describe.configure({ mode: 'serial' });
@@ -98,8 +108,8 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
   const electronApp = await launch();
   await signInDesktop(electronApp, page, browser, email);
 
-  // Nothing open yet: the start screen, an empty list.
-  await expect(page.getByTestId('meeting-start')).toBeVisible();
+  // Nothing open yet: Home without notes, an empty list.
+  await expect(home(page)).toContainText('No notes yet');
   await expect(page.getByTestId('meeting-list-empty')).toBeVisible();
   await shots(page, 'desktop-start');
 
@@ -122,15 +132,20 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
   await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', 'saved');
   await expect(page.getByTestId('meeting-list-item')).toContainText('Beta launch sync');
 
-  // An attendee, added by hand.
+  // An attendee, added by hand (attendees are behind the "N attendees" chip).
+  await expect(page.getByTestId('attendees-toggle')).toHaveText('0 attendees');
+  await openAttendees(page);
   await page.getByTestId('add-participant').click();
   await page.getByLabel('Name').fill('Dana Scully');
   await page.getByLabel('Email (optional)').fill('dana@example.com');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.getByTestId('participant-chip')).toHaveCount(1);
+  await closeAttendees(page);
+  await expect(page.getByTestId('attendees-toggle')).toHaveText('1 attendee');
 
-  // The live transcript fills the panel beside the note.
-  const panel = page.getByTestId('transcript-panel');
+  // The transcript is closed until asked for; opened, the live transcript fills the panel beside the note.
+  await expect(page.getByTestId('transcript-panel')).toHaveCount(0);
+  const panel = await openTranscript(page);
   await expect(
     panel.locator('[data-testid=transcript-segment][data-source=mic]').first(),
   ).toBeVisible({
@@ -214,9 +229,10 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
     await expect(web.locator('div[hidden][id^="S:"]')).toHaveCount(0);
     await expect(web.getByTestId('document-title')).toHaveValue('Beta launch sync');
     await expect(web.getByRole('textbox', { name: 'Note' })).toContainText(NOTE);
+    await openAttendees(web);
     await expect(web.getByTestId('participant-chip')).toHaveText(/Dana Scully/);
-    const webPanel = web.getByTestId('transcript-panel');
-    await expect(webPanel).toBeVisible();
+    await closeAttendees(web);
+    const webPanel = await openTranscript(web);
     await expect(webPanel.getByTestId('transcript-segment').first()).toBeVisible();
     await expect(webPanel).toContainText(stored[0]!.text);
     for (const scheme of ['light', 'dark'] as const) {
@@ -225,6 +241,7 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
     }
 
     // An attendee added on the web reaches the desktop with the next sync.
+    await openAttendees(web);
     await web.getByTestId('add-participant').click();
     await web.getByLabel('Name').fill('Fox Mulder');
     await web.getByRole('button', { name: 'Add', exact: true }).click();
@@ -232,6 +249,7 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
   } finally {
     await context.close();
   }
+  await openAttendees(page);
   await expect
     .poll(
       async () => {
@@ -242,6 +260,8 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
     )
     .toBe(2);
   await expect(page.getByTestId('participant-chip').nth(1)).toContainText('Fox Mulder');
+  await closeAttendees(page);
+  await expect(page.getByTestId('attendees-toggle')).toHaveText('2 attendees');
 
   // Quit right after typing (within the autosave debounce): the app writes it before quitting.
   await page.getByRole('textbox', { name: 'My notes' }).click();
@@ -255,7 +275,8 @@ test('relaunched: the past meeting opens from the sidebar with its stored transc
   test.setTimeout(scaled(90_000));
   await launch();
   await expect(page.getByTestId('signed-in-email')).toHaveText(email);
-  await expect(page.getByTestId('meeting-start')).toBeVisible();
+  // Home lists the note too.
+  await expect(home(page).getByTestId('home-note-row')).toHaveText(/Beta launch sync/);
   const item = page.getByTestId('meeting-list-item');
   await expect(item).toHaveCount(1);
   await expect(item).toContainText('Beta launch sync');
@@ -266,9 +287,12 @@ test('relaunched: the past meeting opens from the sidebar with its stored transc
   await expect(page.getByRole('textbox', { name: 'My notes' })).toContainText(LAST_WORDS);
   // Recorded on this Mac and mine: it can be continued after the relaunch (offset from the stored parts).
   await expect(page.getByRole('button', { name: 'Continue recording' })).toBeVisible();
+  await openAttendees(page);
   await expect(page.getByTestId('participant-chip')).toHaveCount(2);
+  await closeAttendees(page);
   const stored = (await invoke<{ segments: unknown[] }>(page, 'meeting:transcript', { documentId }))
     .segments;
+  // The transcript panel was left open before the relaunch: that choice is remembered.
   const panel = page.getByTestId('transcript-panel');
   await expect(panel.getByTestId('transcript')).toHaveAttribute(
     'data-count',
