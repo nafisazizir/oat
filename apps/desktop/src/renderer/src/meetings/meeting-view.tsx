@@ -186,36 +186,6 @@ export function MeetingView({
               />
             )}
           </div>
-          <div
-            className="flex flex-wrap items-center justify-center gap-2 border-t border-gray-alpha-200 bg-background-100 px-4 py-3"
-            data-testid="note-bottom-bar"
-          >
-            <RecordingBar
-              snapshot={snapshot}
-              options={options}
-              input={input}
-              onInputChange={onInputChange}
-              // D-24: continue only an editable note whose audio is on this Mac; else a new note.
-              meetingId={note?.editable && note.recordedHere ? meetingId : null}
-              recorded={note?.startedAt !== null}
-              hint={
-                note && meetingId && !(note.editable && note.recordedHere)
-                  ? note.editable
-                    ? 'Recorded on another device — recording starts a new note.'
-                    : 'You can’t add to this note — recording starts a new note.'
-                  : null
-              }
-            />
-
-            {documentId && (
-              <TranscriptToggle
-                ref={toggleRef}
-                open={panelOpen}
-                count={segments.length}
-                onClick={() => (panelOpen ? closePanel() : setPanelOpen(true))}
-              />
-            )}
-          </div>
         </div>
         {documentId && panelOpen && (
           <SidePanel
@@ -266,6 +236,36 @@ export function MeetingView({
               />
             </div>
           </SidePanel>
+        )}
+      </div>
+      <div
+        className="flex flex-wrap items-center justify-center gap-2 border-t border-gray-alpha-200 bg-background-100 px-4 py-3"
+        data-testid="note-bottom-bar"
+      >
+        <RecordingBar
+          snapshot={snapshot}
+          options={options}
+          input={input}
+          onInputChange={onInputChange}
+          // D-24: continue only an editable note whose audio is on this Mac; else a new note.
+          meetingId={note?.editable && note.recordedHere ? meetingId : null}
+          recorded={note?.startedAt !== null}
+          hint={
+            note && meetingId && !(note.editable && note.recordedHere)
+              ? note.editable
+                ? 'Recorded on another device — recording starts a new note.'
+                : 'You can’t add to this note — recording starts a new note.'
+              : null
+          }
+        />
+
+        {documentId && (
+          <TranscriptToggle
+            ref={toggleRef}
+            open={panelOpen}
+            count={segments.length}
+            onClick={() => (panelOpen ? closePanel() : setPanelOpen(true))}
+          />
         )}
       </div>
     </section>

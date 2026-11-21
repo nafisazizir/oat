@@ -84,6 +84,12 @@ describe('calm meeting surface', () => {
     ).toBe(true);
     await userEvent.click(screen.getByTestId('transcript-toggle'));
     expect(screen.getByTestId('transcript-panel')).toBeTruthy();
+    expect(screen.getByTestId('note-bottom-bar').parentElement).toBe(
+      screen.getByRole('region', { name: 'Meeting' }),
+    );
+    expect(screen.getByTestId('transcript-panel').parentElement).not.toBe(
+      screen.getByTestId('note-bottom-bar').parentElement,
+    );
     expect(localStorage.getItem('oat.desktop.transcript.open:alice')).toBe('true');
     first.unmount();
     render(<MeetingView {...props} />);
