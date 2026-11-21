@@ -60,7 +60,7 @@ orchestrator moves on to other unblocked work.
 
 ## 3. Global gates (every task)
 
-- **`pnpm run ci` is the gate** (D-12; `scripts/ci.mjs`, same command as the GitHub workflow): format,
+- **`pnpm run ci` is the gate** (D-12; `scripts/ci.mjs`; GitHub runs its `--fast` steps on PRs and the full run on `main`, D-33): format,
   actionlint, typecheck, lint, unit tests, then — ensuring the shared compose stack is up (no-op when healthy) —
   a migration check on a throwaway DB, `test:int`, package e2e (Playwright, free port each) and, on macOS, the
   Swift sidecar (build, test, synthetic capture). Green = every step `pass` or `skip`. While iterating,

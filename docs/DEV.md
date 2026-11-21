@@ -628,8 +628,9 @@ Real runs never happen in `pnpm run ci` (D-11, D-13).
 ## CI (`pnpm run ci` is the gate)
 
 `pnpm run ci` (`scripts/ci.mjs`, plain Node) runs every gate in order and prints a summary table with
-durations; it exits non-zero if any step fails. GitHub Actions runs the same command (D-12) on pushes to `main`
-and on PRs; the `actionlint` step lints the workflow. A step whose prerequisite failed is skipped; the
+durations; it exits non-zero if any step fails. GitHub Actions runs it in two tiers (D-12, D-33): PRs get the
+`--fast` steps as parallel jobs (< 3 min), and the full run happens on pushes to `main` and on demand. The
+`actionlint` step lints the workflow. A step whose prerequisite failed is skipped; the
 others still run so you see every failure at once (`--bail` stops at the first).
 
 | Step              | What it does                                                                                    |
@@ -671,12 +672,18 @@ makes `next dev` compile and hydrate pages several times slower. The e2e suites 
 `process.env.E2E_PORT` (fallback to a fixed port for manual runs). Chromium is installed once per machine with
 `pnpm --filter @oat/ui exec playwright install chromium`.
 
-**GitHub Actions** (`.github/workflows/ci.yml`): job `checks` on `ubuntu-24.04` (pnpm store, turbo and Playwright
-browser caches, saved even when the run fails; Chromium only, no `--with-deps` apt step; `pnpm run ci`; the `stack` step brings up the compose stack on the runner, Swift steps report
-`skip`) and job `swift` on `macos-26` (`node scripts/ci.mjs --only swift`, no install). Actions are pinned by
-tag, runs on the same ref cancel each other, no secrets. The 4-vCPU runner sets `OAT_TEST_TIMEOUT_SCALE=3` (vitest
-timeouts) and `E2E_TIMEOUT_SCALE=2`; `pnpm run ci` caps turbo at half the cores for the vitest steps. To lint the workflow by hand:
-`node scripts/ci.mjs --only actionlint`. (Mounting the repo into the actionlint container, as in
+**GitHub Actions** (`.github/workflows/ci.yml`, D-33) has three jobs. Job `fast` runs on every PR and push: 3 parallel
+`ubuntu-24.04` matrix jobs, `pnpm run ci --only format,actionlint,lint`, `--only typecheck` and `--only test`, each
+with its own turbo cache key (`turbo-<os>-<static|typecheck|test>-*`). This is the PR gate, < 3 min wall clock.
+Job `checks` (Checks (Linux)) runs the full `pnpm run ci` on pushes to `main` and on `workflow_dispatch` (Actions → CI
+→ Run workflow → pick the branch), never on PRs. It uses pnpm store, turbo (`turbo-<os>-full-*`) and Playwright
+browser caches, saved even when the run fails, and installs Chromium only (no `--with-deps` apt step). Its
+`stack` step brings up the compose stack on the runner, and the Swift steps report `skip`. Run it on a PR branch
+before merging UI-heavy changes, since e2e (axe contrast, a11y) is where it catches real bugs. Job `swift` runs on
+`macos-26` for PRs and pushes (`node scripts/ci.mjs --only swift`, no install). Actions are pinned by tag, runs on
+the same ref cancel each other, and there are no secrets. The 4-vCPU runner sets `OAT_TEST_TIMEOUT_SCALE=3` (vitest
+timeouts) and `E2E_TIMEOUT_SCALE=2`; `pnpm run ci` caps turbo at half the cores for the vitest steps. To lint the
+workflow by hand: `node scripts/ci.mjs --only actionlint`. (Mounting the repo into the actionlint container, as in
 `docker run -v "$PWD":/repo rhysd/actionlint`, fails when Docker Desktop isn't allowed to share the folder,
 e.g. under `~/Documents`; the stdin form avoids that.)
 
