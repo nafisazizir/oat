@@ -172,7 +172,6 @@ describe('safeBaseName', () => {
       expect(new TextDecoder('utf-8', { fatal: true }).decode(new TextEncoder().encode(name))).toBe(
         name,
       );
-      expect(name.isWellFormed()).toBe(true);
     }
   });
 

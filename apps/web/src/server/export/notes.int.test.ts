@@ -7,7 +7,7 @@
 import { findFirstWorkspaceId, leaveWorkspace } from '@oat/auth';
 import { document } from '@oat/db';
 import { eq } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import type { DocumentDetail } from '@/lib/api-types';
 
@@ -20,6 +20,7 @@ import {
   type TestUser,
 } from '../api/test-harness';
 import { loadActor } from '../actor';
+import { EXPORTS_PER_MINUTE } from '../api/handlers';
 import { exportOwnNotes, INCOMPLETE_NOTE } from './notes';
 import { readAll, readZip, type ZipFile } from './read-zip';
 
@@ -85,6 +86,9 @@ beforeAll(async () => {
 afterAll(async () => {
   await h?.close();
 });
+
+// Each test starts with a clean per-user export allowance (the limit has its own test below).
+beforeEach(() => h.resetRateLimits());
 
 describe('GET /api/workspaces/:id/export', () => {
   let mine: { private: DocumentDetail; shared: DocumentDetail; meeting: DocumentDetail };
@@ -261,6 +265,24 @@ describe('GET /api/workspaces/:id/export', () => {
     const files = readZip(await readAll(limited.stream));
     expect(files.map((f) => f.name)).toEqual(['Note 41.md', 'Note 42.md', INCOMPLETE_NOTE]);
     expect(files.at(-1)!.text).toContain('first 42 notes');
+  });
+
+  it('is limited per user: a few exports a minute, then 429 — for that user only', async () => {
+    denies('GET /api/workspaces/[id]/export');
+    for (let i = 0; i < EXPORTS_PER_MINUTE; i++) {
+      const res = await exportAs(member, i % 2 ? team : memberOwnWs);
+      expect(res.status, `export ${i + 1}`).toBe(200);
+      await res.body!.cancel();
+    }
+    const refused = await exportAs(member, team);
+    expect(refused.status).toBe(429);
+    expect(refused.headers.get('content-type')).toContain('application/json');
+    const body = (await refused.json()) as { error: { code: string; retryAfter?: number } };
+    expect(body.error.code).toBe('rate_limited');
+    expect(Number(refused.headers.get('retry-after') ?? body.error.retryAfter)).toBeGreaterThan(0);
+    // Counted per user (across their workspaces), not per workspace: someone else is unaffected.
+    expect((await exportAs(member, memberOwnWs)).status).toBe(429);
+    expect((await exportAs(owner, team)).status).toBe(200);
   });
 
   it('after leaving, I can read neither the export nor any note I exported', async () => {

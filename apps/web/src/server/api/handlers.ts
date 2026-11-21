@@ -14,7 +14,9 @@ import {
 import { exportOwnNotes, exportResponse } from '../export/notes';
 import { createFolder, deleteFolder, listFolders, moveFolder, renameFolder } from '../folders';
 import { getSharing, updateSharing } from '../sharing';
-import { badRequest } from './errors';
+import type { RateLimiter } from '@oat/auth';
+
+import { ApiError, badRequest } from './errors';
 import { type ApiDeps, apiRoute, readJson } from './route';
 
 /*
@@ -96,7 +98,10 @@ function workspaceParam(url: URL): string {
 
 const flag = (url: URL, name: string) => ['1', 'true'].includes(url.searchParams.get(name) ?? '');
 
-export function createApi(deps: ApiDeps) {
+/** An export is one request that reads and compresses up to 2000 notes: a few a minute is plenty. */
+export const EXPORTS_PER_MINUTE = 5;
+
+export function createApi(deps: ApiDeps, options: { rateLimiter?: () => RateLimiter } = {}) {
   return {
     /** `/api/documents` */
     documents: {
@@ -149,6 +154,20 @@ export function createApi(deps: ApiDeps) {
       GET: apiRoute<IdParams>(deps, async ({ db, actor, params }) => {
         const id = Id.safeParse(params.id);
         if (!id.success) throw badRequest('Unknown workspace.');
+        // Per user, across workspaces, before anything is read.
+        if (options.rateLimiter) {
+          const hit = await options
+            .rateLimiter()
+            .hit(`export:${actor.userId}`, EXPORTS_PER_MINUTE, 60);
+          if (!hit.allowed) {
+            throw new ApiError(
+              429,
+              'rate_limited',
+              'You’ve exported your notes several times just now. Wait a minute and try again.',
+              { retryAfter: hit.retryAfter },
+            );
+          }
+        }
         return exportResponse(await exportOwnNotes(db, actor, id.data));
       }),
     },

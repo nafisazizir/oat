@@ -30,7 +30,7 @@ export const apiDeps: ApiDeps = {
 };
 
 /** The app's API handlers, bound to the real deps (route files re-export these). */
-export const api = createApi(apiDeps);
+export const api = createApi(apiDeps, { rateLimiter: () => apiRateLimiter() });
 
 const holder = globalThis as typeof globalThis & { __oatApiRateLimiter?: RateLimiter };
 
