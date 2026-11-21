@@ -10,7 +10,6 @@ import {
 import { type CalendarEvent, createPermissionContext } from '@oat/core';
 import { meeting } from '@oat/db';
 import { eq } from 'drizzle-orm';
-import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
 
@@ -92,9 +91,10 @@ export function buildShellData(input: {
  * The signed-in user, their workspaces (the active one resolved from the session) and their
  * permission context. Redirects to `/sign-in` without a session. Deduped per request.
  *
- * A user without a workspace (D-36) — removed from their only one, its owner deleted it, or their sign-up
- * hook failed — gets one of their own here; unless an invitation is waiting for them, in which case they
- * are sent to it (accepting joins that workspace, declining brings them back here for their own).
+ * A user without a workspace (D-36) — new, removed from their only one, or its owner deleted it — gets one
+ * of their own here; unless they have a choice to make first (an invitation to answer, or a workspace their
+ * email domain lets them join or ask to join), in which case they are sent to the join screen (`/join`),
+ * where "Create my own workspace" is the alternative.
  */
 const getContext = cache(async () => {
   const { user, session } = await requireSession();
@@ -102,9 +102,7 @@ const getContext = cache(async () => {
   let workspaces = await listUserWorkspaces(db, user.id);
   if (workspaces.length === 0) {
     const first = await ensureFirstWorkspace(db, user.id);
-    if (first.workspaceId === undefined) {
-      redirect(`/invite/${encodeURIComponent(first.pendingInviteToken)}` as Route);
-    }
+    if (first.workspaceId === undefined) redirect('/join');
     workspaces = await listUserWorkspaces(db, user.id);
   }
   // The workspace list already carries the user's roles: no second membership query.

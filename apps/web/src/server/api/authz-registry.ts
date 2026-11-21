@@ -25,6 +25,8 @@ export const SELF_SCOPED: Readonly<Record<string, string>> = {
     'Disconnects the session user’s own Google calendar; no resource id.',
   'action server/actions/workspaces.ts#createWorkspace':
     'Creates a workspace owned by the session user (per-user cap in @oat/auth); no resource id.',
+  'action server/actions/joining.ts#createMyWorkspace':
+    'Creates the session user’s first workspace, only while they have none (@oat/auth createOwnWorkspace); no resource id.',
 };
 
 /**

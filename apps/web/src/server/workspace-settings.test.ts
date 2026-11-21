@@ -129,3 +129,84 @@ describe('buildWorkspaceSettings (what each role sees, from @oat/core)', () => {
     expect(() => settingsFor('stranger')).toThrow(/not a member/);
   });
 });
+
+// D-36, step B: the join policy, allowed domains and requests to join are for owners and admins only.
+describe('buildWorkspaceSettings (joining)', () => {
+  const joining = { policy: 'request' as const, domains: ['acme.test'] };
+  const joinRequests = [
+    {
+      id: 'r1',
+      userId: 'sam',
+      name: null,
+      email: 'sam@acme.test',
+      image: null,
+      requestedAt: joinedAt,
+    },
+  ];
+  function joinSettingsFor(userId: string, email: string, emailVerified = true) {
+    const ctx = createPermissionContext({
+      userId,
+      memberships: members.map((m) => ({ workspaceId: ws.id, userId: m.userId, role: m.role })),
+    });
+    return buildWorkspaceSettings({
+      userId,
+      ctx,
+      workspace: ws,
+      members,
+      invites,
+      viewer: { email, emailVerified },
+      joining,
+      joinRequests,
+    });
+  }
+
+  it('owner and admin: see the policy, the domains and the requests; approve with at most their role', () => {
+    const owner = joinSettingsFor('own', 'own@acme.test');
+    expect(owner.joining).toEqual({
+      policy: 'request',
+      domains: ['acme.test'],
+      ownDomain: { domain: 'acme.test', listed: true },
+    });
+    expect(owner.joinRequests).toEqual([
+      {
+        id: 'r1',
+        name: 'sam',
+        email: 'sam@acme.test',
+        image: null,
+        requestedAt: joinedAt.toISOString(),
+      },
+    ]);
+    expect(owner.approveRoles).toEqual(['owner', 'admin', 'member', 'viewer']);
+
+    const admin = joinSettingsFor('adm', 'adm@other.test');
+    expect(admin.joining?.ownDomain).toEqual({ domain: 'other.test', listed: false });
+    expect(admin.joinRequests).toHaveLength(1);
+    expect(admin.approveRoles).toEqual(['admin', 'member', 'viewer']);
+  });
+
+  it('an owner on a public mailbox, or with an unverified address, has no domain to add', () => {
+    expect(joinSettingsFor('own', 'own@gmail.com').joining?.ownDomain).toEqual({
+      domain: null,
+      reason: 'public',
+    });
+    expect(joinSettingsFor('own', 'own@acme.test', false).joining?.ownDomain).toEqual({
+      domain: null,
+      reason: 'unverified',
+    });
+  });
+
+  it('member and viewer: no join settings, no requests, nothing to approve with', () => {
+    for (const id of ['mem', 'vie']) {
+      const s = joinSettingsFor(id, `${id}@acme.test`);
+      expect(s.joining, id).toBeNull();
+      expect(s.joinRequests, id).toEqual([]);
+      expect(s.approveRoles, id).toEqual([]);
+    }
+  });
+
+  it('without join data (not loaded) there is nothing to show', () => {
+    const s = settingsFor('own');
+    expect(s.joining).toBeNull();
+    expect(s.joinRequests).toEqual([]);
+  });
+});
