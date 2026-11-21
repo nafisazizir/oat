@@ -98,13 +98,26 @@ function targetOf(locked: LockedWorkspace, userId: string): MemberTarget {
 const contextOf = (locked: LockedWorkspace, actorId: string) =>
   createPermissionContext({ userId: actorId, memberships: locked.members });
 
-/**
- * The actor's context for leaving or deleting: **all** their live memberships (the last-workspace rule
- * counts them), read under their user lock. Call before {@link lockWorkspace} (user lock, then workspace).
- */
-async function lockedActorContext(tx: Tx, actorId: string) {
+/** The actor's user lock, for leaving or deleting. Take it before {@link lockWorkspace} (user, then workspace). */
+async function lockActor(tx: Tx, actorId: string) {
   if (!(await lockUser(tx, actorId))) throw new NotFoundError('Workspace not found.');
-  return loadPermissionContext(tx, actorId);
+}
+
+/**
+ * The actor's context for leaving or deleting, built **after** both locks are held ({@link lockActor}, then
+ * {@link lockWorkspace}): their role in this workspace comes from the locked rows (a demotion that committed
+ * while we waited for the workspace lock counts), and their other live memberships — which the
+ * last-workspace rule counts — from a fresh read under the user lock.
+ */
+async function lockedActorContext(tx: Tx, locked: LockedWorkspace, actorId: string) {
+  const all = await loadPermissionContext(tx, actorId);
+  const elsewhere = [...all.memberships]
+    .filter(([workspaceId]) => workspaceId !== locked.access.id)
+    .map(([workspaceId, role]) => ({ workspaceId, userId: actorId, role }));
+  return createPermissionContext({
+    userId: actorId,
+    memberships: [...elsewhere, ...locked.members.filter((m) => m.userId === actorId)],
+  });
 }
 
 /**
@@ -214,10 +227,13 @@ export async function removeMember(
 ): Promise<void> {
   await db.transaction(async (tx) => {
     const leaving = input.userId === input.actorId;
-    const own = leaving ? await lockedActorContext(tx, input.actorId) : undefined;
+    if (leaving) await lockActor(tx, input.actorId);
     const locked = await lockWorkspace(tx, input.workspaceId, input.actorId);
     const target = targetOf(locked, input.userId);
-    assertCan('removeMember', own ?? contextOf(locked, input.actorId), locked.access, target);
+    const ctx = leaving
+      ? await lockedActorContext(tx, locked, input.actorId)
+      : contextOf(locked, input.actorId);
+    assertCan('removeMember', ctx, locked.access, target);
     await tx
       .delete(membership)
       .where(
@@ -247,9 +263,10 @@ export async function deleteWorkspace(
   input: { actorId: string; workspaceId: string },
 ): Promise<void> {
   await db.transaction(async (tx) => {
-    const own = await lockedActorContext(tx, input.actorId);
+    await lockActor(tx, input.actorId);
     const locked = await lockWorkspace(tx, input.workspaceId, input.actorId);
-    assertCan('deleteWorkspace', own, locked.access);
+    const ctx = await lockedActorContext(tx, locked, input.actorId);
+    assertCan('deleteWorkspace', ctx, locked.access);
     await tx
       .update(workspace)
       .set({ deletedAt: sql`now()` })

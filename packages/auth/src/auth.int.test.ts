@@ -624,15 +624,20 @@ describe('workspaces and roles', () => {
       const me = await signedIn('starter');
       const email = me.user.email;
       const first = (await findFirstWorkspaceId(db, me.user.id))!;
-      // Names sort before "My workspace": the list order must not decide.
-      const b = (await auth.api.createOrganization({
-        body: { name: 'Aardvark', slug: `b-${me.user.id}` },
-        headers: me.headers,
-      }))!;
-      const c = (await auth.api.createOrganization({
-        body: { name: 'Beaver', slug: `c-${me.user.id}` },
-        headers: me.headers,
-      }))!;
+      // Two more memberships (added by someone else: nothing the user chose). Their names sort before
+      // "My workspace": the list order must not decide.
+      const added = async (name: string) => {
+        const [ws] = await db
+          .insert(schema.workspace)
+          .values({ name, slug: `${name.toLowerCase()}-${me.user.id}`, createdBy: me.user.id })
+          .returning();
+        await db
+          .insert(schema.membership)
+          .values({ workspaceId: ws!.id, userId: me.user.id, role: 'owner' });
+        return ws!;
+      };
+      const b = await added('Aardvark');
+      const c = await added('Beaver');
 
       // Nothing chosen yet: the oldest membership.
       const second = await freshSession(email);
@@ -668,6 +673,67 @@ describe('workspaces and roles', () => {
       await deleteWorkspace(db, { actorId: me.user.id, workspaceId: c.id });
       const fifth = await freshSession(email);
       expect(await activeOf(fifth)).toBe(first);
+    });
+
+    // Review (step A) #3: Better Auth makes these active in the session without `set-active`.
+    it('a workspace the user creates, or joins by accepting an invitation, is where they start next', async () => {
+      const me = await signedIn('starter-joins');
+      const first = (await findFirstWorkspaceId(db, me.user.id))!;
+      const lastActive = async () =>
+        (await db.select().from(schema.user).where(eq(schema.user.id, me.user.id)))[0]
+          ?.lastActiveWorkspaceId;
+
+      // Created (and switched to, as Better Auth does by default): remembered.
+      const created = (await auth.api.createOrganization({
+        body: { name: 'Aardvark', slug: `made-${me.user.id}` },
+        headers: me.headers,
+      }))!;
+      expect(await lastActive()).toBe(created.id);
+      expect(await activeOf(await freshSession(me.user.email))).toBe(created.id);
+      // Created without switching to it: not where the user is.
+      await auth.api.createOrganization({
+        body: { name: 'Side', slug: `side-${me.user.id}`, keepCurrentActiveOrganization: true },
+        headers: me.headers,
+      });
+      expect(await lastActive()).toBe(created.id);
+
+      // Accepting an invitation into someone else's workspace: remembered too.
+      const host = await signedIn('starter-host');
+      const theirs = (await findFirstWorkspaceId(db, host.user.id))!;
+      const [invitation] = await db
+        .insert(schema.invite)
+        .values({
+          workspaceId: theirs,
+          email: me.user.email,
+          role: 'member',
+          inviterId: host.user.id,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        })
+        .returning();
+      await auth.api.acceptInvitation({
+        body: { invitationId: invitation!.id },
+        headers: me.headers,
+      });
+      expect(await lastActive()).toBe(theirs);
+      expect(await activeOf(await freshSession(me.user.email))).toBe(theirs);
+      expect(theirs).not.toBe(first);
+
+      // A refused accept (someone else's invitation) changes nothing.
+      const [other] = await db
+        .insert(schema.invite)
+        .values({
+          workspaceId: first,
+          email: uniqueAddress('not-host'),
+          role: 'member',
+          inviterId: me.user.id,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        })
+        .returning();
+      await expect(
+        auth.api.acceptInvitation({ body: { invitationId: other!.id }, headers: host.headers }),
+      ).rejects.toThrow();
+      const [hostRow] = await db.select().from(schema.user).where(eq(schema.user.id, host.user.id));
+      expect(hostRow?.lastActiveWorkspaceId ?? null).toBeNull();
     });
   });
 

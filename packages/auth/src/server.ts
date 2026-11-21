@@ -121,6 +121,13 @@ export const DISABLED_AUTH_PATHS: readonly string[] = [
   '/organization/check-slug',
 ];
 
+/** Better Auth endpoints after which the session's active workspace is a new one (see the after-hook). */
+const ACTIVATING_PATHS: ReadonlySet<string> = new Set([
+  '/organization/set-active',
+  '/organization/create',
+  '/organization/accept-invitation',
+]);
+
 /** Longest display name `/update-user` accepts (its only changeable field). */
 const MAX_USER_NAME = 100;
 
@@ -345,14 +352,36 @@ export function createAuth({
       }),
       // `organization/list` never shows soft-deleted workspaces (our own lists skip them too).
       after: createAuthMiddleware(async (ctx) => {
-        if (ctx.path === '/organization/set-active') {
-          // Remember the switch for the user's next sign-in, on any device (D-36). Only a switch that
-          // succeeded: Better Auth checked membership, the before-hook that the workspace is live.
-          const returned = ctx.context.returned as { id?: unknown } | null | undefined;
+        if (ACTIVATING_PATHS.has(ctx.path)) {
+          // Remember the workspace this session just moved to for the user's next sign-in, on any device
+          // (D-36): a switch, a workspace they created, an invitation they accepted (Better Auth makes
+          // the last two active in the session itself). Only when the call succeeded: Better Auth checked
+          // membership, the before-hooks that the workspace is live.
+          const returned = ctx.context.returned as
+            | {
+                id?: unknown;
+                member?: { organizationId?: unknown } | null;
+                invitation?: { organizationId?: unknown } | null;
+              }
+            | null
+            | undefined;
           const session = ctx.context.session ?? (await getSessionFromCtx(ctx));
           if (!session || returned instanceof Error) return;
-          const id = returned && typeof returned.id === 'string' ? returned.id : null;
-          await rememberActiveWorkspace(db, session.user.id, id);
+          const body = ctx.body as { keepCurrentActiveOrganization?: unknown } | undefined;
+          let id: unknown;
+          if (ctx.path === '/organization/accept-invitation') {
+            id = returned?.member?.organizationId ?? returned?.invitation?.organizationId;
+            if (typeof id !== 'string') return;
+          } else if (ctx.path === '/organization/create') {
+            // A workspace created without switching to it is not where the user is.
+            if (body?.keepCurrentActiveOrganization === true || typeof returned?.id !== 'string') {
+              return;
+            }
+            id = returned.id;
+          } else {
+            id = returned?.id; // set-active: `null` clears it
+          }
+          await rememberActiveWorkspace(db, session.user.id, typeof id === 'string' ? id : null);
           return;
         }
         if (ctx.path !== '/organization/list') return;

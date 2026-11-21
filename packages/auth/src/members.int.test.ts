@@ -722,6 +722,100 @@ describe('deleting a workspace (soft)', () => {
     }
   });
 
+  // Review (step A) #1: the decision must come from rows read under the workspace lock, not before it.
+  describe('a change that commits while the action waits for the workspace lock', () => {
+    /** Runs `change` in a transaction that holds the workspace's lock while `action` is already waiting. */
+    async function whileWaiting<T>(
+      workspaceId: string,
+      action: () => Promise<T>,
+      change: (tx: Parameters<Parameters<Db['transaction']>[0]>[0]) => Promise<unknown>,
+    ): Promise<PromiseSettledResult<T>> {
+      let pending!: Promise<PromiseSettledResult<T>>;
+      await db.transaction(async (tx) => {
+        await tx
+          .select({ id: schema.workspace.id })
+          .from(schema.workspace)
+          .where(eq(schema.workspace.id, workspaceId))
+          .for('update');
+        pending = Promise.allSettled([action()]).then(([r]) => r!);
+        // Long enough for the action to take its user lock and block on the workspace row.
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await change(tx);
+      });
+      return pending;
+    }
+
+    it('an owner demoted meanwhile no longer deletes the workspace', async () => {
+      const { ws, owner, admin } = await team();
+      await db
+        .update(schema.membership)
+        .set({ role: 'owner' })
+        .where(and(eq(schema.membership.workspaceId, ws), eq(schema.membership.userId, admin.id)));
+      const result = await whileWaiting(
+        ws,
+        () => deleteWorkspace(db, { actorId: admin.id, workspaceId: ws }),
+        (tx) =>
+          tx
+            .update(schema.membership)
+            .set({ role: 'member' })
+            .where(
+              and(eq(schema.membership.workspaceId, ws), eq(schema.membership.userId, admin.id)),
+            ),
+      );
+      expect(result.status).toBe('rejected');
+      expect((result as PromiseRejectedResult).reason).toBeInstanceOf(ForbiddenError);
+      const [row] = await db.select().from(schema.workspace).where(eq(schema.workspace.id, ws));
+      expect(row!.deletedAt).toBeNull();
+      expect(await roleOf(ws, owner.id)).toBe('owner');
+    });
+
+    it('a member removed meanwhile has nothing left to delete or leave', async () => {
+      const { ws, admin, member } = await team();
+      const removed = await whileWaiting(
+        ws,
+        () => leaveWorkspace(db, { actorId: member.id, workspaceId: ws }),
+        (tx) =>
+          tx
+            .delete(schema.membership)
+            .where(
+              and(eq(schema.membership.workspaceId, ws), eq(schema.membership.userId, member.id)),
+            ),
+      );
+      expect(removed.status).toBe('rejected');
+      expect((removed as PromiseRejectedResult).reason).toBeInstanceOf(NotFoundError);
+
+      // An owner who becomes the last owner while their leave waits stays.
+      const second = await team();
+      await db
+        .update(schema.membership)
+        .set({ role: 'owner' })
+        .where(
+          and(
+            eq(schema.membership.workspaceId, second.ws),
+            eq(schema.membership.userId, second.admin.id),
+          ),
+        );
+      const stays = await whileWaiting(
+        second.ws,
+        () => leaveWorkspace(db, { actorId: second.admin.id, workspaceId: second.ws }),
+        (tx) =>
+          tx
+            .update(schema.membership)
+            .set({ role: 'member' })
+            .where(
+              and(
+                eq(schema.membership.workspaceId, second.ws),
+                eq(schema.membership.userId, second.owner.id),
+              ),
+            ),
+      );
+      expect(stays.status).toBe('rejected');
+      expect((stays as PromiseRejectedResult).reason).toBeInstanceOf(ForbiddenError);
+      expect(await roleOf(second.ws, second.admin.id)).toBe('owner');
+      expect(admin.id).not.toBe(second.admin.id);
+    });
+  });
+
   it('members of other workspaces are unaffected', async () => {
     const first = await team();
     const second = await team();
