@@ -311,11 +311,12 @@ Better Auth (D-9) runs inside `apps/web` at `/api/auth/*`; its config lives in `
   (`@oat/auth` `encryptSecret`, same key and rotation as the OAuth tokens above). Then choose a page or
   database to send notes to; on a note, "Send to Notion" creates the page and "Update in Notion" replaces its
   content. Open the result through the "In Notion" link (the mock's HTML view in dev).
-- Every new user gets a **personal workspace** (`kind: personal`, slug `personal-<userId>`; one per user,
-  enforced by a partial unique index), and each new session starts in it. Create team workspaces from the
-  workspace switcher (at most `AUTH_MAX_TEAM_WORKSPACES`, default 20, per user). A workspace's `kind` can't
-  be set or changed through the API, a personal workspace's slug can't change, and `personal-` slugs are
-  reserved.
+- There is **one kind of workspace** (D-36). A new user who has no pending invitation gets one of their own,
+  named "<First name>’s workspace" ("My workspace" without a name), as its owner (`@oat/auth`
+  `ensureFirstWorkspace`); an invited newcomer joins the inviting workspace instead. Each new session starts
+  in the workspace the user last switched to, else the one they have belonged to longest. Create more from
+  the workspace switcher (at most `AUTH_MAX_TEAM_WORKSPACES`, default 20, per user, on top of the first). A
+  user's last workspace can't be left or deleted (`@oat/core` permissions).
 - Protected pages (`/home`, `/d/*`, `/settings`, `/templates`) redirect to `/sign-in?next=…` without a
   session: `src/proxy.ts` checks the cookie, `(app)/layout.tsx` validates it.
 - The desktop app (1.8) authenticates with `Authorization: Bearer <token>` (the signed token from the
@@ -414,7 +415,7 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   `node:sqlite`: no native module, nothing to rebuild for Electron; WAL, one writer in main). It mirrors
   `workspace`, `document`, `meeting`, `participant`, `transcript_segment` (+ local-only `audio_recording`);
   triggers queue every local write in `outbox`. A recording creates its `meeting` document (private, in the
-  personal workspace) before the audio starts and stores each final segment as it arrives. The sync engine
+  active workspace — or, as a viewer there, the first one the user can create in) before the audio starts and stores each final segment as it arrives. The sync engine
   pushes the outbox to `POST /api/sync/push` (debounced after each write, parents first, acked per outbox
   version) and then pulls `GET /api/sync/pull?cursor=` (change log, D-22); offline it backs off (1 s → 60 s)
   and the sidebar says how many changes are saved on this Mac. The file is a cache: corrupt, written by a
