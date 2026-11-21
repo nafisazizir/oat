@@ -22,9 +22,9 @@ are separate work.
 
 ## Acceptance criteria
 
-- [ ] Both apps use the Graphite ramps in light and dark and use Ziiz controls.
-- [ ] App controls use the default radius even when placed inline together.
-- [ ] Settings show current values with ghost triggers, secondary fields and small menus.
+- [x] Both apps use the Graphite ramps in light and dark and use Ziiz controls.
+- [x] App controls use the default radius even when placed inline together.
+- [x] Settings show current values with ghost triggers, secondary fields and small menus.
 - [ ] Fast CI, web Playwright and representative light and dark screenshots are recorded.
 
 ## Verification
@@ -37,12 +37,20 @@ are separate work.
 
 Keep the route-based settings layout and use the Claude showcase's compact, grouped
 navigation and field/control choices. Use default Ziiz control shapes with round avatars,
-badges and status dots.
+badges and status dots. For a value in a settings row, use `SelectTrigger` or a menu
+trigger rendered as a button with `variant="ghost"` and `size="sm"`. `ThemeMenu showValue`
+uses this pattern on the web. Inputs, textareas and input groups default to secondary,
+and dropdown and context menus default to small.
 
 ## Review
 
-Pending.
+Independent Claude showcase and registry audit checked the component choices and Oat
+keyboard and accessibility behavior. The sync retains the sidebar shortcut guard,
+tooltip role, Select and Command icon/separator semantics, and ramp-based dialog overlays.
 
 ## Evidence
 
-Pending.
+Web Appearance and the built desktop renderer's Storage screen were checked in both
+themes. Web used a signed-in session and desktop used a fixture bridge. The four
+screenshots are in [PR #22](https://github.com/nafisazizir/oat/pull/22).
+Native Electron e2e requires macOS.
