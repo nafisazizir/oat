@@ -187,6 +187,11 @@ transcript behind its toggle, Upcoming on Home) — adapted so the spec runs aga
 specs and the acceptance journey fail on selectors the ui-calm tasks removed (`meeting-start`, the transcript
 panel, `sync-status`, …). So `pnpm run ci` reports `e2e` (package `@oat/desktop`) and `acceptance` as FAIL
 on this branch exactly as on `main`; they need their own task.
+Web e2e: `notion.spec.ts` (phone-width overflow, 1178 > 390) fails whenever it runs next to other specs —
+reproduced on `main` with `playwright test e2e/notion.spec.ts e2e/documents.spec.ts`; it passes alone on
+both. `typography.spec.ts` (dark) failed once in the full run and is listed as flaky under load in `LOG.md`.
+Final full run on this branch: web e2e 75 passed / 2 failed (those two), desktop 8 passed / 10 failed / 10
+not run (all pre-existing; `workspaces.spec.ts` 4/4 pass), everything else `pass`.
 
 ## Review
 
