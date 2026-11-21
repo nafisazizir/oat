@@ -236,3 +236,19 @@ Append-only. Newest at the bottom. Orchestrator writes one entry per state chang
 
 - Human: Linux CI "takes forever", target < 3 min. Looked at 55 runs: 20 green, 14 red, 20 cancelled by newer pushes. A full run takes 11.7–17.2 min, and e2e (median 517 s) + test:int (202 s) are ~90 % of that. 8 of 14 failures were flakes (timing on the slow runner, test races), and 6 were real (lockfile, typecheck, and 4 e2e-only: axe contrast, specs broken by UI changes). [task](tasks/ci-fast-gate.md)
 - PRs now run `fast`: format/actionlint/lint, typecheck and unit as 3 parallel jobs with per-job turbo caches. The full `pnpm run ci` runs on pushes to main and on demand. Run times in the task file.
+
+## 2026-11-21 — UI redesign PR 2: shell
+
+- Started from PR 1 on `devin/1795224212-calm-shell`. Borderless headers, primary note pills,
+  search-field sidebar headers, icon footers and combined workspace/account menus; web action portal
+  reserved for future page actions. Existing recording/toolbar/sync and workspace actions retained.
+  Removed unused breadcrumb logic and updated its navigation assertions. Rebased onto PR 1 feedback
+  commit 48b4708: headings stay Inter. Settings page content remains unchanged.
+  Fast CI **ci: ok** (34.6s); web shell/navigation/workspaces/trash/templates/settings/search/tasks/axe
+  **39 passed, 2 existing screenshot-only skips**; final two-theme calm-shell **3 passed** including auth
+  setup. Desktop shell **10 tests passed**; renderer build passed (chunk-size advisory); built renderer
+  axe **0 violations** in both themes, expanded/collapsed, with target-size/Tab/halo checks.
+  Sixteen 1440×900 screenshots at `/home/ubuntu/shots/pr2/` use Inter headings; desktop bridge is
+  simulated, not native/audio verification. Initial selector/link-role/tooltip typing failures fixed.
+  Origin/main still does not contain PR 1 feedback commit 48b4708; main rebase remains pending.
+  [task](tasks/ui-calm-shell.md)

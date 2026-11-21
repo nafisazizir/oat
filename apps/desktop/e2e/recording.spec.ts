@@ -286,7 +286,7 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
 
   // The widget mirrors it, with a Stop button.
   const widgetOpened = electronApp.waitForEvent('window');
-  await page.getByTestId('user-menu').click();
+  await page.getByTestId('workspace-switcher').click();
   await page.getByRole('menuitem', { name: 'Show meeting widget' }).click();
   const widget = await widgetOpened;
   await expect(widget.getByTestId('widget-recording')).toHaveText('Recording');
@@ -415,7 +415,7 @@ test('transcription down: the error is shown and recording + archive carry on', 
 
   // The widget shows the problem too; Stop there ends the recording.
   const widgetOpened = electronApp.waitForEvent('window');
-  await page.getByTestId('user-menu').click();
+  await page.getByTestId('workspace-switcher').click();
   await page.getByRole('menuitem', { name: 'Show meeting widget' }).click();
   const widget = await widgetOpened;
   await expect(widget.getByTestId('widget-issue')).toHaveText(

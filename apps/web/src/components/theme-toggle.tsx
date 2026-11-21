@@ -24,7 +24,7 @@ const options = [
   { value: 'system', label: 'System', Icon: IconDeviceDesktop },
 ] as const;
 
-/** Top-bar theme menu. The icon follows what's on screen (sun in light, moon in dark). */
+/** Sidebar theme menu. The icon follows what's on screen (sun in light, moon in dark). */
 export function ThemeMenu() {
   const { theme, setTheme } = useTheme();
   return (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { breadcrumbsFor, inSection } from './navigation';
+import { inSection } from './navigation';
 import {
   ancestorsOf,
   childrenOf,
@@ -50,96 +50,12 @@ const tree: Pick<ShellData, 'workspace' | 'documents' | 'trash'> = {
   trash: [{ ...node('binned', null), deletedAt: '2026-11-02T00:00:00.000Z' }],
 };
 
-describe('breadcrumbsFor(tree, pathname)', () => {
-  it('section pages: workspace › section', () => {
-    expect(breadcrumbsFor(tree, '/home')).toEqual([
-      { label: 'Studio', href: '/home' },
-      { label: 'Home' },
-    ]);
-    expect(breadcrumbsFor(tree, '/settings').at(-1)).toEqual({ label: 'Settings' });
-  });
-
-  it('template pages: workspace › Templates › Template / New template', () => {
-    expect(breadcrumbsFor(tree, '/templates/01900000-0000-7000-8b17-000000000001')).toEqual([
-      { label: 'Studio', href: '/home' },
-      { label: 'Templates', href: '/templates' },
-      { label: 'Template' },
-    ]);
-    expect(breadcrumbsFor(tree, '/templates/new').at(-1)).toEqual({ label: 'New template' });
-  });
-
-  it('settings pages: workspace › Settings › page (9.3)', () => {
-    const settings = { label: 'Settings', href: '/settings' };
-    const studio = { label: 'Studio', href: '/home' };
-    expect(breadcrumbsFor(tree, '/settings/profile')).toEqual([
-      studio,
-      settings,
-      { label: 'About me' },
-    ]);
-    expect(breadcrumbsFor(tree, '/settings/integrations').at(-1)).toEqual({
-      label: 'Integrations',
-    });
-    expect(breadcrumbsFor(tree, '/settings/workspace')).toEqual([
-      studio,
-      settings,
-      { label: 'Workspace' },
-    ]);
-    expect(breadcrumbsFor(tree, '/settings/workspace/members')).toEqual([
-      studio,
-      settings,
-      { label: 'Workspace', href: '/settings/workspace' },
-      { label: 'Members' },
-    ]);
-    expect(breadcrumbsFor(tree, '/settings/unknown')).toEqual([studio, { label: 'Settings' }]);
-  });
-
-  it('inSection matches a section and its sub-pages only', () => {
+describe('sections', () => {
+  it('matches a section and its sub-pages only', () => {
     expect(inSection('/templates', '/templates')).toBe(true);
     expect(inSection('/templates/abc', '/templates')).toBe(true);
     expect(inSection('/templatesx', '/templates')).toBe(false);
     expect(inSection('/home', '/templates')).toBe(false);
-  });
-
-  it('nested private page: workspace › Private › ancestors › page', () => {
-    expect(breadcrumbsFor(tree, '/d/grandchild')).toEqual([
-      { label: 'Studio', href: '/home' },
-      { label: 'Private' },
-      { label: 'folder', href: '/d/folder' },
-      { label: 'child', href: '/d/child' },
-      { label: 'grandchild' },
-    ]);
-  });
-
-  it('shared items sit under Shared, also a private page inside a shared folder', () => {
-    expect(breadcrumbsFor(tree, '/d/shared-page').map((c) => c.label)).toEqual([
-      'Studio',
-      'Shared',
-      'shared page',
-    ]);
-    expect(breadcrumbsFor(tree, '/d/mine-in-shared').map((c) => c.label)).toEqual([
-      'Studio',
-      'Shared',
-      'shared folder',
-      'mine in shared',
-    ]);
-  });
-
-  it('trashed, unknown, other paths and cycles', () => {
-    expect(breadcrumbsFor(tree, '/d/binned').map((c) => c.label)).toEqual([
-      'Studio',
-      'Trash',
-      'binned',
-    ]);
-    expect(breadcrumbsFor(tree, '/d/nope').at(-1)).toEqual({ label: 'Page' });
-    expect(breadcrumbsFor(tree, '/home/extra')).toEqual([{ label: 'Studio', href: '/home' }]);
-    expect(breadcrumbsFor(tree, '/')).toEqual([{ label: 'Studio', href: '/home' }]);
-    expect(breadcrumbsFor(tree, '/d/loop-a').map((c) => c.label)).toEqual([
-      'Studio',
-      'Private',
-      'loop a',
-      'loop b',
-      'loop a',
-    ]);
   });
 });
 

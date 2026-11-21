@@ -28,6 +28,7 @@ import {
   IconExternalLink,
   IconLoader,
   IconRefresh,
+  IconSettings,
 } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
@@ -57,20 +58,13 @@ import {
   SidebarInset,
   SidebarTrigger,
 } from '@oat/ui/components/sidebar';
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@oat/ui/components/breadcrumb';
 import { RecordingBar, IssueBanner } from '../recording/recording-controls.tsx';
 import { SettingsView } from '../settings/settings-view.tsx';
 import { FirstMeetingGuide } from '../onboarding/first-meeting-guide.tsx';
 import { useOnboarding } from '../onboarding/onboarding-state.ts';
 import { OnboardingView } from '../onboarding/onboarding-view.tsx';
 import { Wordmark } from '../wordmark.tsx';
-import { WorkspaceSwitcher } from '../workspaces/workspace-switcher.tsx';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import { useWorkspaces } from '../workspaces/workspaces-state.ts';
 
 /**
@@ -376,7 +370,7 @@ function SignedInShell({
     const firstRun = onboarding.state.needed;
     return (
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="app-drag h-12 shrink-0 border-b border-gray-alpha-400" />
+        <div className="app-drag h-12 shrink-0" />
         <OnboardingView
           firstRun={firstRun}
           email={user.email}
@@ -396,18 +390,9 @@ function SignedInShell({
   return (
     <SidebarProvider className="h-full min-h-0 min-w-0 flex-1" data-testid="shell">
       <Sidebar collapsible="icon">
-        <div className="app-drag h-12 shrink-0 border-b border-gray-alpha-400" />
+        <div className="app-drag h-12 shrink-0" />
         <SidebarHeader>
-          <WorkspaceSwitcher view={workspaces} />
           <SidebarMenu>
-            <NewMeetingButton
-              disabled={recording || !snapshot}
-              pending={starting.pending}
-              onClick={() => {
-                setSettingsOpen(false);
-                void starting.run(() => call('recording:start', startRequest(input)));
-              }}
-            />
             <DesktopSearch
               refreshKey={sync.lastSyncedAt}
               onOpen={(hit) => {
@@ -417,11 +402,6 @@ function SignedInShell({
               }}
             />
           </SidebarMenu>
-          {starting.error && (
-            <p role="status" className="px-2 text-copy-13 text-red-900">
-              {starting.error}
-            </p>
-          )}
         </SidebarHeader>
         <SidebarContent>
           <div className="group-data-[collapsible=icon]:hidden">
@@ -448,39 +428,57 @@ function SignedInShell({
           />
         </SidebarContent>
         <SidebarFooter data-testid="signed-in">
-          <SyncLine status={sync} />
-          <DesktopUserMenu user={user} onOpenSettings={() => setSettingsOpen(true)} />
+          <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Settings"
+                    onClick={() => setSettingsOpen(true)}
+                  />
+                }
+              >
+                <IconSettings />
+              </TooltipTrigger>
+              <TooltipContent>Settings</TooltipContent>
+            </Tooltip>
+            <SyncLine status={sync} />
+          </div>
+          <DesktopUserMenu
+            user={user}
+            workspaces={workspaces}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="min-h-0 min-w-0">
         <header
           className={cn(
-            'app-drag sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b border-gray-alpha-400 bg-background-100 px-3',
+            'app-drag sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 bg-background-100 px-3',
             /Mac/.test(navigator.platform) &&
               'max-md:ps-24 group-has-data-[collapsible=icon]/sidebar-wrapper:ps-12',
           )}
         >
           <SidebarTrigger className="app-no-drag" />
-          <Breadcrumb className="min-w-0 flex-1 overflow-hidden">
-            <BreadcrumbList className="flex-nowrap">
-              <BreadcrumbItem className="shrink-0">
-                {activeWorkspace?.name ?? 'Workspace'}
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem className="min-w-0">
-                <BreadcrumbPage className="truncate">
-                  {settingsOpen
-                    ? 'Settings'
-                    : notes?.find((n) => n.documentId === selected)?.title || 'Meeting notes'}
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-          <div
-            ref={setToolbar}
-            className="app-no-drag ms-auto max-w-[75%] shrink-0 overflow-x-auto"
-          />
+          <div className="ms-auto flex min-w-0 items-center gap-2">
+            <NewMeetingButton
+              disabled={recording || !snapshot}
+              pending={starting.pending}
+              onClick={() => {
+                setSettingsOpen(false);
+                void starting.run(() => call('recording:start', startRequest(input)));
+              }}
+            />
+            <div ref={setToolbar} className="app-no-drag min-w-0 overflow-x-auto" />
+          </div>
         </header>
+        {starting.error && (
+          <p role="status" className="px-3 text-copy-13 text-red-900">
+            {starting.error}
+          </p>
+        )}
         <div className="relative flex min-h-0 flex-1 flex-col [&>section]:min-h-0">
           <PromptBanner prompt={prompt} recording={startRequest(input)} />
           <AutoStopQuestion notice={autoStop} />
@@ -539,17 +537,19 @@ function SyncLine({ status }: { status: SyncStatusSnapshot | undefined }) {
   if (!status || !label) return <div className="mt-auto" />;
   const { icon: Icon, className } = SYNC_ICONS[label.tone];
   return (
-    <p
-      role="status"
-      className="flex min-h-6 items-center gap-1.5 px-2 text-label-12 text-gray-900"
-      aria-label={label.text}
-      data-testid="sync-status"
-      data-state={status.state}
-      data-pending={status.pending}
-      title={status.error ?? undefined}
-    >
-      <Icon className={`size-3.5 shrink-0 ${className}`} />
-      <span className="truncate group-data-[collapsible=icon]:hidden">{label.text}</span>
-    </p>
+    <Tooltip>
+      <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label={label.text} />}>
+        <span
+          role="status"
+          aria-label={label.text}
+          data-testid="sync-status"
+          data-state={status.state}
+          data-pending={status.pending}
+        >
+          <Icon aria-hidden className={`size-4 ${className}`} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{status.error ?? label.text}</TooltipContent>
+    </Tooltip>
   );
 }

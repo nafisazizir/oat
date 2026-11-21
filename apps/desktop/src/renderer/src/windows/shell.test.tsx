@@ -12,6 +12,7 @@ const model = vi.hoisted(() => {
   return {
     invoke: vi.fn(),
     searchHits: [] as SearchHitSnapshot[],
+    workspacesReady: true,
     user,
     sync,
     recording: {
@@ -67,8 +68,10 @@ vi.mock('../onboarding/onboarding-state.ts', () => ({
 }));
 vi.mock('../workspaces/workspaces-state.ts', () => ({
   useWorkspaces: () => ({
-    active: { id: 'workspace', name: 'Personal', kind: 'personal', role: 'owner' },
-    snapshot: { workspaces: [] },
+    active: model.workspacesReady
+      ? { id: 'workspace', name: 'Personal', kind: 'personal', role: 'owner' }
+      : null,
+    snapshot: model.workspacesReady ? { workspaces: [] } : null,
     fallback: null,
   }),
   roleLabel: () => 'Owner',
@@ -90,6 +93,7 @@ beforeEach(() => {
   );
   Element.prototype.scrollIntoView = () => {};
   model.searchHits = [];
+  model.workspacesReady = true;
   model.invoke.mockReset().mockImplementation(async (channel: string) => {
     if (channel === 'recording:options')
       return { defaultInput: 'sidecar', defaultFixture: null, fixtures: [] };
@@ -108,10 +112,11 @@ describe('desktop shell', () => {
   it('keeps new meeting recording behavior for click and shortcut', async () => {
     render(<MainWindow />);
     const button = screen.getByTestId('new-meeting');
-    expect(button.className).toContain('text-brand-900 hover:text-brand-1000');
+    expect(button.className).toContain('rounded-full');
+    expect(button.closest('header')).not.toBeNull();
     expect(
-      button.parentElement?.querySelector('[data-sidebar="menu-badge"] kbd')?.textContent,
-    ).toBe('⌘N');
+      document.querySelector('[data-sidebar="header"] [data-testid="new-meeting"]'),
+    ).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'New meeting note' }));
     expect(model.invoke).toHaveBeenCalledWith('recording:start', { input: 'sidecar' });
     await waitFor(() =>
@@ -209,19 +214,19 @@ describe('desktop shell', () => {
     );
   });
 
-  it('exposes desktop actions through the account menu', async () => {
+  it('exposes workspace and account actions through one footer menu', async () => {
     render(<MainWindow />);
     for (const [name, channel] of [
       ['Show meeting widget', 'window:open-widget'],
       ['Check connection', 'api:me'],
       ['Sign out', 'auth:sign-out'],
     ]) {
-      await userEvent.click(screen.getByTestId('user-menu'));
+      await userEvent.click(screen.getByTestId('workspace-switcher'));
       await userEvent.click(await screen.findByRole('menuitem', { name }));
       await waitFor(() => expect(model.invoke).toHaveBeenCalledWith(channel));
     }
     expect(screen.getByTestId('api-me').textContent).toBe('Connected as alex@example.test');
-    await userEvent.click(screen.getByTestId('user-menu'));
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Settings' }));
     expect(screen.getByTestId('settings')).toBeTruthy();
   });
@@ -229,8 +234,58 @@ describe('desktop shell', () => {
   it('surfaces a failed account action', async () => {
     render(<MainWindow />);
     model.invoke.mockRejectedValueOnce(new Error('offline'));
-    await userEvent.click(screen.getByTestId('user-menu'));
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Check connection' }));
     expect(await screen.findByText('Something went wrong.')).toBeTruthy();
+  });
+
+  it('keeps the header borderless and the sync and settings controls in the footer', async () => {
+    render(<MainWindow />);
+    const header = screen.getByTestId('new-meeting').closest('header')!;
+    expect(header.className).not.toContain('border-b');
+    expect(document.querySelector('[data-slot="sidebar"] .app-drag')?.className).not.toContain(
+      'border-b',
+    );
+    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
+    const footer = screen.getByTestId('signed-in');
+    expect(footer.contains(screen.getByTestId('workspace-switcher'))).toBe(true);
+    expect(footer.contains(screen.getByTestId('sync-status'))).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(screen.getByTestId('settings')).toBeTruthy();
+  });
+
+  it('keeps new meeting pending and reports a failure from the header', async () => {
+    render(<MainWindow />);
+    let reject!: (error: Error) => void;
+    model.invoke.mockImplementation((channel: string) =>
+      channel === 'recording:start'
+        ? new Promise((_, fail) => {
+            reject = fail;
+          })
+        : Promise.resolve(),
+    );
+    await userEvent.click(screen.getByTestId('new-meeting'));
+    expect(screen.getByTestId('new-meeting').hasAttribute('disabled')).toBe(true);
+    fireEvent.keyDown(window, { key: 'n', metaKey: true });
+    expect(
+      model.invoke.mock.calls.filter(([channel]) => channel === 'recording:start'),
+    ).toHaveLength(1);
+    reject(new Error('offline'));
+    expect(await screen.findByText('Something went wrong.')).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByTestId('new-meeting').hasAttribute('disabled')).toBe(false),
+    );
+  });
+
+  it('keeps account actions available before workspaces load', async () => {
+    model.workspacesReady = false;
+    render(<MainWindow />);
+    expect(screen.getByTestId('workspace-switcher').textContent).toContain('Alex');
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    expect(
+      await screen.findByText('Account', { selector: '[data-slot="dropdown-menu-label"]' }),
+    ).toBeTruthy();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Sign out' }));
+    expect(model.invoke).toHaveBeenCalledWith('auth:sign-out');
   });
 });

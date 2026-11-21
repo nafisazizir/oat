@@ -56,7 +56,7 @@ test('creates a page, writes with the slash menu, and it persists across a reloa
   await page.keyboard.type('Ship the documents API.');
   await saved(page);
   await expect(treeRow(page, 'Launch plan')).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Launch plan');
+  await expect(page.getByTestId('document-title')).toHaveValue('Launch plan');
   await evidence33(page, 'editor-saved');
 
   await page.reload();
@@ -125,13 +125,9 @@ test('folders: create + rename inline, move a shared page into a private folder 
   await treeSettled(page);
   await page.reload();
   await expect(page.getByText('Private', { exact: true }).first()).toBeVisible();
-  const crumbs = page.getByRole('navigation', { name: 'Breadcrumb' });
-  await expect(crumbs.getByRole('listitem')).toHaveText([
-    'Docs Team',
-    'Private',
-    'Drafts',
-    'Roadmap',
-  ]);
+  await expect(page.getByTestId('workspace-switcher')).toContainText('Docs Team');
+  await expect(privateTree.getByRole('link', { name: 'Drafts', exact: true })).toBeVisible();
+  await expect(page.getByTestId('document-title')).toHaveValue('Roadmap');
   await evidence33(page, 'tree-after-move');
 
   // Trash, from the sidebar menu: the open page shows the trash banner, read-only.
@@ -184,7 +180,7 @@ test('drag a page onto a folder; delete the folder (its pages go to the trash)',
   await confirm.getByRole('button', { name: 'Delete folder' }).click();
   await expect(page).toHaveURL(/\/home$/);
   await expect(tree.getByRole('link', { name: 'Archive' })).toBeHidden();
-  await expect(page.getByTestId('open-trash')).toContainText('1');
+  await expect(page.getByTestId('open-trash')).toHaveAccessibleName('Trash (1)');
 });
 
 test('edit the body, then rename from the sidebar: no false conflict, the editor keeps saving', async ({

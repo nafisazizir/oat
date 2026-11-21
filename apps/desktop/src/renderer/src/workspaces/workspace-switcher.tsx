@@ -15,7 +15,7 @@ import {
 import { cn } from '@oat/ui/lib/utils';
 import { SidebarMenuButton } from '@oat/ui/components/sidebar';
 import { IconCheck, IconEye, IconSelector } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { BridgeCallError } from '../bridge.ts';
 import { roleLabel, type WorkspacesView } from './workspaces-state.ts';
@@ -41,10 +41,19 @@ export function WorkspaceTile({
   );
 }
 
-export function WorkspaceSwitcher({ view }: { view: WorkspacesView }) {
+export function WorkspaceSwitcher({
+  view,
+  account,
+  label,
+  email,
+}: {
+  view: WorkspacesView;
+  account: ReactNode;
+  label: string;
+  email: string;
+}) {
   const [error, setError] = useState<string | null>(null);
   const { snapshot, active, fallback } = view;
-  if (!snapshot || !active) return null;
 
   async function choose(id: string) {
     setError(null);
@@ -66,28 +75,33 @@ export function WorkspaceSwitcher({ view }: { view: WorkspacesView }) {
             />
           }
           data-testid="workspace-switcher"
-          data-workspace-id={active.id}
+          data-workspace-id={active?.id}
         >
-          <WorkspaceTile workspace={active} />
+          <WorkspaceTile workspace={active ?? { name: label, kind: 'personal' }} />
+          <span className="sr-only" data-testid="signed-in-email">
+            {email}
+          </span>
           <span className="flex min-w-0 flex-1 flex-col">
             {/* What the button is, before the visible text (WCAG 2.5.3: label in name). */}
             <span className="sr-only">Workspace: </span>
-            <span className="truncate text-label-14 text-gray-1000">{active.name}</span>
-            <span className="truncate text-label-12 text-gray-900">{roleLabel(active)}</span>
+            <span className="truncate text-label-14 text-gray-1000">{active?.name ?? label}</span>
+            <span className="truncate text-label-12 text-gray-900">
+              {active ? roleLabel(active) : 'Account'}
+            </span>
           </span>
           <IconSelector aria-hidden className="size-4 shrink-0 text-gray-900" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-(--anchor-width) min-w-56">
+        <DropdownMenuContent side="top" align="start" className="w-(--anchor-width) min-w-56">
           <DropdownMenuGroup>
             <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-            {snapshot.workspaces.map((w) => (
+            {snapshot?.workspaces.map((w) => (
               <DropdownMenuItem
                 key={w.id}
                 className="gap-2 py-1.5"
                 data-testid="workspace-option"
                 data-workspace-id={w.id}
                 onClick={() => {
-                  if (w.id !== active.id) void choose(w.id);
+                  if (w.id !== active?.id) void choose(w.id);
                 }}
               >
                 <WorkspaceTile workspace={w} className="size-6" />
@@ -95,10 +109,11 @@ export function WorkspaceSwitcher({ view }: { view: WorkspacesView }) {
                   <span className="truncate">{w.name}</span>
                   <span className="truncate text-label-12 text-gray-900">{roleLabel(w)}</span>
                 </span>
-                {w.id === active.id && <IconCheck className="ms-auto" />}
+                {w.id === active?.id && <IconCheck className="ms-auto" />}
               </DropdownMenuItem>
             ))}
           </DropdownMenuGroup>
+          {account}
         </DropdownMenuContent>
       </DropdownMenu>
       {fallback && (
@@ -109,7 +124,7 @@ export function WorkspaceSwitcher({ view }: { view: WorkspacesView }) {
         >
           <IconEye aria-hidden className="mt-0.5 size-3.5 shrink-0" />
           <span>
-            You can view {active.name} but not add notes to it. New notes go to {fallback.name}.
+            You can view {active?.name} but not add notes to it. New notes go to {fallback.name}.
           </span>
         </p>
       )}

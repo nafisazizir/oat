@@ -10,9 +10,14 @@ test.describe('app shell', () => {
     await expect(page.getByText('No meeting notes yet')).toBeVisible();
     await expect(page.getByTestId('workspace-switcher')).toContainText('Personal');
     await expect(page.getByTestId('page-tree')).toBeVisible();
-    const crumbs = page.getByRole('navigation', { name: 'Breadcrumb' });
-    await expect(crumbs).toContainText('Personal');
-    await expect(crumbs.locator('[aria-current="page"]')).toHaveText('Home');
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toHaveCount(0);
+    await expect(
+      page.getByTestId('top-bar').getByRole('button', { name: 'New note' }),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId('app-sidebar').getByRole('button', { name: 'New note' }),
+    ).toHaveCount(0);
+    await expect(page.getByTestId('top-bar-actions')).toBeEmpty();
   });
 
   // Guard: during 1.4 `next dev` once rebuilt and fully reloaded every page in a loop (HMR
@@ -33,7 +38,8 @@ test.describe('app shell', () => {
     await page.getByTestId('sidebar-trigger').click();
     await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
     // Collapsed to icons: labels hidden, icon buttons still there.
-    await expect(page.getByTestId('open-trash').getByText('Trash')).toBeHidden();
+    await expect(page.getByTestId('open-trash')).toBeVisible();
+    await expect(page.getByTestId('theme-menu')).toBeVisible();
 
     await page.reload();
     await expect(page.locator(sidebarSelector)).toHaveAttribute('data-state', 'collapsed');
@@ -43,7 +49,7 @@ test.describe('app shell', () => {
     await expect(page.locator(sidebarSelector)).toHaveAttribute('data-state', 'expanded');
   });
 
-  test('page tree navigates and shows breadcrumbs', async ({ page }) => {
+  test('page tree navigates notes and folders without breadcrumbs', async ({ page }) => {
     await page.goto('/home');
     const ideas = unique('Ideas');
     const reading = unique('Reading list');
@@ -53,10 +59,8 @@ test.describe('app shell', () => {
     await page.getByTestId('page-tree').getByRole('link', { name: reading }).click();
     await expect(page).toHaveURL(new RegExp(`/d/${doc.id}$`));
     await expect(page.getByTestId('document-title')).toHaveValue(reading);
-    const crumbs = page.getByRole('navigation', { name: 'Breadcrumb' });
-    // Separators are aria-hidden, so only the four crumbs are list items.
-    await expect(crumbs.getByRole('listitem')).toHaveText(['Personal', 'Private', ideas, reading]);
-    await crumbs.getByRole('link', { name: ideas }).click();
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toHaveCount(0);
+    await page.getByTestId('page-tree').getByRole('link', { name: ideas, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/d/${folder.id}$`));
     await expect(page.getByRole('heading', { level: 1, name: ideas })).toBeVisible();
   });
