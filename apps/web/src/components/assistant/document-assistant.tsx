@@ -40,22 +40,25 @@ const AssistantToggleContext = createContext<ToggleSlot | null>(null);
 export function AssistantToggleAnchor({
   className,
   children,
+  feedback,
 }: {
   className?: string;
   children?: React.ReactNode;
+  feedback?: React.ReactNode;
 }) {
   const slot = useContext(AssistantToggleContext);
   const claim = slot?.claim;
   useEffect(() => claim?.(), [claim]);
-  if (!slot?.node && !children) return null;
+  if (!slot?.node && !children && !feedback) return null;
   return (
     <div
       data-testid="note-bottom-bar"
       className={cn(
-        'pointer-events-none sticky bottom-0 z-20 flex justify-center px-4 pt-2 pb-4 *:pointer-events-auto',
+        'pointer-events-none sticky bottom-0 z-20 flex flex-col items-center gap-2 px-4 pt-2 pb-4 *:pointer-events-auto',
         className,
       )}
     >
+      {feedback && <div className="w-full max-w-content empty:hidden">{feedback}</div>}
       <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-2xl border border-gray-alpha-300 bg-background-100 p-2">
         {children}
         {slot?.node}

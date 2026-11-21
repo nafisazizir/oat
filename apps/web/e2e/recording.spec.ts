@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { writeFile } from 'node:fs/promises';
 
 import { SIGNED_OUT, signInWithMagicLink, uniqueAddress } from './auth-helpers';
-import { apiCreateDocument } from './docs-helpers';
+import { apiCreateDocument, apiUpdateDocument } from './docs-helpers';
 import { expect, test } from './fixtures';
 
 const audio = fileURLToPath(new URL('../../../fixtures/audio/standup-short.wav', import.meta.url));
@@ -17,6 +17,44 @@ test.use({
       `--use-file-for-fake-audio-capture=${audio}`,
     ],
   },
+});
+
+test('microphone denial and Retry stay visible while deep in a note', async ({ page, baseURL }) => {
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = async () => {
+      const root = document.documentElement;
+      root.dataset.micAttempts = String(Number(root.dataset.micAttempts ?? 0) + 1);
+      throw new DOMException('Microphone access denied', 'NotAllowedError');
+    };
+  });
+  await page.goto('/sign-in');
+  await signInWithMagicLink(page, uniqueAddress('denied-mic'), baseURL!);
+  const doc = await apiCreateDocument(page, { title: 'Long meeting', kind: 'meeting' });
+  const saved = await apiUpdateDocument(page, doc.id, {
+    baseVersion: doc.version,
+    contentJson: {
+      type: 'doc',
+      content: Array.from({ length: 120 }, (_, i) => ({
+        type: 'paragraph',
+        content: [{ type: 'text', text: `Long note line ${i}` }],
+      })),
+    },
+  });
+  expect(saved.ok()).toBe(true);
+  await page.goto(`/d/${doc.id}`);
+  await page.getByText('Long note line 119', { exact: true }).scrollIntoViewIfNeeded();
+  await expect(page.getByTestId('document-title')).not.toBeInViewport();
+  await page.getByRole('button', { name: 'Record', exact: true }).click();
+  await page.getByRole('button', { name: 'Mic only', exact: true }).click();
+  const feedback = page.getByRole('alert').filter({ hasText: 'Recording needs attention' });
+  await expect(feedback).toContainText('Microphone access denied');
+  await expect(feedback).toBeInViewport();
+  const retry = feedback.getByRole('button', { name: 'Retry', exact: true });
+  await expect(retry).toBeInViewport();
+  await retry.click();
+  await expect(page.locator('html')).toHaveAttribute('data-mic-attempts', '2');
+  await expect(retry).toBeInViewport();
+  await expect(page.getByTestId('transcript-panel')).toHaveCount(0);
 });
 
 test('browser mic recording streams to mock STT and persists through cookie-authenticated sync', async ({

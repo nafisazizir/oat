@@ -295,9 +295,6 @@ export function MeetingNote({
       </AlertDialog>
       {/* At least the window's height, so "Ask about this note" sits at its bottom (9.3b). */}
       <div className="flex min-h-[calc(100svh-3rem)] min-w-0 flex-1 flex-col">
-        <div className="px-6 empty:hidden">
-          <RecordingFeedback documentId={doc.id} />
-        </div>
         <DocumentEditor
           document={doc}
           workspace={workspace}
@@ -322,7 +319,10 @@ export function MeetingNote({
           </section>
         )}
         {/* "Ask about this note" floats over the note column, never over the transcript panel. */}
-        <AssistantToggleAnchor className="mt-auto">
+        <AssistantToggleAnchor
+          className="mt-auto"
+          feedback={<RecordingFeedback documentId={doc.id} />}
+        >
           <RecordingControls
             documentId={doc.id}
             eligible={editable && !(info.endedAt && lines.length > 0)}
