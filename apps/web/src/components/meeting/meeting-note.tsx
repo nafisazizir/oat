@@ -139,6 +139,7 @@ export function MeetingNote({
   const [open, setOpen] = useStoredState<boolean>(`${OPEN_KEY}:${user.id}`, false);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const closePanel = () => {
+    player.pause();
     setOpen(false);
     requestAnimationFrame(() => toggleRef.current?.focus({ preventScroll: true }));
   };

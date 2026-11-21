@@ -162,7 +162,23 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
       page.getByTestId('playback-audio').evaluate((audio: HTMLAudioElement) => audio.currentTime),
     )
     .toBeGreaterThan(0.25);
-  await page.getByTestId('playback-toggle').click();
+  for (const close of ['escape', 'pill', 'button']) {
+    if (close === 'escape') await page.keyboard.press('Escape');
+    else if (close === 'pill') await page.getByTestId('transcript-toggle').click();
+    else await page.getByTestId('panel-close').click();
+    await expect(page.getByTestId('transcript-panel')).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.getByTestId('playback-audio').evaluate((audio: HTMLAudioElement) => audio.paused),
+      )
+      .toBe(true);
+    await page.getByTestId('transcript-toggle').click();
+    await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'paused');
+    if (close !== 'button') {
+      await page.getByTestId('playback-toggle').click();
+      await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'playing');
+    }
+  }
   const meeting = await (
     await page.request.get(`/api/documents/${doc.id}/meeting?transcript=1`)
   ).json();
