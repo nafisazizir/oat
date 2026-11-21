@@ -215,15 +215,7 @@ function NodeIcon({ node, open }: { node: DocumentNode; open: boolean }) {
   return <IconFileText />;
 }
 
-function TreeRow({
-  row,
-  active,
-  onToggle,
-}: {
-  row: Row;
-  active: boolean;
-  onToggle: () => void;
-}) {
+function TreeRow({ row, active, onToggle }: { row: Row; active: boolean; onToggle: () => void }) {
   const { node, depth, hasChildren, open } = row;
   const { documents } = useShellData();
   const actions = useTreeActions();

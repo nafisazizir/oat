@@ -103,17 +103,26 @@ export class MeetingNotes {
 
   list(): MeetingNoteSummary[] {
     const store = this.#o.store();
-    if (!store || !this.#o.userId()) return [];
-    return store.meetingNotes().map((n) => ({
-      documentId: n.documentId,
-      meetingId: n.meetingId,
-      workspaceId: n.workspaceId,
-      title: n.title,
-      visibility: n.visibility,
-      startedAt: n.startedAt,
-      endedAt: n.endedAt,
-      createdAt: n.createdAt,
-    }));
+    const userId = this.#o.userId();
+    if (!store || !userId) return [];
+    return (
+      store
+        .meetingNotes()
+        // Sync never sends another member's private note (D-22); should one be in the local database
+        // all the same, it is not listed — Private is only ever my own (D-36).
+        .filter((n) => n.visibility !== 'private' || n.ownerId === userId)
+        .map((n) => ({
+          documentId: n.documentId,
+          meetingId: n.meetingId,
+          workspaceId: n.workspaceId,
+          ownerId: n.ownerId,
+          title: n.title,
+          visibility: n.visibility,
+          startedAt: n.startedAt,
+          endedAt: n.endedAt,
+          createdAt: n.createdAt,
+        }))
+    );
   }
 
   async get(by: { documentId: string } | { meetingId: string }): Promise<MeetingNote | null> {

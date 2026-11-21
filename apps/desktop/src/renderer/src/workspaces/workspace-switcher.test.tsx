@@ -2,6 +2,7 @@
 import type { DesktopWorkspace } from '@oat/core/bridge';
 import { SidebarProvider } from '@oat/ui/components/sidebar';
 import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WorkspaceSwitcher } from './workspace-switcher.tsx';
@@ -42,6 +43,16 @@ beforeEach(() => {
     addEventListener() {},
     removeEventListener() {},
   }));
+  // The opened menu (shell.test.tsx stubs the same).
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  Element.prototype.scrollIntoView = () => {};
 });
 afterEach(() => {
   cleanup();
@@ -88,5 +99,31 @@ describe('WorkspaceSwitcher hint (where new notes go)', () => {
     cleanup();
     show(view([ws('old', 'Old', null)], 'old', null));
     expect(screen.queryByTestId('workspace-hint')).toBeNull();
+  });
+});
+
+describe('WorkspaceSwitcher: nothing to switch between with one workspace (D-36)', () => {
+  const mine = ws('mine', 'Ada’s workspace', 'owner');
+  const board = ws('board', 'Board', 'member');
+
+  it('with one workspace the menu has no workspace list and no selector', async () => {
+    show(view([mine], 'mine', 'mine'));
+    const trigger = screen.getByTestId('workspace-switcher');
+    expect(trigger.getAttribute('data-switchable')).toBe('false');
+    // Still says where I am.
+    expect(trigger.textContent).toContain('Ada’s workspace');
+    await userEvent.click(trigger);
+    expect(await screen.findByText('Workspace settings (web)')).toBeTruthy();
+    expect(screen.queryByTestId('workspace-list')).toBeNull();
+    expect(screen.queryAllByTestId('workspace-option')).toHaveLength(0);
+  });
+
+  it('with two it lists them', async () => {
+    show(view([board, mine], 'mine', 'mine'));
+    const trigger = screen.getByTestId('workspace-switcher');
+    expect(trigger.getAttribute('data-switchable')).toBe('true');
+    await userEvent.click(trigger);
+    expect(await screen.findByTestId('workspace-list')).toBeTruthy();
+    expect(screen.getAllByTestId('workspace-option')).toHaveLength(2);
   });
 });

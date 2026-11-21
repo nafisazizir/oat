@@ -1,8 +1,10 @@
 /**
- * Sidebar workspace switcher (3.9), like the web app's: my workspaces as synced to this Mac. The meeting
- * list shows the active workspace's notes, and new notes go there — unless I can only view it, which the
- * hint under the switcher says: they go to the first workspace I can add notes to, and when there is none
- * the hint asks me to create one (D-36).
+ * Sidebar workspace menu (3.9), like the web app's: the workspace the sidebar shows, with the account
+ * actions. With two or more workspaces it is also the switcher — my workspaces as synced to this Mac; with
+ * one there is nothing to switch between, so the list (and the selector arrows) are not there (D-36). The
+ * meeting list shows the active workspace's notes, and new notes go there — unless I can only view it, which
+ * the hint under the menu says: they go to the first workspace I can add notes to, and when there is none
+ * the hint asks me to create one.
  */
 import type { DesktopWorkspace } from '@oat/core/bridge';
 import {
@@ -56,6 +58,7 @@ export function WorkspaceSwitcher({
 }) {
   const [error, setError] = useState<string | null>(null);
   const { snapshot, active, fallback, needsWorkspace } = view;
+  const canSwitch = (snapshot?.workspaces.length ?? 0) > 1;
 
   async function choose(id: string) {
     setError(null);
@@ -86,6 +89,7 @@ export function WorkspaceSwitcher({
             />
           }
           data-testid="workspace-switcher"
+          data-switchable={canSwitch}
           data-workspace-id={active?.id}
         >
           <WorkspaceTile workspace={active ?? { name: label }} />
@@ -100,32 +104,37 @@ export function WorkspaceSwitcher({
               {active ? roleLabel(active) : 'Account'}
             </span>
           </span>
-          <IconSelector aria-hidden className="size-4 shrink-0 text-gray-900" />
+          {canSwitch && <IconSelector aria-hidden className="size-4 shrink-0 text-gray-900" />}
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" align="start" className="w-(--anchor-width) min-w-56">
+          {canSwitch && (
+            <>
+              <DropdownMenuGroup data-testid="workspace-list">
+                <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+                {snapshot?.workspaces.map((w) => (
+                  <DropdownMenuItem
+                    key={w.id}
+                    className="gap-2 py-1.5"
+                    data-testid="workspace-option"
+                    data-workspace-id={w.id}
+                    onClick={() => {
+                      if (w.id !== active?.id) void choose(w.id);
+                    }}
+                  >
+                    <WorkspaceTile workspace={w} className="size-6" />
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate">{w.name}</span>
+                      <span className="truncate text-label-12 text-gray-900">{roleLabel(w)}</span>
+                    </span>
+                    {w.id === active?.id && <IconCheck className="ms-auto" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuGroup>
-            <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-            {snapshot?.workspaces.map((w) => (
-              <DropdownMenuItem
-                key={w.id}
-                className="gap-2 py-1.5"
-                data-testid="workspace-option"
-                data-workspace-id={w.id}
-                onClick={() => {
-                  if (w.id !== active?.id) void choose(w.id);
-                }}
-              >
-                <WorkspaceTile workspace={w} className="size-6" />
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate">{w.name}</span>
-                  <span className="truncate text-label-12 text-gray-900">{roleLabel(w)}</span>
-                </span>
-                {w.id === active?.id && <IconCheck className="ms-auto" />}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
+            {!canSwitch && <DropdownMenuLabel>Workspace</DropdownMenuLabel>}
             <DropdownMenuItem onClick={() => void openSettings('workspace')}>
               Workspace settings (web)
             </DropdownMenuItem>

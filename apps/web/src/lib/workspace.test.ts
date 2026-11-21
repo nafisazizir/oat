@@ -56,4 +56,3 @@ describe('expiresIn', () => {
     expect(expiresIn(at(7 * 86_400_000 - 5_000), now)).toBe('in 7 days');
   });
 });
-
