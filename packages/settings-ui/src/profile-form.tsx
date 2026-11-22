@@ -46,7 +46,7 @@ function Row({
   return (
     <Field
       data-invalid={invalid || undefined}
-      className="gap-2 sm:grid sm:grid-cols-[11rem_1fr] sm:items-start sm:gap-6"
+      className="gap-2 sm:grid sm:grid-cols-[11rem_minmax(0,1fr)] sm:items-start sm:gap-6"
     >
       <FieldContent className="sm:pt-1.5">
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -139,7 +139,6 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
             placeholder={saved.email.split('@')[0]}
             aria-describedby="profile-name-hint"
             disabled={pending}
-            className="sm:max-w-80"
           />
         </Row>
         <Row id="profile-role" label="Role" hint="For example Account executive or Designer.">
@@ -152,7 +151,6 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
             autoComplete="organization-title"
             aria-describedby="profile-role-hint"
             disabled={pending}
-            className="sm:max-w-80"
           />
         </Row>
         <Row id="profile-team" label="Team or company">
@@ -164,7 +162,6 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
             maxLength={PROFILE_LIMITS.team}
             autoComplete="organization"
             disabled={pending}
-            className="sm:max-w-80"
           />
         </Row>
         <Row
