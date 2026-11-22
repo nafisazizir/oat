@@ -653,3 +653,68 @@ ci: ok
   `devin/1795304445-desktop-workspace-parity`; pushed SHA/result supplied in the handoff. No PR creation,
   rebase or forced update. Native Electron/macOS recording and real file-save interactions remain
   unverified; the requested desktop evidence is Chromium with a stubbed bridge.
+
+### PR #25 review follow-up (after merge)
+
+- Starting HEAD verified `0e6a8839aa17da01751f9a7371b7669e3f3f6a54`. Original PR CI snapshot: unit,
+  typecheck, Swift/macOS and format/actionlint/lint passed; Linux aggregate skipped; Devin Review pending.
+  The requested blocking wait was interrupted by review/merge handoffs. Stopped the PR #25 CI loop when
+  the lead announced its merge; did not push to its old branch.
+- Fetched integration at `085930f`, created `devin/1795308701-workspace-review-fixes` using the requested
+  timestamp convention, and cherry-picked the first two local fixes. One commit per real finding:
+
+1. **Real — failed page saves lost their in-memory draft.** Concrete state: a loaded editable page,
+   modified title, then status-0 PATCH failure. API observation sets host.online=false; ServerRoutes'
+   old early return replaced DocumentRoute, unmounting PageEditor/useAutosave and its pending retry.
+   Commit `7cb7f85` removes that early return for documents. DocumentRoute keeps already-loaded pages
+   mounted with an offline banner, ignores transient network detail errors, and preserves existing
+   autosave retries. Cold offline documents/folders still show the offline state; server refusals still
+   show Page unavailable. Shell regression asserts the exact textarea DOM node and draft survive the
+   failed request, then Retry writes that title to the server. Chose the explicitly permitted keep-open
+   approach, not durable page storage; navigating away/closing still does not add a persistent draft.
+2. **Real — trash/restore left open page metadata stale.** Concrete state: load page, trash it, then
+   restore from its banner. Tree actions refresh shell data, but the old detail effect depended only on
+   id/folder/workspace, so deletedAt/access stayed stale. Commit `fb95a5f` re-fetches detail on live/trash
+   shell updates without keying/remounting PageEditor or replacing its local title/body state. Shell
+   regression performs real fake-client DELETE/restore calls and asserts editable → read-only → editable,
+   banner removal and the same textarea node throughout. This also covers restoring an open trash page.
+3. **Real — cached offline workspace selection was server-only and rolled back.** Concrete state:
+   two cached workspaces, API offline, pick the second. Shared switcher used switchActive REST, never
+   desktop WorkspacesView.setActive. Commit `b5dea14` adds an optional host switchWorkspace callback and
+   wires desktop to its existing local-persisting setActive offline (including a network loss during
+   the online request); online uses REST/its existing membership-sync observer. 403 and native persistence
+   failures remain errors, not bypasses. Main's existing Workspaces.setActive writes ACTIVE_WORKSPACE_KEY
+   and emits changes without network. Also guarded remote-to-local reconciliation offline, and let the
+   loader request the locally chosen member workspace, so an old server default cannot revert the pick
+   on reconnect. Removed/unknown membership falls back to the server default. Tests cover host delegation,
+   offline/online/network loss/403/local failure, loader override/fallback and a warmed-cache offline
+   switch/reconnect with a deliberately different server default.
+4. **Real — cached owned shared meetings were classified Private on cold offline launch.** Main's
+   MeetingNotes.list already sends the local store's visibility through required MeetingNoteSummary;
+   localShellData starts with an empty tree, and mergeLocalNotes overwrote that visibility with private.
+   An owned workspace/link-visible meeting therefore went to Private. This commit uses n.visibility.
+   Parameterized tests check private/workspace/link values and their actual areaOf classification, plus
+   inactive-workspace exclusion and empty lists. Existing duplicate/trash/server-metadata tests remain.
+
+- Focused regression suites passed before the final gate. Full final verification:
+
+```text
+━━ ci summary (--fast)
+step        status     time  note
+format      pass      11.8s
+actionlint  pass       0.3s
+typecheck   pass       9.2s
+lint        pass       5.3s
+test        pass      14.1s
+total                 40.6s
+
+ci: ok
+```
+
+- Desktop: 62 test files / 536 tests passed. Workspace-ui: 6 files / 70 tests passed. Full log:
+  `/home/ubuntu/oat-review25-ci-fast.log`; focused logs: `/home/ubuntu/oat-review25-fix*.log`.
+- No new dependency, build/CI config, IPC contract or platform import in shared UI. Docs are explicitly
+  ignored by Prettier; only this prose was updated after the final passing gate. No new visual/e2e or
+  native interaction check in this follow-up; the new keep-loaded banner is visually unverified.
+- User authorized one final `git push -u origin HEAD` to the new follow-up branch, not the merged PR's
+  branch. Final handoff supplies the fourth commit SHA and push result. No PR creation or force update.
