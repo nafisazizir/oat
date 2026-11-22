@@ -52,8 +52,6 @@ export interface CalendarServiceOptions {
   google: {
     /** Rejects when the API can't be reached or refuses; `signal` aborts it (quit). */
     fetch(signal: AbortSignal): Promise<GoogleUpcoming>;
-    /** Opens the web app's integrations page (connect Google Calendar). */
-    openConnect(): void;
   };
   /** The signed-in account (`null` signed out): Google events belong to it. */
   user: () => string | null;
@@ -220,7 +218,6 @@ export class CalendarService {
   /** The user clicked "Connect" (never called automatically). */
   async connect(provider: 'eventkit' | 'google'): Promise<CalendarSnapshot> {
     if (provider === 'google') {
-      this.#o.google.openConnect();
       return this.#snapshot;
     }
     const local = this.#o.local;

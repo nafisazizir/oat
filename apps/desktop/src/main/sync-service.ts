@@ -17,6 +17,7 @@
  *   resolution read/write the open user's database.
  */
 import { hostname } from 'node:os';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
 import type { ConflictDetailSnapshot, ConflictSummary, SearchHitSnapshot } from '@oat/core/bridge';
@@ -235,20 +236,24 @@ export class SyncService {
   conflict(copyId: string): ConflictDetailSnapshot | null {
     const c = this.#store?.conflict(copyId);
     if (!c) return null;
+    const revision = comparisonRevision(c);
     const copyLines = [stripConflictSuffix(c.copy.title), ...documentLines(c.copy.contentJson)];
     if (!c.original || c.original.deletedAt !== null) {
       return {
+        revision,
         summary: summary(c),
         original: null,
         copy: copyLines.map((text) => ({ text, changed: false })),
       };
     }
     const diff = diffLines([c.original.title, ...documentLines(c.original.contentJson)], copyLines);
-    return { summary: summary(c), original: diff.left, copy: diff.right };
+    return { revision, summary: summary(c), original: diff.left, copy: diff.right };
   }
 
   /** Resolves a conflicted copy locally; the edit and the copy's delete sync like any change. */
-  resolveConflict(copyId: string, keep: 'copy' | 'original'): boolean {
+  resolveConflict(copyId: string, keep: 'copy' | 'original', revision: string): boolean {
+    const conflict = this.#store?.conflict(copyId);
+    if (!conflict || comparisonRevision(conflict) !== revision) return false;
     const done = this.#store?.resolveConflict(copyId, keep) ?? false;
     if (done) this.kick();
     return done;
@@ -312,6 +317,10 @@ export class SyncService {
     await this.#engine?.idle();
     this.#store?.close();
   }
+}
+
+function comparisonRevision(conflict: LocalConflict): string {
+  return createHash('sha256').update(JSON.stringify(conflict)).digest('hex');
 }
 
 function summary({ copy, original }: LocalConflict): ConflictSummary {

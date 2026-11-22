@@ -80,6 +80,35 @@ const serverDoc = (patch: Partial<SyncDocumentRow> = {}): SyncDocumentRow => ({
   ...patch,
 });
 
+describe('meeting read-through cache', () => {
+  it('preserves sync state and all workspaces, writes no outbox, and protects local copies', () => {
+    withWorkspace();
+    store.setState('read-through-test', 'unchanged');
+    expect(store.cacheMeeting(serverDoc(), { id: 'ws', name: 'Me', role: 'owner' }, [])).toBe(true);
+    expect(store.outboxSize()).toBe(0);
+    expect(store.getState('read-through-test')).toBe('unchanged');
+    expect(
+      store.cacheMeeting(
+        serverDoc({ title: 'Stale', version: 0 }),
+        { id: 'ws', name: 'Old', role: 'viewer' },
+        [],
+      ),
+    ).toBe(false);
+    expect(store.document('d1')?.title).not.toBe('Stale');
+    expect(store.workspace('ws')?.role).toBe('owner');
+  });
+  it('rolls back the whole cache when a child does not belong to the document', () => {
+    expect(() =>
+      store.cacheMeeting(serverDoc(), { id: 'ws', name: 'Me', role: 'owner' }, [
+        { op: 'upsert', table: 'transcript_segment', row: seg('foreign') },
+      ]),
+    ).toThrow('Invalid meeting cache child.');
+    expect(store.document('d1')).toBeUndefined();
+    expect(store.workspace('ws')).toBeUndefined();
+    expect(store.outboxSize()).toBe(0);
+  });
+});
+
 describe('outbox triggers', () => {
   it('enqueue inserts, updates and deletes; one entry per row with a fresh version', () => {
     withWorkspace();

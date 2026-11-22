@@ -208,7 +208,35 @@ describe('SyncService (3.5)', () => {
       { text: 'mine line', changed: true },
     ]);
     expect(s.conflict('d1')).toBeNull();
-    expect(s.resolveConflict(c!.copyId, 'copy')).toBe(true);
+    const original = s.store!.document('d1')!;
+    s.store!.applyPull(
+      {
+        changes: [
+          {
+            table: 'document',
+            op: 'upsert',
+            row: {
+              ...original,
+              version: original.version + 1,
+              contentJson: body('new remote text'),
+            },
+          },
+        ],
+        cursor: 'newer',
+        hasMore: false,
+        workspaceIds: [original.workspaceId],
+      },
+      s.store!.pullCursor(),
+    );
+    expect(s.resolveConflict(c!.copyId, 'copy', detail.revision)).toBe(false);
+    expect(s.store!.document('d1')!.contentJson).toEqual(body('new remote text'));
+    const compared = s.conflict(c!.copyId)!;
+    s.store!.updateDocument(c!.copyId, { title: 'Edited copy' });
+    expect(s.resolveConflict(c!.copyId, 'original', compared.revision)).toBe(false);
+    const copyEdited = s.conflict(c!.copyId)!;
+    s.store!.updateDocument('d1', { contentJson: body('new local text') });
+    expect(s.resolveConflict(c!.copyId, 'copy', copyEdited.revision)).toBe(false);
+    expect(s.resolveConflict(c!.copyId, 'copy', s.conflict(c!.copyId)!.revision)).toBe(true);
     await s.syncNow();
     const last = pushes.flatMap((p) => p.entries).slice(-2);
     expect(last.map((e) => [e.table, e.op])).toEqual([

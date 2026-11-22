@@ -10,6 +10,19 @@ import {
 } from './bridge.ts';
 
 describe('bridge contract', () => {
+  it('requires a main-generated compared revision before local conflict resolution', () => {
+    const request = bridgeContract.invoke['conflicts:resolve'].request;
+    expect(request.safeParse({ copyId: 'c', keep: 'copy', revision: 'a'.repeat(64) }).success).toBe(
+      true,
+    );
+    expect(request.safeParse({ copyId: 'c', keep: 'copy' }).success).toBe(false);
+    expect(
+      request.safeParse({ copyId: 'c', keep: 'copy', revision: 'a'.repeat(64) + '\n' }).success,
+    ).toBe(false);
+    expect(request.safeParse({ copyId: 'c', keep: 'copy', revision: 'invalid' }).success).toBe(
+      false,
+    );
+  });
   it('accepts fixed consent providers and workspace IDs, not arbitrary URLs or destinations', () => {
     const request = bridgeContract.invoke['settings:connect'].request;
     for (const provider of ['notion', 'google-calendar']) {

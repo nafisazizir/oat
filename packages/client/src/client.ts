@@ -25,6 +25,7 @@ import type {
   AddParticipantInput,
   MeetingQuery,
 } from '@oat/services/dto/meeting';
+import type { SyncBackfillResponse } from '@oat/core/sync';
 import type {
   EnhancementDto,
   StartEnhanceInput,
@@ -84,6 +85,7 @@ import type {
   MutationResult,
   WorkspaceMutationResult,
   JoinChoices,
+  InviteLanding,
   MemberView,
   InviteView,
   JoinRequestView,
@@ -169,6 +171,13 @@ export function createOatClient(transport: OatTransport) {
   ): Payload => ({ query, ...options });
 
   return {
+    sync: {
+      backfill: endpoint<SyncBackfillResponse>()(
+        'GET',
+        '/api/sync/backfill',
+        (document: string, after?: string) => ({ query: { document, after } }),
+      ),
+    },
     documents: {
       list: endpoint<DocumentSummary[]>()('GET', '/api/documents', queryInput<DocumentListQuery>),
       get: endpoint<DocumentDetail>()('GET', '/api/documents/[id]', byId),
@@ -485,6 +494,11 @@ export function createOatClient(transport: OatTransport) {
       export: endpoint<Response>('response')('GET', '/api/workspaces/[id]/export', byId),
     },
     invites: {
+      lookup: endpoint<InviteLanding>()(
+        'POST',
+        '/api/invites/lookup',
+        (token: string, options: RequestOptions = {}) => bodyInput({ token }, options),
+      ),
       accept: endpoint<MutationResult>()(
         'POST',
         '/api/invites/accept',

@@ -3,6 +3,7 @@ import { createOatClient, OatApiError } from '@oat/client';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState, type ReactNode } from 'react';
+import { useAppShortcut } from '@oat/ui/hooks/use-app-shortcut';
 import { describe, expect, it, vi } from 'vitest';
 import { FeatureUiProvider, type FeatureUiAdapter, type LinkComponent } from './provider';
 import { SearchDialog } from './search-dialog';
@@ -87,6 +88,44 @@ describe('search lifecycle', () => {
 });
 
 describe('SearchDialog', () => {
+  function TogglePalette() {
+    const [open, setOpen] = useState(true);
+    useAppShortcut('palette', () => setOpen((value) => !value));
+    return (
+      <>
+        <output data-testid="palette-state">{open ? 'open' : 'closed'}</output>
+        <SearchDialog open={open} onOpenChange={setOpen} />
+      </>
+    );
+  }
+  it.each(['ctrlKey', 'metaKey'] as const)(
+    'closes exactly once on %s+K before cmdk consumes the chord',
+    (modifier) => {
+      render(<TogglePalette />, { wrapper: wrap(adapter([])) });
+      fireEvent.keyDown(screen.getByRole('combobox'), { key: 'k', [modifier]: true });
+      expect(screen.getByTestId('palette-state').textContent).toBe('closed');
+    },
+  );
+  it.each([{ shiftKey: true }, { altKey: true }, { repeat: true }])(
+    'retains palette shortcut guards for %j',
+    (extra) => {
+      render(<TogglePalette />, { wrapper: wrap(adapter([])) });
+      fireEvent.keyDown(screen.getByRole('combobox'), { key: 'k', ctrlKey: true, ...extra });
+      expect(screen.getByTestId('palette-state').textContent).toBe('open');
+    },
+  );
+  it('does not close when a palette descendant already handled the chord', () => {
+    render(<TogglePalette />, { wrapper: wrap(adapter([])) });
+    const event = new KeyboardEvent('keydown', {
+      key: 'k',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    event.preventDefault();
+    fireEvent(screen.getByRole('combobox'), event);
+    expect(screen.getByTestId('palette-state').textContent).toBe('open');
+  });
   it('supports keyboard navigation and selection of host commands', async () => {
     const first = vi.fn();
     const second = vi.fn();

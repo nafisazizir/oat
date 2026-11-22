@@ -91,27 +91,50 @@ export interface OpenNote {
   note: MeetingNote | null;
   /** The first load for this document finished. */
   loaded: boolean;
+  failure?: 'missing' | 'offline' | 'error';
+  retry(): void;
 }
 
 /** One note (header, my notes, attendees), reloaded on every change announcement. */
 export function useMeetingNote(documentId: string | null): OpenNote {
   const v = useMeetingsVersion();
-  const [state, setState] = useState<{ id: string | null; note: MeetingNote | null }>({
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState<{
+    id: string | null;
+    note: MeetingNote | null;
+    failure?: OpenNote['failure'];
+  }>({
     id: null,
     note: null,
   });
   useEffect(() => {
     if (!documentId) return;
     let live = true;
-    call('meeting:get', { documentId })
-      .then((note) => live && setState({ id: documentId, note }))
-      .catch(() => live && setState({ id: documentId, note: null }));
+    call('meeting:load', { documentId })
+      .then(
+        (result) =>
+          live &&
+          setState(
+            result.state === 'ready'
+              ? { id: documentId, note: result.note }
+              : { id: documentId, note: null, failure: result.state },
+          ),
+      )
+      .catch(() => live && setState({ id: documentId, note: null, failure: 'error' }));
     return () => {
       live = false;
     };
-  }, [documentId, v]);
+  }, [documentId, v, attempt]);
   const current = state.id === documentId;
-  return { note: current ? state.note : null, loaded: current };
+  return {
+    note: current ? state.note : null,
+    loaded: current,
+    failure: current ? state.failure : undefined,
+    retry: () => {
+      setState({ id: null, note: null });
+      setAttempt((n) => n + 1);
+    },
+  };
 }
 
 export interface StoredTranscript {

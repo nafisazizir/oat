@@ -19,9 +19,9 @@ import { Spinner } from '@oat/ui/components/spinner';
 import { IconAlertCircle, IconNotes, IconPencil, IconSparkles } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
-import type { EnhancementDetail } from '@/lib/enhance';
+import type { EnhancementDetail } from '@oat/services/dto/enhance';
 
-import { enhanceClient } from './client';
+import { useEnhanceClient } from './enhance-client';
 import type { NoteVersions } from './use-note-versions';
 
 /**
@@ -66,6 +66,7 @@ export function NoteHistoryDialog({
   /** Make the selected entry the note body. */
   onRestore: (selection: HistorySelection) => void;
 }) {
+  const enhanceClient = useEnhanceClient();
   const runs = versions.list?.versions ?? [];
   const snapshots = versions.list?.snapshots ?? [];
   const latest = runs[0];
@@ -97,7 +98,7 @@ export function NoteHistoryDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, detailId]);
+  }, [open, detailId, enhanceClient]);
 
   const current = loaded && loaded.id === detailId ? loaded : null;
   const failed = current?.failed ?? false;

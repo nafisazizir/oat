@@ -77,8 +77,6 @@ export function DesktopSidebar({
       <DesktopSearch
         open={searchOpen}
         onOpenChange={setSearchOpen}
-        onHome={() => host.navigate({ view: 'home' })}
-        onSettings={() => host.navigate({ view: 'settings' })}
         onNewMeeting={newMeeting.onClick}
         canStart={!newMeeting.disabled && !newMeeting.pending}
       />

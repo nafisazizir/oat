@@ -31,6 +31,7 @@ import type { ChatScope, ChatSources, ChatUIMessage } from '@oat/services/dto/ch
 
 import { AssistantMessage, UserMessage } from './chat-message';
 import { ChatSessionContext, type ChatSessionApi } from './session-context';
+import { useAssistantIntegration } from './assistant-integration';
 
 /** Mirrors the server's per-message limit (`CHAT_LIMITS.userChars`). */
 const MAX_QUESTION_CHARS = 8000;
@@ -54,7 +55,12 @@ type ThreadHolder = { current: string | null };
  * The AI SDK transport for one session. Only the new question goes out (the server loads the history from
  * the thread, D-27); the thread id comes back as a header before any token, so later turns continue it.
  */
-function createTransport(scope: ChatScope, thread: ThreadHolder, transport: OatTransport) {
+function createTransport(
+  scope: ChatScope,
+  thread: ThreadHolder,
+  transport: OatTransport,
+  beforeSend: () => Promise<void>,
+) {
   const fetch = toFetch(transport);
   return new DefaultChatTransport<ChatUIMessage>({
     api: '/api/chat',
@@ -67,6 +73,9 @@ function createTransport(scope: ChatScope, thread: ThreadHolder, transport: OatT
       },
     }),
     fetch: async (input, init) => {
+      init?.signal?.throwIfAborted();
+      await beforeSend();
+      init?.signal?.throwIfAborted();
       const res = await fetch(input, init);
       const id = res.headers.get('x-oat-thread-id');
       if (id && !thread.current) thread.current = id;
@@ -109,6 +118,7 @@ export function ChatSession({
   autoFocus,
 }: ChatSessionProps) {
   const { client, transport: hostTransport } = useFeatureUi();
+  const integration = useAssistantIntegration();
   const lifecycle = useRef<AbortController | null>(null);
   // Mutable on purpose (set by the transport); never read during render.
   const [thread] = useState<ThreadHolder>(() => ({ current: initialThreadId }));
@@ -122,18 +132,24 @@ export function ChatSession({
   });
   const [announcement, setAnnouncement] = useState('');
   const refreshRef = useRef<(expectMessageId?: string) => Promise<void>>(async () => {});
+  const finishedMessage = useRef<string | null>(null);
 
-  const [transport] = useState(() => createTransport(scope, thread, hostTransport));
+  const transport = useMemo(
+    () =>
+      createTransport(scope, thread, hostTransport, async () => {
+        await integration.beforeSend?.(scope);
+      }),
+    [scope, thread, hostTransport, integration],
+  );
 
   const chat = useChat<ChatUIMessage>({
     transport,
     messages: initialMessages,
     onFinish: ({ message, isAbort, isError }) => {
       if (lifecycle.current?.signal.aborted) return;
+      if (message.metadata?.threadId) finishedMessage.current = message.id;
       // One announcement per turn for screen readers (the streamed text itself is not a live region).
       setAnnouncement(isAbort ? 'Stopped.' : isError ? '' : 'Answer ready.');
-      // The answer is saved when the server's stream ends; read it back (sources, proposal statuses).
-      if (message.metadata?.threadId) void refreshRef.current(message.id);
     },
   });
   const { messages, status, error, sendMessage, stop, setMessages, clearError } = chat;
@@ -178,6 +194,12 @@ export function ChatSession({
   });
 
   const busy = status === 'submitted' || status === 'streaming';
+  useEffect(() => {
+    if (busy || !finishedMessage.current) return;
+    const id = finishedMessage.current;
+    finishedMessage.current = null;
+    void refreshRef.current(id);
+  });
   const ask = useCallback(
     (text: string) => {
       const question = text.trim();
@@ -329,14 +351,14 @@ function MessageList({
 
 function EmptyChat({ title, description }: { title: string; description: string }) {
   const { user } = useFeatureUi();
+  const name = user.name?.trim();
+  const firstName = name && !name.includes('@') ? name.split(/\s+/)[0] : 'there';
   return (
     <section
       className="flex shrink-0 flex-col items-center gap-2 px-4 pb-5 text-center"
       data-testid="chat-empty"
     >
-      <h2 className="text-heading-32 text-gray-1000">
-        Hello, {user.name.trim().split(/\s+/)[0] || 'there'}
-      </h2>
+      <h2 className="text-heading-32 text-gray-1000">Hello, {firstName}</h2>
       <p className="text-copy-16 text-gray-1000">{title}</p>
       <p className="text-copy-14 text-gray-900">{description}</p>
     </section>

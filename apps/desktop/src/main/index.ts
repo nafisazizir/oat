@@ -8,6 +8,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { DESKTOP_SCHEME, findDeepLinkArg } from '@oat/auth/desktop-link';
+import { InviteNavigation } from './invite-navigation';
+import { createMeetingReadClient, MeetingReadThrough } from './meeting-read-through';
 import {
   type PermissionsSnapshot,
   PLAYBACK_SCHEME,
@@ -251,7 +253,16 @@ async function start() {
     packaged: app.isPackaged,
     coldStartMs,
   }));
+  const inviteNavigation = new InviteNavigation(() => {
+    focusMainWindow();
+    broadcast('navigation:changed', {});
+  });
   bridge.handle('state:get', () => store.snapshot());
+  bridge.handle('navigation:get', () => (auth.signedIn ? inviteNavigation.route : null));
+  bridge.handle('navigation:clear', () => {
+    inviteNavigation.clear();
+    broadcast('navigation:changed', {});
+  });
   const settingsIo = createSettingsIo({
     baseUrl: config.webUrl,
     withSession: (run) => auth.withSession(run),
@@ -371,8 +382,8 @@ async function start() {
   bridge.handle('search:query', ({ query }) => ({ hits: sync.search(query) }));
   bridge.handle('conflicts:list', () => ({ conflicts: sync.conflicts() }));
   bridge.handle('conflicts:get', ({ copyId }) => sync.conflict(copyId));
-  bridge.handle('conflicts:resolve', ({ copyId, keep }) => ({
-    resolved: sync.resolveConflict(copyId, keep),
+  bridge.handle('conflicts:resolve', ({ copyId, keep, revision }) => ({
+    resolved: sync.resolveConflict(copyId, keep, revision),
   }));
   const signedInUser = () =>
     store.state.auth.status === 'signed-in' ? store.state.auth.user.id : null;
@@ -422,6 +433,18 @@ async function start() {
   };
   bridge.handle('meetings:list', () => ({ notes: notes.list() }));
   bridge.handle('meeting:get', (by) => notes.get(by));
+  const meetingReader = new MeetingReadThrough({
+    store: () => sync.store,
+    userId: signedInUser,
+    notes,
+    onChange: meetingsChanged,
+    client: createMeetingReadClient({
+      auth,
+      baseUrl: config.webUrl,
+      request: createApiRequester({ baseUrl: config.webUrl }),
+    }),
+  });
+  bridge.handle('meeting:load', ({ documentId }) => meetingReader.load(documentId));
   bridge.handle('meeting:transcript', ({ documentId }) =>
     notesCall(() => ({ segments: notes.transcript(documentId) })),
   );
@@ -699,8 +722,6 @@ async function start() {
     google: {
       fetch: (signal) =>
         auth.withSession((token) => api.calendarUpcoming(token, { days: 2, limit: 50, signal })),
-      openConnect: () =>
-        void shell.openExternal(new URL('/settings/integrations', config.webUrl).toString()),
     },
     user: signedInUser,
     noteFor: (keys) => notes.findByCalendarKeys(keys),
@@ -950,6 +971,7 @@ async function start() {
   void calendar.start();
 
   deliverLink = (url) => {
+    if (inviteNavigation.open(url)) return;
     void auth.handleDeepLink(url).then((signedIn) => {
       if (signedIn) focusMainWindow();
     });

@@ -9,7 +9,20 @@
 import type { InvokeResponse, MeetingNote, RecordingSnapshot } from '@oat/core/bridge';
 import { visibilityBadge } from '@oat/core/sections';
 import { sameDocumentContent } from '@oat/core/sync';
-import { OatEditor } from '@oat/editor/react';
+import { BlockFocus, OatEditor } from '@oat/editor/react';
+import { NotionExportButton, useDocumentEnhancement } from '@oat/feature-ui/document';
+import { MoreActions } from '@oat/workspace-ui/page-editor';
+import { useWorkspaceHost } from '@oat/workspace-ui/host';
+import { useShellData } from '@oat/workspace-ui/shell-data';
+import {
+  DocumentAssistant,
+  AssistantToggleButton,
+  useRegisterOpenDocument,
+  type NoteEditor,
+  focusedLine,
+  parseDeepLink,
+  wantsTranscript,
+} from '@oat/feature-ui/assistant';
 import {
   activeSegmentAt,
   MeetingTime,
@@ -48,7 +61,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalSt
 import { createPortal } from 'react-dom';
 
 import { useMeetingGrace } from '../auto-stop/auto-stop-state.ts';
-import { BridgeCallError, call } from '../bridge.ts';
+import { bridge, BridgeCallError, call } from '../bridge.ts';
 import { NoteEventLine } from '../calendar/note-event-line.tsx';
 import { IssueBanner, RecordingBar } from '../recording/recording-controls.tsx';
 import { TranscriptPanel } from '../recording/transcript-panel.tsx';
@@ -63,6 +76,10 @@ import {
 } from './meetings-state.ts';
 import { GraceLine, PipelineLine } from './post-meeting.tsx';
 import { type AutosaveState, NoteAutosave } from './note-autosave.ts';
+import { meetingAssistantHandle } from './meeting-assistant';
+import { MeetingActions } from '../workspace/meeting-actions';
+import { meetingDocumentAdapter } from './meeting-document';
+import { api } from '../lib/api';
 
 type Content = MeetingNote['contentJson'];
 
@@ -75,6 +92,8 @@ export function MeetingView({
   onInputChange,
   home,
   controlsContainer,
+  focus: focusQuery,
+  focusRevision = 0,
 }: {
   userId: string;
   documentId: string | null;
@@ -85,13 +104,15 @@ export function MeetingView({
   /** Replaces the start screen when no note is open (9.2: the first-meeting guide). */
   home?: ReactNode;
   controlsContainer?: HTMLElement | null;
+  focus?: Record<string, string>;
+  focusRevision?: number;
 }) {
-  const { note, loaded } = useMeetingNote(documentId);
+  const { note, loaded, failure, retry } = useMeetingNote(documentId);
   const live = useTranscript();
   const meetingId = note?.meetingId ?? null;
   const recordingThis =
     meetingId !== null && snapshot?.meetingId === meetingId && isActive(snapshot.status);
-  const stored = useStoredTranscript(documentId, !recordingThis);
+  const stored = useStoredTranscript(note ? documentId : null, !recordingThis);
   const transcriptStatus = useTranscriptStatus(documentId ? meetingId : null);
   const [panelOpen, setPanelOpen] = useStoredState<boolean>(
     `oat.desktop.transcript.open:${userId}`,
@@ -103,7 +124,13 @@ export function MeetingView({
     setPanelOpen(false);
     requestAnimationFrame(() => toggleRef.current?.focus({ preventScroll: true }));
   };
-  const [selected, setSelected] = useState<string | undefined>(undefined);
+  const focus = useMemo(() => parseDeepLink(focusQuery ?? {}), [focusQuery]);
+  const [picked, setPicked] = useState<{
+    id: string;
+    query: typeof focusQuery;
+    revision: number;
+    documentId: string | null;
+  } | null>(null);
 
   const segments = useMemo<TranscriptItem[]>(() => {
     if (!documentId) return [];
@@ -125,6 +152,27 @@ export function MeetingView({
     documentId && meetingId && !recordingThis ? meetingId : null,
   );
   const playable = player.available && !recordingThis;
+  const linked = focusedLine(segments, focus);
+  const selected =
+    picked &&
+    picked.query === focusQuery &&
+    picked.revision === focusRevision &&
+    picked.documentId === documentId
+      ? picked.id
+      : linked;
+  const targetMs =
+    focus.seg && linked === focus.seg
+      ? segments.find((s) => s.id === linked)?.startMs
+      : focus.t !== undefined
+        ? focus.t * 1000
+        : undefined;
+  const seek = player.seek;
+  useEffect(() => {
+    if (documentId && wantsTranscript(focus)) {
+      setPanelOpen(true);
+      if (playable && targetMs !== undefined) seek(targetMs);
+    }
+  }, [documentId, focus, focusRevision, linked, targetMs, playable, seek, setPanelOpen]);
   // Re-renders only when the highlighted line changes, not on every frame of the playhead.
   const activeId = useSyncExternalStore(player.clock.subscribe, () =>
     playable ? activeSegmentAt(segments, player.clock.ms) : undefined,
@@ -152,7 +200,7 @@ export function MeetingView({
   const showsRecording = documentId === null || recordingThis;
   const followLive = recordingThis || (meetingId !== null && live.meetingId === meetingId);
 
-  return (
+  const surface = (
     <section className="flex min-w-0 flex-1 flex-col" aria-label="Meeting">
       {/* The page's heading (the title itself is an editable field). */}
       {(!home || documentId !== null) && (
@@ -172,25 +220,46 @@ export function MeetingView({
             ) : !note ? (
               <Empty className="h-full border-none">
                 <EmptyHeader>
-                  <EmptyTitle>This note isn’t on this Mac anymore</EmptyTitle>
-                  <EmptyDescription>It was deleted or moved on another device.</EmptyDescription>
+                  <EmptyTitle>
+                    {failure === 'offline'
+                      ? 'This meeting isn’t available offline'
+                      : failure === 'error'
+                        ? 'Couldn’t load this meeting'
+                        : 'Page not found'}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {failure === 'offline'
+                      ? 'This meeting hasn’t been saved on this Mac yet. Reconnect and try again.'
+                      : failure === 'error'
+                        ? 'Please try again. Your local notes are unchanged.'
+                        : 'It may have been moved or deleted, or you might not have access to it.'}
+                  </EmptyDescription>
+                  <Button variant="outline" onClick={retry}>
+                    Try again
+                  </Button>
                 </EmptyHeader>
               </Empty>
             ) : (
-              <NoteBody
-                key={note.documentId}
-                note={note}
-                live={recordingThis}
-                endedAt={
-                  note.endedAt ?? (graceHere ? new Date(graceHere.endedAt).toISOString() : null)
-                }
-                postMeeting={postMeeting}
-                controlsContainer={controlsContainer}
-              />
+              <>
+                <NoteBody
+                  key={note.documentId}
+                  note={note}
+                  live={recordingThis}
+                  endedAt={
+                    note.endedAt ?? (graceHere ? new Date(graceHere.endedAt).toISOString() : null)
+                  }
+                  postMeeting={postMeeting}
+                  controlsContainer={controlsContainer}
+                />
+                <BlockFocus
+                  key={`${note.documentId}:${focusRevision}:${focus.block ?? ''}`}
+                  blockId={focus.block}
+                />
+              </>
             )}
           </div>
         </div>
-        {documentId && panelOpen && (
+        {documentId && panelOpen && (note || !loaded) && (
           <SidePanel
             id="transcript-panel"
             title={
@@ -218,19 +287,26 @@ export function MeetingView({
             >
               {documentId && meetingId && !recordingThis && <PlaybackBar player={player} />}
               <TranscriptPanel
+                key={`${documentId}:${focusRevision}:${focus.seg ?? ''}:${focus.t ?? ''}`}
                 segments={segments}
                 // A just-recorded note that can be played back follows the playhead, not the live end.
                 live={showsRecording || (followLive && !playable)}
                 snapshot={showsRecording ? snapshot : null}
-                loaded={documentId === null ? live.loaded : stored.loaded}
+                loaded={documentId === null ? live.loaded : loaded && stored.loaded}
                 failed={documentId === null ? live.failed : stored.failed}
                 meetingKey={documentId}
-                focusId={playable ? undefined : selected}
+                focusId={selected}
                 onSelect={
                   playable
                     ? (s) => player.seek(s.startMs)
                     : documentId
-                      ? (s) => setSelected(s.id)
+                      ? (s) =>
+                          setPicked({
+                            id: s.id,
+                            query: focusQuery,
+                            revision: focusRevision,
+                            documentId,
+                          })
                       : undefined
                 }
                 activeId={activeId}
@@ -270,8 +346,23 @@ export function MeetingView({
             onClick={() => (panelOpen ? closePanel() : setPanelOpen(true))}
           />
         )}
+        <AssistantToggleButton />
       </div>
     </section>
+  );
+  return note ? (
+    <DocumentAssistant
+      key={note.documentId}
+      documentId={note.documentId}
+      workspaceId={note.workspaceId}
+      available={!note.trashed}
+      transcript={null}
+      focus={{}}
+    >
+      {surface}
+    </DocumentAssistant>
+  ) : (
+    surface
   );
 }
 
@@ -336,6 +427,7 @@ function NoteBody({
   });
   const [conflict, setConflict] = useState<{ documentId: string; title: string } | null>(null);
   const documentId = note.documentId;
+  const editorRef = useRef<NoteEditor | null>(null);
   // Every save carries the stored note the editor is built on (D-19): main refuses to overwrite a note that
   // has moved on since (a pull landed while I typed) — my edit becomes a conflicted copy then.
   const [autosave] = useState(
@@ -376,7 +468,62 @@ function NoteBody({
     if (contentMoved) setContent(note.contentJson);
   }, [note, autosave]);
 
-  const editable = note.editable;
+  const shell = useShellData();
+  const trashed = note.trashed || shell.trash.some((node) => node.id === documentId);
+  const editable = note.editable && !trashed;
+  const [assistant] = useState(() =>
+    meetingAssistantHandle({
+      documentId,
+      autosave,
+      client: api,
+      adopt: (next) => setContent(next as Content),
+    }),
+  );
+  const [documentHost] = useState(() =>
+    meetingDocumentAdapter({ documentId, client: api, assistant }),
+  );
+  const [readOnlyHost] = useState(() =>
+    meetingDocumentAdapter({
+      documentId,
+      client: api,
+      assistant,
+      readOnlyRefresh: () => call('sync:now'),
+    }),
+  );
+  const workspaceHost = useWorkspaceHost();
+  const capabilities = useDocumentEnhancement({
+    documentId,
+    loadedVersion: note.version ?? 0,
+    enabled: !trashed,
+    editable,
+    host: editable ? documentHost : readOnlyHost,
+  });
+  const notion = (history: React.ReactNode, lifecycle: React.ReactNode) => (
+    <NotionExportButton
+      documentId={documentId}
+      beforeSend={assistant.settle}
+      onOpenIntegrations={() =>
+        workspaceHost.navigate({ view: 'settings', section: 'integrations' })
+      }
+      openExternal={(url) => bridge().send('shell:open-external', { url })}
+      fallback={
+        history || lifecycle ? (
+          <MoreActions>
+            {history}
+            {lifecycle}
+          </MoreActions>
+        ) : null
+      }
+      wrap={(control) => (
+        <MoreActions>
+          {history}
+          {control}
+          {lifecycle}
+        </MoreActions>
+      )}
+    />
+  );
+  useRegisterOpenDocument(documentId, { ...assistant, editor: () => editorRef.current });
   return (
     <NoteColumn className="gap-6" role="article" data-testid="note">
       <header className="flex flex-col gap-2.5">
@@ -415,7 +562,7 @@ function NoteBody({
           {!editable && (
             <Badge variant="outline" className="gap-1">
               <IconEye />
-              {note.trashed ? 'In trash' : 'View only'}
+              {trashed ? 'In trash' : 'View only'}
             </Badge>
           )}
 
@@ -432,6 +579,17 @@ function NoteBody({
             }
           />
         </div>
+        <MeetingActions
+          container={controlsContainer}
+          id={documentId}
+          beforeRemove={editable ? assistant.settle : undefined}
+          removeDisabled={live}
+          renderSecondaryActions={(lifecycle) =>
+            editable
+              ? capabilities.secondary(note.workspaceId, (history) => notion(history, lifecycle))
+              : notion(null, lifecycle)
+          }
+        />
 
         {conflict && (
           <div
@@ -464,10 +622,14 @@ function NoteBody({
           {postMeeting}
         </div>
       )}
-      <div data-testid="note-editor">
+      {capabilities.beforeEditor}
+      <div data-testid="note-editor" hidden={capabilities.streaming}>
         <OatEditor
+          onReady={(editor) => {
+            editorRef.current = editor;
+          }}
           value={content}
-          editable={editable}
+          editable={editable && !capabilities.streaming}
           aria-label="My notes"
           placeholder={editable ? 'Jot what matters — Oat transcribes alongside' : false}
           onChange={(json) => {

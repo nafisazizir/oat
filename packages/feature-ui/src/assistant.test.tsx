@@ -172,6 +172,63 @@ function stream() {
 }
 
 describe('AssistantChat', () => {
+  it.each([
+    ['  Alex  Morgan  ', 'Alex'],
+    ['', 'there'],
+    ['   ', 'there'],
+    ['x@studio.example', 'there'],
+    ['  x@studio.example  ', 'there'],
+  ])('greets by first name or a neutral fallback instead of email: %j', (name, greeting) => {
+    const env = setup();
+    env.value.user.name = name;
+    render(<ChatSession {...sessionProps} />, env);
+    expect(screen.getByRole('heading', { name: `Hello, ${greeting}` })).toBeTruthy();
+    expect(screen.queryByText('Hello, x@studio.example')).toBeNull();
+  });
+  it('settles the document before streaming through the host transport', async () => {
+    const current = stream();
+    let release!: () => void;
+    const beforeSend = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const env = setup(async (request) => current.response(request.signal), { beforeSend });
+    const documentScope = { kind: 'document', documentId: 'd1' } as const;
+    const view = render(<ChatSession {...sessionProps} scope={documentScope} />, env);
+    await send('Read my latest edits');
+    expect(beforeSend).toHaveBeenCalledWith(documentScope);
+    expect(env.transport).not.toHaveBeenCalled();
+    await act(async () => {
+      release();
+    });
+    await waitFor(() => expect(env.transport).toHaveBeenCalledOnce());
+    expect(env.transport.mock.calls[0]![0].body).toMatchObject({ scope: documentScope });
+    view.unmount();
+  });
+
+  it('reports failed preflight without sending a question', async () => {
+    const env = setup(undefined, {
+      beforeSend: async () => {
+        throw new Error('Your latest edits aren’t saved yet.');
+      },
+    });
+    render(<ChatSession {...sessionProps} scope={{ kind: 'document', documentId: 'd1' }} />, env);
+    await send();
+    expect(await screen.findByText('Your latest edits aren’t saved yet.')).toBeTruthy();
+    expect(env.transport).not.toHaveBeenCalled();
+  });
+
+  it('does not run document preflight for an empty question', async () => {
+    const beforeSend = vi.fn();
+    const env = setup(undefined, { beforeSend });
+    render(<ChatSession {...sessionProps} />, env);
+    fireEvent.submit(screen.getByTestId('chat-input').closest('form')!);
+    expect(beforeSend).not.toHaveBeenCalled();
+    expect(env.transport).not.toHaveBeenCalled();
+  });
+
   it('uses a multiline secondary composer with a clear action and compact suggestions', async () => {
     const env = setup();
     render(<ChatSession {...sessionProps} />, env);

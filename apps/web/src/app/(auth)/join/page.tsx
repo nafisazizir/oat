@@ -4,18 +4,10 @@ import {
   hasJoinChoices,
   listUserWorkspaces,
 } from '@oat/auth';
-import {
-  AuthContent,
-  AuthDescription,
-  AuthHeader,
-  AuthPanel,
-  AuthTitle,
-} from '@oat/ui/components/auth-layout';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
-import { JoinChoiceList } from '@/components/workspace/join-choices';
-import { ROLE_INFO, workspaceIcon } from '@/lib/workspace';
+import { WebJoinWorkspace } from '@/components/workspace/join-choices';
 import { getDb } from '@/server/db';
 import { requireSession } from '@/server/session';
 
@@ -23,8 +15,6 @@ export const metadata: Metadata = {
   title: 'Join a workspace',
   robots: { index: false, follow: false },
 };
-
-const members = (n: number) => (n === 1 ? '1 member' : `${n} members`);
 
 /**
  * Where a signed-in user without a workspace chooses one (D-36; D-35: one calm column, not a wizard):
@@ -46,51 +36,5 @@ export default async function JoinPage() {
     redirect('/home');
   }
 
-  return (
-    <AuthPanel data-testid="join-screen">
-      <AuthHeader>
-        <AuthTitle>
-          <h1>Join a workspace</h1>
-        </AuthTitle>
-        <AuthDescription>
-          You’re signed in as{' '}
-          {/* On its own line, cut with an ellipsis: an address never breaks in the middle. */}
-          <span className="block truncate text-gray-1000" title={user.email}>
-            {user.email}
-          </span>
-        </AuthDescription>
-      </AuthHeader>
-      <AuthContent className="gap-6">
-        <JoinChoiceList
-          member={member}
-          choices={[
-            ...choices.invites.map((invite) => ({
-              kind: 'invite' as const,
-              key: `invite:${invite.token}`,
-              token: invite.token,
-              workspace: {
-                name: invite.workspace.name,
-                icon: workspaceIcon(invite.workspace.logo),
-              },
-              detail: `${invite.invitedBy} invited you as ${
-                invite.role === 'admin' || invite.role === 'owner' ? 'an' : 'a'
-              } ${ROLE_INFO[invite.role].label.toLowerCase()}`,
-            })),
-            ...choices.workspaces.map((workspace) => ({
-              kind: workspace.option,
-              key: `workspace:${workspace.id}`,
-              workspaceId: workspace.id,
-              workspace: { name: workspace.name, icon: workspaceIcon(workspace.logo) },
-              detail:
-                workspace.option === 'join'
-                  ? `${members(workspace.memberCount)} · open to your domain`
-                  : workspace.option === 'request'
-                    ? `${members(workspace.memberCount)} · needs approval`
-                    : 'Waiting for approval',
-            })),
-          ]}
-        />
-      </AuthContent>
-    </AuthPanel>
-  );
+  return <WebJoinWorkspace email={user.email} initial={{ member, choices }} />;
 }

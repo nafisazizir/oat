@@ -183,6 +183,17 @@ describe('workspace REST reads and writes', () => {
 });
 
 describe('members and invitations REST', () => {
+  it('lookup requires authentication and returns invalid for unknown or malformed secrets', async () => {
+    denies('POST /api/invites/lookup');
+    expect(
+      (await send(api.lookup.POST, 'POST', { as: null, body: { token: 'a'.repeat(32) } })).status,
+    ).toBe(401);
+    for (const token of ['a'.repeat(32), 'malformed', '../escape']) {
+      expect((await send(api.lookup.POST, 'POST', { body: { token } })).body).toEqual({
+        state: 'invalid',
+      });
+    }
+  });
   it('role changes/removals deny members and non-members, then succeed for owner', async () => {
     denies(
       'PATCH /api/workspaces/[id]/members/[memberId]',
@@ -255,10 +266,23 @@ describe('members and invitations REST', () => {
       });
       const [row] = await h.db.select().from(invite).where(eq(invite.email, recipient.email));
       const body = { token: row!.token };
+      const lookup = await send(api.lookup.POST, 'POST', { as: recipient, body });
+      expect(lookup.body).toMatchObject({
+        state: 'pending',
+        access: 'invited',
+        viewerEmail: recipient.email,
+      });
+      expect((await send(api.lookup.POST, 'POST', { as: outsider, body })).body).toMatchObject({
+        state: 'pending',
+        access: 'wrong-account',
+      });
       expect(
         (await send(api[decision].POST, 'POST', { as: outsider, body })).status,
       ).toBeGreaterThanOrEqual(400);
       expect((await send(api[decision].POST, 'POST', { as: recipient, body })).status).toBe(200);
+      expect((await send(api.lookup.POST, 'POST', { as: recipient, body })).body).toMatchObject({
+        state: decision === 'accept' ? 'accepted' : 'rejected',
+      });
       if (decision === 'accept') {
         expect(
           await h.db

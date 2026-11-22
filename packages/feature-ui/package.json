@@ -10,6 +10,8 @@
     "./styles.css": "./src/styles.css",
     "./tasks": "./src/tasks.ts",
     "./assistant": "./src/assistant.ts",
+    "./open-document": "./src/open-document.tsx",
+    "./document": "./src/document.ts",
     "./workspace": "./src/workspace-adapter.tsx"
   },
   "scripts": {
@@ -23,6 +25,8 @@
     "react-dom": "^19"
   },
   "dependencies": {
+    "@oat/ai": "workspace:*",
+    "sonner": "catalog:",
     "@oat/workspace-ui": "workspace:*",
     "@ai-sdk/react": "catalog:",
     "ai": "catalog:",

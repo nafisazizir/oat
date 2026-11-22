@@ -1,26 +1,12 @@
 'use client';
 
-import { SearchDialog, type SearchCommandGroup } from '@oat/feature-ui/search';
+import { SearchDialog } from '@oat/feature-ui/search';
+import { buildHostCommands } from '@oat/feature-ui';
+import { useWorkspaceHost, useTreeActions } from '@oat/workspace-ui';
+import { toast } from 'sonner';
 import { useSidebar } from '@oat/ui/components/sidebar';
-import {
-  IconChecklist,
-  IconDeviceDesktop,
-  IconEdit,
-  IconFileText,
-  IconFolder,
-  IconHome,
-  IconLayoutGrid,
-  IconLayoutSidebar,
-  IconMoon,
-  IconSettings,
-  IconSparkles,
-  IconSun,
-} from '@tabler/icons-react';
-import { useRouter } from 'next/navigation';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-
-import { sections } from '@/lib/navigation';
-import { titleOf } from '@/lib/tree';
+import { createContext, useContext, useMemo, useState } from 'react';
+import { useAppShortcut } from '@oat/ui/hooks/use-app-shortcut';
 
 import { useTheme } from '../theme-provider';
 import { useShellData } from '@oat/workspace-ui/shell-data';
@@ -40,16 +26,7 @@ export function useCommandMenu() {
 export function CommandMenuProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey) && !event.altKey) {
-        event.preventDefault();
-        setOpen((value) => !value);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  useAppShortcut('palette', () => setOpen((value) => !value));
 
   const value = useMemo(() => ({ open, setOpen }), [open]);
   return <CommandMenuContext.Provider value={value}>{children}</CommandMenuContext.Provider>;
@@ -57,66 +34,33 @@ export function CommandMenuProvider({ children }: { children: React.ReactNode })
 
 export function CommandMenu() {
   const { open, setOpen } = useCommandMenu();
-  const router = useRouter();
+  const host = useWorkspaceHost();
+  const tree = useTreeActions();
   const { toggleSidebar } = useSidebar();
   const { theme, setTheme } = useTheme();
   const newNote = useNewNote();
-  const { documents } = useShellData();
-  const local: SearchCommandGroup[] = [
-    {
-      heading: 'Go to',
-      items: [
-        { ...sections.home, icon: <IconHome /> },
-        { ...sections.tasks, icon: <IconChecklist /> },
-        { ...sections.assistant, icon: <IconSparkles /> },
-        { ...sections.templates, icon: <IconLayoutGrid /> },
-        { ...sections.settings, icon: <IconSettings /> },
-      ].map(({ label, href, icon }) => ({
-        value: label,
-        text: label,
-        icon,
-        onSelect: () => router.push(href),
-      })),
+  const { documents, workspaces, workspace } = useShellData();
+  const local = buildHostCommands({
+    navigate: host.navigate,
+    documents,
+    workspaces,
+    activeWorkspaceId: workspace.id,
+    toggleSidebar,
+    theme,
+    setTheme,
+    newPage: tree.canCreate
+      ? () => void tree.newPage({ kind: 'page', area: 'private' })
+      : undefined,
+    newNote: tree.canCreate ? newNote : undefined,
+    switchWorkspace: (id) => {
+      void host.client.workspaces
+        .switchActive(id)
+        .then(() => {
+          host.navigate({ view: 'home' });
+          host.refresh();
+        })
+        .catch(() => toast.error('Couldn’t switch workspace. Try again.'));
     },
-    {
-      heading: 'Pages',
-      items: documents.map((doc) => ({
-        value: `page:${doc.id}`,
-        documentId: doc.id,
-        text: titleOf(doc),
-        icon: doc.kind === 'folder' ? <IconFolder /> : <IconFileText />,
-        onSelect: () => router.push(`/d/${doc.id}`),
-      })),
-    },
-    {
-      heading: 'Actions',
-      items: [
-        { value: 'New note', text: 'New note', icon: <IconEdit />, onSelect: newNote },
-        {
-          value: 'Toggle sidebar',
-          text: 'Toggle sidebar',
-          icon: <IconLayoutSidebar />,
-          onSelect: toggleSidebar,
-          shortcut: '⌘B',
-        },
-      ],
-    },
-    {
-      heading: 'Theme',
-      items: (
-        [
-          ['light', 'Light', IconSun],
-          ['dark', 'Dark', IconMoon],
-          ['system', 'System', IconDeviceDesktop],
-        ] as const
-      ).map(([value, label, Icon]) => ({
-        value: `${label} theme`,
-        text: `${label} theme`,
-        icon: <Icon />,
-        checked: theme === value,
-        onSelect: () => setTheme(value),
-      })),
-    },
-  ];
+  });
   return <SearchDialog open={open} onOpenChange={setOpen} commandGroups={local} />;
 }

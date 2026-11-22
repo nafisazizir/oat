@@ -1,5 +1,4 @@
-import { findInviteByToken, type InviteDetails, loadPermissionContext } from '@oat/auth';
-import { roleIn } from '@oat/core';
+import { findInviteByToken, type InviteDetails } from '@oat/auth';
 import { Button } from '@oat/ui/components/button';
 import {
   AuthPanel,
@@ -11,11 +10,8 @@ import {
 import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 
-import {
-  InviteResponse,
-  OpenWorkspaceButton,
-  SwitchAccountButton,
-} from '@/components/workspace/invite-response';
+import { WebInviteResponse } from '@/components/workspace/invite-response';
+import { loadInviteLanding } from '@/server/invite-landing';
 import { signInPath } from '@/lib/redirect';
 import { ROLE_INFO } from '@/lib/workspace';
 import { getDb } from '@/server/db';
@@ -88,6 +84,14 @@ function InviteCard({ invite, children }: { invite: InviteDetails; children: Rea
  */
 export default async function InvitePage({ params }: Props) {
   const { token } = await params;
+  const session = await getSession();
+  if (session)
+    return (
+      <WebInviteResponse
+        token={token}
+        initial={await loadInviteLanding(getDb(), token, session.user)}
+      />
+    );
   const invite = await findInviteByToken(getDb(), token);
 
   if (!invite) {
@@ -132,58 +136,21 @@ export default async function InvitePage({ params }: Props) {
   }
 
   const here = `/invite/${encodeURIComponent(token)}`;
-  const session = await getSession();
-
-  if (!session) {
-    return (
-      <InviteCard invite={invite}>
-        <p className="text-center text-copy-14 text-gray-900">
-          Sign in as <span className="text-gray-1000">{invite.email}</span> to accept. New to Oat?
-          Signing in creates your account.
-        </p>
-        <Button
-          role="link"
-          nativeButton={false}
-          render={<Link href={signInPath(here) as Route} />}
-          size="lg"
-          className="w-full"
-        >
-          Sign in to accept
-        </Button>
-      </InviteCard>
-    );
-  }
-
-  if (session.user.email.toLowerCase() !== invite.email.toLowerCase()) {
-    return (
-      <InviteCard invite={invite}>
-        <p className="text-center text-copy-14 text-gray-900" data-testid="invite-wrong-account">
-          This invitation is for <span className="text-gray-1000">{invite.email}</span>, but you’re
-          signed in as <span className="text-gray-1000">{session.user.email}</span>.
-        </p>
-        <SwitchAccountButton next={signInPath(here) as Route} />
-      </InviteCard>
-    );
-  }
-
-  const ctx = await loadPermissionContext(getDb(), session.user.id);
-  if (roleIn(ctx, invite.workspace.id) !== undefined) {
-    return (
-      <InviteCard invite={invite}>
-        <p className="text-center text-copy-14 text-gray-900">
-          You’re already a member of {invite.workspace.name}.
-        </p>
-        <OpenWorkspaceButton workspaceId={invite.workspace.id} />
-      </InviteCard>
-    );
-  }
-
   return (
     <InviteCard invite={invite}>
       <p className="text-center text-copy-14 text-gray-900">
-        You’re signed in as <span className="text-gray-1000">{session.user.email}</span>.
+        Sign in as <span className="text-gray-1000">{invite.email}</span> to accept. New to Oat?
+        Signing in creates your account.
       </p>
-      <InviteResponse token={token} />
+      <Button
+        role="link"
+        nativeButton={false}
+        render={<Link href={signInPath(here) as Route} />}
+        size="lg"
+        className="w-full"
+      >
+        Sign in to accept
+      </Button>
     </InviteCard>
   );
 }

@@ -1,5 +1,6 @@
 import type { DesktopUser, MeetingNoteSummary, WorkspacesSnapshot } from '@oat/core/bridge';
 import { loadShellData, type ShellData, type DocumentNode } from '@oat/workspace-ui';
+import { homeDocuments, type HomeDocument } from '@oat/workspace-ui/home-model';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { call } from '../bridge';
 import { api } from '../lib/api';
@@ -111,5 +112,25 @@ export function useDesktopShellData(
     [failed, apiOnline, local, remote],
   );
   const data = useMemo(() => mergeLocalNotes(base, notes ?? []), [base, notes]);
-  return { data, refresh, revision, appOrigin, online: apiOnline && !failed };
+  const matchingRemote = remote?.workspace.id === base.workspace.id ? remote : null;
+  const localHome: HomeDocument[] = (notes ?? [])
+    .filter((note) => note.workspaceId === base.workspace.id)
+    .map((note) => ({
+      id: note.documentId,
+      title: note.title,
+      kind: 'meeting',
+      updatedAt: note.updatedAt ?? note.endedAt ?? note.startedAt ?? note.createdAt,
+      meetingId: note.meetingId,
+      pending: note.pending,
+    }));
+  const home = {
+    documents: homeDocuments(matchingRemote?.documents ?? [], localHome, {
+      trash: matchingRemote?.trash,
+      includeCached: failed || !apiOnline,
+    }),
+    loading: !matchingRemote && !failed && apiOnline,
+    error: failed || !apiOnline ? 'Couldn’t load notes. Showing saved and pending notes.' : null,
+    retry: refresh,
+  };
+  return { data, home, refresh, revision, appOrigin, online: apiOnline && !failed };
 }

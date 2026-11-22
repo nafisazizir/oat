@@ -2,21 +2,16 @@
 
 import type { JSONContent } from '@oat/editor';
 import { OatEditor, type OatEditorProps } from '@oat/editor/react';
-import { Alert, AlertAction, AlertTitle } from '@oat/ui/components/alert';
 import { visibilityBadge } from '@oat/core/sections';
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@oat/ui/components/popover';
 import { Spinner } from '@oat/ui/components/spinner';
 import {
   IconAlertCircle,
   IconCheck,
-  IconDots,
   IconEye,
   IconLink,
   IconLock,
-  IconRestore,
-  IconTrash,
   IconUsers,
 } from '@tabler/icons-react';
 import {
@@ -30,13 +25,12 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 
-import { useTreeActions } from './tree-actions';
+import { DocumentActions, DocumentTrashBanner } from './document-actions';
 import { PageContainer } from './page';
 import type { DocumentDetail } from '@oat/services/dto/api-types';
 import { formatDay } from './format';
 import { documentNode } from './tree';
 import { useWorkspaceHost } from './host';
-import { ShareDialog } from './share-dialog';
 import { type SaveState, type SaveDocument, useAutosave } from './use-autosave';
 
 type WorkspaceAudience = { name: string };
@@ -155,6 +149,7 @@ export function PageEditorSurface({
   meta,
   headerActions,
   secondaryActions,
+  renderSecondaryActions,
   statusExtra,
   beforeEditor,
   streaming = false,
@@ -164,6 +159,7 @@ export function PageEditorSurface({
   meta?: React.ReactNode;
   headerActions?: React.ReactNode;
   secondaryActions?: React.ReactNode;
+  renderSecondaryActions?(lifecycle: React.ReactNode): React.ReactNode;
   statusExtra?: React.ReactNode;
   beforeEditor?: React.ReactNode;
   streaming?: boolean;
@@ -184,39 +180,20 @@ export function PageEditorSurface({
     autosave,
     reload,
   } = usePageEditor();
-  const actions = useTreeActions();
   const isMeeting = doc.kind === 'meeting';
   const node = documentNode(doc);
 
   return (
     <PageContainer className="gap-6">
-      {trashed && (
-        <Alert role="status" data-testid="trash-banner" className="bg-background-200">
-          <IconTrash />
-          <AlertTitle>This page is in the trash.</AlertTitle>
-          {doc.access.delete && (
-            <AlertAction className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => void actions.restore(node)}>
-                <IconRestore data-icon="inline-start" />
-                Restore
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => void actions.deleteForever(node)}
-              >
-                Delete forever
-              </Button>
-            </AlertAction>
-          )}
-        </Alert>
-      )}
+      {trashed && <DocumentTrashBanner node={node} />}
 
       {!trashed && (
         <Actions>
-          <div
-            className="flex min-w-0 items-center gap-2 text-label-12 text-gray-900"
-            data-testid="document-actions"
+          <DocumentActions
+            node={node}
+            secondaryActions={secondaryActions}
+            renderSecondaryActions={renderSecondaryActions}
+            beforeRemove={autosave.settle}
           >
             {editable && (
               <SaveStatus
@@ -228,17 +205,7 @@ export function PageEditorSurface({
             )}
             {statusExtra}
             {headerActions}
-            {secondaryActions ??
-              (doc.access.delete && (
-                <MoreActions>
-                  <Button variant="ghost" onClick={() => actions.remove(node)}>
-                    <IconTrash data-icon="inline-start" />
-                    Move to trash
-                  </Button>
-                </MoreActions>
-              ))}
-            <ShareDialog documentId={doc.id} />
-          </div>
+          </DocumentActions>
         </Actions>
       )}
       <header className="flex flex-col gap-3">
@@ -391,27 +358,4 @@ function SaveStatus({
   }
 }
 
-/**
- * Secondary header actions behind "…" leave room for recording, Enhance and Share.
- */
-export function MoreActions({ children }: { children: React.ReactNode }) {
-  return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="More actions"
-            data-testid="document-more"
-          />
-        }
-      >
-        <IconDots />
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-auto items-stretch">
-        {children}
-      </PopoverContent>
-    </Popover>
-  );
-}
+export { MoreActions } from './document-actions';

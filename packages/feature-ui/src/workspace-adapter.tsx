@@ -25,9 +25,9 @@ export function featureTargetRoute(target: AppTarget): FeatureRoute {
       return { view: 'document', id: target.id, ...(Object.keys(query).length ? { query } : {}) };
     }
     case 'search':
-      return { view: 'search', q: target.q };
+      return { view: 'search', q: target.q, ...(target.type ? { type: target.type } : {}) };
     case 'tasks':
-      return { view: 'tasks' };
+      return { view: 'tasks', ...(target.filters ? { filters: target.filters } : {}) };
     case 'assistant':
       return { view: 'assistant', ...(target.threadId ? { threadId: target.threadId } : {}) };
   }
@@ -46,9 +46,9 @@ export function routeFeatureTarget(route: AppRoute): AppTarget | undefined {
       };
     }
     case 'search':
-      return { kind: 'search', q: route.q ?? '' };
+      return { kind: 'search', q: route.q ?? '', ...(route.type ? { type: route.type } : {}) };
     case 'tasks':
-      return { kind: 'tasks' };
+      return { kind: 'tasks', ...(route.filters ? { filters: route.filters } : {}) };
     case 'assistant':
       return { kind: 'assistant', ...(route.threadId ? { threadId: route.threadId } : {}) };
     default:

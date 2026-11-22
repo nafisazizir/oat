@@ -1,5 +1,7 @@
 # Oat — Plan & Task Board
 
+- [x] Functional parity closeout: G1–G14/G16–G18 implemented; G15 explicitly deferred optional browser-device aggregate storage. Twelve requested desktop surfaces captured and inspected in light-mode 1440×900 built renderer with stubbed bridge (14 PNGs); fixed full-window recovery layout, fast CI passes. Evidence/tooling at /home/ubuntu/oat-parity-shots/, outside git. P1–P13 retained; real Electron/macOS/recording/provider consent unverified. Final feature-branch push authorized · [task](tasks/functional-parity.md)
+
 - [ ] Human-requested shared feature UI, steps 1–6 search/tasks/assistant · PR #26/C2, URL-tab pagination and native document routing verified/pushed; shared block-link scroll/highlight verified on desktop route and web browser; fast static gates pass, all tests pass with CI timeout budget; PR gate after push; native Electron runtime pending · [task](tasks/desktop-feature-search.md)
 
 - [x] Human-requested UI redesign PR 5: calm auth, setup and dialogs · [task](tasks/ui-calm-auth-dialogs.md)
@@ -104,6 +106,16 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 - [x] 8.4 Action items extraction + checklist block + "my tasks" view · deps: 4.4
 
 ## M9 — Ship v1
+
+- [x] Human-requested: post-PR #28 functional parity audit and Before matrix · [task](tasks/functional-parity.md)
+- [x] Functional parity G2 + G5: shared typed-client join/bootstrap in both hosts and native desktop calendar settings; fast gates and Join e2e verified · [task](tasks/functional-parity.md)
+- [x] Functional parity G3 + G14 + G13: shared authenticated invites/native handoff, shared host commands, route-backed search/task filters; unit/fast/API authz/invite and command browser checks verified (native OS dispatch/visuals unverified) · [task](tasks/functional-parity.md)
+- [x] Functional parity G7 + G11: authorized server meeting read-through cache and repeated segment/time/block focus; desktop 571 tests/full fast gate pass. G2 Back readiness test fixed; five CPU-constrained parallel workspace suites pass (99 each). Native runtime/visuals unverified · [task](tasks/functional-parity.md)
+
+- [x] Functional parity G8 + G18: shared document assistant/editor bridge on meetings and pages; native flush/sync and guarded local-writer approval; shared K/B/J guards. Unit/affected fast gates and assistant/document/palette browser checks pass; native runtime/visuals unverified · [task](tasks/functional-parity.md)
+- [x] Functional parity G9 + G10 + G6: shared enhancement/history/restore/Undo, per-document Notion actions and page task-assignee slots; native flush/sync and guarded local-writer adoption. Unit/affected fast gate and enhance/history/Notion/tasks browser checks pass; native runtime/visuals unverified · [task](tasks/functional-parity.md)
+- [x] Functional parity G17 + G16 + G4 + G12 + G1: shared renderer recovery/conflicts/Home/lifecycle actions, recording-safe route restore/history and invite queue integration. Unit/static/browser checks complete; native runtime/visuals unverified · [task](tasks/functional-parity.md)
+- [x] Functional parity / PR #30 integration: merged latest main's shared shell, account menus, settings, composer and empty states while retaining functional routes/actions. Shared greeting uses first name or neutral fallback; proposal refresh waits for committed ready state. Forced uncached fast CI and requested smoke/search/assistant/workspaces/documents E2E pass; native runtime/visuals unverified · [task](tasks/functional-parity.md)
 
 - [x] Human-requested Phase 3a final polish and gate: sidebar captions/account grouping, auth and empty-state
       consistency; full fast/E2E/axe gates, final screenshots and branch push. PR 30 follow-up restores

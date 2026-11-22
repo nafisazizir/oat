@@ -9,6 +9,7 @@ describe('meeting bridge channels (3.4)', () => {
     for (const c of [
       'meetings:list',
       'meeting:get',
+      'meeting:load',
       'meeting:transcript',
       'meeting:save',
       'meeting:add-participant',
@@ -19,6 +20,15 @@ describe('meeting bridge channels (3.4)', () => {
     expect(bridgeChannels.subscribe).toContain('meetings:changed');
     expect(bridgeChannels.subscribe).toContain('notes:flush');
     expect(bridgeChannels.send).toContain('notes:flushed');
+  });
+  it('validates read-through requests and does not expose arbitrary response fields', () => {
+    const channel = invoke['meeting:load'];
+    expect(channel.request.safeParse({ documentId: 'd1' }).success).toBe(true);
+    expect(channel.request.safeParse({ documentId: 'd1', token: 'secret' }).success).toBe(false);
+    expect(channel.response.parse({ state: 'offline', token: 'secret' })).toEqual({
+      state: 'offline',
+    });
+    expect(channel.response.safeParse({ state: 'ready' }).success).toBe(false);
   });
 
   it('meeting:get takes a document id or a meeting id, not both or neither', () => {

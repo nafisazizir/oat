@@ -3,6 +3,7 @@ import type { SearchHitSnapshot, MeetingNoteSummary } from '@oat/core/bridge';
 import type { OatRequest } from '@oat/client';
 import { ThemeProvider } from '@oat/settings-ui';
 import {
+  act,
   cleanup,
   fireEvent,
   render as renderUi,
@@ -16,6 +17,8 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import MainWindow from './main-window.tsx';
+import { routeStorageKey } from '../route-history';
+import { api } from '../lib/api';
 
 function render(ui: ReactElement) {
   return renderUi(ui, { wrapper: ThemeProvider });
@@ -37,6 +40,10 @@ const model = vi.hoisted(() => {
     workspacesReady: true,
     offline: false,
     apiFailure: false,
+    needsSetup: false,
+    showMeetingActions: false,
+    trashMeeting: false,
+    activeMeetingId: null as string | null,
     showFolder: false,
     folderName: 'Projects',
     notes: [] as MeetingNoteSummary[],
@@ -98,7 +105,7 @@ vi.mock('../main-state.ts', () => ({
   useMainState: () => ({
     auth: { status: 'signed-in', user: model.user },
     recording: { status: model.recording.status },
-    activeMeetingId: null,
+    activeMeetingId: model.activeMeetingId,
     sync: model.sync,
   }),
 }));
@@ -107,13 +114,25 @@ vi.mock('../meetings/meetings-state.ts', () => ({
   useMeetingNotes: () => model.notes,
   bumpMeetingsVersion: vi.fn(),
 }));
-vi.mock('../meetings/meeting-view.tsx', () => ({
-  MeetingView: ({ documentId }: { documentId: string | null }) => (
-    <section data-testid="meeting-content" data-document-id={documentId}>
-      Meeting content
-    </section>
-  ),
-}));
+vi.mock('../meetings/meeting-view.tsx', async () => {
+  const { MeetingActions } = await import('../workspace/meeting-actions');
+  return {
+    MeetingView: ({
+      documentId,
+      controlsContainer,
+    }: {
+      documentId: string | null;
+      controlsContainer?: HTMLElement | null;
+    }) => (
+      <section data-testid="meeting-content" data-document-id={documentId}>
+        {documentId && model.showMeetingActions && (
+          <MeetingActions id={documentId} container={controlsContainer} />
+        )}
+        Meeting content
+      </section>
+    ),
+  };
+});
 vi.mock('../settings/settings-view.tsx', () => ({
   SettingsView: ({ initialSection }: { initialSection: string }) => (
     <section data-testid="settings" data-settings-section={initialSection}>
@@ -127,7 +146,17 @@ vi.mock('../calendar/calendar-state.ts', () => ({
 }));
 vi.mock('../auto-stop/auto-stop-state.ts', () => ({ useAutoStopNotice: () => null }));
 vi.mock('../onboarding/onboarding-state.ts', () => ({
-  useOnboarding: () => ({ state: { needed: false, guide: false } }),
+  useOnboarding: () => ({
+    state: { needed: model.needsSetup, guide: false },
+    complete: () => {
+      model.needsSetup = false;
+    },
+  }),
+}));
+vi.mock('../onboarding/onboarding-view.tsx', () => ({
+  OnboardingView: ({ onDone }: { onDone(finished: boolean): void }) => (
+    <button onClick={() => onDone(false)}>Finish setup</button>
+  ),
 }));
 vi.mock('../workspaces/workspaces-state.ts', () => ({
   useWorkspaces: () => ({
@@ -141,6 +170,7 @@ vi.mock('../workspaces/workspaces-state.ts', () => ({
 }));
 
 beforeEach(() => {
+  localStorage.removeItem(routeStorageKey(model.user.id));
   vi.stubGlobal('matchMedia', () => ({
     matches: false,
     addEventListener() {},
@@ -161,6 +191,11 @@ beforeEach(() => {
   model.workspacesReady = true;
   model.offline = false;
   model.apiFailure = false;
+  model.needsSetup = false;
+  model.showMeetingActions = false;
+  model.trashMeeting = false;
+  model.page.kind = 'page';
+  model.activeMeetingId = null;
   model.showFolder = false;
   model.folderName = 'Projects';
   model.sync.lastSyncedAt = null;
@@ -201,7 +236,14 @@ beforeEach(() => {
           workspaces: [{ ...model.snapshot.workspaces[0], memberCount: 1 }],
         };
       if (request?.path === '/api/workspaces/joinable') body = { invites: [], workspaces: [] };
-      if (request?.path === '/api/documents' && !request.query?.trash) body = [model.page];
+      if (request?.path === '/api/documents')
+        body = request.query?.trash
+          ? model.trashMeeting
+            ? [{ ...model.page, deletedAt: '2026-11-21T00:00:00.000Z' }]
+            : []
+          : model.trashMeeting
+            ? []
+            : [model.page];
       if (request?.path === '/api/documents/page') body = model.page;
       if (request?.path === '/api/chat/threads') body = { threads: [] };
       if (request?.path === '/api/tasks') body = { items: [], truncated: false };
@@ -223,6 +265,99 @@ afterEach(() => {
 });
 
 describe('desktop shell', () => {
+  it('keeps a known trashed meeting on the native route offline with disabled lifecycle controls', async () => {
+    model.showMeetingActions = true;
+    model.trashMeeting = true;
+    model.page.kind = 'meeting';
+    localStorage.setItem(routeStorageKey(model.user.id), '/d/page');
+    render(<MainWindow />);
+    await screen.findByTestId('trash-banner');
+    expect(screen.getByTestId('meeting-content').getAttribute('data-document-id')).toBe('page');
+    model.offline = true;
+    await act(async () => {
+      await expect(api.workspaces.list()).rejects.toThrow();
+    });
+    const banner = within(screen.getByTestId('trash-banner'));
+    expect((banner.getByRole('button', { name: 'Restore' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(
+      (banner.getByRole('button', { name: 'Delete forever' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(screen.getByTestId('meeting-content').getAttribute('data-document-id')).toBe('page');
+  });
+  it('restores the last route without replacing it with an already-running recording', async () => {
+    localStorage.setItem(routeStorageKey(model.user.id), '/settings/integrations');
+    model.activeMeetingId = 'live-meeting';
+    model.recording.status = 'recording';
+    model.notes = [
+      {
+        documentId: 'live-note',
+        meetingId: 'live-meeting',
+        workspaceId: 'workspace',
+        ownerId: 'user',
+        title: 'Live meeting',
+        visibility: 'private',
+        startedAt: null,
+        endedAt: null,
+        createdAt: '2026-11-20T00:00:00.000Z',
+        pending: true,
+      },
+    ];
+    const view = render(<MainWindow />);
+    expect(screen.getByTestId('settings').getAttribute('data-settings-section')).toBe(
+      'integrations',
+    );
+    expect(screen.getByTestId('recording-bar')).toBeTruthy();
+    await userEvent.click(screen.getByTestId('nav-tasks'));
+    await screen.findByTestId('tasks-empty');
+    view.unmount();
+    render(<MainWindow />);
+    expect(await screen.findByTestId('tasks-empty')).toBeTruthy();
+  });
+  it('still opens a newly started recording after the shell has mounted', async () => {
+    const view = render(<MainWindow />);
+    model.activeMeetingId = 'live-meeting';
+    model.recording.status = 'recording';
+    model.notes = [
+      {
+        documentId: 'live-note',
+        meetingId: 'live-meeting',
+        workspaceId: 'workspace',
+        ownerId: 'user',
+        title: 'Live meeting',
+        visibility: 'private',
+        startedAt: null,
+        endedAt: null,
+        createdAt: '2026-11-20T00:00:00.000Z',
+        pending: true,
+      },
+    ];
+    view.rerender(<MainWindow />);
+    await waitFor(() =>
+      expect(screen.getByTestId('meeting-content').getAttribute('data-document-id')).toBe(
+        'live-note',
+      ),
+    );
+  });
+  it('receives a queued native invitation and retains it after first-run setup', async () => {
+    model.needsSetup = true;
+    const invoke = model.invoke.getMockImplementation()!;
+    model.invoke.mockImplementation((channel: string, request?: OatRequest) => {
+      if (channel === 'navigation:get')
+        return Promise.resolve({ view: 'invite', token: 'a'.repeat(32) });
+      if (channel === 'api:request' && request?.path === '/api/invites/lookup')
+        return Promise.resolve({ status: 200, body: { state: 'invalid' } });
+      return invoke(channel, request);
+    });
+    const view = render(<MainWindow />);
+    await waitFor(() => expect(model.invoke).toHaveBeenCalledWith('navigation:get'));
+    await userEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
+    view.rerender(<MainWindow />);
+    expect(
+      await screen.findByRole('heading', { name: 'This invitation isn’t valid' }),
+    ).toBeTruthy();
+  });
   it('uses shared sidebar routes for Tasks, Assistant and the full offline search view', async () => {
     render(<MainWindow />);
     await userEvent.click(screen.getByRole('link', { name: 'My tasks' }));
@@ -347,6 +482,7 @@ describe('desktop shell', () => {
   );
 
   it('opens uncached pages in PageEditor and cached meetings in MeetingView from shared search', async () => {
+    model.showMeetingActions = true;
     const invoke = model.invoke.getMockImplementation()!;
     model.invoke.mockImplementation((channel: string, request?: OatRequest) => {
       if (channel === 'api:request' && request?.path === '/api/search')
@@ -356,6 +492,11 @@ describe('desktop shell', () => {
         });
       if (channel === 'api:request' && request?.path === '/api/documents/page-id')
         return Promise.resolve({ status: 200, body: { ...model.page, id: 'page-id' } });
+      if (channel === 'api:request' && request?.path === '/api/documents/meeting-id')
+        return Promise.resolve({
+          status: 200,
+          body: { ...model.page, id: 'meeting-id', kind: 'meeting' },
+        });
       return invoke(channel, request);
     });
     model.searchHits = [
@@ -412,7 +553,9 @@ describe('desktop shell', () => {
       'meeting-id',
     );
     expect(
-      document.querySelector('header.app-drag')?.contains(screen.getByTestId('share-button')),
+      document
+        .querySelector('header.app-drag')
+        ?.contains(await screen.findByTestId('share-button')),
     ).toBe(true);
   });
 
@@ -687,28 +830,35 @@ describe('desktop shell', () => {
     expect((await screen.findByTestId('sync-status')).getAttribute('data-state')).toBe('idle');
   });
 
-  it('shows offline trash and share without issuing server-only calls', async () => {
-    model.offline = true;
+  it('shows offline trash and sharing for a synced meeting without issuing server-only calls', async () => {
+    model.showMeetingActions = true;
+    model.page.kind = 'meeting';
     model.notes = [
       {
-        documentId: 'local',
+        documentId: 'page',
         meetingId: null,
         workspaceId: 'workspace',
         ownerId: 'user',
-        title: 'Local meeting',
+        title: 'Project page',
         visibility: 'private',
         startedAt: null,
         endedAt: null,
         createdAt: '2026-11-20T00:00:00.000Z',
+        pending: false,
       },
     ];
     render(<MainWindow />);
+    await userEvent.click(await screen.findByRole('link', { name: 'Project page' }));
+    await screen.findByTestId('share-button');
+    model.offline = true;
+    await act(async () => {
+      await expect(api.workspaces.list()).rejects.toThrow();
+    });
     await screen.findByText('Offline', { selector: '[role="status"]' });
     await userEvent.click(screen.getByTestId('open-trash'));
     expect(await screen.findByRole('heading', { name: 'You’re offline' })).toBeTruthy();
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    await userEvent.click(screen.getByRole('link', { name: 'Local meeting' }));
     await userEvent.click(screen.getByTestId('share-button'));
     expect(await screen.findByRole('heading', { name: 'You’re offline' })).toBeTruthy();
     expect(

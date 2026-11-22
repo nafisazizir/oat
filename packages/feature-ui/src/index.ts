@@ -6,3 +6,4 @@ export {
   type LinkComponent,
 } from './provider';
 export { FeaturePageHeader } from './page-header';
+export { buildHostCommands } from './host-commands';
