@@ -61,6 +61,7 @@ export function AppShell({
   const host = useMemo<WorkspaceHost>(
     () => ({
       platform: 'web',
+      appOrigin: typeof window === 'undefined' ? '' : window.location.origin,
       client: createOatClient(fetchTransport()),
       route: routeOf(pathname, search.toString()),
       navigate: (route, options) =>

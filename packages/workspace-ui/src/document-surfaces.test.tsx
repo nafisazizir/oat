@@ -90,7 +90,10 @@ function fake(
           status: 403,
           json: async () => ({ error: { code: 'forbidden', message: 'Sharing denied' } }),
         };
-      if (request.method === 'PATCH') access = { ...access, ...(request.body as object) };
+      if (request.method === 'PATCH') {
+        access = { ...access, ...(request.body as object) };
+        if (access.visibility === 'link') access.sharePath = '/share/token';
+      }
       body = access;
     } else if (request.method === 'PATCH') {
       updates++;
@@ -118,6 +121,7 @@ function fake(
   const client = createOatClient(transport);
   const host: WorkspaceHost = {
     platform: 'desktop',
+    appOrigin: 'https://oat.example',
     client,
     route: { view: 'document', id: doc.id },
     hrefOf,
@@ -147,6 +151,17 @@ function Capture({ onChange }: { onChange: (state: ReturnType<typeof usePageEdit
 }
 
 describe('ShareDialog', () => {
+  it('copies a share URL using the configured web origin, not the renderer origin', async () => {
+    const { Wrapper, host } = fake();
+    host.appOrigin = 'https://web.oat.example/';
+    const user = userEvent.setup();
+    render(<ShareDialog documentId={doc.id} />, { wrapper: Wrapper });
+    await user.click(screen.getByRole('button', { name: 'Share' }));
+    await user.click(await screen.findByRole('radio', { name: /Anyone with the link/ }));
+    await user.click(await screen.findByRole('button', { name: 'Copy link' }));
+    expect(navigator.clipboard.writeText).toBeDefined();
+    expect(await navigator.clipboard.readText()).toBe('https://web.oat.example/share/token');
+  });
   it('changes visibility through the host client', async () => {
     const { Wrapper, updateSharing, host } = fake();
     render(<ShareDialog documentId={doc.id} />, { wrapper: Wrapper });

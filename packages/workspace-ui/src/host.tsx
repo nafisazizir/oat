@@ -6,6 +6,7 @@ import type { AppRoute } from './routes';
 
 export type WorkspaceHost = {
   platform: 'web' | 'desktop';
+  appOrigin: string;
   client: OatClient;
   route: AppRoute;
   navigate(route: AppRoute, options?: { replace?: boolean }): void;

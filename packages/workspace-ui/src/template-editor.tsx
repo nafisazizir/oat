@@ -32,13 +32,12 @@ import {
   IconPlus,
   IconTrash,
 } from '@tabler/icons-react';
-import type { Route } from 'next';
-import { useRouter } from 'next/navigation';
+import { useWorkspaceHost } from './host';
 import { useEffect, useId, useMemo, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
 import { DeleteTemplateDialog } from './delete-template-dialog';
-import { templateClient, type TemplateFields } from './template-client';
+import type { TemplateInput as TemplateFields } from '@oat/ai/templates';
 import { TemplatePreview } from './template-preview';
 
 type EditableSection = TemplateSection & { key: string };
@@ -83,7 +82,7 @@ export type TemplateEditorProps =
  * it to reorder; add/remove), with a live preview. Saves the whole template in one request.
  */
 export function TemplateEditor(props: TemplateEditorProps) {
-  const router = useRouter();
+  const host = useWorkspaceHost();
   const ids = useId();
   const [saved, setSaved] = useState<TemplateFields>(props.initial);
   const [name, setName] = useState(props.initial.name);
@@ -173,13 +172,16 @@ export function TemplateEditor(props: TemplateEditorProps) {
     startTransition(async () => {
       try {
         if (props.mode === 'create') {
-          const { template } = await templateClient.create(props.workspaceId, data);
+          const { template } = await host.client.templates.create({
+            workspaceId: props.workspaceId,
+            ...data,
+          });
           toast.success('Template created');
-          router.replace(`/templates/${template.id}` as Route);
-          router.refresh();
+          host.navigate({ view: 'template', id: template.id }, { replace: true });
+          host.refresh();
           return;
         }
-        const { template } = await templateClient.update(props.templateId, data);
+        const { template } = await host.client.templates.update(props.templateId, data);
         const next = {
           name: template.name,
           instructions: template.instructions,
@@ -197,7 +199,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
           setShowErrors(false);
         }
         toast.success('Template saved');
-        router.refresh();
+        host.refresh();
       } catch (error) {
         toast.error((error as Error).message);
       }
@@ -220,10 +222,13 @@ export function TemplateEditor(props: TemplateEditorProps) {
     setConfirmDuplicate(false);
     startTransition(async () => {
       try {
-        const { template } = await templateClient.duplicate(props.workspaceId, props.templateId);
+        const { template } = await host.client.templates.duplicate({
+          workspaceId: props.workspaceId,
+          fromTemplateId: props.templateId,
+        });
         toast.success(`Created ${template.name}`);
-        router.push(`/templates/${template.id}` as Route);
-        router.refresh();
+        host.navigate({ view: 'template', id: template.id });
+        host.refresh();
       } catch (error) {
         toast.error((error as Error).message);
       }
@@ -489,7 +494,11 @@ export function TemplateEditor(props: TemplateEditorProps) {
           </p>
           <div className="flex shrink-0 items-center gap-2">
             {props.mode === 'create' ? (
-              <Button variant="ghost" onClick={() => router.push('/templates')} disabled={pending}>
+              <Button
+                variant="ghost"
+                onClick={() => host.navigate({ view: 'templates' })}
+                disabled={pending}
+              >
                 Cancel
               </Button>
             ) : (

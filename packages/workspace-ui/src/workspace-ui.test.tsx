@@ -70,6 +70,7 @@ function setup(value = data, fail = false) {
   const client = createOatClient(transport);
   const host: WorkspaceHost = {
     platform: 'web',
+    appOrigin: 'https://oat.example',
     client,
     route: { view: 'home' },
     hrefOf,

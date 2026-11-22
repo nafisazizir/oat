@@ -16,7 +16,10 @@
     "./page-editor": "./src/page-editor.tsx",
     "./share-dialog": "./src/share-dialog.tsx",
     "./folder-view": "./src/folder-view.tsx",
-    "./page": "./src/page.tsx"
+    "./page": "./src/page.tsx",
+    "./templates-gallery": "./src/templates-gallery.tsx",
+    "./template-view": "./src/template-view.tsx",
+    "./template-picker": "./src/template-picker.tsx"
   },
   "scripts": {
     "typecheck": "tsc",
@@ -29,6 +32,7 @@
     "react-dom": "^19"
   },
   "dependencies": {
+    "@oat/ai": "workspace:*",
     "@oat/ui": "workspace:*",
     "@oat/core": "workspace:*",
     "@oat/services": "workspace:*",

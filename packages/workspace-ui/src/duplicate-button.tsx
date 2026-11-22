@@ -3,12 +3,9 @@
 import { Button } from '@oat/ui/components/button';
 import { Spinner } from '@oat/ui/components/spinner';
 import { IconCopy } from '@tabler/icons-react';
-import type { Route } from 'next';
-import { useRouter } from 'next/navigation';
+import { useWorkspaceHost } from './host';
 import { useTransition } from 'react';
 import { toast } from 'sonner';
-
-import { templateClient } from './template-client';
 
 /** Copies a template into the workspace as a new custom template and opens it in the editor. */
 export function DuplicateButton({
@@ -22,7 +19,7 @@ export function DuplicateButton({
   label?: string;
   variant?: 'default' | 'outline';
 }) {
-  const router = useRouter();
+  const host = useWorkspaceHost();
   const [pending, startTransition] = useTransition();
   return (
     <Button
@@ -31,10 +28,13 @@ export function DuplicateButton({
       onClick={() =>
         startTransition(async () => {
           try {
-            const { template } = await templateClient.duplicate(workspaceId, templateId);
+            const { template } = await host.client.templates.duplicate({
+              workspaceId,
+              fromTemplateId: templateId,
+            });
             toast.success(`Created ${template.name}`);
-            router.push(`/templates/${template.id}` as Route);
-            router.refresh();
+            host.navigate({ view: 'template', id: template.id });
+            host.refresh();
           } catch (error) {
             toast.error((error as Error).message);
           }

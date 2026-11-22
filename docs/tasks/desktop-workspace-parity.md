@@ -30,6 +30,7 @@ type AppRoute =
 
 type WorkspaceHost = {
   platform: 'web' | 'desktop';
+  appOrigin: string;              // public web origin for copied share links
   client: OatClient;               // @oat/client
   route: AppRoute;                 // current location
   navigate(route: AppRoute, options?: { replace?: boolean }): void;
@@ -205,3 +206,80 @@ ci: ok
   Desktop integration remains later work, including a public web origin for copied share links
   (the extracted dialog retains web's current-origin URL construction). Step 2 is committed locally
   with `feat(workspace-ui): shared page editor, share dialog and folder view`; nothing pushed.
+
+### Step 3 — shared templates and public share-link origin
+
+- Added required `WorkspaceHost.appOrigin`; web supplies its browser origin, and ShareDialog uses the
+  host's public web origin rather than the renderer origin. Updated host fakes and added a clipboard
+  regression using a different desktop-renderer/web origin, including a trailing-slash origin.
+- Moved template editor, preview, icon, duplicate and delete controls into the package; deleted the
+  web implementations and template-client wrapper. Mutations use `host.client.templates` and host
+  navigation/refresh. Added `TemplatesGallery`, `TemplateView` and `NewTemplateView`: server-provided
+  initial data is used without fetching, otherwise they load through the typed client. Web pages
+  remain server components with their existing metadata, authorization loaders and 404 behavior.
+- Gallery uses a wider calm content column, flat bordered card grid, ramp/type roles and default
+  corner shapes, following the clone library/header references. Kept existing test IDs and card
+  accessible-name ordering. Preview placeholder lines are no longer pill-shaped.
+- Template application on web lives in `document/enhance/enhance-controls.tsx` (Enhance/Regenerate),
+  not a separate new-note-from-template flow. Extracted its lazy template menu as `TemplatePicker`;
+  web retains enhancement orchestration and passes selection/history slots. Existing enhance selectors
+  and accessible trigger labels remain unchanged.
+- Browser safety: the only runtime dependency of `@oat/ai/templates` is Zod; its core imports are
+  type-only. All shared runtime AI imports use this subpath, not the package root. An in-memory Vite
+  browser-library build reported:
+
+```text
+@oat/ai/templates browser bundle: pass (ES bundle, no external runtime imports)
+```
+
+- Fake-client coverage: initial/client-loaded/empty/error/retry gallery, loaded/editable/error detail,
+  creation and viewer denial, duplicate/delete success and failure, picker selection/empty/error, and
+  copied share-link origin. Final shared suite: 6 files / 62 tests passed. Platform-import/ziiz scans
+  and moved-template test-ID checks passed.
+- `pnpm run ci --fast`:
+
+```text
+━━ ci summary (--fast)
+step        status     time  note
+format      pass      13.1s
+actionlint  pass       0.4s
+typecheck   pass       7.1s
+lint        pass       7.2s
+test        pass       6.8s
+total                 34.6s
+
+ci: ok
+```
+
+- Final review preserved the original card text order and added an exact accessible-name assertion
+  plus empty-picker coverage. The new assertion initially assumed a space between adjacent inline
+  name/badge spans; corrected it to the original adjacent-span accessible name. Final affected gates
+  (actionlint inputs unchanged):
+
+```text
+━━ ci summary (--only format,typecheck,lint,test)
+step       status     time  note
+format     pass      11.5s
+typecheck  pass       5.4s
+lint       pass       3.3s
+test       pass       6.1s
+total                26.3s
+
+ci: ok
+```
+
+- Final `pnpm --filter @oat/web build` (only the test expectation changed afterward):
+
+```text
+✓ Compiled successfully in 949ms
+  Finished TypeScript in 5.5s ...
+✓ Generating static pages using 7 workers (50/50) in 339ms
+```
+
+- Logs: `/home/ubuntu/oat-workspace-step3-ci.log`,
+  `/home/ubuntu/oat-workspace-step3-ci-final.log` (intermediate assertion failure),
+  `/home/ubuntu/oat-workspace-step3-ci-final2.log`,
+  `/home/ubuntu/oat-workspace-step3-build-final.log`.
+- No known web functionality loss. UI is visually unverified; web e2e/axe were not run. Desktop host
+  wiring must supply its configured public web origin. Committed locally with
+  `feat(workspace-ui): shared templates`; nothing pushed.

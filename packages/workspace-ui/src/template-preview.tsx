@@ -38,7 +38,7 @@ export function TemplatePreview({
             </p>
             <div className="flex flex-col gap-1.5 pt-1" aria-hidden>
               {LINES.slice(0, 2 + (i % 2)).map((width) => (
-                <div key={width} className={cn('h-2.5 rounded-full bg-gray-100', width)} />
+                <div key={width} className={cn('h-2.5 rounded-sm bg-gray-100', width)} />
               ))}
             </div>
           </section>

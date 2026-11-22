@@ -11,11 +11,9 @@ import {
   AlertDialogTitle,
 } from '@oat/ui/components/alert-dialog';
 import { Spinner } from '@oat/ui/components/spinner';
-import { useRouter } from 'next/navigation';
+import { useWorkspaceHost } from './host';
 import { useTransition } from 'react';
 import { toast } from 'sonner';
-
-import { templateClient } from './template-client';
 
 export function DeleteTemplateDialog({
   open,
@@ -28,7 +26,7 @@ export function DeleteTemplateDialog({
   templateId: string;
   name: string;
 }) {
-  const router = useRouter();
+  const host = useWorkspaceHost();
   const [pending, startTransition] = useTransition();
 
   return (
@@ -49,11 +47,11 @@ export function DeleteTemplateDialog({
             onClick={() =>
               startTransition(async () => {
                 try {
-                  await templateClient.remove(templateId);
+                  await host.client.templates.delete(templateId);
                   onOpenChange(false);
                   toast.success(`Deleted ${name}`);
-                  router.push('/templates');
-                  router.refresh();
+                  host.navigate({ view: 'templates' });
+                  host.refresh();
                 } catch (error) {
                   toast.error((error as Error).message);
                 }

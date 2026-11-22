@@ -155,10 +155,9 @@ export function ShareDialog({ documentId }: { documentId: string }) {
     }
   }
 
-  const url =
-    sharing?.sharePath && typeof window !== 'undefined'
-      ? `${window.location.origin}${sharing.sharePath}`
-      : null;
+  const url = sharing?.sharePath
+    ? `${host.appOrigin.replace(/\/+$/, '')}${sharing.sharePath}`
+    : null;
 
   async function copy() {
     if (!url) return;
