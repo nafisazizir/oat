@@ -75,7 +75,7 @@ export function AppearancePanel({
                   <ItemTitle>{integrationLabels[key]}</ItemTitle>
                 </ItemContent>
                 <ItemActions>
-                  <Badge variant="outline" data-testid={`integration-${key}`}>
+                  <Badge variant="secondary" data-testid={`integration-${key}`}>
                     Local mock
                   </Badge>
                 </ItemActions>

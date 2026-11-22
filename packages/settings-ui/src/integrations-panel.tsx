@@ -47,13 +47,13 @@ function Message({ error = false, children }: { error?: boolean; children: React
 function IntegrationButton({
   children,
   run,
-  variant = 'default',
+  variant = 'secondary',
   onSuccess,
   onError,
 }: {
   children: ReactNode;
   run: () => Promise<unknown>;
-  variant?: 'default' | 'outline';
+  variant?: 'default' | 'outline' | 'secondary';
   onSuccess?: () => void;
   onError: (message: string) => void;
 }) {

@@ -271,7 +271,12 @@ export function ShareDialog({ documentId }: { documentId: string }) {
                     className="text-label-13-mono"
                   />
                   <InputGroupAddon align="inline-end">
-                    <InputGroupButton size="xs" onClick={() => void copy()} aria-label="Copy link">
+                    <InputGroupButton
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => void copy()}
+                      aria-label="Copy link"
+                    >
                       {copied ? <IconCheck /> : <IconCopy />}
                       {copied ? 'Copied' : 'Copy'}
                     </InputGroupButton>

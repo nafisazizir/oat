@@ -12,7 +12,7 @@ export function SettingsLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto grid w-full max-w-5xl items-start gap-8 px-6 py-8 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-12">
+    <div className="mx-auto grid w-full max-w-6xl items-start gap-8 px-6 py-8 md:grid-cols-[13.25rem_minmax(0,1fr)] md:gap-10">
       <nav
         aria-label="Settings sections"
         className={cn(
@@ -24,7 +24,7 @@ export function SettingsLayout({
       </nav>
       <div
         data-testid="settings-content"
-        className="mx-auto flex w-full min-w-0 max-w-[640px] flex-col gap-8"
+        className="mx-auto flex w-full min-w-0 max-w-[640px] flex-col gap-6"
       >
         {children}
       </div>
@@ -34,7 +34,7 @@ export function SettingsLayout({
 
 export function SettingsNavGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col gap-0.5 border-b border-gray-alpha-400 pb-3 last:border-b-0">
       <h2 className="px-2 pb-1 text-label-12 text-gray-900">{label}</h2>
       {children}
     </div>

@@ -396,12 +396,16 @@ function NoteBody({
         <div className="flex min-h-7 flex-wrap items-center gap-2 text-label-12 text-gray-900">
           {note.workspaceName && (
             // 3.9: which workspace the note lives in (it never moves, D-18).
-            <Badge variant="outline" className="gap-1" data-testid="note-workspace">
+            <Badge
+              variant="secondary"
+              className="h-6 gap-1 rounded-md px-2.5 text-gray-900"
+              data-testid="note-workspace"
+            >
               <IconStack2 />
               {note.workspaceName}
             </Badge>
           )}
-          <Badge variant="secondary" className="gap-1">
+          <Badge variant="secondary" className="h-6 gap-1 rounded-md px-2.5 text-gray-900">
             {note.visibility === 'private' ? <IconLock /> : <IconUsers />}
             {/* What the note's visibility is (D-36), in the web's words. */}
             {visibilityBadge(note.visibility, note.workspaceName ?? '')}
@@ -413,12 +417,7 @@ function NoteBody({
             </Badge>
           )}
 
-          <MeetingTime
-            className="rounded-md border border-gray-alpha-300 px-2 py-1"
-            startedAt={note.startedAt}
-            endedAt={endedAt}
-            live={live}
-          />
+          <MeetingTime startedAt={note.startedAt} endedAt={endedAt} live={live} />
           <NoteEventLine event={note.calendarEvent} />
           <ParticipantSummary
             participants={note.participants}

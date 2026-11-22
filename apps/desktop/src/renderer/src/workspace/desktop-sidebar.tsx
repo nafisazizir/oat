@@ -30,7 +30,6 @@ export function DesktopSidebar({
   return (
     <div className="contents" data-testid="signed-in">
       <AppSidebar
-        top={<div className="app-drag h-12 shrink-0" />}
         primaryAction={
           <NewMeetingButton
             {...newMeeting}
@@ -45,6 +44,11 @@ export function DesktopSidebar({
         beforeTree={
           <div className="group-data-[collapsible=icon]:hidden">
             <ConflictsPanel refreshKey={lastSyncedAt} />
+            {!host.online && (
+              <span role="status" className="px-2 text-label-12 text-gray-900">
+                Offline
+              </span>
+            )}
             {(fallback || needsWorkspace) && (
               <p
                 role="note"
@@ -58,22 +62,13 @@ export function DesktopSidebar({
             )}
           </div>
         }
-        footerExtra={
-          <>
-            {syncLine}
-            <span className="sr-only" data-testid="signed-in-email">
-              {user.email}
-            </span>
-            <div className="sr-only">{account.feedback}</div>
-            {!host.online && (
-              <span role="status" className="text-label-12 text-gray-900">
-                Offline
-              </span>
-            )}
-          </>
-        }
+        footerExtra={syncLine}
         accountItems={account.items}
       />
+      <span className="sr-only" data-testid="signed-in-email">
+        {user.email}
+      </span>
+      <div className="sr-only">{account.feedback}</div>
       <DesktopSearch
         open={searchOpen}
         onOpenChange={setSearchOpen}

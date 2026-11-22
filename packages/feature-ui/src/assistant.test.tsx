@@ -172,6 +172,23 @@ function stream() {
 }
 
 describe('AssistantChat', () => {
+  it('uses a multiline secondary composer with a clear action and compact suggestions', async () => {
+    const env = setup();
+    render(<ChatSession {...sessionProps} />, env);
+    const input = screen.getByRole('textbox', { name: 'Ask the assistant' });
+    expect(input.getAttribute('rows')).toBe('2');
+    expect(input.closest('[data-slot="input-group"]')?.className).toContain('bg-gray-100');
+    expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(true);
+    const clear = screen.getByRole('button', { name: 'Clear message' });
+    expect(clear.hasAttribute('disabled')).toBe(true);
+    await userEvent.type(input, 'A draft');
+    await userEvent.click(clear);
+    expect((input as HTMLTextAreaElement).value).toBe('');
+    expect(screen.getByTestId('chat-suggestions').querySelector('button')?.className).toContain(
+      'bg-gray-100',
+    );
+  });
+
   it('keeps the composer mounted when leaving the centered new-chat state', async () => {
     const current = stream();
     const env = setup(async (request) => current.response(request.signal));

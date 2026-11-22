@@ -1,5 +1,7 @@
 import type { CalendarSnapshot, MeetingNoteSummary } from '@oat/core/bridge';
 import { groupNotesByDate } from '@oat/meeting-ui';
+import { EmptyState } from '@oat/workspace-ui';
+import { Skeleton } from '@oat/ui/components/skeleton';
 import { IconNotes } from '@tabler/icons-react';
 import { useState } from 'react';
 
@@ -27,11 +29,24 @@ export function HomeView({
     >
       <UpcomingList snapshot={calendar} onOpen={onOpen} otherWorkspace={otherWorkspace} compact />
       {notes === null ? (
-        <p role="status" className="text-copy-14 text-gray-900">
-          Loading notes…
-        </p>
+        <div role="status" aria-label="Loading notes" className="flex flex-col gap-2">
+          <Skeleton className="h-4 w-12" />
+          <div>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex h-11 items-center gap-3 px-2">
+                <Skeleton className="size-4" />
+                <Skeleton className="h-5 w-44" />
+                <Skeleton className="ms-auto h-4 w-14" />
+              </div>
+            ))}
+          </div>
+        </div>
       ) : notes.length === 0 ? (
-        <p className="py-8 text-copy-14 text-gray-900">No notes yet</p>
+        <EmptyState
+          icon={IconNotes}
+          title="No notes yet"
+          description="Create a note or start a meeting to capture what matters."
+        />
       ) : (
         groupNotesByDate(notes, (note) => note.startedAt ?? note.createdAt, now).map((group) => (
           <section key={group.label} aria-label={group.label} className="flex flex-col gap-2">

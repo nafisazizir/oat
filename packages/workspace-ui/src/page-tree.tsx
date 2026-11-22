@@ -164,6 +164,7 @@ export function TreeSection({ area }: { area: Area }) {
         className={cn(rootDrop.over && 'bg-brand-100 text-brand-1000')}
       >
         {label}
+        <IconChevronRight className="ms-1 size-3.5 rotate-90" />
       </SidebarGroupLabel>
       {actions.canCreate && (
         <DropdownMenu>

@@ -1,3 +1,4 @@
+export { ShellHeader, ShellSidebarProvider } from './shell-header';
 export { WorkspaceHost, useWorkspaceHost } from './host';
 export * from './routes';
 export * from './tree';

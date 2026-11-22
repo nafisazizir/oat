@@ -328,7 +328,7 @@ export function AssistantChat({
         aria-label="Conversations"
         className="hidden w-60 shrink-0 flex-col gap-2 border-e border-gray-alpha-400 p-3 md:flex"
       >
-        <Button variant="ghost" size="sm" className="justify-start" onClick={newChat}>
+        <Button variant="secondary" size="sm" className="justify-start" onClick={newChat}>
           <IconPlus data-icon="inline-start" />
           New chat
         </Button>
@@ -371,7 +371,15 @@ function ThreadList({
     );
   }
   if (threads.length === 0) {
-    return <p className="px-2.5 py-2 text-copy-13 text-gray-900">No conversations yet.</p>;
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-gray-alpha-400 px-4 py-8 text-center">
+        <IconMessage className="size-6 text-gray-900" />
+        <p className="text-heading-14">No conversations yet.</p>
+        <p className="text-copy-13 text-gray-900">
+          Start a chat to explore your notes. Your conversations stay private.
+        </p>
+      </div>
+    );
   }
   return (
     <ul className="flex min-h-0 flex-col gap-0.5 overflow-y-auto" data-testid="thread-list">
@@ -410,7 +418,7 @@ function ThreadMenu({
   onPick: (id: string) => void;
 }) {
   return (
-    <DropdownMenu>
+    <DropdownMenu size="sm">
       <Tooltip>
         <TooltipTrigger
           render={

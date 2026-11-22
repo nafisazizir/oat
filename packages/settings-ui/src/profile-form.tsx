@@ -46,7 +46,7 @@ function Row({
   return (
     <Field
       data-invalid={invalid || undefined}
-      className="gap-2 sm:grid sm:grid-cols-[11rem_minmax(0,1fr)] sm:items-start sm:gap-6"
+      className="gap-2 border-b border-gray-alpha-400 py-3 last:border-b-0 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] sm:items-start sm:gap-6"
     >
       <FieldContent className="sm:pt-1.5">
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -126,7 +126,7 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
         });
       }}
     >
-      <FieldGroup className="gap-5">
+      <FieldGroup className="gap-0">
         <Row id="profile-name" label="Name" hint="How notes refer to you.">
           <Input
             size="sm"

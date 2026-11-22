@@ -8,7 +8,7 @@ import {
   type AppRoute,
 } from '@oat/workspace-ui';
 import { createContext, useContext, useMemo, type ReactNode, type ComponentProps } from 'react';
-import { SidebarProvider } from '@oat/ui/components/sidebar';
+import { ShellSidebarProvider } from '@oat/workspace-ui';
 import { call } from '../bridge';
 import { api } from '../lib/api';
 import { useDesktopShellData } from './use-desktop-shell-data';
@@ -109,9 +109,9 @@ export function DesktopWorkspaceHost({
         <ShellDataProvider value={shell.data}>
           <DesktopFeatureProvider notes={notes} refreshKey={lastSyncedAt}>
             <TreeActionsProvider>
-              <SidebarProvider className="h-full min-h-0 min-w-0 flex-1" data-testid="shell">
+              <ShellSidebarProvider className="h-full min-h-0 min-w-0 flex-1" data-testid="shell">
                 {children}
-              </SidebarProvider>
+              </ShellSidebarProvider>
             </TreeActionsProvider>
           </DesktopFeatureProvider>
         </ShellDataProvider>

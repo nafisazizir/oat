@@ -105,6 +105,9 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 
 ## M9 — Ship v1
 
+- [x] Human-requested Phase 3a visual hill-climb round 1: shared Graphite sidebar/chrome, assistant, metadata,
+      settings and empty-state polish; rebuilt renderer, inspected light/dark captures, fast CI passes · [task](tasks/phase3a-visual-hillclimb.md)
+
 - [x] Human-requested Graphite theme and shared control refresh for web and desktop · [task](tasks/graphite-ui-foundation.md)
 
 - [ ] Human-requested: API foundation — REST parity, typed client and authenticated desktop text/JSON proxy implemented; independent review/verification pending (D-38) · deps: 5.1, 5.2, 7.4 · [task](tasks/api-foundation.md)

@@ -66,7 +66,11 @@ export function UpcomingList({
   return (
     <section
       aria-labelledby="upcoming-heading"
-      className={compact ? 'flex flex-col gap-2' : 'flex flex-col gap-1'}
+      className={
+        compact
+          ? 'flex flex-col gap-2 rounded-lg border border-gray-alpha-400 bg-background-200 p-3'
+          : 'flex flex-col gap-1'
+      }
       data-testid="upcoming"
     >
       <h2
@@ -118,7 +122,7 @@ export function UpcomingList({
         >
           <p className="text-copy-13 text-gray-900">{cta.text}</p>
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             className="justify-start"
             disabled={connecting}
