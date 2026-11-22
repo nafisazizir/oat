@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { createOatClient, OatApiError, type OatRequest, type OatResponse } from '@oat/client';
+import { bridgeTransport } from '@oat/client/bridge';
 import type {
   ChatProposal,
   ChatSources,
@@ -305,6 +306,50 @@ describe('AssistantChat', () => {
 });
 
 describe('ChatSession transport and navigation', () => {
+  it('reuses a new thread id returned through bridge stream headers on the next turn', async () => {
+    const listeners = new Map<string, (value: unknown) => void>();
+    const invoke = vi.fn(async (channel: string) => {
+      if (channel !== 'api:stream-open') return { ok: true };
+      const reply = stream();
+      reply.start();
+      reply.text('Bridge answer');
+      reply.finish();
+      const response = reply.response();
+      listeners.get('api:stream-chunk')?.({
+        streamId: 'bridge-stream',
+        chunk: await new Response(response.body).text(),
+      });
+      listeners.get('api:stream-end')?.({ streamId: 'bridge-stream' });
+      return {
+        ok: true,
+        value: { streamId: 'bridge-stream', status: 200, headers: response.headers },
+      };
+    });
+    const transport = bridgeTransport({
+      invoke,
+      subscribe(channel: string, listener: (value: unknown) => void) {
+        listeners.set(channel, listener);
+        return () => listeners.delete(channel);
+      },
+    } as Parameters<typeof bridgeTransport>[0]);
+    const env = setup(transport);
+    render(<ChatSession {...sessionProps} />, env);
+    await send();
+    expect(await screen.findByText('Bridge answer')).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByTestId('chat-session').getAttribute('data-status')).toBe('ready'),
+    );
+    await send('Follow up through the bridge');
+    expect(invoke).toHaveBeenLastCalledWith(
+      'api:stream-open',
+      expect.objectContaining({ body: expect.objectContaining({ threadId: 'th1' }) }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('chat-session').getAttribute('data-status')).toBe('ready'),
+    );
+    expect(invoke.mock.calls.filter(([channel]) => channel === 'api:stream-open')).toHaveLength(2);
+  });
+
   it('streams a real AI SDK SSE reply and carries the returned thread id to follow-ups', async () => {
     let current = stream();
     const env = setup(async (request) => current.response(request.signal));

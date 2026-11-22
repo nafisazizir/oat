@@ -9,7 +9,7 @@ Extract shared search, Tasks and assistant interfaces into @oat/feature-ui for w
 SPEC §4 search; DECISIONS D-37/D-38; packages/client/README.md; Ziiz consumer skill and Claude search-dialog reference.
 
 ## Scope
-Steps 1–5: shared search, Tasks and assistant, web integration, desktop wiring and runtime/accessibility/screenshot verification. Local conventional implementation/verification commits and integration merges permitted after checks. No pushes.
+Steps 1–6: shared search, Tasks and assistant, web integration, desktop wiring, visual hill-climb and runtime/accessibility/screenshot verification. PR #26 review follow-ups and pushes to its feature branch are authorized.
 
 ## Design notes
 - FeatureUiProvider owns a typed client/transport, navigation and optional real hrefs, notifications,
@@ -437,3 +437,17 @@ The desktop fixture remains /home/ubuntu/feature-ui-scratch/desktop.mjs. Added f
 captures to verify the second shared header. Logs: /home/ubuntu/feature-ui-step6-{tests,e2e,ci,build,desktop-screens}.log.
 Visuals checked in both themes; build still has the non-blocking chunk-size advisory. Native
 Electron/OS bridge smoke and independent review remain pending. Local commit only; no push.
+
+## PR #26 review follow-ups
+
+1. Desktop stream headers: added x-oat-thread-id to the explicit safe response allowlist. Chat sets
+   this header in apps/web/src/server/chat.ts and shared ChatSession reads it before the first token
+   to reuse the new thread on follow-ups. Enhancement streams also set connection/x-accel-buffering,
+   which are proxy hop/buffering controls, not renderer inputs; no other client-required custom
+   response header was found. Updated the proxy contract and client README. Proxy regression asserts
+   the returned thread header while secret headers remain excluded; a shared UI regression uses the
+   real bridgeTransport with stream-open/chunk/end events and no message-metadata thread fallback,
+   then asserts the second bridge request sends the first thread id.
+   Checks: feature-ui 9 files / 101 passed; desktop 60 files / 510 passed; feature-ui typecheck passed.
+   Logs: /home/ubuntu/pr26-headers-{feature-tests,desktop-tests,typecheck}.log.
+2. Paginated search dedupe: in progress. After both review commits, push once and resume the PR CI loop.
