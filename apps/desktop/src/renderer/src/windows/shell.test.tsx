@@ -146,6 +146,7 @@ beforeEach(() => {
   model.apiFailure = false;
   model.showFolder = false;
   model.folderName = 'Projects';
+  model.page = { ...model.page, title: 'Project page', version: 1, deletedAt: null };
   model.sync.lastSyncedAt = null;
   model.notes = [];
   model.recording.status = 'idle';
@@ -438,6 +439,38 @@ describe('desktop shell', () => {
     expect(await screen.findByRole('heading', { name: 'Page unavailable' })).toBeTruthy();
     expect(screen.getByText('Page not found')).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'You’re offline' })).toBeNull();
+  });
+
+  it('retains a loaded page and its unsaved title after a network save failure', async () => {
+    const invoke = model.invoke.getMockImplementation()!;
+    model.invoke.mockImplementation((channel: string, request?: OatRequest) => {
+      if (
+        channel === 'api:request' &&
+        request?.path === '/api/documents/page' &&
+        request.method === 'PATCH'
+      ) {
+        if (model.offline) return Promise.reject(new Error('Offline'));
+        model.page = {
+          ...model.page,
+          ...(request.body as object),
+          version: model.page.version + 1,
+        };
+      }
+      return invoke(channel, request);
+    });
+    render(<MainWindow />);
+    await userEvent.click(await screen.findByRole('link', { name: 'Project page' }));
+    const title = await screen.findByTestId('document-title');
+    model.offline = true;
+    fireEvent.change(title, { target: { value: 'Unsaved offline draft' } });
+    await screen.findByText(/Keep this page open/);
+    expect(screen.getByTestId('document-title')).toBe(title);
+    expect((title as HTMLInputElement).value).toBe('Unsaved offline draft');
+    expect(screen.queryByRole('heading', { name: 'You’re offline' })).toBeNull();
+    model.offline = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(model.page.title).toBe('Unsaved offline draft'));
+    expect(screen.getByTestId('document-title')).toBe(title);
   });
 
   it('opens an empty shared folder view and follows shell changes after sync', async () => {
