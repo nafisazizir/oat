@@ -15,7 +15,7 @@ import { useState, useSyncExternalStore } from 'react';
 
 import { browserRecording, supportsRecording } from '@/lib/browser-recording';
 import { useHydrated } from '@/lib/use-hydrated';
-import { useShellData } from '@/components/app-shell/shell-data';
+import { useShellData } from '@oat/workspace-ui/shell-data';
 
 export function useBrowserRecording() {
   return useSyncExternalStore(

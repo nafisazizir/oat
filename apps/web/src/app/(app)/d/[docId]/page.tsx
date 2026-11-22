@@ -1,16 +1,4 @@
-import { visibilityBadge } from '@oat/core/sections';
-import { Badge } from '@oat/ui/components/badge';
-import { Item, ItemContent, ItemMedia, ItemTitle } from '@oat/ui/components/item';
-import {
-  IconFile,
-  IconFolder,
-  IconFolderOpen,
-  IconLock,
-  IconNotes,
-  IconUsers,
-} from '@tabler/icons-react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
@@ -18,11 +6,9 @@ import { BlockFocus } from '@/components/document/block-focus';
 import { DocumentAssistant } from '@/components/assistant/document-assistant';
 import { MeetingEventLine } from '@/components/calendar/meeting-event-line';
 import { ConflictBannerSlot } from '@/components/document/conflict-banner-slot';
-import { FolderActions } from '@/components/document/folder-actions';
+import { FolderView } from '@oat/workspace-ui/folder-view';
 import { DocumentEditor } from '@/components/document/document-editor';
 import { MeetingNote } from '@/components/meeting/meeting-note';
-import { EmptyState, PageContainer, PageHeader } from '@/components/page';
-import { formatDay } from '@/lib/format';
 import { parseDeepLink, wantsTranscript } from '@/lib/transcript';
 import { titleOf } from '@/lib/tree';
 import {
@@ -124,68 +110,5 @@ export default async function DocumentPage({ params, searchParams }: Props) {
     );
   }
 
-  const { folder, children } = data;
-  const isPrivate = folder.visibility === 'private';
-  return (
-    <PageContainer>
-      <PageHeader
-        title={titleOf({ title: folder.name, kind: 'folder' })}
-        eyebrow={
-          <>
-            <Badge variant="secondary">
-              {isPrivate ? (
-                <IconLock data-icon="inline-start" />
-              ) : (
-                <IconUsers data-icon="inline-start" />
-              )}
-              {isPrivate ? 'Private folder' : visibilityBadge('workspace', workspace.name)}
-            </Badge>
-            <span>Edited {formatDay(folder.updatedAt)}</span>
-          </>
-        }
-      >
-        {folder.access.edit && <FolderActions folderId={folder.id} />}
-      </PageHeader>
-
-      {children.length === 0 ? (
-        <EmptyState
-          icon={IconFolderOpen}
-          title="This folder is empty"
-          description="Add a page here, or drag pages onto the folder in the sidebar."
-        />
-      ) : (
-        <ul
-          className="flex flex-col divide-y divide-gray-alpha-400 overflow-hidden rounded-lg border border-gray-alpha-400"
-          data-testid="folder-contents"
-        >
-          {children.map((child) => {
-            const Icon =
-              child.kind === 'folder'
-                ? IconFolder
-                : child.kind === 'meeting'
-                  ? IconNotes
-                  : IconFile;
-            return (
-              <li key={child.id}>
-                <Item size="sm" className="rounded-none" render={<Link href={`/d/${child.id}`} />}>
-                  <ItemMedia variant="icon">
-                    <Icon className="text-gray-900" />
-                  </ItemMedia>
-                  <ItemContent className="min-w-0">
-                    <ItemTitle className="block truncate">{titleOf(child)}</ItemTitle>
-                  </ItemContent>
-                  {child.visibility === 'private' && !isPrivate && (
-                    <IconLock className="size-3.5 text-gray-900" aria-label="Only you" />
-                  )}
-                  <span className="shrink-0 text-label-13 text-gray-900 tabular-nums">
-                    {formatDay(child.updatedAt)}
-                  </span>
-                </Item>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </PageContainer>
-  );
+  return <FolderView folder={data.folder} children={data.children} workspace={workspace} />;
 }

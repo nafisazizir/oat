@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 
 import { authClient } from '@/lib/auth-client';
 import { browserRecording } from '@/lib/browser-recording';
-import { useShellData } from './shell-data';
+import { useShellData } from '@oat/workspace-ui/shell-data';
 
 export function AccountMenuItems() {
   const { user } = useShellData();

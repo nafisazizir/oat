@@ -38,11 +38,17 @@ import { useRecordingAction } from '../recording/recording-controls.tsx';
 export function DesktopSearch({
   refreshKey,
   onOpen,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   refreshKey: number | null;
   onOpen: (hit: SearchHitSnapshot) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = controlledOpen ?? localOpen;
+  const setOpen = onOpenChange ?? setLocalOpen;
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (
@@ -55,22 +61,24 @@ export function DesktopSearch({
       )
         return;
       event.preventDefault();
-      setOpen((current) => !current);
+      setOpen(!open);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [open, setOpen]);
   return (
     <>
-      <SidebarMenuItem>
-        <SidebarMenuButton tooltip="Search · ⌘K" onClick={() => setOpen(true)}>
-          <IconSearch aria-hidden />
-          <span>Search</span>
-        </SidebarMenuButton>
-        <SidebarMenuBadge>
-          <Kbd>⌘K</Kbd>
-        </SidebarMenuBadge>
-      </SidebarMenuItem>
+      {controlledOpen === undefined && (
+        <SidebarMenuItem>
+          <SidebarMenuButton tooltip="Search · ⌘K" onClick={() => setOpen(true)}>
+            <IconSearch aria-hidden />
+            <span>Search</span>
+          </SidebarMenuButton>
+          <SidebarMenuBadge>
+            <Kbd>⌘K</Kbd>
+          </SidebarMenuBadge>
+        </SidebarMenuItem>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>

@@ -1,0 +1,94 @@
+'use client';
+
+import { Button } from '@oat/ui/components/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@oat/ui/components/dialog';
+import { Field, FieldError, FieldLabel } from '@oat/ui/components/field';
+import { Input } from '@oat/ui/components/input';
+import { Spinner } from '@oat/ui/components/spinner';
+import { useState, useTransition } from 'react';
+import { toast } from 'sonner';
+
+import { useWorkspaceHost } from './host';
+
+/** Minimal "new workspace" dialog: a name, then switch to it. */
+export function CreateWorkspaceDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const host = useWorkspaceHost();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setError(null);
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent data-testid="create-workspace-dialog" className="sm:max-w-[22.5rem]">
+        <form
+          className="contents"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const name = String(new FormData(event.currentTarget).get('name') ?? '');
+            startTransition(async () => {
+              try {
+                await host.client.workspaces.create({ name });
+              } catch (error) {
+                setError(error instanceof Error ? error.message : 'Couldn’t create the workspace.');
+                return;
+              }
+              host.refresh();
+              setError(null);
+              onOpenChange(false);
+              toast.success(`Created ${name.trim()}`);
+            });
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Create a workspace</DialogTitle>
+            <DialogDescription>
+              A separate space for notes, on your own or with others.
+            </DialogDescription>
+          </DialogHeader>
+          <Field data-invalid={error ? true : undefined}>
+            <FieldLabel htmlFor="workspace-name">Name</FieldLabel>
+            <Input
+              id="workspace-name"
+              name="name"
+              placeholder="Acme Design"
+              maxLength={60}
+              required
+              autoFocus
+              disabled={pending}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? 'workspace-name-error' : undefined}
+            />
+            {error && <FieldError id="workspace-name-error">{error}</FieldError>}
+          </Field>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={pending}>
+              {pending && <Spinner data-icon="inline-start" />}
+              Create workspace
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

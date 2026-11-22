@@ -13,7 +13,9 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuBadge,
 } from '@oat/ui/components/sidebar';
+import { Kbd } from '@oat/ui/components/kbd';
 import { Button } from '@oat/ui/components/button';
 import { Spinner } from '@oat/ui/components/spinner';
 import { IconEdit, IconNotes } from '@tabler/icons-react';
@@ -25,10 +27,12 @@ export function NewMeetingButton({
   onClick,
   disabled,
   pending,
+  sidebar = false,
 }: {
   onClick: () => void;
   disabled: boolean;
   pending: boolean;
+  sidebar?: boolean;
 }) {
   useEffect(() => {
     if (disabled || pending) return;
@@ -40,6 +44,28 @@ export function NewMeetingButton({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [disabled, pending, onClick]);
+
+  if (sidebar) {
+    return (
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          className="app-no-drag text-brand-900 hover:text-brand-1000"
+          tooltip="New meeting note · ⌘N"
+          render={<button disabled={disabled || pending} />}
+          aria-label="New meeting note"
+          disabled={disabled || pending}
+          onClick={onClick}
+          data-testid="new-meeting"
+        >
+          {pending ? <Spinner data-icon="inline-start" /> : <IconEdit />}
+          <span>New meeting note</span>
+        </SidebarMenuButton>
+        <SidebarMenuBadge>
+          <Kbd>⌘N</Kbd>
+        </SidebarMenuBadge>
+      </SidebarMenuItem>
+    );
+  }
 
   return (
     <Button

@@ -33,6 +33,7 @@ export function LeaveWorkspaceDialog({
   onOpenChange,
   onLeave,
   download,
+  downloadLocation = 'file',
 }: {
   workspace: { id: string; name: string };
   open: boolean;
@@ -40,6 +41,7 @@ export function LeaveWorkspaceDialog({
   onOpenChange: (open: boolean) => void;
   onLeave: () => Promise<{ ok: true } | { ok: false; error: string }>;
   download: () => Promise<number | null>;
+  downloadLocation?: 'downloads' | 'file';
 }) {
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<Exporting>({ state: 'idle' });
@@ -60,7 +62,7 @@ export function LeaveWorkspaceDialog({
         message:
           count === 0
             ? 'You have no notes of your own here, so the file is empty.'
-            : `Saved ${count === 1 ? '1 note' : `${count} notes`} to a ZIP file. Check the file before you leave.`,
+            : `Saved ${count === 1 ? '1 note' : `${count} notes`} to ${downloadLocation === 'downloads' ? 'your downloads' : 'a ZIP file'}. Check the file before you leave.`,
       });
     } catch (error) {
       setExporting({
