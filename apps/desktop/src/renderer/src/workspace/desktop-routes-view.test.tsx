@@ -9,7 +9,7 @@ vi.mock('../lib/api', () => ({ api: { documents: { get: model.get } }, apiTransp
 vi.mock('@oat/workspace-ui', async (original) => ({
   ...(await original<typeof WorkspaceUi>()),
   useWorkspaceHost: () => ({ online: true }),
-  useShellData: () => ({ documents: [], workspace: { id: 'w' }, workspaces: [] }),
+  useShellData: () => ({ documents: [], trash: [], workspace: { id: 'w' }, workspaces: [] }),
   PageEditor: () => (
     <div className="oat-editor">
       <p data-id="first">First block</p>
