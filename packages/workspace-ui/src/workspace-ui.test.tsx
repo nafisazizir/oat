@@ -140,6 +140,20 @@ describe('shared workspace shell', () => {
     expect(screen.getByTestId('export-error').textContent).toContain('Couldn’t save the ZIP.');
     expect(leave).not.toHaveBeenCalled();
   });
+  it('keeps the web download confirmation while desktop uses a ZIP file', async () => {
+    const { user } = setup(
+      { ...data, workspaces: [workspace, { ...workspace, id: 'other' }] },
+      false,
+      'web',
+      { exportNotes: vi.fn().mockResolvedValue(3) },
+    );
+    await user.click(screen.getByTestId('workspace-switcher'));
+    await user.click(await screen.findByRole('menuitem', { name: 'Leave Workspace' }));
+    await user.click(screen.getByTestId('export-notes'));
+    expect(screen.getByRole('status').textContent).toBe(
+      'Saved 3 notes to your downloads. Check the file before you leave.',
+    );
+  });
   it('blocks leaving while recording without blocking export', async () => {
     const { user } = setup(
       { ...data, workspaces: [workspace, { ...workspace, id: 'other' }] },

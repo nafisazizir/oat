@@ -206,6 +206,14 @@ describe('desktop shell', () => {
   it('keeps new meeting recording behavior for click and shortcut', async () => {
     render(<MainWindow />);
     const button = screen.getByTestId('new-meeting');
+    const search = screen.getByRole('button', { name: 'Search' });
+    const menu = button.closest('[data-sidebar="menu"]');
+    expect(menu).toBe(search.closest('[data-sidebar="menu"]'));
+    expect(menu?.querySelector('button')).toBe(button);
+    expect(button.getAttribute('data-sidebar')).toBe('menu-button');
+    expect(button.className).toContain('text-brand-900');
+    expect(button.className).toContain('hover:text-brand-1000');
+    expect(button.parentElement?.querySelector('kbd')?.textContent).toBe('⌘N');
     expect(button.className).not.toContain('rounded-full');
     expect(button.closest('[data-sidebar="header"]')).not.toBeNull();
     expect(document.querySelector('[data-sidebar="header"] [data-testid="new-meeting"]')).toBe(
@@ -376,6 +384,7 @@ describe('desktop shell', () => {
     );
     await userEvent.click(screen.getByTestId('new-meeting'));
     expect(screen.getByTestId('new-meeting').hasAttribute('disabled')).toBe(true);
+    await userEvent.click(screen.getByTestId('new-meeting'));
     fireEvent.keyDown(window, { key: 'n', metaKey: true });
     expect(
       model.invoke.mock.calls.filter(([channel]) => channel === 'recording:start'),
@@ -520,10 +529,17 @@ describe('desktop shell', () => {
     model.offline = true;
     await userEvent.click(page);
     expect(await screen.findByRole('heading', { name: 'You’re offline' })).toBeTruthy();
+    const status = screen.getByTestId('sync-status');
+    expect(status.getAttribute('data-state')).toBe('offline');
+    expect(status.getAttribute('aria-label')).toContain('Offline');
+    expect(status.querySelector('svg')?.getAttribute('class')).toContain('tabler-icon-cloud-off');
+    expect(status.querySelector('svg')?.getAttribute('class')).toContain('text-amber-900');
+    expect(screen.queryByRole('button', { name: 'All changes synced' })).toBeNull();
     expect(screen.getByRole('link', { name: 'Local meeting' })).toBeTruthy();
     model.offline = false;
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('document-title')).toBeTruthy();
+    expect(screen.getByTestId('sync-status').getAttribute('data-state')).toBe('idle');
   });
 
   it('shows offline trash and share without issuing server-only calls', async () => {

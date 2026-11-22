@@ -224,8 +224,8 @@ export function AppSidebar({
     >
       {top}
       <SidebarHeader>
-        {primaryAction}
         <SidebarMenu className="gap-0.5">
+          {primaryAction}
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Search · ⌘K"

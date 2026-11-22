@@ -32,15 +32,14 @@ export function DesktopSidebar({
       <AppSidebar
         top={<div className="app-drag h-12 shrink-0" />}
         primaryAction={
-          <div className="app-no-drag group-data-[collapsible=icon]:[&_button]:size-8 group-data-[collapsible=icon]:[&_button]:p-0 group-data-[collapsible=icon]:[&_button>span]:hidden">
-            <NewMeetingButton
-              {...newMeeting}
-              disabled={
-                newMeeting.disabled ||
-                Boolean(shell.workspace.id && workspaces.active?.id !== shell.workspace.id)
-              }
-            />
-          </div>
+          <NewMeetingButton
+            {...newMeeting}
+            sidebar
+            disabled={
+              newMeeting.disabled ||
+              Boolean(shell.workspace.id && workspaces.active?.id !== shell.workspace.id)
+            }
+          />
         }
         onSearch={() => setSearchOpen(true)}
         beforeTree={

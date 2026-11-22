@@ -539,3 +539,117 @@ Settings UI:  Test Files  2 passed (2)    Tests  12 passed (12)
 - Post-merge UI is visually unverified; did not rerun web e2e/axe or native macOS Electron/file-save
   interactions in this step. Step 5 screenshots are pre-merge evidence, not proof of the new settings
   surfaces. Merge committed locally; nothing pushed.
+
+### Step 7 — screenshot-review fixes, post-merge evidence and push
+
+- `NewMeetingButton` gains a sidebar presentation using the regular SidebarMenuItem/Button/Badge,
+  IconEdit and `⌘N` Kbd; brand classes are `text-brand-900 hover:text-brand-1000`. The default button
+  presentation remains for other existing uses. The shared sidebar now places its primary-action slot
+  first inside Search's menu. Desktop no longer wraps a secondary button above that menu. Same testid,
+  aria-label, pending spinner, native disabled behavior and Command-N guard remain.
+- `SyncLine` reads the workspace host's online state. When false, an effective offline snapshot selects
+  its existing amber cloud-off icon and Offline tooltip, retaining pending counts but suppressing stale
+  success/error tooltip text. The explicit footer Offline label remains; reconnect uses main's actual
+  sync snapshot again. This supersedes Step 5's green-last-success-glyph observation.
+- Expanded renderer assertions for row placement/brand/Kbd, pending click/shortcut suppression,
+  offline glyph/tone/label and reconnect. Initial fast CI caught tooltip composition consuming the native
+  disabled attribute. Fixed by rendering an explicitly disabled native button through SidebarMenuButton;
+  did not weaken the existing disabled assertion.
+- Rebuilt and re-captured **all 14 desktop screenshots** at **1280×800**, using the post-merge built
+  renderer and the same signed-in/local-note/REST fixtures. Added real shared Settings navigation through
+  the sidebar's Settings link, asserting Appearance and Settings sections. The capture helper also asserts
+  New meeting note / Search / Home have equal computed height, padding and radius, and checks the offline
+  cloud-off/amber classes and absence of the last-success button.
+- Latest screenshots under `/home/ubuntu/evidence/c2/` (both themes inspected):
+  - `desktop-tree-light.png`, `desktop-tree-dark.png`
+  - `desktop-page-light.png`, `desktop-page-dark.png`
+  - `desktop-trash-light.png`, `desktop-trash-dark.png`
+  - `desktop-share-light.png`, `desktop-share-dark.png`
+  - `desktop-templates-light.png`, `desktop-templates-dark.png`
+  - `desktop-offline-light.png`, `desktop-offline-dark.png`
+  - `desktop-settings-light.png`, `desktop-settings-dark.png`
+- Visual review: new-meeting action is a plain nav row aligned with Search/Home; offline footer now has
+  an amber cloud-off beside Offline, never a green cloud-check; shared settings account/workspace/device
+  navigation and content fit without overlap. Template content intentionally scrolls below the viewport.
+  No remaining requested layout issue found. Latest capture log `desktop-capture-step7-reviewed.log` and
+  `desktop-console.json`, both in the evidence directory:
+
+```json
+{ "errors": [] }
+```
+
+- Compose services were already healthy. Web command (E2E_TIMEOUT_SCALE=2 is the documented
+  concurrent-run timeout setting, no test/config edits):
+
+```sh
+DATABASE_URL=postgres://oat:oat@localhost:54329/oat E2E_PORT=3126 E2E_WORKERS=2 E2E_TIMEOUT_SCALE=2 \
+  pnpm --filter @oat/web exec playwright test \
+  e2e/documents.spec.ts e2e/private-shared.spec.ts e2e/sharing.spec.ts \
+  e2e/templates.spec.ts e2e/workspaces.spec.ts e2e/a11y.spec.ts e2e/settings.spec.ts
+```
+
+```text
+  2 failed
+  1 skipped
+  24 passed (3.8m)
+```
+
+- Both failures were light/dark leave-dialog export status assertions: expected `Saved 3 notes to your
+  downloads. Check the file before you leave.`, received `Saved 3 notes to a ZIP file. Check the file
+  before you leave.` The download/name assertions succeeded first; this was confirmation wording, not
+  failed export. Step 6's adapter reached settings-ui's generic native-file confirmation on web. Added an
+  optional download-location prop to that dialog and set it from WorkspaceHost.platform. Web retains its
+  previous downloads confirmation; native file saving retains accurate ZIP-file wording. New web unit
+  coverage complements existing native success/empty/cancel/error tests. E2e expectations are unchanged.
+- Re-ran only the failed light/dark leave cases (unchanged passes retained): same env prefix, command
+  `pnpm --filter @oat/web exec playwright test e2e/private-shared.spec.ts --grep 'leaving \('`:
+
+```text
+  3 passed (1.1m)
+```
+
+- Rerun includes auth setup plus both corrected leave cases. Across the full selection and focused rerun,
+  **all 26 distinct non-skipped cases pass**, with one existing screenshot-only dark-editor skip. This is
+  not a claim of a second full-suite run. Route/sidebar/leave/settings axe checks passed light/dark.
+  Known share-404 theme-script and destination-stream Next dev diagnostics remain in server output,
+  not desktop capture errors. `settings.spec.ts` was the settings spec touched by the merged base.
+- Initial `pnpm run ci --fast`:
+
+```text
+step        status     time  note
+format      pass      11.1s
+actionlint  pass       0.3s
+typecheck   pass       9.2s
+lint        pass       5.6s
+test        FAIL      15.4s  pnpm run test --concurrency=4 exited with 1
+total                 41.5s
+```
+
+- After the pending fix, affected gates passed (`ci-final.log`: `ci: ok`). After the later web wording
+  fix, format/typecheck/lint passed again (11.3s/13.7s/4.4s). One unchanged main-process fixture test
+  (`transcript-backfill.test.ts:187`) timed out at its existing 5000ms limit during concurrent e2e. Its
+  imports are main/audio/STT/local-store only, no changed renderer/UI modules; same test passed earlier
+  in this step (1880ms), and no main-process/test changes were made. Did not change timeouts or assert a
+  proven resource-contention cause. Re-ran only the failed test gate after e2e completed:
+
+```text
+━━ ci summary (--only test)
+step  status     time  note
+test  pass      11.8s
+total            11.8s
+
+ci: ok
+```
+
+- All fast-gate checks now pass across final affected runs; actionlint inputs are unchanged since its
+  passing initial run. Desktop: 61 test files / 527 tests. Workspace-ui: 6 files / 68 tests. No test or CI
+  configuration changes. Final desktop build: `✓ built in 728ms`; existing chunk-size warning only.
+- Logs under `/home/ubuntu/`: `oat-workspace-step7-ci.log` (initial fast run),
+  `oat-workspace-step7-ci-final.log` (pending fix), `oat-workspace-step7-ci-reviewed.log` (web wording fix,
+  transient main test timeout), `oat-workspace-step7-ci-test-retry.log` (final test gate),
+  `oat-workspace-step7-build-reviewed.log`, `oat-workspace-step7-web-e2e.log` and
+  `oat-workspace-step7-web-e2e-leave.log`.
+- User authorized commit and `git push -u origin HEAD` on
+  `devin/1795304445-desktop-workspace-parity`; pushed SHA/result supplied in the handoff. No PR creation,
+  rebase or forced update. Native Electron/macOS recording and real file-save interactions remain
+  unverified; the requested desktop evidence is Chromium with a stubbed bridge.

@@ -30,7 +30,7 @@ import {
   IconRefresh,
 } from '@tabler/icons-react';
 import { useCallback, useEffect, useState } from 'react';
-import type { AppRoute } from '@oat/workspace-ui';
+import { useWorkspaceHost, type AppRoute } from '@oat/workspace-ui';
 import { DesktopWorkspaceHost } from '../workspace/desktop-host';
 import { DesktopSidebar } from '../workspace/desktop-sidebar';
 import { DesktopRoutesView } from '../workspace/desktop-routes-view';
@@ -524,7 +524,10 @@ const SYNC_ICONS: Record<SyncTone, { icon: typeof IconCloudCheck; className: str
 };
 
 /** Sync status (2.6): caught up, syncing, waiting, or offline with how much is kept on this Mac. */
-function SyncLine({ status }: { status: SyncStatusSnapshot | undefined }) {
+function SyncLine({ status: snapshot }: { status: SyncStatusSnapshot | undefined }) {
+  const { online } = useWorkspaceHost();
+  const status =
+    snapshot && !online ? { ...snapshot, state: 'offline' as const, error: null } : snapshot;
   const label = status && syncLabel(status);
   if (!status || !label) return <div className="mt-auto" />;
   const { icon: Icon, className } = SYNC_ICONS[label.tone];

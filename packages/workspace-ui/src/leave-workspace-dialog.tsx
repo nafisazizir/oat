@@ -53,6 +53,7 @@ export function LeaveWorkspaceDialog({
       onOpenChange={onOpenChange}
       blockedReason={host.workspaceExitBlockedReason}
       download={download}
+      downloadLocation={host.platform === 'web' ? 'downloads' : 'file'}
       onLeave={async () => {
         try {
           await host.client.workspaces.leave(workspace.id);
