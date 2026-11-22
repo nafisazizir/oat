@@ -155,7 +155,7 @@ export function NotionExportButton({
       )}
       <Button
         size="sm"
-        variant="outline"
+        variant="secondary"
         onClick={() => void send()}
         disabled={sending}
         data-testid="notion-send"

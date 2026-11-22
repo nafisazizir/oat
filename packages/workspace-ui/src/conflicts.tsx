@@ -35,13 +35,13 @@ export function ConflictNotice({
   onCompare?(): void;
 }) {
   return (
-    <Alert role="status" className="border-amber-400 bg-amber-100">
+    <Alert role="status" className="border-gray-alpha-400 bg-background-200 [&>svg]:text-amber-900">
       <IconCopy className="text-amber-900" aria-hidden />
       <AlertTitle className="text-gray-1000">{title}</AlertTitle>
       <AlertDescription className="text-gray-900">{children}</AlertDescription>
       {onCompare && (
         <AlertAction>
-          <Button size="sm" variant="outline" onClick={onCompare}>
+          <Button size="sm" variant="secondary" onClick={onCompare}>
             Compare
           </Button>
         </AlertAction>
@@ -85,7 +85,7 @@ export function ConflictCompareDialog({
           <div role="alert" className="flex flex-col items-start gap-2 text-copy-14 text-red-900">
             <p>{loadError}</p>
             {onRetry && (
-              <Button variant="outline" onClick={onRetry}>
+              <Button variant="secondary" onClick={onRetry}>
                 Try again
               </Button>
             )}
@@ -117,7 +117,7 @@ export function ConflictCompareDialog({
           {error ?? data?.permissionMessage}
         </p>
         {error && onRetry && !loadError && (
-          <Button variant="outline" onClick={onRetry}>
+          <Button variant="secondary" onClick={onRetry}>
             Compare again
           </Button>
         )}

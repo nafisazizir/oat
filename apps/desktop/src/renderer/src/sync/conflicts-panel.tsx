@@ -50,7 +50,7 @@ export function ConflictsPanel({ refreshKey }: { refreshKey: number | null }) {
       {!loading && result?.error && (
         <div role="alert" className="px-2.5 text-copy-14 text-red-900">
           <p>{result.error}</p>
-          <Button size="sm" variant="outline" onClick={() => setVersion((v) => v + 1)}>
+          <Button size="sm" variant="secondary" onClick={() => setVersion((v) => v + 1)}>
             Try again
           </Button>
         </div>

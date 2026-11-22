@@ -234,7 +234,7 @@ export function MeetingView({
                         ? 'Please try again. Your local notes are unchanged.'
                         : 'It may have been moved or deleted, or you might not have access to it.'}
                   </EmptyDescription>
-                  <Button variant="outline" onClick={retry}>
+                  <Button variant="secondary" onClick={retry}>
                     Try again
                   </Button>
                 </EmptyHeader>

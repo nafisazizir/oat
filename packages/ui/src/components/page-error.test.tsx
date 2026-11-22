@@ -15,6 +15,10 @@ it('shares the error message and only invokes the supplied host recovery callbac
   );
   expect(screen.getByText('This page couldn’t load. Try again, or head back home.')).toBeTruthy();
   expect(screen.getByText('Reference reference')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Try again' }).className).toContain('bg-gray-100');
+  expect(screen.getByRole('button', { name: 'Reload' }).className).not.toContain(
+    'bg-background-100',
+  );
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
   fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
   expect(retry).toHaveBeenCalledOnce();

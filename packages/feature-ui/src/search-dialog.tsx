@@ -184,7 +184,6 @@ export function SearchDialog({
       onOpenChange={onOpenChange}
       title="Command palette"
       description="Search notes and transcripts, jump to a page or run a command"
-      className="sm:max-w-xl"
     >
       <Command
         size="sm"

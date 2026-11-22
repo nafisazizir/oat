@@ -255,6 +255,7 @@ export function AssistantChat({
           </p>
         )}
         <ChatSession
+          layout={layout}
           key={`${active.scope.kind}:${active.key}`}
           scope={active.scope}
           threadId={active.threadId}

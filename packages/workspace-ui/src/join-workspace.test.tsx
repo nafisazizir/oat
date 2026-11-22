@@ -55,6 +55,19 @@ function setup({ member = false, initial = true, data = choices } = {}) {
 }
 
 describe('join choices', () => {
+  it('keeps a single primary invitation and quiet supporting actions', () => {
+    setup();
+    expect(
+      screen.getByRole('button', { name: 'Accept the invitation to Invited' }).className,
+    ).toContain('bg-gray-1000');
+    for (const name of [
+      'Decline the invitation to Invited',
+      'Join Open',
+      'Request access to Ask',
+    ]) {
+      expect(screen.getByRole('button', { name }).className).toContain('bg-gray-100 ');
+    }
+  });
   it('maps roles, member counts, pending and invalid icons without platform dependencies', () => {
     const rows = joinChoices(choices);
     expect(rows[0]?.detail).toBe('Owner invited you as an admin');

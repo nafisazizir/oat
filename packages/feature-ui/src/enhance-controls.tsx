@@ -39,7 +39,13 @@ export function EnhanceButton({
 
   return (
     <ButtonGroup>
-      <Button size="sm" data-testid="enhance-button" disabled={busy} onClick={() => start()}>
+      <Button
+        size="sm"
+        variant="secondary"
+        data-testid="enhance-button"
+        disabled={busy}
+        onClick={() => start()}
+      >
         {busy ? (
           <Spinner data-icon="inline-start" />
         ) : regenerate ? (
@@ -49,7 +55,7 @@ export function EnhanceButton({
         )}
         {busy ? 'Enhancing…' : regenerate ? 'Regenerate' : 'Enhance'}
       </Button>
-      <ButtonGroupSeparator className="bg-gray-700" />
+      <ButtonGroupSeparator />
       <TemplatePicker
         workspaceId={workspaceId}
         label={regenerate ? 'Regenerate with template' : 'Enhance with template'}
@@ -57,6 +63,7 @@ export function EnhanceButton({
         trigger={
           <Button
             size="icon-sm"
+            variant="secondary"
             disabled={busy}
             aria-label={regenerate ? 'Regenerate with a template' : 'Enhance with a template'}
             data-testid="enhance-template-menu"
@@ -80,7 +87,7 @@ export function EnhanceError({ enhancement }: { enhancement: Enhancement }) {
       <IconAlertCircle />
       <AlertTitle className="text-copy-14">{state.message}</AlertTitle>
       <AlertAction className="flex gap-2">
-        <Button size="sm" variant="outline" onClick={state.lost ? reattach : retry}>
+        <Button size="sm" variant="secondary" onClick={state.lost ? reattach : retry}>
           {state.lost ? 'Reconnect' : 'Try again'}
         </Button>
         <Button size="sm" variant="ghost" onClick={dismiss}>
