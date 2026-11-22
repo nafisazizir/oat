@@ -18,4 +18,6 @@ export {
 export * from './chat-client';
 export * from './chat-markdown';
 export * from './transcript';
+export * from './document-assistant';
+export * from './open-document';
 export type * from '@oat/services/dto/chat';

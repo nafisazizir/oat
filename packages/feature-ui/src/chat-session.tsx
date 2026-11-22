@@ -25,6 +25,7 @@ import type { ChatScope, ChatSources, ChatUIMessage } from '@oat/services/dto/ch
 
 import { AssistantMessage, UserMessage } from './chat-message';
 import { ChatSessionContext, type ChatSessionApi } from './session-context';
+import { useAssistantIntegration } from './assistant-integration';
 
 /** Mirrors the server's per-message limit (`CHAT_LIMITS.userChars`). */
 const MAX_QUESTION_CHARS = 8000;
@@ -48,7 +49,12 @@ type ThreadHolder = { current: string | null };
  * The AI SDK transport for one session. Only the new question goes out (the server loads the history from
  * the thread, D-27); the thread id comes back as a header before any token, so later turns continue it.
  */
-function createTransport(scope: ChatScope, thread: ThreadHolder, transport: OatTransport) {
+function createTransport(
+  scope: ChatScope,
+  thread: ThreadHolder,
+  transport: OatTransport,
+  beforeSend: () => Promise<void>,
+) {
   const fetch = toFetch(transport);
   return new DefaultChatTransport<ChatUIMessage>({
     api: '/api/chat',
@@ -61,6 +67,9 @@ function createTransport(scope: ChatScope, thread: ThreadHolder, transport: OatT
       },
     }),
     fetch: async (input, init) => {
+      init?.signal?.throwIfAborted();
+      await beforeSend();
+      init?.signal?.throwIfAborted();
       const res = await fetch(input, init);
       const id = res.headers.get('x-oat-thread-id');
       if (id && !thread.current) thread.current = id;
@@ -103,6 +112,7 @@ export function ChatSession({
   autoFocus,
 }: ChatSessionProps) {
   const { client, transport: hostTransport } = useFeatureUi();
+  const integration = useAssistantIntegration();
   const lifecycle = useRef<AbortController | null>(null);
   // Mutable on purpose (set by the transport); never read during render.
   const [thread] = useState<ThreadHolder>(() => ({ current: initialThreadId }));
@@ -117,7 +127,13 @@ export function ChatSession({
   const [announcement, setAnnouncement] = useState('');
   const refreshRef = useRef<(expectMessageId?: string) => Promise<void>>(async () => {});
 
-  const [transport] = useState(() => createTransport(scope, thread, hostTransport));
+  const transport = useMemo(
+    () =>
+      createTransport(scope, thread, hostTransport, async () => {
+        await integration.beforeSend?.(scope);
+      }),
+    [scope, thread, hostTransport, integration],
+  );
 
   const chat = useChat<ChatUIMessage>({
     transport,

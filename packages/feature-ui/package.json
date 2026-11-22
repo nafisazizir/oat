@@ -10,6 +10,7 @@
     "./styles.css": "./src/styles.css",
     "./tasks": "./src/tasks.ts",
     "./assistant": "./src/assistant.ts",
+    "./open-document": "./src/open-document.tsx",
     "./workspace": "./src/workspace-adapter.tsx"
   },
   "scripts": {

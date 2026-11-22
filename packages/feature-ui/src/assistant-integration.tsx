@@ -5,6 +5,7 @@ import type {
   ChatProposal,
   ProposalDecisionResult,
   ResolvedCitation,
+  ChatScope,
 } from '@oat/services/dto/chat';
 
 export type ProposalApplication = {
@@ -13,6 +14,7 @@ export type ProposalApplication = {
 };
 
 export type AssistantIntegration = {
+  beforeSend?(scope: ChatScope): Promise<void>;
   openCitation?(citation: ResolvedCitation): boolean;
   prepareProposal?(proposal: ChatProposal): Promise<ProposalApplication | null>;
 };

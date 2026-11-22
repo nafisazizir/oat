@@ -5,7 +5,8 @@ import { buildHostCommands } from '@oat/feature-ui';
 import { useWorkspaceHost, useTreeActions } from '@oat/workspace-ui';
 import { toast } from 'sonner';
 import { useSidebar } from '@oat/ui/components/sidebar';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
+import { useAppShortcut } from '@oat/ui/hooks/use-app-shortcut';
 
 import { useTheme } from '../theme-provider';
 import { useShellData } from '@oat/workspace-ui/shell-data';
@@ -25,16 +26,7 @@ export function useCommandMenu() {
 export function CommandMenuProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey) && !event.altKey) {
-        event.preventDefault();
-        setOpen((value) => !value);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  useAppShortcut('palette', () => setOpen((value) => !value));
 
   const value = useMemo(() => ({ open, setOpen }), [open]);
   return <CommandMenuContext.Provider value={value}>{children}</CommandMenuContext.Provider>;

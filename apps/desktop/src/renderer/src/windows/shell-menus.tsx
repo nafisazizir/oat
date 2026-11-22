@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useAppShortcut } from '@oat/ui/hooks/use-app-shortcut';
 import { FeatureSearch, type DesktopSearchActions } from './feature-search.tsx';
 
 export function DesktopSearch({
@@ -6,22 +6,6 @@ export function DesktopSearch({
   onOpenChange,
   ...actions
 }: DesktopSearchActions & { open: boolean; onOpenChange(open: boolean): void }) {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        event.key.toLowerCase() !== 'k' ||
-        !(event.metaKey || event.ctrlKey) ||
-        event.altKey ||
-        event.shiftKey ||
-        event.repeat
-      )
-        return;
-      event.preventDefault();
-      onOpenChange(!open);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onOpenChange]);
+  useAppShortcut('palette', () => onOpenChange(!open));
   return <FeatureSearch open={open} onOpenChange={onOpenChange} {...actions} />;
 }

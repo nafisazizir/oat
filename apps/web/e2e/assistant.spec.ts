@@ -134,6 +134,26 @@ function lastAnswer(page: Page) {
   return page.locator('[data-testid="chat-message"][data-role="assistant"]').last();
 }
 
+test('document shortcuts preserve editor links and ignore shifted app shortcuts', async ({
+  page,
+}) => {
+  const { doc } = await seedNote(page);
+  await page.goto(`/d/${doc.id}`);
+  await expect(page.getByTestId('assistant-toggle')).toBeVisible();
+  await page.keyboard.press('ControlOrMeta+Shift+j');
+  await expect(panel(page)).toBeHidden();
+  await editor(page).selectText();
+  await page.keyboard.press('ControlOrMeta+k');
+  await expect(page.getByRole('textbox', { name: 'Link URL' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeHidden();
+  await page.keyboard.press('Escape');
+  await page.getByRole('textbox', { name: 'Title' }).click();
+  await page.keyboard.press('ControlOrMeta+Shift+k');
+  await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeHidden();
+  await page.keyboard.press('ControlOrMeta+j');
+  await expect(panel(page)).toBeVisible();
+});
+
 test('note panel: streamed answer with citation chips that jump to the transcript and the block', async ({
   page,
 }) => {

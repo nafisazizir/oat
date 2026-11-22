@@ -55,7 +55,9 @@ vi.mock('@oat/workspace-ui', async (original) => ({
       <button onClick={() => void onSwitchAccount()}>Switch account</button>
     </>
   ),
-  PageEditor: () => (
+}));
+vi.mock('./page-assistant', () => ({
+  AssistantPageEditor: () => (
     <div className="oat-editor">
       <p data-id="first">First block</p>
       <p data-id="second">Second block</p>

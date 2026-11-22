@@ -4,6 +4,12 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MeetingView } from './meeting-view.tsx';
+import type { ReactNode } from 'react';
+
+vi.mock('@oat/feature-ui/assistant', async (original) => ({
+  ...(await original<object>()),
+  DocumentAssistant: ({ children }: { children: ReactNode }) => children,
+}));
 
 const model = vi.hoisted(() => ({
   note: null as unknown,

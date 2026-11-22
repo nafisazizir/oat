@@ -10,7 +10,15 @@ import type { InvokeResponse, MeetingNote, RecordingSnapshot } from '@oat/core/b
 import { visibilityBadge } from '@oat/core/sections';
 import { sameDocumentContent } from '@oat/core/sync';
 import { BlockFocus, OatEditor } from '@oat/editor/react';
-import { focusedLine, parseDeepLink, wantsTranscript } from '@oat/feature-ui/assistant';
+import {
+  DocumentAssistant,
+  AssistantToggleButton,
+  useRegisterOpenDocument,
+  type NoteEditor,
+  focusedLine,
+  parseDeepLink,
+  wantsTranscript,
+} from '@oat/feature-ui/assistant';
 import {
   activeSegmentAt,
   MeetingTime,
@@ -64,6 +72,8 @@ import {
 } from './meetings-state.ts';
 import { GraceLine, PipelineLine } from './post-meeting.tsx';
 import { type AutosaveState, NoteAutosave } from './note-autosave.ts';
+import { meetingAssistantHandle } from './meeting-assistant';
+import { api } from '../lib/api';
 
 type Content = MeetingNote['contentJson'];
 
@@ -184,7 +194,7 @@ export function MeetingView({
   const showsRecording = documentId === null || recordingThis;
   const followLive = recordingThis || (meetingId !== null && live.meetingId === meetingId);
 
-  return (
+  const surface = (
     <section className="flex min-w-0 flex-1 flex-col" aria-label="Meeting">
       {/* The page's heading (the title itself is an editable field). */}
       <h1 className="sr-only">
@@ -328,8 +338,23 @@ export function MeetingView({
             onClick={() => (panelOpen ? closePanel() : setPanelOpen(true))}
           />
         )}
+        <AssistantToggleButton />
       </div>
     </section>
+  );
+  return note ? (
+    <DocumentAssistant
+      key={note.documentId}
+      documentId={note.documentId}
+      workspaceId={note.workspaceId}
+      available={!note.trashed}
+      transcript={null}
+      focus={{}}
+    >
+      {surface}
+    </DocumentAssistant>
+  ) : (
+    surface
   );
 }
 
@@ -394,6 +419,7 @@ function NoteBody({
   });
   const [conflict, setConflict] = useState<{ documentId: string; title: string } | null>(null);
   const documentId = note.documentId;
+  const editorRef = useRef<NoteEditor | null>(null);
   // Every save carries the stored note the editor is built on (D-19): main refuses to overwrite a note that
   // has moved on since (a pull landed while I typed) — my edit becomes a conflicted copy then.
   const [autosave] = useState(
@@ -435,6 +461,13 @@ function NoteBody({
   }, [note, autosave]);
 
   const editable = note.editable;
+  const assistant = meetingAssistantHandle({
+    documentId,
+    autosave,
+    client: api,
+    adopt: (next) => setContent(next as Content),
+  });
+  useRegisterOpenDocument(documentId, { ...assistant, editor: () => editorRef.current });
   return (
     <NoteColumn className="gap-6" role="article" data-testid="note">
       <header className="flex flex-col gap-2.5">
@@ -525,6 +558,9 @@ function NoteBody({
       )}
       <div data-testid="note-editor">
         <OatEditor
+          onReady={(editor) => {
+            editorRef.current = editor;
+          }}
           value={content}
           editable={editable}
           aria-label="My notes"

@@ -172,6 +172,50 @@ function stream() {
 }
 
 describe('AssistantChat', () => {
+  it('settles the document before streaming through the host transport', async () => {
+    const current = stream();
+    let release!: () => void;
+    const beforeSend = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const env = setup(async (request) => current.response(request.signal), { beforeSend });
+    const documentScope = { kind: 'document', documentId: 'd1' } as const;
+    const view = render(<ChatSession {...sessionProps} scope={documentScope} />, env);
+    await send('Read my latest edits');
+    expect(beforeSend).toHaveBeenCalledWith(documentScope);
+    expect(env.transport).not.toHaveBeenCalled();
+    await act(async () => {
+      release();
+    });
+    await waitFor(() => expect(env.transport).toHaveBeenCalledOnce());
+    expect(env.transport.mock.calls[0]![0].body).toMatchObject({ scope: documentScope });
+    view.unmount();
+  });
+
+  it('reports failed preflight without sending a question', async () => {
+    const env = setup(undefined, {
+      beforeSend: async () => {
+        throw new Error('Your latest edits aren’t saved yet.');
+      },
+    });
+    render(<ChatSession {...sessionProps} scope={{ kind: 'document', documentId: 'd1' }} />, env);
+    await send();
+    expect(await screen.findByText('Your latest edits aren’t saved yet.')).toBeTruthy();
+    expect(env.transport).not.toHaveBeenCalled();
+  });
+
+  it('does not run document preflight for an empty question', async () => {
+    const beforeSend = vi.fn();
+    const env = setup(undefined, { beforeSend });
+    render(<ChatSession {...sessionProps} />, env);
+    fireEvent.submit(screen.getByTestId('chat-input').closest('form')!);
+    expect(beforeSend).not.toHaveBeenCalled();
+    expect(env.transport).not.toHaveBeenCalled();
+  });
+
   it('keeps the composer mounted when leaving the centered new-chat state', async () => {
     const current = stream();
     const env = setup(async (request) => current.response(request.signal));

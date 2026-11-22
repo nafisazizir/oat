@@ -5,7 +5,6 @@ import {
   JoinWorkspace,
   InviteResponse,
   PageContainer,
-  PageEditor,
   ShareDialog,
   ShellFolderView,
   TemplatesGallery,
@@ -24,6 +23,7 @@ import { api } from '../lib/api';
 import type { MeetingNoteSummary } from '@oat/core/bridge';
 import { call } from '../bridge';
 import { FeatureViews } from '../windows/feature-views';
+import { AssistantPageEditor } from './page-assistant';
 
 type DocumentDetail = Awaited<ReturnType<typeof api.documents.get>>;
 type FolderSummary = Awaited<ReturnType<typeof api.folders.tree>>[number];
@@ -234,7 +234,7 @@ function DocumentRoute({
       meeting
     ) : (
       <>
-        <PageEditor
+        <AssistantPageEditor
           document={data}
           workspace={shell.workspaces.find((w) => w.id === data.workspaceId) ?? shell.workspace}
         />
