@@ -699,8 +699,6 @@ async function start() {
     google: {
       fetch: (signal) =>
         auth.withSession((token) => api.calendarUpcoming(token, { days: 2, limit: 50, signal })),
-      openConnect: () =>
-        void shell.openExternal(new URL('/settings/integrations', config.webUrl).toString()),
     },
     user: signedInUser,
     noteFor: (keys) => notes.findByCalendarKeys(keys),

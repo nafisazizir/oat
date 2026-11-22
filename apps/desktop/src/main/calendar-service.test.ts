@@ -69,7 +69,7 @@ function service(
 ) {
   const s = new CalendarService({
     local: local ? { source: local, ...extra, openSettings: vi.fn() } : null,
-    google: { fetch: googleFetch as () => Promise<GoogleUpcoming>, openConnect: vi.fn() },
+    google: { fetch: googleFetch as () => Promise<GoogleUpcoming> },
     user: () => user,
     noteFor: (keys) => keys.map((k) => notesByKey.get(k)).find(Boolean) ?? null,
     onSnapshot: (snap) => snapshots.push(snap),
@@ -152,6 +152,15 @@ describe('CalendarService', () => {
     expect(requestAccess).toHaveBeenCalledTimes(1);
     expect(after.eventkit).toBe('full_access');
     expect(after.events.map((e) => e.id)).toEqual(['eventkit:review']);
+  });
+
+  it('Google connect is renderer-owned and does not request native calendar access', async () => {
+    const requestAccess = vi.fn();
+    const s = service(null, { requestAccess });
+    await s.start();
+    const before = s.snapshot;
+    expect(await s.connect('google')).toBe(before);
+    expect(requestAccess).not.toHaveBeenCalled();
   });
 
   it('Google follows sign-in; errors keep the last good events', async () => {
@@ -272,7 +281,7 @@ describe('CalendarService across accounts and at quit', () => {
     const local = new FixtureCalendarSource({ events: [input('eventkit:review', 60)] });
     const s = new CalendarService({
       local: { source: local },
-      google: { fetch: async () => google, openConnect: () => {} },
+      google: { fetch: async () => google },
       user: () => 'u1',
       noteFor: () => {
         throw new Error('database is not open');

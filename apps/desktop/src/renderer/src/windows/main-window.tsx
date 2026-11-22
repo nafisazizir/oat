@@ -461,7 +461,13 @@ function SignedInShell({
             </>
           ) : (
             <DesktopRoutesView
-              route={route}
+              route={
+                route.view === 'home' &&
+                workspaces.snapshot?.synced &&
+                workspaces.snapshot.workspaces.length === 0
+                  ? { view: 'join' }
+                  : route
+              }
               notes={notes}
               recordingControls={
                 recording ? (

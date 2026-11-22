@@ -105,7 +105,8 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 
 ## M9 — Ship v1
 
-- [x] Human-requested: post-PR #28 source-only functional parity audit and Before matrix; implementation not started · [task](tasks/functional-parity.md)
+- [x] Human-requested: post-PR #28 functional parity audit and Before matrix · [task](tasks/functional-parity.md)
+- [x] Functional parity G2 + G5: shared typed-client join/bootstrap in both hosts and native desktop calendar settings; fast gates and Join e2e verified · [task](tasks/functional-parity.md)
 
 - [x] Human-requested Graphite theme and shared control refresh for web and desktop · [task](tasks/graphite-ui-foundation.md)
 

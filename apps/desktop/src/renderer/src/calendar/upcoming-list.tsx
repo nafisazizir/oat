@@ -6,6 +6,7 @@
  * the one the sidebar shows says which (3.9); new notes go to the active workspace (or, as a viewer there, the first one I can add notes to).
  */
 import type { CalendarSnapshot, UpcomingEvent } from '@oat/core/bridge';
+import { useWorkspaceHost } from '@oat/workspace-ui';
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import { cn } from '@oat/ui/lib/utils';
@@ -28,6 +29,7 @@ export function UpcomingList({
   /** 3.9: the name of the workspace a note lives in when it isn't the one the sidebar shows. */
   otherWorkspace?: (documentId: string) => string | null;
 }) {
+  const host = useWorkspaceHost();
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
@@ -35,7 +37,7 @@ export function UpcomingList({
   const now = new Date();
   const groups = groupByDay(snapshot.events, now);
   const cta = connectAction(snapshot);
-  if (compact && snapshot.events.length === 0) return null;
+  if (compact && snapshot.events.length === 0 && !cta) return null;
 
   async function start(event: UpcomingEvent) {
     if (pending) return;
@@ -52,6 +54,10 @@ export function UpcomingList({
   }
 
   async function connect(provider: 'eventkit' | 'google') {
+    if (provider === 'google') {
+      host.navigate({ view: 'settings', section: 'integrations' });
+      return;
+    }
     setConnecting(true);
     setError(null);
     try {
@@ -111,7 +117,7 @@ export function UpcomingList({
           ))}
         </div>
       )}
-      {cta && !compact && (
+      {cta && (
         <div
           className="mx-1 flex flex-col gap-2 rounded-lg border border-dashed border-gray-alpha-400 p-3"
           data-testid="calendar-connect"

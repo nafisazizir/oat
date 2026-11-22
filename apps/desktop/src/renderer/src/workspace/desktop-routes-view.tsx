@@ -2,6 +2,7 @@ import { OatApiError } from '@oat/client';
 import { BlockFocus } from '@oat/editor/react';
 import {
   EmptyState,
+  JoinWorkspace,
   PageContainer,
   PageEditor,
   ShareDialog,
@@ -17,10 +18,10 @@ import {
 import { Button } from '@oat/ui/components/button';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import { IconCloudOff, IconFile } from '@tabler/icons-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import type { MeetingNoteSummary } from '@oat/core/bridge';
-import { PlaceholderView } from '../views/placeholder-view';
+import { call } from '../bridge';
 import { FeatureViews } from '../windows/feature-views';
 
 type DocumentDetail = Awaited<ReturnType<typeof api.documents.get>>;
@@ -110,10 +111,34 @@ function ServerRoutes({ route, meeting }: { route: AppRoute; meeting: ReactNode 
     case 'search':
       return <FeatureViews route={route} />;
     case 'join':
-      return <PlaceholderView title="Join a workspace" />;
+      return <JoinRoute />;
     default:
       return null;
   }
+}
+
+function JoinRoute() {
+  const host = useWorkspaceHost();
+  const { user } = useShellData();
+  const { client, refresh, navigate } = host;
+  const onHome = useCallback(
+    async (joined?: boolean) => {
+      if (joined) {
+        const { activeWorkspaceId } = await client.workspaces.list();
+        await call('sync:now');
+        if (activeWorkspaceId)
+          await call('workspaces:set-active', { workspaceId: activeWorkspaceId });
+      }
+      refresh();
+      navigate({ view: 'home' });
+    },
+    [client, refresh, navigate],
+  );
+  return (
+    <div className="m-auto w-full max-w-[25.5rem] px-6 py-10">
+      <JoinWorkspace client={host.client} email={user.email} onHome={onHome} />
+    </div>
+  );
 }
 
 function MeetingActions({ id }: { id: string }) {
