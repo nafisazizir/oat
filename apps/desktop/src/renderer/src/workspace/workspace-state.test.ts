@@ -3,6 +3,7 @@ import { OatApiError, type OatTransport } from '@oat/client';
 import { areaOf } from '@oat/workspace-ui';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
 import { observeApi, useApiOnline } from './api-status';
 import { localShellData, mergeLocalNotes, useDesktopShellData } from './use-desktop-shell-data';
 import { api } from '../lib/api';
@@ -25,9 +26,122 @@ const note = {
   createdAt: '2026-11-20',
 };
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  call.mockReset().mockResolvedValue(undefined);
+});
 
 describe('cached desktop workspace selection', () => {
+  it.each([false, true])(
+    'does not reconcile the previous online workspace while the selected one is loading (failure: %s)',
+    async (fail) => {
+      const next = { ...workspace, id: 'next', name: 'Next' };
+      vi.spyOn(api.workspaces, 'list').mockResolvedValue({
+        activeWorkspaceId: 'w',
+        workspaces: [workspace, next].map((w) => ({
+          ...w,
+          slug: w.id,
+          icon: null,
+          memberCount: 2,
+          joinedAt: '2026-11-20',
+        })),
+      });
+      vi.spyOn(api.workspaces, 'joinable').mockResolvedValue({ invites: [], workspaces: [] });
+      vi.spyOn(api.documents, 'list').mockResolvedValue([]);
+      let release!: () => void;
+      const pending = new Promise<void>((resolve, reject) => {
+        release = fail ? () => reject(new OatApiError(503, 'unavailable', 'Unavailable')) : resolve;
+      });
+      vi.spyOn(api.folders, 'tree').mockImplementation(async (workspaceId) => {
+        if (workspaceId === 'next') await pending;
+        return [];
+      });
+      await observeApi(async () => ({ status: 200, json: async () => [] }))({
+        method: 'GET',
+        path: '/api/workspaces',
+      });
+      const { result, unmount } = renderHook(() => {
+        const [snapshot, setSnapshot] = useState({
+          workspaces: [workspace, next],
+          activeId: 'w',
+          targetId: 'w',
+        });
+        const state = useDesktopShellData(user, [], snapshot, null);
+        return {
+          state,
+          snapshot,
+          select: (activeId: string) =>
+            setSnapshot((s) => ({ ...s, activeId, targetId: activeId })),
+        };
+      });
+      try {
+        await waitFor(() => expect(result.current.state.data.workspace.members).toBe(2));
+        call.mockClear();
+        call.mockImplementation(async (channel, payload) => {
+          if (channel === 'workspaces:set-active')
+            result.current.select((payload as { workspaceId: string }).workspaceId);
+          return undefined;
+        });
+        await act(async () => result.current.select('next'));
+        expect(result.current.snapshot.targetId).toBe('next');
+        expect(call).not.toHaveBeenCalledWith('workspaces:set-active', { workspaceId: 'w' });
+        await act(async () => release());
+        await waitFor(() => expect(result.current.state.data.workspace.id).toBe('next'));
+        if (fail) expect(result.current.state.online).toBe(false);
+        expect(result.current.snapshot).toMatchObject({ activeId: 'next', targetId: 'next' });
+      } finally {
+        unmount();
+        release();
+      }
+    },
+  );
+
+  it('still reconciles a removed cached membership after its own fallback load completes', async () => {
+    vi.spyOn(api.workspaces, 'list').mockResolvedValue({
+      activeWorkspaceId: 'w',
+      workspaces: [
+        { ...workspace, slug: 'work', icon: null, memberCount: 2, joinedAt: '2026-11-20' },
+      ],
+    });
+    vi.spyOn(api.workspaces, 'joinable').mockResolvedValue({ invites: [], workspaces: [] });
+    vi.spyOn(api.documents, 'list').mockResolvedValue([]);
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(api.folders, 'tree').mockImplementation(async () => {
+      await pending;
+      return [];
+    });
+    await observeApi(async () => ({ status: 200, json: async () => [] }))({
+      method: 'GET',
+      path: '/api/workspaces',
+    });
+    call.mockClear();
+    const { result, unmount } = renderHook(() =>
+      useDesktopShellData(
+        user,
+        [],
+        {
+          workspaces: [workspace, { ...workspace, id: 'removed' }],
+          activeId: 'removed',
+          targetId: 'removed',
+        },
+        null,
+      ),
+    );
+    try {
+      expect(call).not.toHaveBeenCalledWith('workspaces:set-active', { workspaceId: 'w' });
+      await act(async () => release());
+      await waitFor(() =>
+        expect(call).toHaveBeenCalledWith('workspaces:set-active', { workspaceId: 'w' }),
+      );
+      expect(result.current.data.workspace.id).toBe('w');
+    } finally {
+      unmount();
+      release();
+    }
+  });
   it('does not roll back an offline switch or replace it with the server default on reconnect', async () => {
     const next = { ...workspace, id: 'next', name: 'Next' };
     vi.spyOn(api.workspaces, 'list').mockResolvedValue({

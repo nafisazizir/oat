@@ -718,3 +718,54 @@ ci: ok
   native interaction check in this follow-up; the new keep-loaded banner is visually unverified.
 - User authorized one final `git push -u origin HEAD` to the new follow-up branch, not the merged PR's
   branch. Final handoff supplies the fourth commit SHA and push result. No PR creation or force update.
+
+### PR #27 — stale online workspace reconciliation
+
+- Initial HEAD verified `e2afdcbc8a16f6fc3e3280a7efb41868b00fb61d`, clean working tree. CI snapshot:
+  four passes (unit/typecheck/format-actionlint-lint/Swift), no failures; Linux aggregate skipped;
+  Review pending. Review interrupted the blocking wait and requested this fix before resuming CI.
+- **Finding real.** State: loaded online workspace `w`, local snapshot/recording target switches to
+  `next`, but the `next` tree request is delayed. The old `remote` still contains `w`. Reconciliation
+  sees the mismatch and writes `w` through `workspaces:set-active`. Its native notification can revert
+  the local selection, cancel `next`'s load and start loading `w` again. The prior offline guard does
+  not protect this online transition.
+- Added a regression that delays the new workspace's tree response and delivers reconciliation IPC
+  back into the hook's local snapshot/recording target. Ran it before changing production code:
+
+```text
+FAIL src/renderer/src/workspace/workspace-state.test.ts
+  does not reconcile the previous online workspace while the selected one is loading
+AssertionError: expected 'w' to be 'next' // Object.is equality
+Expected: "next"
+Received: "w"
+Tests  1 failed | 9 skipped (10)
+```
+
+- Fix: keep each successful remote result and its requested workspace id in one state value. Allow
+  remote-to-local reconciliation only when that request id matches the current local selection.
+  An older result cannot undo an in-flight switch, while a fresh fallback after membership removal
+  can still choose an available workspace. Existing cancelled-request protection remains in place.
+- Tests now cover delayed success, delayed failure (selection/recording target must remain `next`),
+  and a positive removed-membership fallback (reconciliation must still run after its own load).
+  Existing offline/reconnect, visibility, API-error and shell suites also pass. Test mock cleanup
+  resets the synthetic IPC notification handler between cases.
+- Full verification on final source:
+
+```text
+━━ ci summary (--fast)
+step        status     time  note
+format      pass      12.0s
+actionlint  pass       0.3s
+typecheck   pass       8.3s
+lint        pass       5.1s
+test        pass      12.3s
+total                 37.9s
+
+ci: ok
+```
+
+- Logs: `/home/ubuntu/oat-review27-race-red.log`, `/home/ubuntu/oat-review27-ci-fast.log`.
+  Docs only changed after this gate (explicitly ignored by Prettier). No UI/style, dependency,
+  shared contract or configuration change; no fresh visual/native check.
+- Commit/push once to `devin/1795308701-workspace-review-fixes`, then resume PR #27's blocking CI loop.
+  Final handoff supplies SHA, push result and final remote check status.

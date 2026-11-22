@@ -59,7 +59,11 @@ export function useDesktopShellData(
   snapshot: WorkspacesSnapshot | null,
   lastSyncedAt: number | null,
 ) {
-  const [remote, setRemote] = useState<ShellData | null>(null);
+  const [loaded, setLoaded] = useState<{
+    data: ShellData;
+    requestedWorkspaceId: string | null | undefined;
+  } | null>(null);
+  const remote = loaded?.data ?? null;
   const { id, name, email } = user;
   const [failed, setFailed] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -85,7 +89,7 @@ export function useDesktopShellData(
     ).then(
       (data) => {
         if (!active) return;
-        setRemote(data);
+        setLoaded({ data, requestedWorkspaceId: localWorkspaceId });
         setFailed(false);
       },
       () => {
@@ -97,17 +101,26 @@ export function useDesktopShellData(
     };
   }, [id, name, email, localWorkspaceId, lastSyncedAt, revision]);
   const remoteWorkspaceId = remote?.workspace.id;
+  const requestedWorkspaceId = loaded?.requestedWorkspaceId;
   const knownWorkspace = snapshot?.workspaces.some((w) => w.id === remoteWorkspaceId);
   useEffect(() => {
     if (
       knownWorkspace &&
       remoteWorkspaceId &&
       localWorkspaceId !== remoteWorkspaceId &&
+      requestedWorkspaceId === localWorkspaceId &&
       !failed &&
       apiOnline
     )
       void call('workspaces:set-active', { workspaceId: remoteWorkspaceId }).catch(() => {});
-  }, [knownWorkspace, remoteWorkspaceId, localWorkspaceId, failed, apiOnline]);
+  }, [
+    knownWorkspace,
+    remoteWorkspaceId,
+    localWorkspaceId,
+    requestedWorkspaceId,
+    failed,
+    apiOnline,
+  ]);
   const local = useMemo(() => localShellData(user, snapshot, remote), [user, snapshot, remote]);
   const base = useMemo(
     () =>
