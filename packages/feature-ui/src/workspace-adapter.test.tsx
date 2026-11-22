@@ -82,7 +82,7 @@ describe('workspace feature adapter', () => {
     expect(adapter.hrefFor?.({ kind: 'assistant', threadId: 'th1' })).toBe('/assistant?thread=th1');
   });
 
-  it('keeps desktop links imperative and delegates document fallback only when supplied', () => {
+  it('keeps desktop links imperative and delegates document navigation only when supplied', () => {
     const { host, options } = setup('desktop');
     const openDocument = vi.fn();
     const searchSources: SearchSource[] = [];
@@ -102,10 +102,17 @@ describe('workspace feature adapter', () => {
     });
     adapter.navigate({ kind: 'tasks' });
     expect(host.navigate).toHaveBeenCalledExactlyOnceWith({ view: 'tasks' });
-    createWorkspaceFeatureAdapter(host, options).navigate({ kind: 'document', id: 'page' });
+    createWorkspaceFeatureAdapter(host, options).navigate({
+      kind: 'document',
+      id: 'page',
+      blockId: 'b',
+      segmentId: 's',
+      timeMs: 65000,
+    });
     expect(host.navigate).toHaveBeenLastCalledWith({
       view: 'document',
       id: 'page',
+      query: { t: '65', block: 'b', seg: 's' },
     } satisfies AppRoute);
   });
 });

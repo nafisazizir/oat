@@ -64,21 +64,6 @@ export function isSafeExternalUrl(raw: string): boolean {
   }
 }
 
-export function externalDocumentUrl(raw: string, webUrl: string): string | null {
-  if (isSafeExternalUrl(raw)) return raw;
-  if (!raw.startsWith('/d/') || raw.includes('\\')) return null;
-  try {
-    const url = new URL(raw, webUrl);
-    return url.origin === new URL(webUrl).origin &&
-      /^\/d\/[^/]+$/.test(url.pathname) &&
-      isSafeExternalUrl(url.href)
-      ? url.href
-      : null;
-  } catch {
-    return null;
-  }
-}
-
 /** What to do with a navigation of a window's main frame. */
 export function navigationDecision(
   url: string,

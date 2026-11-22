@@ -494,8 +494,8 @@ featureTargetRoute/routeFeatureTarget map document block/segment/time, search, t
 targets. Web wraps the host's Next Link, preserving prefetch and native modifier-click behavior;
 canonical Assistant URLs remain /assistant?thread=, with legacy path parsing also supported. Desktop
 uses apiTransport, retains local + server search and status-0 fallback, and overrides document opening:
-cached meetings navigate with kind=meeting; other feature links keep the validated external fallback.
-MeetingView still has no segment/time positioning API; external links preserve those query parameters.
+cached meetings navigate with kind=meeting; other feature links navigate to C2's native document route.
+MeetingView still has no segment/time positioning API; document routes retain block/segment/time fields.
 The shared sidebar's controlled Search action and desktop shortcut now open the same SearchDialog;
 only the shared helper owns target/route conversion. No next/* imports were added to feature-ui.
 
@@ -542,3 +542,23 @@ ci: ok (41.1s). Assistant/Tasks e2e: 9 passed, including setup; all 12 distinct 
 browser cases pass, with light/dark axe and refreshed web screenshots. Logs:
 /home/ubuntu/pr26-client-stability-{ci,e2e,assistant-tasks-e2e}.log. The final pushed-head PR gate follows.
 No UI markup or desktop behavior changed.
+
+## PR #26 native document navigation correction
+
+C2 already provides a native PageEditor through the document AppRoute. Removed the obsolete external
+web fallback from DesktopFeatureProvider: uncached documents now call host.navigate(route), preserving
+block/seg/t query fields from the shared adapter. Cached meeting notes keep kind=meeting and MeetingView.
+The existing DocumentRoute handles loading, unavailable pages and offline state; no editor changes.
+
+Repository-wide reference search found externalDocumentUrl used only by the document fallback's main
+handler and tests. Deleted that helper, import and relative-document resolution tests. Kept generic
+shell:open-external IPC because calendar/note-event-line.tsx still uses it for conference links; main now
+accepts only isSafeExternalUrl absolute HTTP(S) URLs, with a regression rejecting relative document URLs.
+Added provider tests for deep-link preservation on uncached/cached documents and updated the renderer
+search test to assert real PageEditor versus MeetingView, with no external send. Extended the shared
+adapter's default desktop-navigation regression to retain all deep-link fields.
+
+Desktop tests: 63 files/535 passed; feature-ui: 10 files/116 passed. Final fast gate: all stages pass,
+ci: ok (60.9s). Pushed-head PR checks follow; result: /home/ubuntu/pr26-native-document-pr-checks.json.
+Logs: /home/ubuntu/pr26-native-document-{desktop,feature,ci}.log. Native Electron/OS and
+visual verification were not repeated for this routing-only correction. No D-number added.

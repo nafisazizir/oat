@@ -7,7 +7,6 @@ import { TasksView, type TaskFilters } from '@oat/feature-ui/tasks';
 import { useShellData, useWorkspaceHost, type AppRoute } from '@oat/workspace-ui';
 import { useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { bridge } from '../bridge.ts';
 import { apiTransport } from '../lib/api.ts';
 import { localSearchSource } from '../sync/local-search-source.ts';
 
@@ -41,8 +40,7 @@ export function DesktopFeatureProvider({
           if (notes?.some((note) => note.documentId === route.id)) {
             host.navigate({ ...route, query: { ...route.query, kind: 'meeting' } });
           } else {
-            // Feature links to uncached notes retain the external fallback.
-            bridge().send('shell:open-external', { url: host.hrefOf(route) });
+            host.navigate(route);
           }
         },
       }),

@@ -1,6 +1,6 @@
 # Oat — Plan & Task Board
 
-- [ ] Human-requested shared feature UI, steps 1–6 search/tasks/assistant · PR #26/C2 integrated and pushed; web URL-tab pagination follow-up fixes stable client/host/sources, all 12 distinct browser cases pass, fast CI green (41.1s); PR gate follows push; native Electron runtime pending · [task](tasks/desktop-feature-search.md)
+- [ ] Human-requested shared feature UI, steps 1–6 search/tasks/assistant · PR #26/C2 and URL-tab pagination verified/pushed; native document routing correction retains C2 PageEditor for uncached pages and MeetingView for cached meetings, tests pass; fast CI green (60.9s), PR gate after push; native Electron runtime pending · [task](tasks/desktop-feature-search.md)
 
 - [x] Human-requested UI redesign PR 5: calm auth, setup and dialogs · [task](tasks/ui-calm-auth-dialogs.md)
 

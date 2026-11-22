@@ -346,7 +346,18 @@ describe('desktop shell', () => {
     },
   );
 
-  it('opens uncached pages externally and cached meetings natively from shared search', async () => {
+  it('opens uncached pages in PageEditor and cached meetings in MeetingView from shared search', async () => {
+    const invoke = model.invoke.getMockImplementation()!;
+    model.invoke.mockImplementation((channel: string, request?: OatRequest) => {
+      if (channel === 'api:request' && request?.path === '/api/search')
+        return Promise.resolve({
+          status: 200,
+          body: { query: 'project', notes: { items: [], nextCursor: null } },
+        });
+      if (channel === 'api:request' && request?.path === '/api/documents/page-id')
+        return Promise.resolve({ status: 200, body: { ...model.page, id: 'page-id' } });
+      return invoke(channel, request);
+    });
     model.searchHits = [
       {
         documentId: 'page-id',
@@ -387,9 +398,12 @@ describe('desktop shell', () => {
     await userEvent.type(screen.getByRole('combobox'), 'project');
     const pageHit = await within(screen.getByRole('dialog')).findByText('Project page');
     await userEvent.click(pageHit);
-    expect(model.send).toHaveBeenCalledWith('shell:open-external', { url: '/d/page-id' });
+    expect(((await screen.findByTestId('document-title')) as HTMLInputElement).value).toBe(
+      'Project page',
+    );
+    expect(model.send).not.toHaveBeenCalledWith('shell:open-external', expect.anything());
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.getByTestId('meeting-content').getAttribute('data-document-id')).toBeNull();
+    expect(screen.queryByTestId('meeting-content')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
     await userEvent.type(screen.getByRole('combobox'), 'project');
     await userEvent.click(await within(screen.getByRole('dialog')).findByText('Project meeting'));

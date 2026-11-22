@@ -73,7 +73,6 @@ import { mimeType, resolveRendererFile } from './renderer-files.ts';
 import {
   APP_SCHEME,
   contentSecurityPolicy,
-  externalDocumentUrl,
   isSafeExternalUrl,
   isTrustedFrame,
   navigationDecision,
@@ -913,8 +912,7 @@ async function start() {
     log.info(`cold start: ${coldStartMs} ms (process start → main window rendered)`);
   });
   bridge.on('shell:open-external', ({ url }) => {
-    const external = externalDocumentUrl(url, config.webUrl);
-    if (external) void shell.openExternal(external);
+    if (isSafeExternalUrl(url)) void shell.openExternal(url);
   });
 
   let calendarUser: string | null = null;
