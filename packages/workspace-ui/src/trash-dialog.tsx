@@ -26,6 +26,7 @@ import { type DocumentNode, titleOf } from './tree';
 
 import { useShellData } from './shell-data';
 import { useTreeActions } from './tree-actions';
+import { OfflineState } from './offline-state';
 
 const formatDay = (date: string) =>
   new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(
@@ -45,6 +46,7 @@ export function TrashDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { trash } = useShellData();
+  const { online } = useWorkspaceHost();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-testid="trash-dialog" className="sm:max-w-lg">
@@ -52,7 +54,9 @@ export function TrashDialog({
           <DialogTitle>Trash</DialogTitle>
           <DialogDescription>Restore pages you deleted, or delete them for good.</DialogDescription>
         </DialogHeader>
-        {trash.length === 0 ? (
+        {!online ? (
+          <OfflineState />
+        ) : trash.length === 0 ? (
           <Empty className="p-8">
             <EmptyHeader>
               <EmptyTitle className="text-heading-16">The trash is empty</EmptyTitle>

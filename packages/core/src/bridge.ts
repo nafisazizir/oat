@@ -294,6 +294,7 @@ export const mainStateSnapshotSchema = z.object({
 export type MainStateSnapshot = z.infer<typeof mainStateSnapshotSchema>;
 
 export const appInfoSchema = z.object({
+  appOrigin: z.url(),
   version: z.string(),
   platform: z.string(),
   /** `true` when running from the electron-vite dev server (not a built renderer). */

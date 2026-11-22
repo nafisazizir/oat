@@ -17,6 +17,7 @@
     "e2e": "electron-vite build && playwright test"
   },
   "dependencies": {
+    "@oat/workspace-ui": "workspace:*",
     "@oat/audio": "workspace:*",
     "@oat/auth": "workspace:*",
     "@oat/calendar": "workspace:*",
@@ -32,6 +33,7 @@
     "@tabler/icons-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "sonner": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

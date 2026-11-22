@@ -107,36 +107,43 @@ export function LeaveWorkspaceDialog({
             open them again.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="flex flex-col items-start gap-3" data-testid="leave-export">
-          <p className="text-copy-14 text-gray-900">
-            To keep a copy, export the notes you created here first. You get a zip of Markdown
-            files.
+        {host.platform === 'desktop' ? (
+          <p className="text-copy-14 text-gray-900" data-testid="leave-export">
+            To export your notes before leaving, use Oat on the web. ZIP downloads aren’t available
+            in the desktop app yet.
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={exporting.state === 'working'}
-            onClick={() => void exportNotes()}
-            data-testid="export-notes"
-          >
-            {exporting.state === 'working' ? (
-              <Spinner data-icon="inline-start" />
-            ) : (
-              <IconDownload data-icon="inline-start" />
-            )}
-            Export my notes
-          </Button>
-          {/* Says what happened, only once it is known: saved, or why not. */}
-          <p role="status" className="text-copy-13 text-gray-900 empty:hidden">
-            {exporting.state === 'done' ? exporting.message : null}
-          </p>
-          {exporting.state === 'failed' && (
-            <p role="alert" className="text-copy-13 text-red-900" data-testid="export-error">
-              {exporting.message}
+        ) : (
+          <div className="flex flex-col items-start gap-3" data-testid="leave-export">
+            <p className="text-copy-14 text-gray-900">
+              To keep a copy, export the notes you created here first. You get a zip of Markdown
+              files.
             </p>
-          )}
-        </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={exporting.state === 'working'}
+              onClick={() => void exportNotes()}
+              data-testid="export-notes"
+            >
+              {exporting.state === 'working' ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <IconDownload data-icon="inline-start" />
+              )}
+              Export my notes
+            </Button>
+            {/* Says what happened, only once it is known: saved, or why not. */}
+            <p role="status" className="text-copy-13 text-gray-900 empty:hidden">
+              {exporting.state === 'done' ? exporting.message : null}
+            </p>
+            {exporting.state === 'failed' && (
+              <p role="alert" className="text-copy-13 text-red-900" data-testid="export-error">
+                {exporting.message}
+              </p>
+            )}
+          </div>
+        )}
         {error && (
           <Alert variant="destructive">
             <IconAlertCircle />

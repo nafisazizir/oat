@@ -52,7 +52,7 @@ function Actions() {
   );
 }
 
-function setup(value = data, fail = false) {
+function setup(value = data, fail = false, platform: WorkspaceHost['platform'] = 'web') {
   const transport = vi.fn<OatTransport>(async (request: OatRequest) => {
     if (fail)
       return {
@@ -69,7 +69,7 @@ function setup(value = data, fail = false) {
   });
   const client = createOatClient(transport);
   const host: WorkspaceHost = {
-    platform: 'web',
+    platform,
     appOrigin: 'https://oat.example',
     client,
     route: { view: 'home' },
@@ -98,6 +98,19 @@ function setup(value = data, fail = false) {
 }
 
 describe('shared workspace shell', () => {
+  it('keeps ZIP export web-only in the desktop leave dialog', async () => {
+    const { user } = setup(
+      { ...data, workspaces: [workspace, { ...workspace, id: 'other' }] },
+      false,
+      'desktop',
+    );
+    await user.click(screen.getByTestId('workspace-switcher'));
+    await user.click(await screen.findByRole('menuitem', { name: 'Leave Workspace' }));
+    expect(screen.getByTestId('leave-export').textContent).toContain(
+      'ZIP downloads aren’t available in the desktop app yet.',
+    );
+    expect(screen.queryByTestId('export-notes')).toBeNull();
+  });
   it('renders the Private and Shared trees', () => {
     setup();
     expect(screen.getByText('Private')).toBeTruthy();

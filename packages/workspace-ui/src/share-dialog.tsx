@@ -36,6 +36,7 @@ import { useCallback, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useShellData } from './shell-data';
+import { OfflineState } from './offline-state';
 import type { DocumentSharing, UpdateSharingInput } from '@oat/services/dto/api-types';
 
 type Option = { value: DocumentVisibility; label: string; detail: string };
@@ -109,7 +110,7 @@ export function ShareDialog({ documentId }: { documentId: string }) {
   /** Fresh settings every time the dialog opens (someone else may have changed them). */
   function onOpenChange(next: boolean) {
     setOpen(next);
-    if (!next) return;
+    if (!next || !host.online) return;
     setLoadError(null);
     host.client.documents
       .sharing(documentId)
@@ -155,9 +156,10 @@ export function ShareDialog({ documentId }: { documentId: string }) {
     }
   }
 
-  const url = sharing?.sharePath
-    ? `${host.appOrigin.replace(/\/+$/, '')}${sharing.sharePath}`
-    : null;
+  const url =
+    sharing?.sharePath && host.appOrigin
+      ? `${host.appOrigin.replace(/\/+$/, '')}${sharing.sharePath}`
+      : null;
 
   async function copy() {
     if (!url) return;
@@ -187,7 +189,9 @@ export function ShareDialog({ documentId }: { documentId: string }) {
           </DialogDescription>
         </DialogHeader>
 
-        {loadError ? (
+        {!host.online ? (
+          <OfflineState />
+        ) : loadError ? (
           <p role="alert" className="text-copy-14 text-red-900">
             {loadError}
           </p>

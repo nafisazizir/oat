@@ -283,3 +283,105 @@ ci: ok
 - No known web functionality loss. UI is visually unverified; web e2e/axe were not run. Desktop host
   wiring must supply its configured public web origin. Committed locally with
   `feat(workspace-ui): shared templates`; nothing pushed.
+
+### Step 4 — desktop workspace host, sidebar and content routing
+
+- New renderer `workspace/` files hold the host, API observation, REST/local shell data, sidebar slots,
+  account items and routes; `views/placeholder-view.tsx` is the named C3 integration slot. Main window
+  holds an `AppRoute`; its old sidebar block is replaced with `DesktopSidebar`. Existing MeetingView,
+  HomeView, onboarding, prompt/auto-stop, recording controls and SettingsView remain in place.
+  `shell-menus.tsx` only adds controlled-open support to DesktopSearch, without changing local search
+  results or shortcut handling. New meeting note moves into the primary-action slot, keeping its ID,
+  click behavior and shortcut; collapsed-sidebar controls use icon sizing.
+- Desktop host uses the existing `api`, stable hash-anchor Link, package hrefs, state navigation and
+  shell refresh. Network status follows `OatApiError.status === 0`; a failed shell load also falls back
+  to local data. Added only public `appOrigin` to the existing validated `app:info` response, derived
+  from main's `config.webUrl` (also the API base). No new IPC channel, session data or credentials.
+  Share links cannot be copied until that origin is available.
+- Shell data loads with `loadShellData(api, user)` and reloads after refresh, active-workspace changes,
+  sync completion and the browser online event. Local-only notes are merged into the active workspace
+  as private meeting nodes, excluding IDs already live or trashed; local titles remain immediate while
+  server tree/access metadata stays authoritative. Offline/failed-load fallback uses the local workspace
+  snapshot, local notes and matching cached tree data. REST workspace mutations sync membership and
+  update main's local recording target through existing `sync:now`/`workspaces:set-active`; recording
+  creation is disabled while the displayed and local active workspaces disagree.
+- Shared AppSidebar slots: 48px drag strip, New meeting note, local-search trigger, ConflictsPanel,
+  SyncLine/offline line and desktop account actions. Kept `signed-in`, `signed-in-email`, `home-nav`,
+  `meeting-list-item`, `data-document-id`, recording dot and new-meeting IDs. Updated desktop e2e
+  section/empty selectors to shared tree IDs, workspace menu assertions to member counts, and native
+  workspace-settings/hint wording. The old separate sidebar/workspace menu is no longer rendered.
+- Routes: Home remains existing home/meeting surface; local or known meeting documents remain
+  local-first MeetingView. Meeting-open events/search/recording carry a meeting hint so they still open
+  locally even before appearing in the roster. Pages load through the proxy into PageEditor, folders
+  use ShellFolderView and live shell metadata/children, and templates use shared client-loaded views.
+  Server surfaces have an independently scrollable/selectable content area and layout-matched loading,
+  unavailable and offline states (including retry). Recording controls remain available while browsing
+  them. Meeting actions expose shared sharing and trash without replacing the local editor.
+- Settings/member-invite routes map to existing desktop SettingsView. Assistant, My tasks and server
+  Search show neutral C3 placeholders; Join uses the allowed placeholder (no trivial native join view
+  existed). Profile (web), meeting widget, connection check and sign-out remain account actions. Native
+  toast feedback is mounted for shared mutations and account feedback.
+- Shared trash/share dialogs show calm offline empty states rather than issuing server-only requests.
+  Desktop LeaveWorkspaceDialog hides ZIP export and explains that export is available on the web;
+  web export is unchanged. Create/switch/leave, page/folder operations and sharing use the API proxy.
+- Tests: desktop now 59 files / 513 tests (14 added), shared workspace UI 6 files / 63 tests (one added).
+  Renderer coverage includes API tree/page editor, local-only meeting routes, missing-roster search
+  hits, cold offline/local fallback, page offline/retry and 404, offline trash/share, empty folder and
+  post-sync metadata, C3 placeholder, recording controls during navigation, existing shell actions and
+  shortcuts. Helper tests cover merge/dedup/trash/workspace filtering, unknown roles, network status
+  versus authorization refusal, and REST/local workspace switch ordering. Shared test covers hidden
+  desktop ZIP export.
+- Initial `pnpm run ci --fast`:
+
+```text
+━━ ci summary (--fast)
+step        status     time  note
+format      pass      11.8s
+actionlint  pass       0.3s
+typecheck   pass      21.1s
+lint        pass       6.0s
+test        FAIL      23.2s  pnpm run test --concurrency=4 exited with 1
+total                 62.5s
+
+ci: FAILED (test)
+```
+
+- Fixed unstable Link identity during host updates, scoped the existing search-result assertion to
+  the dialog (sidebar now contains the same page title), scoped account feedback versus its toast,
+  removed a new hook dependency warning, and added an explicit local-meeting route hint for search
+  hits absent from the roster. Final review added content scrolling, collapsed-button sizing and live
+  folder metadata coverage. Final affected gates (actionlint inputs unchanged):
+
+```text
+━━ ci summary (--only format,typecheck,lint,test)
+step       status     time  note
+format     pass      10.9s
+typecheck  pass       8.2s
+lint       pass       4.9s
+test       pass      12.3s
+total                36.2s
+
+ci: ok
+```
+
+- `pnpm --filter @oat/desktop exec electron-vite build`:
+
+```text
+out/main/index.js  1,401.57 kB
+✓ built in 285ms
+out/preload/index.cjs  239.16 kB
+✓ built in 35ms
+out/renderer/assets/main-window-D7ih0Ako.js  1,075.46 kB
+(!) Some chunks are larger than 500 kB after minification. Consider:
+✓ built in 646ms
+```
+
+- The chunk-size warning is a bundle-size warning, not a missing-environment/build failure; no build
+  configuration changes or warning suppression. Install's deprecated-subdependency notices likewise
+  did not indicate a missing environment (all dependencies resolved; typecheck/lint/build passed).
+- Logs: `/home/ubuntu/oat-workspace-step4-ci.log` (initial failures),
+  `/home/ubuntu/oat-workspace-step4-ci-reviewed.log`,
+  `/home/ubuntu/oat-workspace-step4-build-reviewed.log`.
+- UI is visually unverified; desktop/web e2e and axe were not run. Full task visual/e2e acceptance and
+  C3 placeholder integration remain separate work. Local commit:
+  `feat(desktop): shared workspace sidebar, pages, trash, share and templates`; nothing pushed.
