@@ -61,7 +61,10 @@ export function createWorkspaceFeatureAdapter(
   options: WorkspaceFeatureOptions,
 ): FeatureUiAdapter {
   const Link: LinkComponent = ({ href, ...props }) => {
-    const url = new URL(href, host.appOrigin || 'https://oat.invalid');
+    const base = new URL(host.appOrigin || 'https://oat.invalid');
+    const url = new URL(href, base);
+    if (url.origin !== base.origin)
+      return <a {...props} href={url.href} target="_blank" rel="noopener noreferrer" />;
     return <host.Link {...props} route={routeOf(url.pathname, url.search)} />;
   };
   return {

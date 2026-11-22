@@ -82,6 +82,16 @@ describe('workspace feature adapter', () => {
     expect(adapter.hrefFor?.({ kind: 'assistant', threadId: 'th1' })).toBe('/assistant?thread=th1');
   });
 
+  it('opens links to other origins outside the app', () => {
+    const { host, options } = setup();
+    const Link = createWorkspaceFeatureAdapter(host, options).Link!;
+    render(<Link href="https://example.com/docs?a=1">External</Link>);
+    const link = screen.getByRole('link', { name: 'External' });
+    expect(link.hasAttribute('data-host-link')).toBe(false);
+    expect(link.getAttribute('href')).toBe('https://example.com/docs?a=1');
+    expect(link.getAttribute('target')).toBe('_blank');
+  });
+
   it('keeps desktop links imperative and delegates document navigation only when supplied', () => {
     const { host, options } = setup('desktop');
     const openDocument = vi.fn();
