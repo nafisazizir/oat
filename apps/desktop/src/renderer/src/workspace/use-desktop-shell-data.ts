@@ -5,13 +5,18 @@ import { call } from '../bridge';
 import { api } from '../lib/api';
 import { useApiOnline } from './api-status';
 
-export function localShellData(user: DesktopUser, snapshot: WorkspacesSnapshot | null): ShellData {
+export function localShellData(
+  user: DesktopUser,
+  snapshot: WorkspacesSnapshot | null,
+  cached?: ShellData | null,
+): ShellData {
   const workspaces =
     snapshot?.workspaces.map((w) => ({
       id: w.id,
       name: w.name,
       role: w.role ?? ('viewer' as const),
-      members: 1,
+      members: cached?.workspaces.find((known) => known.id === w.id)?.members ?? 1,
+      icon: cached?.workspaces.find((known) => known.id === w.id)?.icon,
     })) ?? [];
   const workspace = workspaces.find((w) => w.id === snapshot?.activeId) ??
     workspaces[0] ?? { id: '', name: user.name || user.email, role: 'viewer' as const, members: 1 };
@@ -93,7 +98,7 @@ export function useDesktopShellData(
     if (knownWorkspace && remoteWorkspaceId && localWorkspaceId !== remoteWorkspaceId && !failed)
       void call('workspaces:set-active', { workspaceId: remoteWorkspaceId }).catch(() => {});
   }, [knownWorkspace, remoteWorkspaceId, localWorkspaceId, failed]);
-  const local = useMemo(() => localShellData(user, snapshot), [user, snapshot]);
+  const local = useMemo(() => localShellData(user, snapshot, remote), [user, snapshot, remote]);
   const base = useMemo(
     () =>
       failed || !apiOnline

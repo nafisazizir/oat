@@ -24,6 +24,26 @@ const note = {
 };
 
 describe('desktop local shell data', () => {
+  it('keeps cached member counts offline without overriding the local role', () => {
+    const cached = { ...shell, workspaces: [{ ...shell.workspace, members: 4, icon: '🌱' }] };
+    const local = localShellData(
+      user,
+      {
+        workspaces: [{ ...workspace, role: 'viewer', canCreate: false }],
+        activeId: 'w',
+        targetId: null,
+      },
+      cached,
+    );
+    expect(local.workspace).toMatchObject({ members: 4, icon: '🌱', role: 'viewer' });
+    expect(
+      localShellData(
+        user,
+        { workspaces: [{ ...workspace, id: 'new' }], activeId: 'new', targetId: 'new' },
+        cached,
+      ).workspace.members,
+    ).toBe(1);
+  });
   it('keeps unknown workspace roles view-only and permits an empty local snapshot', () => {
     expect(localShellData(user, null).documents).toEqual([]);
     expect(localShellData(user, null).workspace.name).toBe(user.email);

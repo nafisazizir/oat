@@ -385,3 +385,89 @@ out/renderer/assets/main-window-D7ih0Ako.js  1,075.46 kB
 - UI is visually unverified; desktop/web e2e and axe were not run. Full task visual/e2e acceptance and
   C3 placeholder integration remain separate work. Local commit:
   `feat(desktop): shared workspace sidebar, pages, trash, share and templates`; nothing pushed.
+
+### Step 5 — visual evidence and web e2e
+
+- Built desktop with `pnpm --filter @oat/desktop exec electron-vite build`, served only the built
+  renderer on localhost and drove Chromium through Playwright with a stubbed `window.oat`. No earlier
+  capture helper was present on this machine; the earlier task notes describe the same built-renderer
+  approach. Reusable capture sources are retained at `/home/ubuntu/evidence/c2/capture-desktop.mjs`
+  and `capture-web.ts` (the latter reuses web's hydration and `seedSweepContent` helpers).
+- Desktop fixture: signed-in user, completed onboarding, three local meeting notes (including two
+  absent from REST), two folders and a nested page, private/shared pages and meetings, two trash items,
+  real TipTap heading/paragraph/list content, sharing settings and built-in/custom templates. Offline
+  is the bridge network-error envelope that `bridgeTransport` maps to `OatApiError.status === 0`, not
+  just a forced CSS empty state. Verified local-only notes remain in the sidebar while the page shows
+  the offline state. Both themes captured at exactly **1280×800**.
+- Screenshots inspected (all under `/home/ubuntu/evidence/c2/`):
+  - `desktop-tree-light.png`, `desktop-tree-dark.png` — Home with expanded Projects and nested page.
+  - `desktop-page-light.png`, `desktop-page-dark.png` — page content after autosave settles.
+  - `desktop-trash-light.png`, `desktop-trash-dark.png` — two trashed items.
+  - `desktop-share-light.png`, `desktop-share-dark.png` — sharing controls open.
+  - `desktop-templates-light.png`, `desktop-templates-dark.png` — shared gallery.
+  - `desktop-offline-light.png`, `desktop-offline-dark.png` — local notes retained, page offline.
+  - `web-tree-light.png`, `web-tree-dark.png`, `web-templates-light.png` — authenticated, real API/DB
+    comparison surfaces using the compose-backed e2e server, not stubbed web responses.
+- Visual review caught the desktop workspace member count dropping from 4 to 1 offline: local
+  snapshots do not contain member counts. `localShellData` now retains cached member counts/icons by
+  workspace ID, without overriding the current local role/name or leaking metadata across workspaces.
+  Added a helper test for cached count/icon, a downgraded viewer role and an uncached workspace. Rebuilt
+  and re-captured after the fix. No overlap/clipped controls found; gallery content naturally continues
+  below the 800px viewport. Desktop's 48px drag area/primary action and web's top-bar action remain
+  intentionally platform-specific. The offline fixture retains main's last-success sync glyph alongside
+  the explicit Offline label because its main sync snapshot stays idle; API status is tracked separately.
+- Final capture logs: `desktop-capture-final.log`, `desktop-console.json`, `web-capture.log`,
+  `web-console.json` in the evidence directory. Both console summaries:
+
+```json
+{ "errors": [] }
+```
+
+- `DATABASE_URL=postgres://oat:oat@localhost:54329/oat pnpm dev:up` built missing local images and
+  started all five healthy services; Docker Hub did not return 429 on this run, so no mirror retagging
+  was needed. Initial web setup could not launch Chromium (missing Playwright-managed browser).
+  Checked the environment/cache, installed with `pnpm --filter @oat/web exec playwright install
+  chromium`, then reran the same selected specs. No application code changed to address setup.
+- Web command:
+
+```sh
+DATABASE_URL=postgres://oat:oat@localhost:54329/oat E2E_PORT=3126 E2E_WORKERS=2 \
+  pnpm --filter @oat/web exec playwright test \
+  e2e/documents.spec.ts e2e/private-shared.spec.ts e2e/sharing.spec.ts \
+  e2e/templates.spec.ts e2e/workspaces.spec.ts e2e/a11y.spec.ts
+```
+
+```text
+  1 skipped
+  24 passed (2.8m)
+```
+
+- Zero failed tests. The skipped template dark-editor case explicitly requires `E2E_SCREENSHOTS`
+  (screenshot-only, not a failure); dark route/axe and desktop template gallery coverage ran. Route axe
+  scans, sidebar axe and leave-dialog axe passed light/dark. Console guards passed. The Next dev server
+  emitted the known share-404 theme-script warning (already documented in `5.3-sharing.md` and narrowly
+  filtered by `sharing.spec.ts`) and one `The destination stream errored while writing data.` diagnostic;
+  the latter was not diagnosed, no browser capture error occurred, and all selected tests passed. No
+  root-layout/streaming changes made outside this task. Full log: `/home/ubuntu/oat-c2-web-e2e-final.log`;
+  initial browser-install failure log: `/home/ubuntu/oat-c2-web-e2e.log`.
+- Final affected CI after the offline metadata fix (`/home/ubuntu/oat-c2-fixes-ci.log`):
+
+```text
+━━ ci summary (--only format,typecheck,lint,test)
+step       status     time  note
+format     pass      14.3s
+typecheck  pass      11.0s
+lint       pass       6.1s
+test       pass      15.1s
+total                46.6s
+
+ci: ok
+```
+
+- Desktop: 59 test files / 514 tests passed. Shared workspace UI: 6 files / 63 tests passed. No
+  actionlint inputs changed since the recorded passing fast gate. Final desktop build log:
+  `/home/ubuntu/oat-c2-fixed-build.log`, renderer `✓ built in 1.04s`; unchanged large-chunk warning.
+- Requested visual/web verification complete. Native Electron/macOS window chrome, actual recording
+  and native desktop e2e were not run on Linux; desktop evidence uses the requested stubbed bridge.
+  Join and C3 routes remain the placeholders explicitly allowed in Step 4. Screenshots/capture scripts
+  live outside git at the requested persistent evidence path. Fix and docs committed locally; no push.
