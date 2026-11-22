@@ -107,15 +107,17 @@ function setup(
 }
 
 describe('shared workspace shell', () => {
-  it('shares workspace chrome, compact navigation and a single account footer', () => {
+  it('shares aligned navigation and an account menu with reachable settings', async () => {
     setup();
     expect(screen.getByTestId('sidebar-header-trigger')).toBeTruthy();
-    expect(screen.getByTestId('workspace-header-switcher').textContent).toContain('Workspace');
-    expect(screen.getByTestId('workspace-switcher').textContent).toContain('User');
+    expect(screen.getByTestId('workspace-switcher').textContent).toContain('Workspace');
+    expect(screen.getByTestId('account-switcher').textContent).toContain('User');
     expect(screen.getByTestId('theme-menu')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Templates' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Settings' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
     expect(screen.getByTestId('open-trash')).toBeTruthy();
+    await userEvent.click(screen.getByTestId('account-switcher'));
+    expect(await screen.findByRole('menuitem', { name: /^Settings$/ })).toBeTruthy();
   });
 
   it.each([4, 0, null])('exports desktop notes through the host (count %s)', async (count) => {

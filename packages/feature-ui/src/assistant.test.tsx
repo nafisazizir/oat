@@ -302,6 +302,9 @@ describe('AssistantChat', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
     expect(screen.getByText('No conversations yet.')).toBeTruthy();
+    expect(screen.getByText('No conversations yet.').parentElement?.className).not.toContain(
+      'border',
+    );
   });
 
   it('shows missing conversation errors and permits starting again', async () => {

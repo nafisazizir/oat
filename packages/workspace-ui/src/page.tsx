@@ -16,6 +16,15 @@ export function PageContainer({ className, ...props }: React.ComponentProps<'div
   return <NoteColumn className={className} {...props} />;
 }
 
+export function HomeLayout({ children, ...props }: React.ComponentProps<'div'>) {
+  return (
+    <PageContainer className="max-w-[744px] gap-8 py-8 sm:py-8" {...props}>
+      <h1 className="text-heading-24 text-gray-1000">Home</h1>
+      {children}
+    </PageContainer>
+  );
+}
+
 export function PageHeader({
   title,
   description,

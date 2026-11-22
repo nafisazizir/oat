@@ -89,7 +89,7 @@ export function UpcomingList({
         <div
           className={
             compact
-              ? 'flex max-h-72 flex-col gap-1 overflow-y-auto rounded-lg border border-gray-alpha-300 bg-background-200 p-2'
+              ? 'flex max-h-72 flex-col gap-1 overflow-y-auto'
               : '-mx-1 flex max-h-56 flex-col gap-1 overflow-y-auto px-1'
           }
         >

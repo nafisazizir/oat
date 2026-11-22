@@ -155,9 +155,11 @@ export function MeetingView({
   return (
     <section className="flex min-w-0 flex-1 flex-col" aria-label="Meeting">
       {/* The page's heading (the title itself is an editable field). */}
-      <h1 className="sr-only">
-        {documentId === null ? 'Meeting notes' : note?.title || 'Untitled meeting'}
-      </h1>
+      {(!home || documentId !== null) && (
+        <h1 className="sr-only">
+          {documentId === null ? 'Meeting notes' : note?.title || 'Untitled meeting'}
+        </h1>
+      )}
       <audio ref={audioRef} preload="metadata" hidden data-testid="playback-audio" />
       <IssueBanner snapshot={snapshot} />
       <div className="flex min-h-0 flex-1">
@@ -240,7 +242,7 @@ export function MeetingView({
         )}
       </div>
       <div
-        className="flex flex-wrap items-center justify-center gap-2 border-t border-gray-alpha-200 bg-background-100 px-4 py-3"
+        className="mx-auto mb-4 flex w-fit max-w-full flex-wrap items-center justify-center gap-2 rounded-lg border border-gray-alpha-400 bg-background-100 p-1.5"
         data-testid="note-bottom-bar"
       >
         <RecordingBar

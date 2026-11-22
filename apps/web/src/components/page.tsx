@@ -17,6 +17,7 @@ export function BackLink({ href, children }: { href: Route; children: React.Reac
 
 export {
   PageContainer,
+  HomeLayout,
   PageHeader,
   SectionHeading,
   EmptyState,

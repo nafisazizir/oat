@@ -158,7 +158,7 @@ export function WorkspaceGeneralForm({
       )}
       {canEdit ? (
         <div className="flex justify-end">
-          <Button type="submit" disabled={!dirty || pending}>
+          <Button type="submit" variant="secondary" size="sm" disabled={!dirty || pending}>
             {pending && <Spinner data-icon="inline-start" />}
             Save changes
           </Button>

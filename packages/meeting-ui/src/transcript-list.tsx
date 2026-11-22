@@ -366,16 +366,13 @@ function SegmentRow({
         data-selectable
         {...select}
         className={cn(
-          'max-w-[85%] rounded-2xl px-3.5 py-2 text-copy-14 transition-[background-color,box-shadow] duration-100',
-          me
-            ? 'rounded-ee-md bg-blue-100 text-blue-1000'
-            : 'rounded-es-md bg-gray-100 text-gray-1000',
+          'max-w-[85%] rounded-lg bg-gray-100 px-3.5 py-2 text-copy-14 text-gray-1000 transition-[background-color,box-shadow] duration-100',
           // Interim: a step lighter on the ramp, still ≥ 4.5:1 on the bubble (9.3b).
-          !final && (me ? 'text-blue-900 italic' : 'text-gray-900 italic'),
+          !final && 'text-gray-900 italic',
           onSelect &&
             cn(
               'cursor-pointer outline-none focus-visible:ring-3 focus-visible:ring-gray-600/50',
-              me ? 'hover:bg-blue-200' : 'hover:bg-gray-200',
+              'hover:bg-gray-200',
             ),
           active && 'ring-2 ring-gray-1000',
           focused && 'ring-2 ring-brand-600 ring-offset-2 ring-offset-background-100',

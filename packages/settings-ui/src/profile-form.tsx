@@ -224,6 +224,8 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
         )}
         <Button
           type="submit"
+          variant="secondary"
+          size="sm"
           disabled={!dirty || nameMissing || pending}
           data-testid="profile-save"
         >

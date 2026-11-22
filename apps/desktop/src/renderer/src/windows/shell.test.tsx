@@ -411,6 +411,9 @@ describe('desktop shell', () => {
     expect(screen.getByTestId('meeting-content').getAttribute('data-document-id')).toBe(
       'meeting-id',
     );
+    expect(
+      document.querySelector('header.app-drag')?.contains(screen.getByTestId('share-button')),
+    ).toBe(true);
   });
 
   it('exposes workspace and account actions through one footer menu', async () => {
@@ -468,7 +471,8 @@ describe('desktop shell', () => {
       'text-gray-900',
     );
     await userEvent.keyboard('{Escape}');
-    await userEvent.click(screen.getByRole('link', { name: 'Settings' }));
+    await userEvent.click(screen.getByTestId('account-switcher'));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /^Settings$/ }));
     expect(screen.getByTestId('settings')).toBeTruthy();
   });
 
@@ -499,11 +503,9 @@ describe('desktop shell', () => {
   it('keeps account actions available before workspaces load', async () => {
     model.workspacesReady = false;
     render(<MainWindow />);
-    expect(screen.getByTestId('workspace-switcher').textContent).toContain('Alex');
+    expect(screen.getByTestId('account-switcher').textContent).toContain('Alex');
     await userEvent.click(screen.getByTestId('workspace-switcher'));
-    expect(
-      await screen.findByText('Account', { selector: '[data-slot="dropdown-menu-label"]' }),
-    ).toBeTruthy();
+    expect((await screen.findByRole('menu')).textContent).toContain('alex@example.test');
     await userEvent.click(screen.getByRole('menuitem', { name: 'Sign out' }));
     expect(model.invoke).toHaveBeenCalledWith('auth:sign-out');
   });

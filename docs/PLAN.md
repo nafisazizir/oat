@@ -105,6 +105,10 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 
 ## M9 — Ship v1
 
+- [x] Human-requested Phase 3a visual hill-climb round 2: aligned sidebar columns, quiet utility rows,
+      grouped account menus, single desktop meeting header, flat Coming up, shared Home layout,
+      tighter settings and inline assistant history; light/dark captures inspected, fast CI passes · [task](tasks/phase3a-visual-round2.md)
+
 - [x] Human-requested Phase 3a visual hill-climb round 1: shared Graphite sidebar/chrome, assistant, metadata,
       settings and empty-state polish; rebuilt renderer, inspected light/dark captures, fast CI passes · [task](tasks/phase3a-visual-hillclimb.md)
 

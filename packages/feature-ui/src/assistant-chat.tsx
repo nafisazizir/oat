@@ -372,7 +372,7 @@ function ThreadList({
   }
   if (threads.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-lg border border-gray-alpha-400 px-4 py-8 text-center">
+      <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
         <IconMessage className="size-6 text-gray-900" />
         <p className="text-heading-14">No conversations yet.</p>
         <p className="text-copy-13 text-gray-900">

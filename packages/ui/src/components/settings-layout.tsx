@@ -12,11 +12,11 @@ export function SettingsLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto grid w-full max-w-6xl items-start gap-8 px-6 py-8 md:grid-cols-[13.25rem_minmax(0,1fr)] md:gap-10">
+    <div className="mx-auto grid w-full max-w-6xl items-start gap-6 px-6 py-4 md:grid-cols-[13.25rem_minmax(0,1fr)] md:gap-10">
       <nav
         aria-label="Settings sections"
         className={cn(
-          'flex flex-col gap-4 border-b border-gray-alpha-400 pb-4 md:sticky md:top-20 md:border-e md:border-b-0 md:pe-3 md:pb-0',
+          'flex flex-col gap-4 border-b border-gray-alpha-400 pb-4 md:sticky md:top-16 md:border-b-0 md:pe-3 md:pb-0',
           navigationClassName,
         )}
       >

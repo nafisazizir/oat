@@ -74,7 +74,7 @@ export function TranscriptReader({
                     className={cn(
                       'me-1.5 rounded-sm px-1 py-px text-label-12',
                       line.source === 'mic'
-                        ? 'bg-blue-200 text-blue-1000'
+                        ? 'bg-gray-200 text-gray-1000'
                         : 'bg-gray-200 text-gray-1000',
                     )}
                   >

@@ -1,6 +1,6 @@
 import type { CalendarSnapshot, MeetingNoteSummary } from '@oat/core/bridge';
 import { groupNotesByDate } from '@oat/meeting-ui';
-import { EmptyState } from '@oat/workspace-ui';
+import { EmptyState, HomeLayout } from '@oat/workspace-ui';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import { IconNotes } from '@tabler/icons-react';
 import { useState } from 'react';
@@ -23,10 +23,7 @@ export function HomeView({
   const [now] = useState(() => Date.now());
   const time = new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' });
   return (
-    <div
-      className="mx-auto flex w-full max-w-[744px] flex-col gap-8 px-8 py-8"
-      data-testid="desktop-home"
-    >
+    <HomeLayout data-testid="desktop-home">
       <UpcomingList snapshot={calendar} onOpen={onOpen} otherWorkspace={otherWorkspace} compact />
       {notes === null ? (
         <div role="status" aria-label="Loading notes" className="flex flex-col gap-2">
@@ -80,6 +77,6 @@ export function HomeView({
           </section>
         ))
       )}
-    </div>
+    </HomeLayout>
   );
 }

@@ -460,6 +460,7 @@ function SignedInShell({
           ) : (
             <DesktopRoutesView
               route={route}
+              toolbar={toolbar}
               notes={notes}
               recordingControls={
                 recording ? (

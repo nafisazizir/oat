@@ -50,9 +50,7 @@ import { CreateWorkspaceDialog } from './create-workspace-dialog';
 import { TreeSection } from './page-tree';
 import { useOptimisticTree, useShellData } from './shell-data';
 import { useTreeActions } from './tree-actions';
-import { Button } from '@oat/ui/components/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@oat/ui/components/avatar';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import { ThemeMenu, useTheme } from '@oat/settings-ui';
 
 function WorkspaceTile({ workspace, className }: { workspace: Workspace; className?: string }) {
@@ -107,12 +105,13 @@ export function WorkspaceSwitcher({
               size="default"
               className="data-popup-open:bg-gray-alpha-100 group-data-[collapsible=icon]:ps-1!"
               tooltip={currentWorkspace.name}
-              data-testid={compact ? 'workspace-header-switcher' : 'workspace-switcher'}
+              data-testid={compact ? 'workspace-switcher' : 'account-switcher'}
               data-switchable={canSwitch}
               aria-busy={pending || undefined}
             />
           }
         >
+          {compact && <WorkspaceTile workspace={currentWorkspace} className="size-4" />}
           {!compact && (
             <Avatar className="size-7">
               <AvatarImage src={user.image ?? undefined} alt="" />
@@ -128,7 +127,21 @@ export function WorkspaceSwitcher({
           </div>
           <IconChevronDown className="ms-auto text-gray-900" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="top" align="start" className="w-(--anchor-width) min-w-56">
+        <DropdownMenuContent side={compact ? 'bottom' : 'top'} align="start" className="w-64">
+          <div className="min-w-0 px-2 py-2">
+            {user.name && user.name !== user.email && (
+              <p className="truncate text-label-14 text-gray-1000">{user.name}</p>
+            )}
+            <p className="truncate text-label-12 text-gray-900">{user.email}</p>
+          </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem nativeButton={false} render={<Link route={routeOf('/settings')} />}>
+              <IconSettings />
+              Settings
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
           {canSwitch && (
             <>
               <DropdownMenuGroup data-testid="workspace-list">
@@ -156,7 +169,7 @@ export function WorkspaceSwitcher({
             </>
           )}
           <DropdownMenuGroup>
-            {!canSwitch && <DropdownMenuLabel>Workspace</DropdownMenuLabel>}
+            <DropdownMenuLabel>Workspace</DropdownMenuLabel>
             <DropdownMenuItem
               nativeButton={false}
               render={<Link route={routeOf('/settings/workspace')} />}
@@ -190,7 +203,7 @@ export function WorkspaceSwitcher({
             {canLeave && (
               <DropdownMenuItem onClick={() => setLeaveOpen(true)}>
                 <IconLogout />
-                Leave {currentWorkspace.name}
+                <span className="truncate">Leave {currentWorkspace.name}</span>
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
@@ -244,11 +257,11 @@ export function AppSidebar({
       // Sidebar changes show before the server confirms them; e2e waits for this before navigating.
       data-saving={saving || undefined}
     >
-      <SidebarHeader className="gap-3 px-3 pt-2">
+      <SidebarHeader className="gap-3 px-2 pt-2">
         <div className="flex h-8 items-center gap-2">
           <SidebarTrigger data-testid="sidebar-header-trigger" />
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-            <WorkspaceSwitcher compact />
+            <WorkspaceSwitcher compact accountItems={accountItems} status={footerExtra} />
           </div>
         </div>
         <SidebarMenu className="gap-0.5">
@@ -303,68 +316,33 @@ export function AppSidebar({
         {/* D-36: the two places a note can be. New notes start in Private. */}
         <TreeSection area="private" />
         <TreeSection area="shared" />
-        <div className="mt-auto px-2 pb-2">
-          <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
-            <Tooltip>
-              <TooltipTrigger
-                role="link"
-                render={
-                  <Button
-                    nativeButton={false}
-                    role="link"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Templates"
-                    render={<Link route={routeOf(sections.templates.href)} />}
-                  />
-                }
+        <div className="mt-auto p-2">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                render={<Link route={routeOf(sections.templates.href)} />}
+                tooltip="Templates"
+                isActive={inSection(pathname, sections.templates.href)}
               >
                 <IconLayoutGrid />
-              </TooltipTrigger>
-              <TooltipContent>Templates</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="relative"
-                    aria-label={trash.length ? `Trash (${trash.length})` : 'Trash'}
-                    onClick={openTrash}
-                    data-testid="open-trash"
-                  />
-                }
+                <span>Templates</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="Trash"
+                aria-label={trash.length ? `Trash (${trash.length})` : 'Trash'}
+                onClick={openTrash}
+                data-testid="open-trash"
               >
                 <IconTrash />
+                <span>Trash</span>
                 {trash.length > 0 && (
-                  <span
-                    aria-hidden
-                    className="absolute end-1 top-1 size-1.5 rounded-full bg-brand-900"
-                  />
+                  <span className="ms-auto text-label-12 text-gray-900">{trash.length}</span>
                 )}
-              </TooltipTrigger>
-              <TooltipContent>Trash{trash.length > 0 ? ` (${trash.length})` : ''}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                role="link"
-                render={
-                  <Button
-                    nativeButton={false}
-                    role="link"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Settings"
-                    render={<Link route={routeOf(sections.settings.href)} />}
-                  />
-                }
-              >
-                <IconSettings />
-              </TooltipTrigger>
-              <TooltipContent>Settings</TooltipContent>
-            </Tooltip>
-          </div>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
         </div>
       </SidebarContent>
 
