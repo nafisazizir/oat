@@ -15,7 +15,13 @@ import {
   MessageScrollerViewport,
 } from '@oat/ui/components/message-scroller';
 import { Spinner } from '@oat/ui/components/spinner';
-import { IconAlertCircle, IconArrowUp, IconPlayerStopFilled } from '@tabler/icons-react';
+import {
+  IconAlertCircle,
+  IconArrowUp,
+  IconCornerDownLeft,
+  IconPlayerStopFilled,
+  IconX,
+} from '@tabler/icons-react';
 import { DefaultChatTransport } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -126,6 +132,7 @@ export function ChatSession({
   });
   const [announcement, setAnnouncement] = useState('');
   const refreshRef = useRef<(expectMessageId?: string) => Promise<void>>(async () => {});
+  const finishedMessage = useRef<string | null>(null);
 
   const transport = useMemo(
     () =>
@@ -140,10 +147,9 @@ export function ChatSession({
     messages: initialMessages,
     onFinish: ({ message, isAbort, isError }) => {
       if (lifecycle.current?.signal.aborted) return;
+      if (message.metadata?.threadId) finishedMessage.current = message.id;
       // One announcement per turn for screen readers (the streamed text itself is not a live region).
       setAnnouncement(isAbort ? 'Stopped.' : isError ? '' : 'Answer ready.');
-      // The answer is saved when the server's stream ends; read it back (sources, proposal statuses).
-      if (message.metadata?.threadId) void refreshRef.current(message.id);
     },
   });
   const { messages, status, error, sendMessage, stop, setMessages, clearError } = chat;
@@ -188,6 +194,12 @@ export function ChatSession({
   });
 
   const busy = status === 'submitted' || status === 'streaming';
+  useEffect(() => {
+    if (busy || !finishedMessage.current) return;
+    const id = finishedMessage.current;
+    finishedMessage.current = null;
+    void refreshRef.current(id);
+  });
   const ask = useCallback(
     (text: string) => {
       const question = text.trim();
@@ -267,7 +279,7 @@ export function ChatSession({
               <Button
                 key={s}
                 size="sm"
-                variant="ghost"
+                variant="secondary"
                 className="h-auto min-h-8 max-w-full text-start whitespace-normal"
                 onClick={() => ask(s)}
               >
@@ -339,14 +351,14 @@ function MessageList({
 
 function EmptyChat({ title, description }: { title: string; description: string }) {
   const { user } = useFeatureUi();
+  const name = user.name?.trim();
+  const firstName = name && !name.includes('@') ? name.split(/\s+/)[0] : 'there';
   return (
     <section
       className="flex shrink-0 flex-col items-center gap-2 px-4 pb-5 text-center"
       data-testid="chat-empty"
     >
-      <h2 className="text-heading-32 text-gray-1000">
-        Hello, {user.name.trim().split(/\s+/)[0] || 'there'}
-      </h2>
+      <h2 className="text-heading-32 text-gray-1000">Hello, {firstName}</h2>
       <p className="text-copy-16 text-gray-1000">{title}</p>
       <p className="text-copy-14 text-gray-900">{description}</p>
     </section>
@@ -380,12 +392,12 @@ function Composer({
         send();
       }}
     >
-      <InputGroup className="rounded-xl border-transparent bg-gray-100 p-1 focus-within:border-gray-alpha-500">
+      <InputGroup variant="secondary">
         <InputGroupTextarea
           aria-label="Ask the assistant"
           data-testid="chat-input"
           value={value}
-          rows={1}
+          rows={2}
           maxLength={MAX_QUESTION_CHARS}
           placeholder={placeholder}
           autoFocus={autoFocus}
@@ -396,9 +408,23 @@ function Composer({
               send();
             }
           }}
-          className="max-h-40 min-h-10 [field-sizing:content]"
+          className="max-h-60 min-h-16 [field-sizing:content]"
         />
-        <InputGroupAddon align="inline-end" className="self-end pb-1.5">
+        <InputGroupAddon align="block-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Clear message"
+            title="Clear message"
+            disabled={!value}
+            onClick={() => setValue('')}
+          >
+            <IconX />
+          </Button>
+          <span className="flex flex-1 items-center gap-1.5 text-label-12 text-gray-900">
+            <IconCornerDownLeft className="size-3.5 shrink-0" /> Shift + Enter for a new line
+          </span>
           {busy ? (
             <Button
               type="button"

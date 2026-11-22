@@ -187,6 +187,7 @@ export function SearchDialog({
       className="sm:max-w-xl"
     >
       <Command
+        size="sm"
         shouldFilter={false}
         value={selected}
         onValueChange={setSelected}

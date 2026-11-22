@@ -4,6 +4,7 @@ import { IconFileText, IconNotebook } from '@tabler/icons-react';
 import { useState, type ComponentType, type ReactNode } from 'react';
 import type { HomeDocument } from './home-model';
 import { titleOf } from './tree';
+import { EmptyState } from './page';
 
 export type HomeLinkProps = { document: HomeDocument; children: ReactNode; className: string };
 export function HomeDocuments({
@@ -29,9 +30,13 @@ export function HomeDocuments({
   });
   if (!documents.length)
     return (
-      <p className="py-8 text-copy-14 text-gray-900" data-testid="home-empty">
-        {emptyMessage}
-      </p>
+      <div data-testid="home-empty">
+        <EmptyState
+          icon={IconNotebook}
+          title={emptyMessage}
+          description="Create a note or start a meeting to capture what matters."
+        />
+      </div>
     );
   return (
     <div className="flex flex-col gap-7" data-testid="home-notes">

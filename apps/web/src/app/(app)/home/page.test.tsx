@@ -22,10 +22,11 @@ describe('Home', () => {
     shell.getShellData.mockResolvedValue({ documents: [] });
   });
 
-  it('keeps empty home quiet without duplicating the shell note action', async () => {
+  it('shows a shared empty state without duplicating the shell note action', async () => {
     const html = renderToStaticMarkup(await HomePage());
     expect(html).toContain('No notes yet');
-    expect(html).not.toContain('data-slot="empty"');
+    expect(html).toContain('data-slot="empty"');
+    expect(html).toContain('Create a note or start a meeting to capture what matters.');
     expect(html).not.toContain('New note');
     expect(html).not.toContain('Pages you edit show up here.');
     expect(html).toContain('Upcoming meetings');

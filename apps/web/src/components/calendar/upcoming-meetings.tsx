@@ -29,13 +29,15 @@ function toView(event: CalendarEvent, now: Date): UpcomingMeetingView {
   };
 }
 
-const listClass =
-  'flex flex-col overflow-hidden rounded-lg border border-gray-alpha-300 bg-background-200';
+const listClass = 'flex flex-col overflow-hidden';
 
 function Section({ children }: { children: React.ReactNode }) {
   return (
-    <section aria-labelledby="upcoming" className="flex flex-col gap-3">
-      <h2 id="upcoming" className="text-label-14 text-gray-900">
+    <section
+      aria-labelledby="upcoming"
+      className="flex flex-col gap-2 rounded-lg border border-gray-alpha-400 bg-background-200 p-3"
+    >
+      <h2 id="upcoming" className="flex h-8 items-center px-2.5 text-label-12 text-gray-900">
         Coming up
       </h2>
       {children}
@@ -71,7 +73,7 @@ function Notice({
 
 const settingsLink = (label: string) => (
   <Button
-    variant="outline"
+    variant="secondary"
     size="sm"
     role="link"
     nativeButton={false}

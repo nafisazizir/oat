@@ -32,7 +32,7 @@ export function ThemeMenu({
 }) {
   const current = options.find(({ value }) => value === theme) ?? options[2];
   return (
-    <DropdownMenu>
+    <DropdownMenu size="sm">
       {showValue ? (
         <DropdownMenuTrigger
           render={<Button variant="ghost" size="sm" aria-label={`Theme: ${current.label}`} />}

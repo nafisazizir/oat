@@ -4,8 +4,12 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { HomeView } from './home-view';
 import { DesktopHomeData } from '../workspace/home-data';
 import type { HomeDocument } from '@oat/workspace-ui/home-model';
+import type * as WorkspaceUi from '@oat/workspace-ui';
 const model = vi.hoisted(() => ({ navigate: vi.fn() }));
-vi.mock('@oat/workspace-ui', () => ({ useWorkspaceHost: () => ({ navigate: model.navigate }) }));
+vi.mock('@oat/workspace-ui', async (original) => ({
+  ...(await original<typeof WorkspaceUi>()),
+  useWorkspaceHost: () => ({ navigate: model.navigate }),
+}));
 vi.mock('../calendar/upcoming-list.tsx', () => ({ UpcomingList: () => null }));
 afterEach(() => {
   cleanup();
@@ -58,7 +62,7 @@ it('shows loading rather than a false empty state before server documents arrive
       />
     </DesktopHomeData.Provider>,
   );
-  expect(screen.getByText('Loading notes…')).toBeTruthy();
+  expect(screen.getByRole('status', { name: 'Loading notes' })).toBeTruthy();
   expect(screen.queryByTestId('home-empty')).toBeNull();
 });
 it('distinguishes failed empty cache from a genuinely empty server workspace', () => {

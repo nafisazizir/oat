@@ -1,3 +1,4 @@
+export { ShellHeader, ShellSidebarProvider } from './shell-header';
 export { WorkspaceHost, useWorkspaceHost } from './host';
 export { DocumentActions, DocumentTrashBanner } from './document-actions';
 export { JoinWorkspace, loadJoinSnapshot, type JoinSnapshot } from './join-workspace';
@@ -22,7 +23,14 @@ export {
 } from './page-editor';
 export { ShareDialog, accessSummary } from './share-dialog';
 export { FolderView, ShellFolderView } from './folder-view';
-export { PageContainer, PageHeader, SectionHeading, EmptyState, type PageIcon } from './page';
+export {
+  PageContainer,
+  HomeLayout,
+  PageHeader,
+  SectionHeading,
+  EmptyState,
+  type PageIcon,
+} from './page';
 export { useAutosave, type SaveDocument, type SaveState } from './use-autosave';
 export { TemplatesGallery } from './templates-gallery';
 export { TemplatePicker } from './template-picker';

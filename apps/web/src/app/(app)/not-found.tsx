@@ -1,38 +1,31 @@
 import { Button } from '@oat/ui/components/button';
 import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@oat/ui/components/empty';
-import { IconFileUnknown } from '@tabler/icons-react';
+  AuthPanel,
+  AuthHeader,
+  AuthTitle,
+  AuthDescription,
+  AuthContent,
+} from '@oat/ui/components/auth-layout';
 import Link from 'next/link';
-
-import { PageContainer } from '@/components/page';
 
 export default function AppNotFound() {
   return (
-    <PageContainer>
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <IconFileUnknown />
-          </EmptyMedia>
-          <EmptyTitle>
+    <div className="flex flex-1 items-center justify-center px-6 py-12">
+      <AuthPanel className="w-full max-w-[22.5rem]">
+        <AuthHeader>
+          <AuthTitle>
             <h1>Page not found</h1>
-          </EmptyTitle>
-          <EmptyDescription>
+          </AuthTitle>
+          <AuthDescription>
             It may have been moved or deleted, or you might not have access to it.
-          </EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <Button role="link" nativeButton={false} render={<Link href="/home" />}>
+          </AuthDescription>
+        </AuthHeader>
+        <AuthContent>
+          <Button size="lg" role="link" nativeButton={false} render={<Link href="/home" />}>
             Go home
           </Button>
-        </EmptyContent>
-      </Empty>
-    </PageContainer>
+        </AuthContent>
+      </AuthPanel>
+    </div>
   );
 }

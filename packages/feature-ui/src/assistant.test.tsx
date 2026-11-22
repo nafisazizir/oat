@@ -172,6 +172,19 @@ function stream() {
 }
 
 describe('AssistantChat', () => {
+  it.each([
+    ['  Alex  Morgan  ', 'Alex'],
+    ['', 'there'],
+    ['   ', 'there'],
+    ['x@studio.example', 'there'],
+    ['  x@studio.example  ', 'there'],
+  ])('greets by first name or a neutral fallback instead of email: %j', (name, greeting) => {
+    const env = setup();
+    env.value.user.name = name;
+    render(<ChatSession {...sessionProps} />, env);
+    expect(screen.getByRole('heading', { name: `Hello, ${greeting}` })).toBeTruthy();
+    expect(screen.queryByText('Hello, x@studio.example')).toBeNull();
+  });
   it('settles the document before streaming through the host transport', async () => {
     const current = stream();
     let release!: () => void;
@@ -214,6 +227,23 @@ describe('AssistantChat', () => {
     fireEvent.submit(screen.getByTestId('chat-input').closest('form')!);
     expect(beforeSend).not.toHaveBeenCalled();
     expect(env.transport).not.toHaveBeenCalled();
+  });
+
+  it('uses a multiline secondary composer with a clear action and compact suggestions', async () => {
+    const env = setup();
+    render(<ChatSession {...sessionProps} />, env);
+    const input = screen.getByRole('textbox', { name: 'Ask the assistant' });
+    expect(input.getAttribute('rows')).toBe('2');
+    expect(input.closest('[data-slot="input-group"]')?.className).toContain('bg-gray-100');
+    expect(screen.getByRole('button', { name: 'Send' }).hasAttribute('disabled')).toBe(true);
+    const clear = screen.getByRole('button', { name: 'Clear message' });
+    expect(clear.hasAttribute('disabled')).toBe(true);
+    await userEvent.type(input, 'A draft');
+    await userEvent.click(clear);
+    expect((input as HTMLTextAreaElement).value).toBe('');
+    expect(screen.getByTestId('chat-suggestions').querySelector('button')?.className).toContain(
+      'bg-gray-100',
+    );
   });
 
   it('keeps the composer mounted when leaving the centered new-chat state', async () => {
@@ -329,6 +359,9 @@ describe('AssistantChat', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
     expect(screen.getByText('No conversations yet.')).toBeTruthy();
+    expect(screen.getByText('No conversations yet.').parentElement?.className).not.toContain(
+      'border',
+    );
   });
 
   it('shows missing conversation errors and permits starting again', async () => {

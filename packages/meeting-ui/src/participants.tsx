@@ -31,7 +31,14 @@ export function ParticipantSummary(props: ParticipantChipsProps) {
   return (
     <Popover>
       <PopoverTrigger
-        render={<Button variant="secondary" size="sm" data-testid="attendees-toggle" />}
+        render={
+          <Button
+            variant="secondary"
+            size="xs"
+            className="text-gray-900"
+            data-testid="attendees-toggle"
+          />
+        }
       >
         <IconUsers aria-hidden />
         {count} {count === 1 ? 'attendee' : 'attendees'}

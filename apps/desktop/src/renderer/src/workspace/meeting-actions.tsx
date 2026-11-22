@@ -7,6 +7,7 @@ import {
 } from '@oat/workspace-ui';
 import { Button } from '@oat/ui/components/button';
 import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { call } from '../bridge';
 
 export function MeetingActions({
@@ -14,11 +15,13 @@ export function MeetingActions({
   beforeRemove,
   removeDisabled,
   renderSecondaryActions,
+  container,
 }: {
   id: string;
   beforeRemove?(): Promise<boolean>;
   removeDisabled?: boolean;
   renderSecondaryActions?(lifecycle: ReactNode): ReactNode;
+  container?: HTMLElement | null;
 }) {
   const shell = useShellData();
   const { client, online } = useWorkspaceHost();
@@ -49,18 +52,22 @@ export function MeetingActions({
   }, [id, known, client, online, revision]);
   const current = result?.id === id ? result : null;
   const node = known ?? current?.node;
+  const renderActions = (content: ReactNode) =>
+    container ? createPortal(content, container) : content;
   if (node)
     return node.deletedAt || shell.trash.some((item) => item.id === id) ? (
       <DocumentTrashBanner node={node} />
     ) : (
-      <DocumentActions
-        node={node}
-        beforeRemove={beforeRemove}
-        removeDisabled={removeDisabled}
-        renderSecondaryActions={renderSecondaryActions}
-      />
+      renderActions(
+        <DocumentActions
+          node={node}
+          beforeRemove={beforeRemove}
+          removeDisabled={removeDisabled}
+          renderSecondaryActions={renderSecondaryActions}
+        />,
+      )
     );
-  return (
+  return renderActions(
     <div className="flex flex-col items-start gap-2">
       {renderSecondaryActions?.(null)}
       <p role={current?.error ? 'alert' : 'status'} className="text-copy-14 text-gray-900">
@@ -82,6 +89,6 @@ export function MeetingActions({
           Try again
         </Button>
       )}
-    </div>
+    </div>,
   );
 }

@@ -36,7 +36,10 @@ export function MeetingTime({
 
   return (
     <p
-      className={cn('flex flex-wrap items-center gap-1.5 text-label-14 text-gray-900', className)}
+      className={cn(
+        'flex h-6 flex-wrap items-center gap-1.5 rounded-md bg-gray-100 px-2.5 text-label-12 text-gray-900',
+        className,
+      )}
       data-testid="meeting-time"
       data-in-progress={ticking || undefined}
     >

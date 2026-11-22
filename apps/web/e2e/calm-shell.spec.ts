@@ -12,7 +12,8 @@ for (const theme of ['light', 'dark'] as const) {
     const sidebar = page.getByTestId('app-sidebar');
     const header = page.getByTestId('top-bar');
     await expect(header).toHaveCSS('border-bottom-width', '0px');
-    await expect(header.getByRole('button', { name: 'New note' })).toBeVisible();
+    await expect(sidebar.getByRole('button', { name: 'New note' })).toBeVisible();
+    await expect(header.getByRole('button', { name: 'New note' })).toHaveCount(0);
     await expect(header.getByRole('button', { name: 'Search' })).toHaveCount(0);
     await expect(header.getByTestId('theme-menu')).toHaveCount(0);
     await sidebar.getByRole('button', { name: 'Search' }).click();
@@ -21,7 +22,8 @@ for (const theme of ['light', 'dark'] as const) {
 
     await sidebar.getByRole('link', { name: 'Templates', exact: true }).click();
     await expect(page).toHaveURL(/\/templates$/);
-    await sidebar.getByRole('link', { name: 'Settings', exact: true }).click();
+    await page.getByTestId('account-switcher').click();
+    await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
     await expect(page).toHaveURL(/\/settings$/);
     await page.getByTestId('open-trash').click();
     await expect(page.getByTestId('trash-dialog')).toBeVisible();
@@ -30,16 +32,24 @@ for (const theme of ['light', 'dark'] as const) {
     await page.getByTestId('workspace-switcher').click();
     // "Workspace" with one workspace, "Workspaces" (the list) with more (D-36).
     await expect(page.getByRole('menu')).toContainText('Workspace');
-    await expect(page.getByRole('menu')).toContainText('Account');
+    await expect(page.getByRole('menuitem', { name: 'Profile', exact: true })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: 'Sign out', exact: true })).toBeVisible();
+    await expect(page.getByRole('menuitem').last()).toHaveText('Sign out');
+    await expect(page.getByRole('menu').getByText('Live sync connected')).toBeVisible();
+    await page.evaluate(() => delete document.documentElement.dataset.syncLive);
+    await expect(page.getByRole('menu').getByText('Reconnecting live sync…')).toBeVisible();
+    await page.evaluate(() => {
+      document.documentElement.dataset.syncLive = '';
+    });
     await page.keyboard.press('Escape');
-    await page.getByTestId('sidebar-trigger').click();
+    await page.getByTestId('sidebar-header-trigger').click();
     await expect(page.locator(sidebarSelector)).toHaveAttribute('data-state', 'collapsed');
     await expect(sidebar).toHaveCSS('width', '48px');
     const controls = [
+      sidebar.getByRole('button', { name: 'New note' }),
       sidebar.getByRole('link', { name: 'Templates', exact: true }),
       page.getByTestId('open-trash'),
-      sidebar.getByRole('link', { name: 'Settings', exact: true }),
+      page.getByTestId('account-switcher'),
       page.getByTestId('theme-menu'),
     ];
     const boxes = [];
@@ -56,6 +66,9 @@ for (const theme of ['light', 'dark'] as const) {
       expect(boxes[i]!.x).toBe(boxes[0]!.x);
       expect(boxes[i]!.y).toBeGreaterThan(boxes[i - 1]!.y);
     }
+    await page.getByTestId('account-switcher').click();
+    await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
+    await expect(page).toHaveURL(/\/settings$/);
     await page.evaluate(() => document.fonts.ready);
     const { violations } = await new AxeBuilder({ page })
       .include('[data-testid="app-sidebar"]')

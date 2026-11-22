@@ -232,7 +232,7 @@ export function PageEditorSurface({
           }}
         />
         <div
-          className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2 text-label-13 text-gray-900"
+          className="flex min-h-8 flex-wrap items-center gap-2 text-label-12 text-gray-900"
           data-testid={isMeeting ? 'meeting-header' : undefined}
         >
           <VisibilityBadge visibility={doc.visibility} workspace={workspace} />
@@ -243,7 +243,7 @@ export function PageEditorSurface({
             </Badge>
           )}
           {!isMeeting && (
-            <span className="rounded-full bg-gray-alpha-100 px-2 py-1 text-label-12">
+            <span className="inline-flex h-6 items-center rounded-md bg-gray-100 px-2.5 text-label-12">
               Edited {formatDay(updatedAt)}
             </span>
           )}
@@ -283,7 +283,11 @@ function VisibilityBadge({
   const Icon = visibility === 'private' ? IconLock : visibility === 'link' ? IconLink : IconUsers;
   const label = visibilityBadge(visibility, workspace.name);
   return (
-    <Badge variant="secondary" data-testid="visibility-badge">
+    <Badge
+      variant="secondary"
+      className="h-6 rounded-md px-2.5 text-gray-900"
+      data-testid="visibility-badge"
+    >
       <Icon data-icon="inline-start" />
       {label}
     </Badge>

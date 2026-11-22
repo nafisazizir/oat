@@ -1,6 +1,7 @@
 import type { CalendarSnapshot } from '@oat/core/bridge';
 import { HomeDocuments } from '@oat/workspace-ui/home-documents';
-import { useWorkspaceHost } from '@oat/workspace-ui';
+import { HomeLayout, useWorkspaceHost } from '@oat/workspace-ui';
+import { Skeleton } from '@oat/ui/components/skeleton';
 import { Button } from '@oat/ui/components/button';
 import { useContext } from 'react';
 import { DesktopHomeData } from '../workspace/home-data';
@@ -20,15 +21,21 @@ export function HomeView({
   const home = useContext(DesktopHomeData);
   const host = useWorkspaceHost();
   return (
-    <div
-      className="mx-auto flex w-full max-w-[744px] flex-col gap-8 px-8 py-8"
-      data-testid="desktop-home"
-    >
+    <HomeLayout data-testid="desktop-home">
       <UpcomingList snapshot={calendar} onOpen={onOpen} otherWorkspace={otherWorkspace} compact />
       {home.loading && (
-        <p role="status" className="text-copy-14 text-gray-900">
-          Loading notes…
-        </p>
+        <div role="status" aria-label="Loading notes" className="flex flex-col gap-2">
+          <Skeleton className="h-4 w-12" />
+          <div>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex h-11 items-center gap-3 px-2">
+                <Skeleton className="size-4" />
+                <Skeleton className="h-5 w-44" />
+                <Skeleton className="ms-auto h-4 w-14" />
+              </div>
+            ))}
+          </div>
+        </div>
       )}
       {home.error && (
         <div role="alert" className="flex flex-col items-start gap-2 text-copy-14 text-gray-900">
@@ -54,6 +61,6 @@ export function HomeView({
           }
         />
       )}
-    </div>
+    </HomeLayout>
   );
 }

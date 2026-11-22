@@ -117,9 +117,17 @@ vi.mock('../meetings/meetings-state.ts', () => ({
 vi.mock('../meetings/meeting-view.tsx', async () => {
   const { MeetingActions } = await import('../workspace/meeting-actions');
   return {
-    MeetingView: ({ documentId }: { documentId: string | null }) => (
+    MeetingView: ({
+      documentId,
+      controlsContainer,
+    }: {
+      documentId: string | null;
+      controlsContainer?: HTMLElement | null;
+    }) => (
       <section data-testid="meeting-content" data-document-id={documentId}>
-        {documentId && model.showMeetingActions && <MeetingActions id={documentId} />}
+        {documentId && model.showMeetingActions && (
+          <MeetingActions id={documentId} container={controlsContainer} />
+        )}
         Meeting content
       </section>
     ),
@@ -412,15 +420,15 @@ describe('desktop shell', () => {
     expect(menu).toBe(search.closest('[data-sidebar="menu"]'));
     expect(menu?.querySelector('button')).toBe(button);
     expect(button.getAttribute('data-sidebar')).toBe('menu-button');
-    expect(button.className).toContain('text-brand-900');
-    expect(button.className).toContain('hover:text-brand-1000');
+    expect(button.className).not.toContain('text-brand-900');
+    expect(button.className).toContain('h-8');
     expect(button.parentElement?.querySelector('kbd')?.textContent).toBe('⌘N');
     expect(button.className).not.toContain('rounded-full');
     expect(button.closest('[data-sidebar="header"]')).not.toBeNull();
     expect(document.querySelector('[data-sidebar="header"] [data-testid="new-meeting"]')).toBe(
       button,
     );
-    await userEvent.click(screen.getByRole('button', { name: 'New meeting note' }));
+    await userEvent.click(screen.getByRole('button', { name: 'New note' }));
     expect(model.invoke).toHaveBeenCalledWith('recording:start', { input: 'sidecar' });
     await waitFor(() =>
       expect(screen.getByTestId('new-meeting').hasAttribute('disabled')).toBe(false),
@@ -474,6 +482,7 @@ describe('desktop shell', () => {
   );
 
   it('opens uncached pages in PageEditor and cached meetings in MeetingView from shared search', async () => {
+    model.showMeetingActions = true;
     const invoke = model.invoke.getMockImplementation()!;
     model.invoke.mockImplementation((channel: string, request?: OatRequest) => {
       if (channel === 'api:request' && request?.path === '/api/search')
@@ -483,6 +492,11 @@ describe('desktop shell', () => {
         });
       if (channel === 'api:request' && request?.path === '/api/documents/page-id')
         return Promise.resolve({ status: 200, body: { ...model.page, id: 'page-id' } });
+      if (channel === 'api:request' && request?.path === '/api/documents/meeting-id')
+        return Promise.resolve({
+          status: 200,
+          body: { ...model.page, id: 'meeting-id', kind: 'meeting' },
+        });
       return invoke(channel, request);
     });
     model.searchHits = [
@@ -538,6 +552,11 @@ describe('desktop shell', () => {
     expect(screen.getByTestId('meeting-content').getAttribute('data-document-id')).toBe(
       'meeting-id',
     );
+    expect(
+      document
+        .querySelector('header.app-drag')
+        ?.contains(await screen.findByTestId('share-button')),
+    ).toBe(true);
   });
 
   it('exposes workspace and account actions through one footer menu', async () => {
@@ -581,20 +600,63 @@ describe('desktop shell', () => {
     ).toBeTruthy();
   });
 
-  it('keeps the header borderless and the sync and settings controls in the footer', async () => {
+  it('keeps the shared header borderless and exposes sync in the account menu', async () => {
     render(<MainWindow />);
     const header = document.querySelector('header.app-drag')!;
     expect(header.className).not.toContain('border-b');
-    expect(document.querySelector('[data-slot="sidebar"] .app-drag')?.className).not.toContain(
-      'border-b',
-    );
+    expect(screen.getByTestId('sidebar-header-trigger')).toBeTruthy();
     expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
     const footer = screen.getByTestId('signed-in');
     expect(footer.contains(screen.getByTestId('workspace-switcher'))).toBe(true);
-    expect(footer.contains(screen.getByTestId('sync-status'))).toBe(true);
-    await userEvent.click(screen.getByRole('link', { name: 'Settings' }));
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    expect((await screen.findByTestId('sync-status')).textContent).toContain('All changes synced');
+    expect(screen.getByTestId('sync-status').querySelector('svg')?.getAttribute('class')).toContain(
+      'text-gray-900',
+    );
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByTestId('account-switcher'));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /^Settings$/ }));
     expect(screen.getByTestId('settings')).toBeTruthy();
   });
+
+  it.each(['MacIntel', 'Linux x86_64'])(
+    'keeps native title-bar controls safe on %s when expanded and collapsed',
+    async (platform) => {
+      const platformSpy = vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform);
+      try {
+        render(<MainWindow />);
+        const toggle = screen.getByTestId('sidebar-header-trigger');
+        const row = toggle.parentElement!;
+        const header = document.querySelector('header.app-drag')!;
+        if (platform === 'MacIntel') {
+          expect(row.className).toContain('app-drag h-12 ps-18');
+          expect(row.className).toContain('[&_button]:app-no-drag');
+          expect(row.className).toContain('[&_a]:app-no-drag');
+          expect(row.parentElement!.className).toContain('pt-0');
+          expect(row.className).toContain('group-data-[collapsible=icon]:[&>*]:invisible');
+          expect(header.className).toContain('max-md:ps-24');
+          expect(header.className).toContain(
+            'group-has-data-[collapsible=icon]/sidebar-wrapper:ps-12',
+          );
+        } else {
+          expect(row.className).not.toContain('app-drag');
+          expect(row.className).not.toContain('ps-18');
+          expect(header.className).not.toContain('max-md:ps-24');
+        }
+        await userEvent.click(toggle);
+        expect(
+          screen.getByTestId('app-sidebar').closest('[data-state]')?.getAttribute('data-state'),
+        ).toBe('collapsed');
+        expect(screen.getByTestId('sidebar-trigger').className).toContain('app-no-drag');
+        await userEvent.click(screen.getByTestId('sidebar-trigger'));
+        expect(
+          screen.getByTestId('app-sidebar').closest('[data-state]')?.getAttribute('data-state'),
+        ).toBe('expanded');
+      } finally {
+        platformSpy.mockRestore();
+      }
+    },
+  );
 
   it('keeps new meeting pending and reports a failure from the header', async () => {
     render(<MainWindow />);
@@ -623,11 +685,9 @@ describe('desktop shell', () => {
   it('keeps account actions available before workspaces load', async () => {
     model.workspacesReady = false;
     render(<MainWindow />);
-    expect(screen.getByTestId('workspace-switcher').textContent).toContain('Alex');
+    expect(screen.getByTestId('account-switcher').textContent).toContain('Alex');
     await userEvent.click(screen.getByTestId('workspace-switcher'));
-    expect(
-      await screen.findByText('Account', { selector: '[data-slot="dropdown-menu-label"]' }),
-    ).toBeTruthy();
+    expect((await screen.findByRole('menu')).textContent).toContain('alex@example.test');
     await userEvent.click(screen.getByRole('menuitem', { name: 'Sign out' }));
     expect(model.invoke).toHaveBeenCalledWith('auth:sign-out');
   });
@@ -754,17 +814,20 @@ describe('desktop shell', () => {
     model.offline = true;
     await userEvent.click(page);
     expect(await screen.findByRole('heading', { name: 'You’re offline' })).toBeTruthy();
-    const status = screen.getByTestId('sync-status');
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    const status = await screen.findByTestId('sync-status');
     expect(status.getAttribute('data-state')).toBe('offline');
     expect(status.getAttribute('aria-label')).toContain('Offline');
     expect(status.querySelector('svg')?.getAttribute('class')).toContain('tabler-icon-cloud-off');
     expect(status.querySelector('svg')?.getAttribute('class')).toContain('text-amber-900');
     expect(screen.queryByRole('button', { name: 'All changes synced' })).toBeNull();
+    await userEvent.keyboard('{Escape}');
     expect(screen.getByRole('link', { name: 'Local meeting' })).toBeTruthy();
     model.offline = false;
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('document-title')).toBeTruthy();
-    expect(screen.getByTestId('sync-status').getAttribute('data-state')).toBe('idle');
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    expect((await screen.findByTestId('sync-status')).getAttribute('data-state')).toBe('idle');
   });
 
   it('shows offline trash and sharing for a synced meeting without issuing server-only calls', async () => {

@@ -520,3 +520,63 @@ meeting citation focus is consumed. No independent reviewer or visual/runtime ve
   e2e.log, palette-retry.log, palette-e2e.log, trash-final.log and requested-fast.log.
   The final requested full gate is requested-fast.log; the preceding affected gate is trash-final.log;
   the final browser check is palette-e2e.log. Local group commit only; no push.
+
+## Integration with PR #30 (2026-11-22)
+
+- Fetched and merged origin/main at 710ec51. Retained PR #30's shared sidebar/account menu,
+  ShellHeader, settings rows, multiline assistant composer and empty/loading presentation.
+  Settings remains in the desktop account menu; Templates/Trash remain sidebar rows.
+- Preserved native route history, invite delivery/bootstrap, route-backed feature filters,
+  authorized Home server/local merging, native meeting routing (including trash/offline),
+  local-first editor preflights/adoption and lifecycle actions.
+- Resolved nine conflicts:
+  - apps/desktop/src/renderer/src/meetings/home-view.tsx: shared HomeLayout/skeletons with
+    our merged Home context, pending meetings and error/retry behavior.
+  - apps/desktop/src/renderer/src/windows/main-window.tsx: shared ShellHeader/toolbar with
+    our account-scoped route history and invite queue.
+  - apps/desktop/src/renderer/src/workspace/desktop-host.tsx: shared ShellSidebarProvider
+    with our DesktopHomeData provider.
+  - apps/desktop/src/renderer/src/workspace/desktop-routes-view.tsx: kept invite/join and
+    native meeting routing; the existing MeetingActions adapter now portals active lifecycle
+    controls into the shell toolbar, without duplicate inline actions. Trash recovery stays inline.
+  - apps/web/src/components/document/home-notes.tsx: retained shared Home model/link adapter;
+    HomeDocuments now uses PR #30's shared EmptyState presentation.
+  - packages/feature-ui/src/search-dialog.tsx: retained compact size and our guarded Ctrl/Meta+K close.
+  - packages/feature-ui/src/assistant.test.tsx: retained both editor-preflight and composer coverage.
+  - docs/PLAN.md and docs/LOG.md: kept both parity and visual-pass histories.
+- docs/DECISIONS.md is identical on both parents and still ends at D-38. No collision, new
+  entry or renumbering.
+- Shared ChatSession greeting trims a real display name and uses its first name; blank or
+  email-valued names use “Hello, there”, never the email. Table-driven tests cover both
+  whitespace/name and neutral fallback cases in the component consumed by both hosts.
+- Updated Home/shell integration fixtures for shared loading/layout and toolbar action placement;
+  added a portal regression ensuring active lifecycle controls are not duplicated in the note.
+- Initial browser checks exposed a pending proposal stuck at its preparation placeholder even
+  though the trace's saved-thread response contained its pending metadata. The refresh previously
+  read immediately from onFinish and skipped message adoption when React still reported streaming.
+  It now queues the completed message until the ready render is committed. Controlled regression
+  tests cover an immediate saved-thread response and a late completion after unmount.
+- No new endpoints, proxy headers, bearer exposure or navigation-guard changes.
+
+### Verification
+
+- Final TURBO_FORCE=true OAT_TEST_TIMEOUT_SCALE=3 pnpm run ci --fast:
+  format pass 19.6s / actionlint pass 0.3s / typecheck pass 36.9s / lint pass 16.9s /
+  test pass 63.7s; total 137.4s, ci: ok. All 24 test tasks executed successfully with
+  0 cached; typecheck/lint also show 0 cached. Includes desktop 634, feature-ui 174,
+  workspace-ui 117 and web 210 tests.
+- Initial forced attempts caught stale Home/shell mocks after relocation, then a type-import
+  lint violation and the new timing regression fixture reusing an unchanged React element.
+  Corrected those fixtures/imports; no timeout or assertion weakening.
+- Final requested smoke.spec.ts, search.spec.ts, assistant.spec.ts, workspaces.spec.ts and
+  documents.spec.ts browser run: 33 passed, 1 existing opt-in evidence skip (3.9m), using
+  DATABASE_URL=postgres://oat:oat@localhost:54329/oat, E2E_TIMEOUT_SCALE=3 E2E_WORKERS=2.
+  Initial combined run: 32 passed / 1 skipped / 1 proposal failure; after the refresh correction
+  the assistant-only run passed 8 tests before the final complete selected run.
+- Evidence: /home/ubuntu/oat-parity-merge-main-verified-fast.log and
+  /home/ubuntu/oat-parity-merge-main-verified-e2e.log. Earlier attempts:
+  oat-parity-merge-main-fast.log, oat-parity-merge-main-final-fast.log,
+  oat-parity-merge-main-e2e.log and oat-parity-merge-main-assistant-final.log under /home/ubuntu.
+- Documentation evidence finalized after the gate; targeted Prettier and git diff --check
+  cover those edits. Native Electron/macOS runtime and visual review remain unverified.
+  Local merge/fix commit only; no push.

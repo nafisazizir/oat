@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { createOatClient, type OatRequest, type OatTransport } from '@oat/client';
 import { SidebarProvider } from '@oat/ui/components/sidebar';
+import { ThemeProvider } from '@oat/settings-ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
@@ -93,7 +94,9 @@ function setup(
       <ShellDataProvider value={value}>
         <SidebarProvider>
           <TreeActionsProvider>
-            <AppSidebar />
+            <ThemeProvider>
+              <AppSidebar />
+            </ThemeProvider>
             <Actions />
           </TreeActionsProvider>
         </SidebarProvider>
@@ -104,6 +107,35 @@ function setup(
 }
 
 describe('shared workspace shell', () => {
+  it('shares aligned navigation and an account menu with reachable settings', async () => {
+    setup();
+    expect(screen.getByTestId('sidebar-header-trigger')).toBeTruthy();
+    expect(screen.getByTestId('workspace-switcher').textContent).toContain('Workspace');
+    expect(screen.getByTestId('account-switcher').textContent).toContain('User');
+    expect(screen.getByTestId('theme-menu')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Templates' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
+    expect(screen.getByTestId('open-trash')).toBeTruthy();
+    await userEvent.click(screen.getByTestId('account-switcher'));
+    expect(await screen.findByRole('menuitem', { name: /^Settings$/ })).toBeTruthy();
+    const menu = screen.getByRole('menu');
+    expect(menu.querySelector('strong')?.textContent).toBe('User');
+    expect(menu.textContent?.match(/user@test.com/g)).toHaveLength(1);
+    expect(
+      Array.from(menu.querySelectorAll('[role="menuitem"]'))
+        .slice(0, 2)
+        .map((item) => item.textContent),
+    ).toEqual(['Profile', 'Settings']);
+  });
+
+  it('shows an account name fallback when the profile has no distinct name', async () => {
+    setup({ ...data, user: { ...data.user, name: data.user.email } });
+    await userEvent.click(screen.getByTestId('account-switcher'));
+    const menu = await screen.findByRole('menu');
+    expect(menu.querySelector('strong')?.textContent).toBe('user');
+    expect(menu.textContent?.match(/user@test.com/g)).toHaveLength(1);
+  });
+
   it.each([4, 0, null])('exports desktop notes through the host (count %s)', async (count) => {
     const exportNotes = vi.fn().mockResolvedValue(count);
     const { user, host } = setup(

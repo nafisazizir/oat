@@ -121,8 +121,8 @@ export function PipelineStatus({
 
   const startButton = (label: string, testId: string) => (
     <Button
-      size="xs"
-      variant="outline"
+      size="sm"
+      variant="secondary"
       disabled={starting}
       onClick={() => void start()}
       data-testid={testId}

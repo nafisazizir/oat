@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type * as WorkspaceUi from '@oat/workspace-ui';
 import { MeetingActions } from './meeting-actions';
@@ -34,6 +34,13 @@ beforeEach(() => {
   model.call.mockResolvedValue(undefined);
 });
 afterEach(cleanup);
+it('places active lifecycle controls in the shared shell toolbar without duplicating them in the note', () => {
+  model.documents = [{ id: 'd', version: 2 }];
+  const toolbar = document.createElement('div');
+  const { container } = render(<MeetingActions id="d" container={toolbar} />);
+  expect(within(toolbar).getByText('Share / Move to trash')).toBeTruthy();
+  expect(within(container).queryByText('Share / Move to trash')).toBeNull();
+});
 it('uses shared trashed actions for locally cached meetings and forwards guarded active actions', () => {
   model.trash = [{ id: 'd', version: 1, deletedAt: 'now' }];
   const { rerender } = render(<MeetingActions id="d" />);

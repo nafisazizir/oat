@@ -203,9 +203,11 @@ export function MeetingView({
   const surface = (
     <section className="flex min-w-0 flex-1 flex-col" aria-label="Meeting">
       {/* The page's heading (the title itself is an editable field). */}
-      <h1 className="sr-only">
-        {documentId === null ? 'Meeting notes' : note?.title || 'Untitled meeting'}
-      </h1>
+      {(!home || documentId !== null) && (
+        <h1 className="sr-only">
+          {documentId === null ? 'Meeting notes' : note?.title || 'Untitled meeting'}
+        </h1>
+      )}
       <audio ref={audioRef} preload="metadata" hidden data-testid="playback-audio" />
       <IssueBanner snapshot={snapshot} />
       <div className="flex min-h-0 flex-1">
@@ -316,7 +318,7 @@ export function MeetingView({
         )}
       </div>
       <div
-        className="flex flex-wrap items-center justify-center gap-2 border-t border-gray-alpha-200 bg-background-100 px-4 py-3"
+        className="mx-auto mb-4 flex w-fit max-w-full flex-wrap items-center justify-center gap-2 rounded-lg border border-gray-alpha-400 bg-background-100 p-1.5"
         data-testid="note-bottom-bar"
       >
         <RecordingBar
@@ -543,12 +545,16 @@ function NoteBody({
         <div className="flex min-h-7 flex-wrap items-center gap-2 text-label-12 text-gray-900">
           {note.workspaceName && (
             // 3.9: which workspace the note lives in (it never moves, D-18).
-            <Badge variant="outline" className="gap-1" data-testid="note-workspace">
+            <Badge
+              variant="secondary"
+              className="h-6 gap-1 rounded-md px-2.5 text-gray-900"
+              data-testid="note-workspace"
+            >
               <IconStack2 />
               {note.workspaceName}
             </Badge>
           )}
-          <Badge variant="secondary" className="gap-1">
+          <Badge variant="secondary" className="h-6 gap-1 rounded-md px-2.5 text-gray-900">
             {note.visibility === 'private' ? <IconLock /> : <IconUsers />}
             {/* What the note's visibility is (D-36), in the web's words. */}
             {visibilityBadge(note.visibility, note.workspaceName ?? '')}
@@ -560,12 +566,7 @@ function NoteBody({
             </Badge>
           )}
 
-          <MeetingTime
-            className="rounded-md border border-gray-alpha-300 px-2 py-1"
-            startedAt={note.startedAt}
-            endedAt={endedAt}
-            live={live}
-          />
+          <MeetingTime startedAt={note.startedAt} endedAt={endedAt} live={live} />
           <NoteEventLine event={note.calendarEvent} />
           <ParticipantSummary
             participants={note.participants}
@@ -579,6 +580,7 @@ function NoteBody({
           />
         </div>
         <MeetingActions
+          container={controlsContainer}
           id={documentId}
           beforeRemove={editable ? assistant.settle : undefined}
           removeDisabled={live}

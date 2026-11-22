@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@oat/ui/components/dialog';
-import { Empty, EmptyHeader, EmptyTitle } from '@oat/ui/components/empty';
+import { EmptyState } from './page';
 import {
   Item,
   ItemActions,
@@ -57,11 +57,13 @@ export function TrashDialog({
         {!online ? (
           <OfflineState />
         ) : trash.length === 0 ? (
-          <Empty className="p-8">
-            <EmptyHeader>
-              <EmptyTitle className="text-heading-16">The trash is empty</EmptyTitle>
-            </EmptyHeader>
-          </Empty>
+          <EmptyState
+            icon={IconTrash}
+            title="The trash is empty"
+            titleAs="h2"
+            description="Deleted pages will appear here."
+            className="border-0"
+          />
         ) : (
           <ItemGroup className="-mx-2 max-h-96 gap-0.5 overflow-y-auto">
             {trash.map((node) => (

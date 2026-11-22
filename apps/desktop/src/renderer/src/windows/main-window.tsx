@@ -30,7 +30,7 @@ import {
   IconRefresh,
 } from '@tabler/icons-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useWorkspaceHost } from '@oat/workspace-ui';
+import { ShellHeader, useWorkspaceHost } from '@oat/workspace-ui';
 import { useRouteHistory } from '../use-route-history';
 import { DesktopWorkspaceHost } from '../workspace/desktop-host';
 import { DesktopSidebar } from '../workspace/desktop-sidebar';
@@ -49,7 +49,7 @@ import { useRecording } from '../recording-state.ts';
 import { isActive } from '../recording-view.ts';
 import { syncLabel, type SyncTone } from '../sync-status.ts';
 import { defaultInputChoice, startRequest } from '../recording/recording-controls.tsx';
-import { SidebarInset, SidebarTrigger } from '@oat/ui/components/sidebar';
+import { SidebarInset } from '@oat/ui/components/sidebar';
 import { RecordingBar, IssueBanner } from '../recording/recording-controls.tsx';
 import { SettingsView } from '../settings/settings-view.tsx';
 import { desktopSettingsSection } from '../workspace/settings-section';
@@ -57,7 +57,6 @@ import { FirstMeetingGuide } from '../onboarding/first-meeting-guide.tsx';
 import { useOnboarding } from '../onboarding/onboarding-state.ts';
 import { OnboardingView } from '../onboarding/onboarding-view.tsx';
 import { Wordmark } from '../wordmark.tsx';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import { useWorkspaces } from '../workspaces/workspaces-state.ts';
 
 /**
@@ -412,18 +411,17 @@ function SignedInShell({
         }}
       />
       <SidebarInset className="min-h-0 min-w-0">
-        <header
+        <ShellHeader
           className={cn(
             'app-drag sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 bg-background-100 px-3',
             /Mac/.test(navigator.platform) &&
               'max-md:ps-24 group-has-data-[collapsible=icon]/sidebar-wrapper:ps-12',
           )}
         >
-          <SidebarTrigger className="app-no-drag" />
           <div className="ms-auto flex min-w-0 items-center gap-2">
             <div ref={setToolbar} className="app-no-drag min-w-0 overflow-x-auto" />
           </div>
-        </header>
+        </ShellHeader>
         {starting.error && (
           <p role="status" className="px-3 text-copy-13 text-red-900">
             {starting.error}
@@ -523,7 +521,7 @@ function SignedInShell({
 }
 
 const SYNC_ICONS: Record<SyncTone, { icon: typeof IconCloudCheck; className: string }> = {
-  ok: { icon: IconCloudCheck, className: 'text-green-900' },
+  ok: { icon: IconCloudCheck, className: 'text-gray-900' },
   busy: { icon: IconLoader, className: 'animate-spin' },
   waiting: { icon: IconCloudUpload, className: '' },
   offline: { icon: IconCloudOff, className: 'text-amber-900' },
@@ -539,19 +537,16 @@ function SyncLine({ status: snapshot }: { status: SyncStatusSnapshot | undefined
   if (!status || !label) return <div className="mt-auto" />;
   const { icon: Icon, className } = SYNC_ICONS[label.tone];
   return (
-    <Tooltip>
-      <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label={label.text} />}>
-        <span
-          role="status"
-          aria-label={label.text}
-          data-testid="sync-status"
-          data-state={status.state}
-          data-pending={status.pending}
-        >
-          <Icon aria-hidden className={`size-4 ${className}`} />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent>{status.error ?? label.text}</TooltipContent>
-    </Tooltip>
+    <span
+      role="status"
+      aria-label={label.text}
+      data-testid="sync-status"
+      data-state={status.state}
+      data-pending={status.pending}
+      className="flex items-center gap-2 text-label-12 text-gray-900"
+    >
+      <Icon aria-hidden className={`size-4 ${className}`} />
+      {status.error ?? label.text}
+    </span>
   );
 }
