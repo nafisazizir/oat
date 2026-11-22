@@ -48,7 +48,7 @@ import { IconDeviceLaptop, IconX, IconWaveSine } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { AssistantToggleAnchor } from '@/components/assistant/document-assistant';
-import { useShellData } from '@/components/app-shell/shell-data';
+import { useShellData } from '@oat/workspace-ui/shell-data';
 import { RecordingControls, RecordingFeedback, useBrowserRecording } from './recording-controls';
 import { DocumentEditor } from '@/components/document/document-editor';
 import type { DocumentDetail } from '@/lib/api-types';

@@ -9,7 +9,8 @@
     "./search": "./src/search.ts",
     "./styles.css": "./src/styles.css",
     "./tasks": "./src/tasks.ts",
-    "./assistant": "./src/assistant.ts"
+    "./assistant": "./src/assistant.ts",
+    "./workspace": "./src/workspace-adapter.tsx"
   },
   "scripts": {
     "typecheck": "tsc",
@@ -22,6 +23,7 @@
     "react-dom": "^19"
   },
   "dependencies": {
+    "@oat/workspace-ui": "workspace:*",
     "@ai-sdk/react": "catalog:",
     "ai": "catalog:",
     "markdown-it": "catalog:",

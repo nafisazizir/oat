@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync } from 'node:fs';
 
 import AxeBuilder from '@axe-core/playwright';
@@ -17,9 +18,8 @@ import { verifyFeatureSurface } from './feature-surfaces';
  * its meeting notes never show up in other specs' Home.
  */
 
-/** A word nobody else's test data contains (letters only, so it is one search term). */
-const uniqueWord = () =>
-  `zq${Array.from({ length: 6 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join('')}`;
+/** A unique identifier term, without natural-language stemming of random prefixes. */
+const uniqueWord = () => `zq${randomBytes(4).toString('hex')}`;
 
 const paragraph = (text: string) => ({
   type: 'doc',
@@ -138,7 +138,7 @@ test('⌘K finds notes and transcript lines; Enter opens the hit; /search has ta
 
   // Keyboard navigation down to the transcript hit.
   await page.keyboard.press('ControlOrMeta+k');
-  await page.keyboard.type(`${word} discount`);
+  await palette.getByRole('combobox').fill(`${word} discount`);
   await expect(transcript).toHaveCount(1);
   await expect(palette.getByTestId('search-result-note')).toHaveCount(0);
   await expect(transcript).toHaveAttribute('data-selected', 'true');
@@ -147,7 +147,7 @@ test('⌘K finds notes and transcript lines; Enter opens the hit; /search has ta
 
   // "Search all results" → /search, then the Transcripts tab.
   await page.keyboard.press('ControlOrMeta+k');
-  await page.keyboard.type(word);
+  await palette.getByRole('combobox').fill(word);
   await expect(notes).toHaveCount(2);
   await palette.getByRole('option', { name: /Search all results/ }).click();
   await expect(page).toHaveURL(new RegExp(`/search\\?q=${word}$`));

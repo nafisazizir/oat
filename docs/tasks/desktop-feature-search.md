@@ -461,3 +461,65 @@ Electron/OS bridge smoke and independent review remain pending. Local commit onl
 
 Both review fixes are committed separately and pushed together. Next: merge the incoming C2 shared
 workspace shell, replace its feature placeholders and verify the resulting hosts/CI.
+
+## C2 workspace shell integration
+
+Fetched and merged integration base 085930f after pushing review fixes f2ea253 (stream headers) and
+b98e7de (pagination). Incoming shared AppSidebar, WorkspaceHost and AppRoute own the shell and routing;
+removed the additive FeatureNavigation/FeatureView state and superseded DesktopUserMenu. C2 account
+items retain the account actions. Its root ThemeProvider/Toaster, Settings, recording controls,
+workspace tree, document/template routes and offline shell remain intact. Join remains C2's placeholder;
+Assistant, My tasks and Search now render the real shared feature views.
+
+Both hosts build adapters through @oat/feature-ui/workspace:
+
+```ts
+export type WorkspaceFeatureOptions = Pick<
+  FeatureUiAdapter,
+  'transport' | 'notify' | 'workspaceId' | 'user'
+> & {
+  searchSources?: FeatureUiAdapter['searchSources'];
+  openDocument?(route: Extract<AppRoute, { view: 'document' }>): void;
+};
+
+export function createWorkspaceFeatureAdapter(
+  host: WorkspaceHost,
+  options: WorkspaceFeatureOptions,
+): FeatureUiAdapter;
+```
+
+WorkspaceHost supplies client/navigate/hrefOf/Link/platform. Its interface has no transport, user or
+workspace fields: both providers read user/workspace from shared ShellData and supply transport/notify.
+featureTargetRoute/routeFeatureTarget map document block/segment/time, search, tasks and assistant
+targets. Web wraps the host's Next Link, preserving prefetch and native modifier-click behavior;
+canonical Assistant URLs remain /assistant?thread=, with legacy path parsing also supported. Desktop
+uses apiTransport, retains local + server search and status-0 fallback, and overrides document opening:
+cached meetings navigate with kind=meeting; other feature links keep the validated external fallback.
+MeetingView still has no segment/time positioning API; external links preserve those query parameters.
+The shared sidebar's controlled Search action and desktop shortcut now open the same SearchDialog;
+only the shared helper owns target/route conversion. No next/* imports were added to feature-ui.
+
+Added adapter mapping/link/error-case tests and desktop real-view/recording/search/stream-unmount
+regressions. Final package counts: feature-ui 10 files/116, workspace-ui 6/69, desktop 62/534, web 29/207.
+Initial merge verification exposed outdated placeholder assertions and transcript query ordering; fixed
+the assertions to exercise the actual shared views and retained the existing web time/segment URL order.
+Stabilized the Tasks controlled-filter test by waiting for focus restoration and keyboard-opening Due
+date, without removing assertions. The search e2e now fills the ready palette input after navigation.
+An unrelated randomized fixture produced zqfnyrrq / prefix zqfny: PostgreSQL English stemming changes
+the prefix to zqfni, yielding no transcript hit. Reproduced with PostgreSQL and checked that oat_search
+uses English stemming (drizzle/0006_search.sql); switched the opaque fixture term to random hex.
+
+Browser check: Assistant/Tasks and the accessibility-only search case passed in the full run (10 passed,
+1 search failure, 1 existing opt-in skip). After fixing the fixture, focused search.spec.ts passed:
+3 passed (including setup), 1 skipped. All 11 distinct selected non-skipped cases now pass, including
+the light/dark axe scans. Logs: /home/ubuntu/pr26-c2-{e2e,search-e2e}.log.
+
+Rebuilt the desktop renderer and refreshed the same 24 PNGs in /home/ubuntu/screens. Visual review
+caught an integration-only Assistant height collapse: made the server-route wrapper a flex column.
+The scratch fixture now checks centered new-chat composer geometry and a bottom composer after a reply,
+alongside the existing one-Toaster/theme/local-offline-search checks. Native Electron/OS verification
+remains outside this browser-served fixture check. No screenshot or scratch harness is tracked.
+Package/build/screenshot logs: /home/ubuntu/pr26-c2-{feature-tests,workspace-tests,desktop-tests,web-tests,build,screens}.log.
+Final fast gate: all five stages pass, ci: ok (93.0s), /home/ubuntu/pr26-c2-ci.log.
+PR checks are watched after push with git_pr_checks(wait_mode=all); the live result is recorded in
+/home/ubuntu/pr26-c2-pr-checks.json. No D-number was added.

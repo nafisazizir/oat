@@ -44,8 +44,8 @@
     "server-only": "catalog:",
     "sonner": "catalog:",
     "zod": "catalog:",
-    "@oat/feature-ui": "workspace:*",
-    "@oat/client": "workspace:*"
+    "@oat/workspace-ui": "workspace:*",
+    "@oat/feature-ui": "workspace:*"
   },
   "devDependencies": {
     "@axe-core/playwright": "catalog:",

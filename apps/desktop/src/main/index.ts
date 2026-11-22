@@ -245,6 +245,7 @@ async function start() {
     log,
   });
   bridge.handle('app:info', () => ({
+    appOrigin: new URL(config.webUrl).origin,
     version: app.getVersion(),
     platform: process.platform,
     dev: !!config.rendererDevUrl,

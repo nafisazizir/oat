@@ -95,8 +95,12 @@ describe('TasksView', () => {
     await userEvent.click(screen.getByRole('combobox', { name: 'Status' }));
     await userEvent.click(screen.getByRole('option', { name: 'Done' }));
     expect(onChange).toHaveBeenLastCalledWith({ ...filters, view: 'created', status: 'done' });
-    await userEvent.click(screen.getByRole('combobox', { name: 'Due date' }));
-    await userEvent.click(screen.getByRole('option', { name: 'Overdue' }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Status' })),
+    );
+    act(() => screen.getByRole('combobox', { name: 'Due date' }).focus());
+    await userEvent.keyboard('{ArrowDown}');
+    await userEvent.click(await screen.findByRole('option', { name: 'Overdue' }));
     expect(onChange).toHaveBeenLastCalledWith({ ...filters, view: 'created', due: 'overdue' });
   });
 
