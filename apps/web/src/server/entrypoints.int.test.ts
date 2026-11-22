@@ -59,7 +59,11 @@ vi.mock('next/navigation', () => ({
 }));
 vi.mock('./auth', () => ({
   getAuth: () => env.harness!.auth,
-  getAuthConfig: () => ({ baseURL: BASE, trustedOrigins: [] }),
+  getAuthConfig: () => ({
+    baseURL: BASE,
+    trustedOrigins: [],
+    secret: 'test-only-notion-state-signing-secret',
+  }),
   getMailer: () => ({
     send: async (message: { to: string; subject: string; text: string; html: string }) =>
       void env.harness!.outbox.push(message),
@@ -120,6 +124,46 @@ it('lets only desktop sessions start the consent handoff', async () => {
     { params: Promise.resolve({}) },
   );
   expect(response.status).toBe(403);
+});
+
+it('names the desktop account before same-origin confirmation consumes the consent ticket', async () => {
+  const { POST: start } = await import('@/app/api/settings/consent/route');
+  const { GET, POST } = await import('@/app/api/settings/consent/browser/route');
+  const response = await start(
+    new Request(BASE + '/api/settings/consent', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${owner.bearer}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ provider: 'notion', workspaceId: team }),
+    }),
+    { params: Promise.resolve({}) },
+  );
+  expect(response.status).toBe(200);
+  const { url } = (await response.json()) as { url: string };
+  const ticket = new URL(url).searchParams.get('ticket')!;
+
+  const page = await GET(new Request(url));
+  expect(page.status).toBe(200);
+  expect(page.headers.get('location')).toBeNull();
+  expect(page.headers.get('set-cookie')).toBeNull();
+  const html = await page.text();
+  expect(html).toContain(`<strong>${owner.email}</strong>`);
+  expect(html).toContain('method="post"');
+  expect(html).toContain('<button type="submit">Continue</button>');
+
+  const confirm = (origin: string) =>
+    POST(
+      new Request(BASE + '/api/settings/consent/browser', {
+        method: 'POST',
+        headers: { origin },
+        body: new URLSearchParams({ ticket }),
+      }),
+    );
+  expect((await confirm('https://example.test')).status).toBe(400);
+  const accepted = await confirm(BASE);
+  expect(accepted.status).toBe(303);
+  expect(accepted.headers.get('set-cookie')).toContain('oat_desktop_notion_state=');
+  expect((await confirm(BASE)).status).toBe(400);
+  expect((await GET(new Request(url))).status).toBe(400);
 });
 
 // ---------------------------------------------------------------------------------------------------

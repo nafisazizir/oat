@@ -14,7 +14,9 @@ export const PUBLIC: Readonly<Record<string, string>> = {
   'POST /api/sign-in/magic-link':
     'Redeems a single-use magic-link token (same-origin only); signing in is the point.',
   'GET /api/settings/consent/browser':
-    'Public to the system browser; consumes a random, expiring, single-use ticket issued to a live desktop session.',
+    'Public to the system browser; displays the account to confirm for a random, expiring ticket issued to a live desktop session.',
+  'POST /api/settings/consent/browser':
+    'Public to the system browser; same-origin confirmation consumes the single-use desktop ticket.',
   'GET /api/settings/consent/done': 'Static browser handoff result; no privileged data or action.',
 };
 
