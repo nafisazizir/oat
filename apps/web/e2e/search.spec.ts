@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync } from 'node:fs';
 
 import AxeBuilder from '@axe-core/playwright';
@@ -8,6 +9,7 @@ import { SIGNED_OUT, signInWithMagicLink, uniqueAddress } from './auth-helpers';
 import { apiCreateDocument } from './docs-helpers';
 import { expect, test } from './fixtures';
 import { databaseUrlFile, EVIDENCE_3_6 } from './paths';
+import { verifyFeatureSurface } from './feature-surfaces';
 
 /**
  * Task 3.6 in the browser: ⌘K shows ranked note + transcript hits and opens them from the keyboard; the
@@ -16,9 +18,8 @@ import { databaseUrlFile, EVIDENCE_3_6 } from './paths';
  * its meeting notes never show up in other specs' Home.
  */
 
-/** A word nobody else's test data contains (letters only, so it is one search term). */
-const uniqueWord = () =>
-  `zq${Array.from({ length: 6 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join('')}`;
+/** A unique identifier term, without natural-language stemming of random prefixes. */
+const uniqueWord = () => `zq${randomBytes(4).toString('hex')}`;
 
 const paragraph = (text: string) => ({
   type: 'doc',
@@ -123,13 +124,21 @@ test('⌘K finds notes and transcript lines; Enter opens the hit; /search has ta
   // The best hit is selected: Enter opens it.
   await expect(notes.first()).toHaveAttribute('data-selected', 'true');
   await evidence(page, 'palette-results');
+  await verifyFeatureSurface(page, 'search-dialog');
+  const [tab] = await Promise.all([
+    page.context().waitForEvent('page'),
+    notes.first().click({ modifiers: ['ControlOrMeta'] }),
+  ]);
+  await expect(tab).toHaveURL(new RegExp(`/d/${note.id}$`));
+  await tab.close();
+  await expect(palette).toBeVisible();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(new RegExp(`/d/${note.id}$`));
   await expect(page.getByTestId('document-title')).toHaveValue(`Pricing ${word} plan`);
 
   // Keyboard navigation down to the transcript hit.
   await page.keyboard.press('ControlOrMeta+k');
-  await page.keyboard.type(`${word} discount`);
+  await palette.getByRole('combobox').fill(`${word} discount`);
   await expect(transcript).toHaveCount(1);
   await expect(palette.getByTestId('search-result-note')).toHaveCount(0);
   await expect(transcript).toHaveAttribute('data-selected', 'true');
@@ -138,7 +147,7 @@ test('⌘K finds notes and transcript lines; Enter opens the hit; /search has ta
 
   // "Search all results" → /search, then the Transcripts tab.
   await page.keyboard.press('ControlOrMeta+k');
-  await page.keyboard.type(word);
+  await palette.getByRole('combobox').fill(word);
   await expect(notes).toHaveCount(2);
   await palette.getByRole('option', { name: /Search all results/ }).click();
   await expect(page).toHaveURL(new RegExp(`/search\\?q=${word}$`));
@@ -146,6 +155,7 @@ test('⌘K finds notes and transcript lines; Enter opens the hit; /search has ta
   await expect(main.getByTestId('search-page-note')).toHaveCount(2);
   await expect(main.getByRole('tab', { name: /Notes/ })).toContainText('2');
   await evidence(page, 'search-page-notes');
+  await verifyFeatureSurface(page, 'search-results');
   await main.getByRole('tab', { name: /Transcripts/ }).click();
   await expect(page).toHaveURL(/tab=transcripts/);
   const line = main.getByTestId('search-page-transcript');
@@ -165,6 +175,80 @@ test('⌘K finds notes and transcript lines; Enter opens the hit; /search has ta
   await main.getByRole('searchbox').fill('');
   await expect(main.getByText('Search your workspace')).toBeVisible();
   await evidence(page, 'search-page-empty');
+});
+
+test('switching URL tabs retains loaded pages without refetching the first page', async ({
+  page,
+}) => {
+  const word = uniqueWord();
+  const documents = await Promise.all(
+    ['First', 'Second', 'Extra'].map((title) =>
+      apiCreateDocument(page, { title: `${title} ${word}` }),
+    ),
+  );
+  const hits = documents.map((doc) => ({
+    id: doc.id,
+    workspaceId: doc.workspaceId,
+    kind: doc.kind,
+    title: doc.title,
+    titleHtml: doc.title,
+    snippetHtml: 'A paginated result',
+    visibility: doc.visibility,
+    updatedAt: doc.updatedAt,
+  }));
+  const requests: string[] = [];
+  await page.route(/\/api\/search\?/, async (route) => {
+    const url = new URL(route.request().url());
+    const cursor = url.searchParams.get('cursor');
+    requests.push(cursor ?? 'first');
+    await route.fulfill({
+      json: {
+        query: word,
+        notes: {
+          items: cursor ? hits.slice(2) : hits.slice(0, 2),
+          nextCursor: cursor ? null : 'next',
+        },
+        ...(!cursor
+          ? {
+              transcripts: {
+                items: [
+                  {
+                    id: newId(),
+                    documentId: documents[0]!.id,
+                    documentTitle: documents[0]!.title,
+                    workspaceId: documents[0]!.workspaceId,
+                    source: 'system',
+                    speakerLabel: null,
+                    startMs: 65000,
+                    snippetHtml: 'A transcript result',
+                    updatedAt: documents[0]!.updatedAt,
+                  },
+                ],
+                nextCursor: null,
+              },
+            }
+          : {}),
+      },
+    });
+  });
+  await page.clock.install();
+  await page.goto(`/search?q=${word}`);
+  const main = page.getByRole('main');
+  const notes = main.getByTestId('search-page-note');
+  await expect(notes).toHaveCount(2);
+  await main.getByRole('button', { name: 'Load more' }).click();
+  await expect(notes).toHaveCount(3);
+  await expect(main.getByRole('button', { name: 'Load more' })).toHaveCount(0);
+  await main.getByRole('tab', { name: /Transcripts/ }).click();
+  await expect(page).toHaveURL(/tab=transcripts/);
+  await page.clock.runFor(300);
+  await expect(main.getByTestId('search-page-transcript')).toHaveCount(1);
+  await main.getByRole('tab', { name: /Notes/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/search\\?q=${word}$`));
+  await page.clock.runFor(300);
+  await expect(notes).toHaveCount(3);
+  await expect(notes.last()).toContainText(`Extra ${word}`);
+  expect(requests).toEqual(['first', 'next']);
 });
 
 test('search results in dark mode (evidence only)', async ({ page }) => {

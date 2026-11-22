@@ -7,7 +7,7 @@ import {
   highlightParts,
   searchPageHref,
   transcriptHref,
-} from './search';
+} from './helpers';
 
 describe('highlightParts', () => {
   it('splits on <mark> and decodes entities as text', () => {

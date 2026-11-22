@@ -10,6 +10,7 @@ import { SIGNED_OUT, signInWithMagicLink, uniqueAddress } from './auth-helpers';
 import { apiCreateDocument, apiUpdateDocument, unique } from './docs-helpers';
 import { expect, test } from './fixtures';
 import { databaseUrlFile, EVIDENCE_6_4 } from './paths';
+import { verifyFeatureSurface } from './feature-surfaces';
 
 /**
  * Task 6.4 in the browser, against the mock LLM's scripted tool loop (in-process in `web-server.ts`): the note
@@ -330,6 +331,8 @@ test.describe('with expected HTTP errors', () => {
     await expect(page).toHaveURL(/\/assistant$/);
     await expect(page.getByTestId('chat-empty')).toBeVisible();
 
+    await verifyFeatureSurface(page, 'assistant-empty');
+
     await ask(page, 'When does the Lakeside pilot start?');
     const answer = lastAnswer(page);
     await expect(answer.getByTestId('citation-chip').first()).toHaveAttribute(
@@ -340,6 +343,7 @@ test.describe('with expected HTTP errors', () => {
       'When does the Lakeside pilot start?',
     );
     await evidence(page, 'assistant-page');
+    await verifyFeatureSurface(page, 'assistant-answer');
 
     // Rate limited: the server's 429 (mocked here) becomes a message with the wait.
     await page.route('**/api/chat', (route) =>

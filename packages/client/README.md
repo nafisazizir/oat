@@ -44,8 +44,9 @@ const client = createOatClient(transport);
 
 Main owns authentication and the Keychain token. The renderer receives only JSON results or UTF-8
 stream events. Main matches methods/paths against the exported `apiRoutes` inventory, rejects ambiguous
-paths/unsafe IDs, disables redirects, and returns only safe stream headers. Sign-out or owner
-destruction/navigation aborts its streams. No feature UI is wired to the ready desktop renderer client.
+paths/unsafe IDs, disables redirects, and returns only safe stream headers: `content-type`,
+`cache-control`, `x-vercel-ai-ui-message-stream` and `x-oat-thread-id` (new-chat identity for follow-ups
+and citation refresh). Sign-out or owner destruction/navigation aborts its streams.
 
 HTTP failure envelopes still become `OatApiError`; bridge unauthorized/forbidden map to 401/403,
 offline/unavailable to status 0. Subscriptions are installed before opening, so early chunks cannot be

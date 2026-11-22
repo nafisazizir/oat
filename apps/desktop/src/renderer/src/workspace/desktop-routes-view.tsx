@@ -1,4 +1,5 @@
 import { OatApiError } from '@oat/client';
+import { BlockFocus } from '@oat/editor/react';
 import {
   EmptyState,
   PageContainer,
@@ -20,6 +21,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import type { MeetingNoteSummary } from '@oat/core/bridge';
 import { PlaceholderView } from '../views/placeholder-view';
+import { FeatureViews } from '../windows/feature-views';
 
 type DocumentDetail = Awaited<ReturnType<typeof api.documents.get>>;
 type FolderSummary = Awaited<ReturnType<typeof api.folders.tree>>[number];
@@ -71,7 +73,7 @@ export function DesktopRoutesView({
   return (
     <>
       {recordingControls}
-      <div className="min-h-0 flex-1 overflow-auto" data-selectable>
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto" data-selectable>
         <ServerRoutes route={route} meeting={meeting} />
       </div>
     </>
@@ -88,6 +90,7 @@ function ServerRoutes({ route, meeting }: { route: AppRoute; meeting: ReactNode 
       <DocumentRoute
         key={`${route.id}:${shell.workspace.id}`}
         id={route.id}
+        blockId={route.query?.block}
         folder={node?.kind === 'folder'}
         meeting={meeting}
       />
@@ -103,11 +106,9 @@ function ServerRoutes({ route, meeting }: { route: AppRoute; meeting: ReactNode 
     case 'template-new':
       return <NewTemplateView />;
     case 'tasks':
-      return <PlaceholderView title="My tasks" />;
     case 'assistant':
-      return <PlaceholderView title="Assistant" />;
     case 'search':
-      return <PlaceholderView title="Search" />;
+      return <FeatureViews route={route} />;
     case 'join':
       return <PlaceholderView title="Join a workspace" />;
     default:
@@ -139,10 +140,12 @@ function MeetingActions({ id }: { id: string }) {
 
 function DocumentRoute({
   id,
+  blockId,
   folder,
   meeting,
 }: {
   id: string;
+  blockId?: string;
   folder: boolean;
   meeting: ReactNode;
 }) {
@@ -190,10 +193,13 @@ function DocumentRoute({
     return data.kind === 'meeting' ? (
       meeting
     ) : (
-      <PageEditor
-        document={data}
-        workspace={shell.workspaces.find((w) => w.id === data.workspaceId) ?? shell.workspace}
-      />
+      <>
+        <PageEditor
+          document={data}
+          workspace={shell.workspaces.find((w) => w.id === data.workspaceId) ?? shell.workspace}
+        />
+        <BlockFocus blockId={blockId} />
+      </>
     );
   const live = shell.documents.find((node) => node.id === data.id && node.kind === 'folder');
   return (

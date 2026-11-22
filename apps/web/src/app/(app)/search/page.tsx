@@ -1,8 +1,9 @@
 import { Skeleton } from '@oat/ui/components/skeleton';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { FeaturePageHeader } from '@oat/feature-ui';
 
-import { PageContainer, PageHeader } from '@/components/page';
+import { PageContainer } from '@/components/page';
 import { SearchView } from '@/components/search/search-view';
 import { getShellData } from '@/server/shell';
 
@@ -13,10 +14,10 @@ export default async function SearchPage() {
   const { workspace } = await getShellData();
   return (
     <PageContainer className="gap-8">
-      <PageHeader title="Search" description={`Notes and transcripts in ${workspace.name}.`} />
+      <FeaturePageHeader kind="search" workspaceName={workspace.name} />
       {/* `useSearchParams` needs a boundary; the view takes over from the URL on the client. */}
       <Suspense fallback={<Skeleton className="h-10 w-full" />}>
-        <SearchView workspaceId={workspace.id} />
+        <SearchView />
       </Suspense>
     </PageContainer>
   );

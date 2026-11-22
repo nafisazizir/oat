@@ -18,7 +18,7 @@ import { TopBarActions } from '@/components/app-shell/top-bar';
 import { useRegisterOpenDocument } from '@/components/assistant/open-document';
 import { NotionExportButton } from '@/components/notion/notion-export-button';
 import { PipelineStatus } from '@/components/pipeline/pipeline-status';
-import { useTaskAssignees } from '@/components/tasks/tasks-client';
+import { useTaskAssignees } from '@oat/feature-ui/tasks';
 import { EnhanceError } from './enhance/enhance-controls';
 import { EnhancePreview } from './enhance/enhance-preview';
 import { EnhanceToolbar } from './enhance/enhance-toolbar';

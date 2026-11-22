@@ -2,7 +2,12 @@
 
 import type { JSONContent } from '@oat/editor';
 import type { OatEditorProps } from '@oat/editor/react';
-import { createContext, useContext, useEffect, useRef } from 'react';
+import { AssistantIntegrationProvider, type AssistantIntegration } from '@oat/feature-ui/assistant';
+import { useFeatureUi } from '@oat/feature-ui';
+import { useRouter } from 'next/navigation';
+import type { Route } from 'next';
+import { createContext, useContext, useEffect, useRef, useMemo, type ReactNode } from 'react';
+import { segmentHref } from '@/lib/transcript';
 
 export type NoteEditor = Parameters<NonNullable<OatEditorProps['onReady']>>[0];
 
@@ -34,6 +39,60 @@ export type OpenDocumentBridge = {
 export const OpenDocumentContext = createContext<OpenDocumentBridge | null>(null);
 
 export const useOpenDocument = () => useContext(OpenDocumentContext);
+
+export function OpenDocumentAssistantIntegration({ children }: { children: ReactNode }) {
+  const open = useOpenDocument();
+  const { client } = useFeatureUi();
+  const router = useRouter();
+  const value = useMemo<AssistantIntegration>(
+    () => ({
+      openCitation(citation) {
+        if (open?.documentId !== citation.documentId) return false;
+        if (citation.kind === 'block') open.showBlock(citation.id);
+        else
+          router.replace(segmentHref(citation.documentId, citation.startMs, citation.id) as Route, {
+            scroll: false,
+          });
+        return true;
+      },
+      async prepareProposal(proposal) {
+        const note = open?.documentId === proposal.documentId ? open.handle() : null;
+        if (!note) return null;
+        const editor = note.editor();
+        const release = editor?.isEditable ? () => editor.setEditable(true, false) : () => {};
+        editor?.setEditable(false, false);
+        try {
+          if (!(await note.settle()))
+            throw new Error('Your latest edits aren’t saved yet. Try again once they are.');
+        } catch (error) {
+          release();
+          throw error;
+        }
+        return {
+          release,
+          async applied(result) {
+            if (!result.document) return;
+            const doc = await client.documents.get(proposal.documentId).catch(() => null);
+            if (!doc) return;
+            const next = { version: doc.version, contentJson: doc.contentJson };
+            note.adopt(next);
+            if (
+              !editor ||
+              !applyServerBlocks(
+                editor,
+                doc.contentJson,
+                proposal.changes.map((c) => c.blockId),
+              )
+            )
+              note.replace(next);
+          },
+        };
+      },
+    }),
+    [client, open, router],
+  );
+  return <AssistantIntegrationProvider value={value}>{children}</AssistantIntegrationProvider>;
+}
 
 /**
  * Called by the document editor (one call in `DocumentEditor`): makes its handle available to the assistant

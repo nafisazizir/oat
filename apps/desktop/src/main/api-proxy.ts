@@ -229,7 +229,12 @@ export function registerApiProxy(options: {
         throw new BridgeError('unavailable', 'This text bridge does not support binary downloads.');
       }
       const headers: Record<string, string> = {};
-      for (const key of ['content-type', 'cache-control', 'x-vercel-ai-ui-message-stream']) {
+      for (const key of [
+        'content-type',
+        'cache-control',
+        'x-vercel-ai-ui-message-stream',
+        'x-oat-thread-id',
+      ]) {
         const value = response.headers.get(key);
         if (value !== null) headers[key] = value;
       }

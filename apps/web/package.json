@@ -45,7 +45,7 @@
     "sonner": "catalog:",
     "zod": "catalog:",
     "@oat/workspace-ui": "workspace:*",
-    "@oat/client": "workspace:*"
+    "@oat/feature-ui": "workspace:*"
   },
   "devDependencies": {
     "@axe-core/playwright": "catalog:",

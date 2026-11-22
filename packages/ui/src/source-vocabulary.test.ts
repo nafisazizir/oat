@@ -177,7 +177,12 @@ describe('repository ziiz vocabulary', () => {
   });
 
   it('uses the default Ziiz shape on app and meeting controls', () => {
-    const appScopes = ['apps/web/src/', 'apps/desktop/src/renderer/', 'packages/meeting-ui/src/'];
+    const appScopes = [
+      'apps/web/src/',
+      'apps/desktop/src/renderer/',
+      'packages/meeting-ui/src/',
+      'packages/feature-ui/src/',
+    ];
     const appTsx = files.filter(
       (file) =>
         file.endsWith('.tsx') && appScopes.some((scope) => relative(root, file).startsWith(scope)),

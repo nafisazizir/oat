@@ -1,5 +1,7 @@
 # Oat — Plan & Task Board
 
+- [ ] Human-requested shared feature UI, steps 1–6 search/tasks/assistant · PR #26/C2, URL-tab pagination and native document routing verified/pushed; shared block-link scroll/highlight verified on desktop route and web browser; fast static gates pass, all tests pass with CI timeout budget; PR gate after push; native Electron runtime pending · [task](tasks/desktop-feature-search.md)
+
 - [x] Human-requested UI redesign PR 5: calm auth, setup and dialogs · [task](tasks/ui-calm-auth-dialogs.md)
 
 Rules: tasks are picked top-down when deps are done (see `.agent/FACTORY.md` §2). Each task gets a file in

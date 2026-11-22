@@ -33,6 +33,11 @@ describe('workspace routes', () => {
     expect(inSection('/templates', '/templates')).toBe(true);
     expect(inSection('/templates-other', '/templates')).toBe(false);
   });
+  it('uses the existing web thread query while accepting legacy thread paths', () => {
+    expect(hrefOf({ view: 'assistant', threadId: 'a/b' })).toBe('/assistant?thread=a%2Fb');
+    expect(routeOf('/assistant/a%2Fb')).toEqual({ view: 'assistant', threadId: 'a/b' });
+    expect(routeOf('/assistant', '?thread=a%2Fb')).toEqual({ view: 'assistant', threadId: 'a/b' });
+  });
   it('does not crash on malformed URL encoding', () => {
     expect(routeOf('/d/%broken')).toEqual({ view: 'document', id: '%broken' });
   });

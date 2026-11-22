@@ -1,12 +1,25 @@
 // @vitest-environment jsdom
 import type { SearchHitSnapshot, MeetingNoteSummary } from '@oat/core/bridge';
 import type { OatRequest } from '@oat/client';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { ThemeProvider } from '@oat/settings-ui';
+import {
+  cleanup,
+  fireEvent,
+  render as renderUi,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { toast } from 'sonner';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import MainWindow from './main-window.tsx';
+
+function render(ui: ReactElement) {
+  return renderUi(ui, { wrapper: ThemeProvider });
+}
 
 const model = vi.hoisted(() => {
   const user = { id: 'user', name: 'Alex', email: 'alex@example.test' };
@@ -19,6 +32,7 @@ const model = vi.hoisted(() => {
   };
   return {
     invoke: vi.fn(),
+    send: vi.fn(),
     searchHits: [] as SearchHitSnapshot[],
     workspacesReady: true,
     offline: false,
@@ -68,6 +82,7 @@ const model = vi.hoisted(() => {
 vi.mock('../bridge.ts', () => ({
   call: model.invoke,
   bridge: () => ({
+    send: model.send,
     subscribe: () => () => {},
     invoke: async (...args: unknown[]) => {
       try {
@@ -140,6 +155,8 @@ beforeEach(() => {
     },
   );
   Element.prototype.scrollIntoView = () => {};
+  Element.prototype.scrollTo = () => {};
+  model.send.mockReset();
   model.searchHits = [];
   model.workspacesReady = true;
   model.offline = false;
@@ -186,6 +203,9 @@ beforeEach(() => {
       if (request?.path === '/api/workspaces/joinable') body = { invites: [], workspaces: [] };
       if (request?.path === '/api/documents' && !request.query?.trash) body = [model.page];
       if (request?.path === '/api/documents/page') body = model.page;
+      if (request?.path === '/api/chat/threads') body = { threads: [] };
+      if (request?.path === '/api/tasks') body = { items: [], truncated: false };
+      if (request?.path === '/api/search') throw new Error('Search offline');
       return { status: 200, body };
     }
     if (channel === 'recording:options')
@@ -203,6 +223,60 @@ afterEach(() => {
 });
 
 describe('desktop shell', () => {
+  it('uses shared sidebar routes for Tasks, Assistant and the full offline search view', async () => {
+    render(<MainWindow />);
+    await userEvent.click(screen.getByRole('link', { name: 'My tasks' }));
+    expect(await screen.findByRole('heading', { name: 'My tasks' })).toBeTruthy();
+    expect(screen.getByText('Action items from meeting notes in Ada’s workspace.')).toBeTruthy();
+    expect(await screen.findByTestId('tasks-empty')).toBeTruthy();
+    await userEvent.click(screen.getByRole('link', { name: 'Assistant' }));
+    expect(await screen.findByTestId('chat-empty')).toBeTruthy();
+    expect(
+      screen.getByTestId('chat-empty').closest('[data-selectable]')?.classList.contains('flex'),
+    ).toBe(true);
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
+    await userEvent.type(screen.getByRole('combobox'), 'project');
+    await screen.findByText('No notes or transcripts match “project”.');
+    await userEvent.click(screen.getByText('Search all results for “project”'));
+    expect(await screen.findByRole('heading', { name: 'Search' })).toBeTruthy();
+    expect(screen.getByText('Notes and transcripts in Ada’s workspace.')).toBeTruthy();
+    expect(await screen.findByText('Offline — showing notes on this device')).toBeTruthy();
+  });
+
+  it('cancels an Assistant bridge stream when a shared sidebar route leaves chat', async () => {
+    const invoke = model.invoke.getMockImplementation()!;
+    model.invoke.mockImplementation((channel: string, ...args: unknown[]) =>
+      channel === 'api:stream-open'
+        ? Promise.resolve({
+            streamId: 'live',
+            status: 200,
+            headers: {
+              'content-type': 'text/event-stream',
+              'x-vercel-ai-ui-message-stream': 'v1',
+              'x-oat-thread-id': 'th1',
+            },
+          })
+        : invoke(channel, ...args),
+    );
+    render(<MainWindow />);
+    await userEvent.click(screen.getByRole('link', { name: 'Assistant' }));
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Ask the assistant' }), {
+      target: { value: 'Hello' },
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() =>
+      expect(model.invoke).toHaveBeenCalledWith(
+        'api:stream-open',
+        expect.objectContaining({ path: '/api/chat' }),
+      ),
+    );
+    await userEvent.click(screen.getByRole('link', { name: 'My tasks' }));
+    await waitFor(() =>
+      expect(model.invoke).toHaveBeenCalledWith('api:stream-cancel', { streamId: 'live' }),
+    );
+    expect(screen.queryByTestId('chat-input')).toBeNull();
+  });
+
   it('keeps new meeting recording behavior for click and shortcut', async () => {
     render(<MainWindow />);
     const button = screen.getByTestId('new-meeting');
@@ -230,7 +304,7 @@ describe('desktop shell', () => {
     ).toHaveLength(2);
   });
 
-  it('opens local search with Command-K and handles an empty result', async () => {
+  it('opens the shared palette with Command-K and handles an offline empty result', async () => {
     render(<MainWindow />);
     const button = screen.getByRole('button', { name: 'Search' });
     expect(
@@ -238,11 +312,9 @@ describe('desktop shell', () => {
     ).toBe('⌘K');
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     expect(await screen.findByRole('dialog')).toBeTruthy();
-    await userEvent.type(
-      screen.getByLabelText('Search notes and transcripts on this Mac'),
-      'absent',
-    );
-    expect(await screen.findByText('Nothing on this Mac matches.')).toBeTruthy();
+    await userEvent.type(screen.getByRole('combobox'), 'absent');
+    expect(await screen.findByText('No notes or transcripts match “absent”.')).toBeTruthy();
+    expect(screen.getByText('Offline — showing notes on this device')).toBeTruthy();
     expect(model.invoke).toHaveBeenCalledWith('search:query', { query: 'absent' });
   });
 
@@ -274,7 +346,18 @@ describe('desktop shell', () => {
     },
   );
 
-  it('keeps page search hits read-only and opens meeting hits', async () => {
+  it('opens uncached pages in PageEditor and cached meetings in MeetingView from shared search', async () => {
+    const invoke = model.invoke.getMockImplementation()!;
+    model.invoke.mockImplementation((channel: string, request?: OatRequest) => {
+      if (channel === 'api:request' && request?.path === '/api/search')
+        return Promise.resolve({
+          status: 200,
+          body: { query: 'project', notes: { items: [], nextCursor: null } },
+        });
+      if (channel === 'api:request' && request?.path === '/api/documents/page-id')
+        return Promise.resolve({ status: 200, body: { ...model.page, id: 'page-id' } });
+      return invoke(channel, request);
+    });
     model.searchHits = [
       {
         documentId: 'page-id',
@@ -297,19 +380,33 @@ describe('desktop shell', () => {
         startMs: null,
       },
     ];
+    model.notes = [
+      {
+        documentId: 'meeting-id',
+        meetingId: 'm',
+        workspaceId: 'workspace',
+        ownerId: 'user',
+        title: 'Cached meeting',
+        visibility: 'private',
+        startedAt: null,
+        endedAt: null,
+        createdAt: '2026-11-20T00:00:00Z',
+      },
+    ];
     render(<MainWindow />);
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
-    await userEvent.type(
-      screen.getByLabelText('Search notes and transcripts on this Mac'),
-      'project',
-    );
+    await userEvent.type(screen.getByRole('combobox'), 'project');
     const pageHit = await within(screen.getByRole('dialog')).findByText('Project page');
-    expect(pageHit.closest('button')).toBeNull();
-    expect(pageHit.closest('[data-selectable]')).not.toBeNull();
     await userEvent.click(pageHit);
-    expect(screen.getByRole('dialog')).toBeTruthy();
-    expect(screen.getByTestId('meeting-content').getAttribute('data-document-id')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: /Project meeting/ }));
+    expect(((await screen.findByTestId('document-title')) as HTMLInputElement).value).toBe(
+      'Project page',
+    );
+    expect(model.send).not.toHaveBeenCalledWith('shell:open-external', expect.anything());
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByTestId('meeting-content')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+    await userEvent.type(screen.getByRole('combobox'), 'project');
+    await userEvent.click(await within(screen.getByRole('dialog')).findByText('Project meeting'));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getByTestId('meeting-content').getAttribute('data-document-id')).toBe(
       'meeting-id',
@@ -457,7 +554,7 @@ describe('desktop shell', () => {
     render(<MainWindow />);
     await userEvent.click(screen.getByTestId('nav-tasks'));
     expect(await screen.findByTestId('recording-bar')).toBeTruthy();
-    expect(screen.getByText('Coming to the desktop app soon.')).toBeTruthy();
+    expect(await screen.findByTestId('tasks-empty')).toBeTruthy();
   });
 
   it('keeps local-only meetings in Private and opens the local-first MeetingView', async () => {
@@ -486,7 +583,7 @@ describe('desktop shell', () => {
     ).toBe(false);
   });
 
-  it('keeps local notes on a cold offline load and routes tasks to the C3 slot', async () => {
+  it('keeps local notes on a cold offline load and routes tasks to the shared error state', async () => {
     model.offline = true;
     model.notes = [
       {
@@ -505,7 +602,8 @@ describe('desktop shell', () => {
     expect(await screen.findByRole('link', { name: 'Offline meeting' })).toBeTruthy();
     await userEvent.click(screen.getByTestId('nav-tasks'));
     expect(screen.getByRole('heading', { name: 'My tasks' })).toBeTruthy();
-    expect(screen.getByText('Coming to the desktop app soon.')).toBeTruthy();
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
     await userEvent.click(screen.getByRole('link', { name: 'Templates' }));
     expect(await screen.findByRole('heading', { name: 'You’re offline' })).toBeTruthy();
   });

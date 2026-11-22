@@ -129,7 +129,8 @@ The single exported apiRoutes inventory is derived from actual typed-client endp
 Main matches methods/route patterns, prefers static routes over dynamic IDs, rejects traversal,
 percent encodings, duplicate separators, backslashes, query/fragment paths, unsafe IDs and non-ASCII/control
 characters, and rechecks new URL's origin/pathname. Auth/sign-in/STT/sync/health and Notion OAuth paths
-are absent. Only content-type, cache-control and x-vercel-ai-ui-message-stream headers cross the bridge.
+are absent. Only content-type, cache-control, x-vercel-ai-ui-message-stream and x-oat-thread-id headers
+cross the bridge (the thread header preserves new-chat identity for follow-ups and citation refresh).
 No new rate or payload-size limits were added.
 
 Streams are owned by webContents and cancelled on reader cancel, signal abort, owner destruction/navigation,

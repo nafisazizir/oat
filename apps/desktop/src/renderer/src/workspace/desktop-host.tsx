@@ -12,6 +12,7 @@ import { SidebarProvider } from '@oat/ui/components/sidebar';
 import { call } from '../bridge';
 import { api } from '../lib/api';
 import { useDesktopShellData } from './use-desktop-shell-data';
+import { DesktopFeatureProvider } from '../windows/feature-views';
 
 const MeetingLinks = createContext<{
   notes: readonly MeetingNoteSummary[] | null;
@@ -106,11 +107,13 @@ export function DesktopWorkspaceHost({
     <MeetingLinks.Provider value={{ notes, recordingMeetingId }}>
       <WorkspaceHost value={host}>
         <ShellDataProvider value={shell.data}>
-          <TreeActionsProvider>
-            <SidebarProvider className="h-full min-h-0 min-w-0 flex-1" data-testid="shell">
-              {children}
-            </SidebarProvider>
-          </TreeActionsProvider>
+          <DesktopFeatureProvider notes={notes} refreshKey={lastSyncedAt}>
+            <TreeActionsProvider>
+              <SidebarProvider className="h-full min-h-0 min-w-0 flex-1" data-testid="shell">
+                {children}
+              </SidebarProvider>
+            </TreeActionsProvider>
+          </DesktopFeatureProvider>
         </ShellDataProvider>
       </WorkspaceHost>
     </MeetingLinks.Provider>
