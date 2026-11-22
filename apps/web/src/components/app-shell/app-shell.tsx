@@ -59,12 +59,18 @@ export function AppShell({
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
+  const client = useMemo(() => createOatClient(fetchTransport()), []);
+  const routeHref = hrefOf(routeOf(pathname, search.toString()));
+  const route = useMemo(() => {
+    const url = new URL(routeHref, 'https://oat.invalid');
+    return routeOf(url.pathname, url.search);
+  }, [routeHref]);
   const host = useMemo<WorkspaceHost>(
     () => ({
       platform: 'web',
       appOrigin: typeof window === 'undefined' ? '' : window.location.origin,
-      client: createOatClient(fetchTransport()),
-      route: routeOf(pathname, search.toString()),
+      client,
+      route,
       navigate: (route, options) =>
         options?.replace
           ? router.replace(hrefOf(route) as Route)
@@ -74,7 +80,7 @@ export function AppShell({
       refresh: () => router.refresh(),
       online: true,
     }),
-    [router, pathname, search],
+    [client, router, route],
   );
   useSyncEvents(); // live tree/page updates when another tab or device edits (3.5)
   useEffect(

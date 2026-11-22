@@ -177,6 +177,80 @@ test('⌘K finds notes and transcript lines; Enter opens the hit; /search has ta
   await evidence(page, 'search-page-empty');
 });
 
+test('switching URL tabs retains loaded pages without refetching the first page', async ({
+  page,
+}) => {
+  const word = uniqueWord();
+  const documents = await Promise.all(
+    ['First', 'Second', 'Extra'].map((title) =>
+      apiCreateDocument(page, { title: `${title} ${word}` }),
+    ),
+  );
+  const hits = documents.map((doc) => ({
+    id: doc.id,
+    workspaceId: doc.workspaceId,
+    kind: doc.kind,
+    title: doc.title,
+    titleHtml: doc.title,
+    snippetHtml: 'A paginated result',
+    visibility: doc.visibility,
+    updatedAt: doc.updatedAt,
+  }));
+  const requests: string[] = [];
+  await page.route(/\/api\/search\?/, async (route) => {
+    const url = new URL(route.request().url());
+    const cursor = url.searchParams.get('cursor');
+    requests.push(cursor ?? 'first');
+    await route.fulfill({
+      json: {
+        query: word,
+        notes: {
+          items: cursor ? hits.slice(2) : hits.slice(0, 2),
+          nextCursor: cursor ? null : 'next',
+        },
+        ...(!cursor
+          ? {
+              transcripts: {
+                items: [
+                  {
+                    id: newId(),
+                    documentId: documents[0]!.id,
+                    documentTitle: documents[0]!.title,
+                    workspaceId: documents[0]!.workspaceId,
+                    source: 'system',
+                    speakerLabel: null,
+                    startMs: 65000,
+                    snippetHtml: 'A transcript result',
+                    updatedAt: documents[0]!.updatedAt,
+                  },
+                ],
+                nextCursor: null,
+              },
+            }
+          : {}),
+      },
+    });
+  });
+  await page.clock.install();
+  await page.goto(`/search?q=${word}`);
+  const main = page.getByRole('main');
+  const notes = main.getByTestId('search-page-note');
+  await expect(notes).toHaveCount(2);
+  await main.getByRole('button', { name: 'Load more' }).click();
+  await expect(notes).toHaveCount(3);
+  await expect(main.getByRole('button', { name: 'Load more' })).toHaveCount(0);
+  await main.getByRole('tab', { name: /Transcripts/ }).click();
+  await expect(page).toHaveURL(/tab=transcripts/);
+  await page.clock.runFor(300);
+  await expect(main.getByTestId('search-page-transcript')).toHaveCount(1);
+  await main.getByRole('tab', { name: /Notes/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/search\\?q=${word}$`));
+  await page.clock.runFor(300);
+  await expect(notes).toHaveCount(3);
+  await expect(notes.last()).toContainText(`Extra ${word}`);
+  expect(requests).toEqual(['first', 'next']);
+});
+
 test('search results in dark mode (evidence only)', async ({ page }) => {
   test.skip(!process.env.E2E_SCREENSHOTS, 'screenshots only');
   await page.emulateMedia({ colorScheme: 'dark' });

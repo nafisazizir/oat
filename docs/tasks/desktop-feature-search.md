@@ -523,3 +523,22 @@ Package/build/screenshot logs: /home/ubuntu/pr26-c2-{feature-tests,workspace-tes
 Final fast gate: all five stages pass, ci: ok (93.0s), /home/ubuntu/pr26-c2-ci.log.
 PR checks are watched after push with git_pr_checks(wait_mode=all); the live result is recorded in
 /home/ubuntu/pr26-c2-pr-checks.json. No D-number was added.
+
+## PR #26 query-param stability follow-up
+
+Review of 20a2d69 found AppShell's client was created inside a host memo that depended on every URL
+search-param object. A tab change recreated the client and the feature adapter's default source array;
+useSearch's sources dependency fetched page one again, and SearchView intentionally dropped extra pages
+when its first-page object changed. The web client is now memoized per shell lifetime. The host is keyed
+by canonical AppRoute, so web-only tab/filter params do not change it, while real q/thread/document
+route changes remain current. WebFeatureProvider memoizes server sources on client separately, avoiding
+new arrays even when other host or user/workspace data changes.
+
+Added a real-root Playwright regression with cursor pages and URL tab switching. It loads a third note,
+switches to Transcripts and back to Notes, advances the browser clock beyond each search debounce and
+asserts the extra row remains and exactly two requests occurred (first page + load more, no refetch).
+Search e2e: 4 passed including setup, 1 existing screenshot-only skip. Fast CI: all five stages pass,
+ci: ok (41.1s). Assistant/Tasks e2e: 9 passed, including setup; all 12 distinct selected non-skipped
+browser cases pass, with light/dark axe and refreshed web screenshots. Logs:
+/home/ubuntu/pr26-client-stability-{ci,e2e,assistant-tasks-e2e}.log. The final pushed-head PR gate follows.
+No UI markup or desktop behavior changed.
