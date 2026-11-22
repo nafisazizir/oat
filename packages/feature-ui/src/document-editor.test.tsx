@@ -32,9 +32,9 @@ vi.mock('./document-enhancement', () => ({
   }),
 }));
 vi.mock('@oat/workspace-ui/page-editor', () => ({
-  PageEditorSurface: (props: { secondaryActions: ReactNode }) => {
+  PageEditorSurface: (props: { renderSecondaryActions(lifecycle: ReactNode): ReactNode }) => {
     model.surface(props);
-    return props.secondaryActions;
+    return props.renderSecondaryActions(null);
   },
   MoreActions: ({ children }: { children: ReactNode }) => children,
   usePageEditor: () => ({

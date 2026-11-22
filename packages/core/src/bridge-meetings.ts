@@ -30,6 +30,8 @@ export const meetingNoteSummarySchema = z.object({
   startedAt: iso.nullable(),
   endedAt: iso.nullable(),
   createdAt: iso,
+  updatedAt: iso.optional(),
+  pending: z.boolean().optional(),
 });
 export type MeetingNoteSummary = z.infer<typeof meetingNoteSummarySchema>;
 

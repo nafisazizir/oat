@@ -5,13 +5,11 @@ import {
   JoinWorkspace,
   InviteResponse,
   PageContainer,
-  ShareDialog,
   ShellFolderView,
   TemplatesGallery,
   TemplateView,
   NewTemplateView,
   useShellData,
-  useTreeActions,
   useWorkspaceHost,
   type AppRoute,
 } from '@oat/workspace-ui';
@@ -63,14 +61,9 @@ export function DesktopRoutesView({
     if (
       route.query?.kind === 'meeting' ||
       notes?.some((n) => n.documentId === route.id) ||
-      shell.documents.some((n) => n.id === route.id && n.kind === 'meeting')
+      [...shell.documents, ...shell.trash].some((n) => n.id === route.id && n.kind === 'meeting')
     )
-      return (
-        <>
-          <MeetingActions id={route.id} />
-          {meeting}
-        </>
-      );
+      return meeting;
   }
   return (
     <>
@@ -150,28 +143,6 @@ function JoinRoute({ token }: { token?: string }) {
         />
       ) : (
         <JoinWorkspace client={client} email={user.email} onHome={onHome} />
-      )}
-    </div>
-  );
-}
-
-function MeetingActions({ id }: { id: string }) {
-  const shell = useShellData();
-  const host = useWorkspaceHost();
-  const actions = useTreeActions();
-  const node = shell.documents.find((n) => n.id === id);
-  return (
-    <div className="flex shrink-0 justify-end gap-2 px-4 py-2">
-      <ShareDialog documentId={id} />
-      {node?.access.delete && (
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={!host.online}
-          onClick={() => actions.remove(node)}
-        >
-          Move to trash
-        </Button>
       )}
     </div>
   );

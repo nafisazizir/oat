@@ -30,7 +30,8 @@ import {
   IconRefresh,
 } from '@tabler/icons-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useWorkspaceHost, type AppRoute } from '@oat/workspace-ui';
+import { useWorkspaceHost } from '@oat/workspace-ui';
+import { useRouteHistory } from '../use-route-history';
 import { DesktopWorkspaceHost } from '../workspace/desktop-host';
 import { DesktopSidebar } from '../workspace/desktop-sidebar';
 import { DesktopRoutesView } from '../workspace/desktop-routes-view';
@@ -86,6 +87,7 @@ export default function MainWindow() {
       {!signedIn && <header className="app-drag h-12 shrink-0" />}
       {signedIn ? (
         <SignedInShell
+          key={signedIn.id}
           user={signedIn}
           sync={state!.sync}
           activeMeetingId={state!.activeMeetingId}
@@ -300,42 +302,18 @@ function SignedInShell({
   // 3.9: the sidebar shows one workspace's notes; new notes go there when I can create there.
   const workspaces = useWorkspaces();
   const activeWorkspace = workspaces.active;
-  const listed = activeWorkspace
-    ? (notes?.filter((n) => n.workspaceId === activeWorkspace.id) ?? null)
-    : notes;
   const workspaceNames = new Map(workspaces.snapshot?.workspaces.map((w) => [w.id, w.name]));
   /** "Upcoming": a note made in another workspace than the one shown says where it is. */
   const otherWorkspace = (documentId: string) => {
     const ws = notes?.find((n) => n.documentId === documentId)?.workspaceId;
     return ws && ws !== activeWorkspace?.id ? (workspaceNames.get(ws) ?? null) : null;
   };
-  const [route, setRoute] = useState<AppRoute>({ view: 'home' });
-  const [focusRevision, setFocusRevision] = useState(0);
-  const navigate = useCallback((next: AppRoute) => {
-    setRoute(next);
-    if (next.view === 'document') setFocusRevision((n) => n + 1);
-  }, []);
-  useEffect(() => {
-    let active = true;
-    const read = () => {
-      void call('navigation:get')
-        .then((next) => {
-          if (active && next) setRoute(next);
-        })
-        .catch(() => {});
-    };
-    const unsubscribe = bridge().subscribe('navigation:changed', read);
-    read();
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, []);
+  const { route, setRoute, focusRevision, navigate } = useRouteHistory(user.id);
   const selected = route.view === 'document' ? route.id : null;
   const setSelected = useCallback(
     (id: string | null) =>
       setRoute(id ? { view: 'document', id, query: { kind: 'meeting' } } : { view: 'home' }),
-    [],
+    [setRoute],
   );
   // 3.8: Settings replaces the meeting view (a recording keeps running); opening a note closes it.
   const settingsOpen = route.view === 'settings';
@@ -347,7 +325,7 @@ function SignedInShell({
       setRoute((current) =>
         open ? { view: 'settings' } : current.view === 'settings' ? { view: 'home' } : current,
       ),
-    [],
+    [setRoute],
   );
   const [options, setOptions] = useState<InvokeResponse<'recording:options'> | null>(null);
   const [choice, setChoice] = useState<string | null>(null);
@@ -373,17 +351,18 @@ function SignedInShell({
   // A recording (re)started: open the note it records into once it exists (its row is created right
   // before the audio starts, so it may take one list reload to appear).
   const recording = isActive(recordingStatus);
-  const [opened, setOpened] = useState<string | null>(null);
+  const [opened, setOpened] = useState<string | null>(activeMeetingId);
   const recordingNote = recording
     ? notes?.find((n) => n.meetingId !== null && n.meetingId === activeMeetingId)
     : undefined;
-  if (recording && activeMeetingId && opened !== activeMeetingId && recordingNote) {
-    setOpened(activeMeetingId);
-    setSelected(recordingNote.documentId);
-  }
   useEffect(() => {
-    if (recording && activeMeetingId && opened !== activeMeetingId) bumpMeetingsVersion();
-  }, [recording, activeMeetingId, opened]);
+    if (!recording || !activeMeetingId || opened === activeMeetingId) return;
+    if (recordingNote) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- external recording state opens its note after commit
+      setOpened(activeMeetingId);
+      if (route.view !== 'invite') setSelected(recordingNote.documentId);
+    } else bumpMeetingsVersion();
+  }, [recording, activeMeetingId, opened, recordingNote, route.view, setSelected]);
 
   if (!onboarding.state) return <main className="app-drag flex-1" data-testid="shell" aria-busy />;
   if (onboarding.state.needed || setupOpen) {
@@ -521,7 +500,6 @@ function SignedInShell({
                         <FirstMeetingGuide onDismiss={() => void onboarding.dismissGuide()} />
                       )}
                       <HomeView
-                        notes={listed}
                         calendar={calendar}
                         recordingMeetingId={recording ? activeMeetingId : null}
                         otherWorkspace={otherWorkspace}

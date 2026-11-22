@@ -1,4 +1,5 @@
 export { WorkspaceHost, useWorkspaceHost } from './host';
+export { DocumentActions, DocumentTrashBanner } from './document-actions';
 export { JoinWorkspace, loadJoinSnapshot, type JoinSnapshot } from './join-workspace';
 export { InviteResponse } from './invite-response';
 export { JoinChoiceList, joinChoices, type JoinChoice } from './join-choices';

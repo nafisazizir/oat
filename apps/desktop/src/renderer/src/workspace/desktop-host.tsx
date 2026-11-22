@@ -13,6 +13,7 @@ import { call } from '../bridge';
 import { api } from '../lib/api';
 import { useDesktopShellData } from './use-desktop-shell-data';
 import { DesktopFeatureProvider } from '../windows/feature-views';
+import { DesktopHomeData } from './home-data';
 
 const MeetingLinks = createContext<{
   notes: readonly MeetingNoteSummary[] | null;
@@ -78,7 +79,7 @@ export function DesktopWorkspaceHost({
   snapshot: WorkspacesSnapshot | null;
   lastSyncedAt: number | null;
   route: AppRoute;
-  navigate: (route: AppRoute) => void;
+  navigate: WorkspaceHost['navigate'];
   children: ReactNode;
   recordingMeetingId: string | null;
   recordingActive?: boolean;
@@ -105,17 +106,19 @@ export function DesktopWorkspaceHost({
   );
   return (
     <MeetingLinks.Provider value={{ notes, recordingMeetingId }}>
-      <WorkspaceHost value={host}>
-        <ShellDataProvider value={shell.data}>
-          <DesktopFeatureProvider notes={notes} refreshKey={lastSyncedAt}>
-            <TreeActionsProvider>
-              <SidebarProvider className="h-full min-h-0 min-w-0 flex-1" data-testid="shell">
-                {children}
-              </SidebarProvider>
-            </TreeActionsProvider>
-          </DesktopFeatureProvider>
-        </ShellDataProvider>
-      </WorkspaceHost>
+      <DesktopHomeData.Provider value={shell.home}>
+        <WorkspaceHost value={host}>
+          <ShellDataProvider value={shell.data}>
+            <DesktopFeatureProvider notes={notes} refreshKey={lastSyncedAt}>
+              <TreeActionsProvider>
+                <SidebarProvider className="h-full min-h-0 min-w-0 flex-1" data-testid="shell">
+                  {children}
+                </SidebarProvider>
+              </TreeActionsProvider>
+            </DesktopFeatureProvider>
+          </ShellDataProvider>
+        </WorkspaceHost>
+      </DesktopHomeData.Provider>
     </MeetingLinks.Provider>
   );
 }

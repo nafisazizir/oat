@@ -264,6 +264,10 @@ export type ConflictSummary = z.infer<typeof conflictSummarySchema>;
 
 const diffLineSchema = z.object({ text: z.string(), changed: z.boolean() });
 export const conflictDetailSchema = z.object({
+  revision: z
+    .string()
+    .length(64)
+    .regex(/^[a-f0-9]{64}$/),
   summary: conflictSummarySchema,
   /** Side by side: the other (server) version and this copy, as compared lines. */
   original: z.array(diffLineSchema).nullable(),
@@ -400,6 +404,10 @@ export const bridgeContract = {
       request: z.strictObject({
         copyId: z.string().min(1).max(100),
         keep: z.enum(['copy', 'original']),
+        revision: z
+          .string()
+          .length(64)
+          .regex(/^[a-f0-9]{64}$/),
       }),
       response: z.object({ resolved: z.boolean() }),
     },

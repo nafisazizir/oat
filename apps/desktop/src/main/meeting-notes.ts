@@ -105,6 +105,12 @@ export class MeetingNotes {
     const store = this.#o.store();
     const userId = this.#o.userId();
     if (!store || !userId) return [];
+    const pending = new Set(
+      store
+        .outbox()
+        .filter((row) => row.table === 'document')
+        .map((row) => row.rowId),
+    );
     return (
       store
         .meetingNotes()
@@ -121,6 +127,8 @@ export class MeetingNotes {
           startedAt: n.startedAt,
           endedAt: n.endedAt,
           createdAt: n.createdAt,
+          updatedAt: n.updatedAt,
+          pending: pending.has(n.documentId),
         }))
     );
   }

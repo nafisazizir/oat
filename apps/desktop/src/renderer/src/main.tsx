@@ -13,6 +13,7 @@ import { createRoot } from 'react-dom/client';
 
 import { bridge } from './bridge.ts';
 import { windowKindFromHash } from './routes.ts';
+import { RendererErrorBoundary } from './renderer-error-boundary';
 
 const kind = windowKindFromHash(window.location.hash);
 document.documentElement.dataset.window = kind;
@@ -45,18 +46,20 @@ function DesktopToaster() {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Suspense fallback={null}>
-      <ThemeProvider>
-        {kind === 'widget' ? (
-          <WidgetWindow />
-        ) : (
-          <>
-            <MainWindow />
-            <DesktopToaster />
-          </>
-        )}
-      </ThemeProvider>
-      <Rendered />
-    </Suspense>
+    <RendererErrorBoundary compact={kind === 'widget'}>
+      <Suspense fallback={null}>
+        <ThemeProvider>
+          {kind === 'widget' ? (
+            <WidgetWindow />
+          ) : (
+            <>
+              <MainWindow />
+              <DesktopToaster />
+            </>
+          )}
+        </ThemeProvider>
+        <Rendered />
+      </Suspense>
+    </RendererErrorBoundary>
   </StrictMode>,
 );

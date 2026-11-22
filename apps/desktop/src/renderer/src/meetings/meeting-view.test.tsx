@@ -11,6 +11,14 @@ vi.mock('@oat/feature-ui/assistant', async (original) => ({
   DocumentAssistant: ({ children }: { children: ReactNode }) => children,
 }));
 vi.mock('@oat/workspace-ui/host', () => ({ useWorkspaceHost: () => ({ navigate: vi.fn() }) }));
+vi.mock('@oat/workspace-ui/shell-data', () => ({ useShellData: () => ({ trash: [] }) }));
+vi.mock('../workspace/meeting-actions', () => ({
+  MeetingActions: ({
+    renderSecondaryActions,
+  }: {
+    renderSecondaryActions?(lifecycle: ReactNode): ReactNode;
+  }) => renderSecondaryActions?.(null),
+}));
 vi.mock('@oat/feature-ui/document', () => ({
   NotionExportButton: () => null,
   useDocumentEnhancement: () => ({

@@ -1,48 +1,60 @@
 import type { ConflictDetailSnapshot, ConflictSummary } from '@oat/core/bridge';
+import { ConflictCompareDialog, ConflictNotice } from '@oat/workspace-ui/conflicts';
 import { Button } from '@oat/ui/components/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@oat/ui/components/dialog';
-import { Skeleton } from '@oat/ui/components/skeleton';
-import { Spinner } from '@oat/ui/components/spinner';
 import { IconCopy } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
-
 import { BridgeCallError, call } from '../bridge.ts';
 import { conflictOrigin } from './search-text.ts';
 
-/**
- * Conflicted copies on this Mac (3.5, D-19): listed in the sidebar while there are any; each opens a
- * side-by-side compare with "Keep this copy" (its text replaces the note) and "Keep other version" (the
- * copy is deleted). Merging by hand = edit the note, then keep the other version. Resolutions are local
- * edits that sync like any other (offline too). Re-reads after every sync (`refreshKey`).
- */
 export function ConflictsPanel({ refreshKey }: { refreshKey: number | null }) {
-  const [conflicts, setConflicts] = useState<ConflictSummary[]>([]);
+  const [result, setResult] = useState<{
+    key: string;
+    conflicts: ConflictSummary[];
+    error?: string;
+  } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
-
+  const key = `${refreshKey}:${version}`;
   useEffect(() => {
     let live = true;
-    void call('conflicts:list')
-      .then((r) => live && setConflicts(r.conflicts))
-      .catch(() => {});
+    void call('conflicts:list').then(
+      (r) => {
+        if (live) setResult({ key, conflicts: r.conflicts });
+      },
+      () => {
+        if (live)
+          setResult((previous) => ({
+            key,
+            conflicts: previous?.conflicts ?? [],
+            error: 'Couldn’t load conflicted copies.',
+          }));
+      },
+    );
     return () => {
       live = false;
     };
-  }, [refreshKey, version]);
-
-  if (conflicts.length === 0) return null;
+  }, [key]);
+  const loading = result?.key !== key;
+  const conflicts = result?.conflicts ?? [];
+  if (!loading && !result?.error && conflicts.length === 0) return null;
   return (
     <section className="flex flex-col gap-1" data-testid="conflicts" aria-label="Conflicted copies">
       <h2 className="flex h-8 items-center px-2.5 text-label-12 text-gray-900">
         Conflicted copies ({conflicts.length})
       </h2>
+      {loading && (
+        <p role="status" className="px-2.5 text-copy-14 text-gray-900">
+          Loading conflicted copies…
+        </p>
+      )}
+      {!loading && result?.error && (
+        <div role="alert" className="px-2.5 text-copy-14 text-red-900">
+          <p>{result.error}</p>
+          <Button size="sm" variant="outline" onClick={() => setVersion((v) => v + 1)}>
+            Try again
+          </Button>
+        </div>
+      )}
       <ul className="flex flex-col gap-0.5">
         {conflicts.map((c) => (
           <li key={c.copyId}>
@@ -66,10 +78,11 @@ export function ConflictsPanel({ refreshKey }: { refreshKey: number | null }) {
       </ul>
       {openId && (
         <CompareDialog
+          key={openId}
           copyId={openId}
           onClose={() => setOpenId(null)}
           onResolved={() => {
-            setOpenId(null);
+            setOpenId((current) => (current === openId ? null : current));
             setVersion((v) => v + 1);
           }}
         />
@@ -77,133 +90,96 @@ export function ConflictsPanel({ refreshKey }: { refreshKey: number | null }) {
     </section>
   );
 }
-
 function CompareDialog({
   copyId,
   onClose,
   onResolved,
 }: {
   copyId: string;
-  onClose: () => void;
-  onResolved: () => void;
+  onClose(): void;
+  onResolved(): void;
 }) {
-  const [detail, setDetail] = useState<ConflictDetailSnapshot | null | undefined>(undefined);
+  const [revision, setRevision] = useState(0);
+  const key = `${copyId}:${revision}`;
+  const [result, setResult] = useState<{
+    key: string;
+    data?: ConflictDetailSnapshot;
+    error?: string;
+  } | null>(null);
   const [pending, setPending] = useState<'copy' | 'original' | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
-    void call('conflicts:get', { copyId })
-      .then(setDetail)
-      .catch(() => setDetail(null));
-  }, [copyId]);
-
+    let live = true;
+    void call('conflicts:get', { copyId }).then(
+      (data) => {
+        if (live)
+          setResult(
+            data
+              ? { key, data }
+              : { key, error: 'This copy is unavailable. It may already be resolved.' },
+          );
+      },
+      () => {
+        if (live) setResult({ key, error: 'Couldn’t load this conflicted copy.' });
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [copyId, key]);
+  const current = result?.key === key ? result : null;
+  const detail = current?.data;
   async function keep(which: 'copy' | 'original') {
+    if (!detail) return;
     setPending(which);
     setError(null);
     try {
-      const { resolved } = await call('conflicts:resolve', { copyId, keep: which });
+      const { resolved } = await call('conflicts:resolve', {
+        copyId,
+        keep: which,
+        revision: detail.revision,
+      });
       if (resolved) onResolved();
-      else setError('This copy can’t be resolved any more (it may already be resolved).');
+      else setError('This copy changed or was resolved. Compare again before choosing a version.');
     } catch (e) {
       setError(e instanceof BridgeCallError ? e.message : 'Something went wrong.');
     } finally {
       setPending(null);
     }
   }
-
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-3xl" data-testid="conflict-compare">
-        <DialogHeader>
-          <DialogTitle>Compare versions</DialogTitle>
-          <DialogDescription>
-            {detail
-              ? `${conflictOrigin(detail.summary.device, detail.summary.at)}. Highlighted lines are only in one version.`
-              : 'Loading…'}
-          </DialogDescription>
-        </DialogHeader>
-        {detail ? (
-          <div className="grid max-h-[55vh] grid-cols-2 gap-4 overflow-auto">
-            <Side
-              label="Other version"
-              lines={detail.original}
-              testId="compare-original"
-              empty="The note this was copied from is gone."
-            />
-            <Side label="This copy" lines={detail.copy} testId="compare-copy" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4" aria-busy>
-            {['Other version', 'This copy'].map((label) => (
-              <section key={label} className="flex min-w-0 flex-col gap-2">
-                <h3 className="text-label-12 text-gray-900">{label}</h3>
-                <div className="flex flex-col gap-2 rounded-md border border-gray-alpha-400 bg-background-200 p-3">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-5/6" />
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
-        <p role="alert" className="text-copy-14 text-red-900 empty:hidden">
-          {error}
-        </p>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            disabled={!detail || pending !== null}
-            onClick={() => void keep('original')}
-          >
-            {pending === 'original' && <Spinner data-icon="inline-start" />}
-            Keep other version
-          </Button>
-          <Button
-            disabled={!detail?.original || pending !== null}
-            onClick={() => void keep('copy')}
-          >
-            {pending === 'copy' && <Spinner data-icon="inline-start" />}
-            Keep this copy
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function Side({
-  label,
-  lines,
-  testId,
-  empty,
-}: {
-  label: string;
-  lines: { text: string; changed: boolean }[] | null;
-  testId: string;
-  empty?: string;
-}) {
-  return (
-    <section className="flex min-w-0 flex-col gap-2" data-testid={testId}>
-      <h3 className="text-label-12 text-gray-900">{label}</h3>
-      <div
-        className="rounded-md border border-gray-alpha-400 bg-background-200 p-3 text-copy-14 text-gray-1000"
-        data-selectable
-      >
-        {lines === null ? (
-          <p className="text-gray-900">{empty}</p>
-        ) : (
-          lines.map((line, i) => (
-            <p
-              key={i}
-              className={`min-h-5 whitespace-pre-wrap break-words ${i === 0 ? 'text-heading-14' : ''} ${
-                line.changed ? '-mx-1 rounded-sm bg-amber-200 px-1' : ''
-              }`}
-            >
-              {line.text}
-            </p>
-          ))
-        )}
-      </div>
-    </section>
+    <ConflictCompareDialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      data={
+        detail
+          ? {
+              original: detail.original,
+              copy: detail.copy,
+              canKeepCopy: detail.original !== null,
+              canKeepOriginal: true,
+            }
+          : undefined
+      }
+      notice={
+        detail && (
+          <ConflictNotice title={conflictOrigin(detail.summary.device, detail.summary.at)}>
+            {detail.original
+              ? 'Both versions were kept. Choose which version to keep.'
+              : 'The other version is gone. Keeping the other version will discard this copy.'}
+          </ConflictNotice>
+        )
+      }
+      loadError={current?.error}
+      onRetry={() => {
+        setError(null);
+        setRevision((v) => v + 1);
+      }}
+      error={error}
+      pending={pending}
+      onKeep={(which) => void keep(which)}
+    />
   );
 }

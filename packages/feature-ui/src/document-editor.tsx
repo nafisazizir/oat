@@ -84,17 +84,18 @@ export function DocumentEditorSurface({
     editable,
     host,
   });
-  const secondary = (history: ReactNode) => (
+  const secondary = (history: ReactNode, lifecycle: ReactNode) => (
     <NotionExportButton
       documentId={doc.id}
       beforeSend={settle}
       onOpenIntegrations={onOpenIntegrations}
       openExternal={openExternal}
       fallback={
-        history || overflowActions ? (
+        history || overflowActions || lifecycle ? (
           <MoreActions>
             {history}
             {overflowActions}
+            {lifecycle}
           </MoreActions>
         ) : null
       }
@@ -103,6 +104,7 @@ export function DocumentEditorSurface({
           {history}
           {control}
           {overflowActions}
+          {lifecycle}
         </MoreActions>
       )}
     />
@@ -114,8 +116,10 @@ export function DocumentEditorSurface({
       headerActions={headerActions}
       Actions={Actions}
       statusExtra={meeting && renderPipeline?.(capabilities.enhancement.follow)}
-      secondaryActions={
-        editable && meeting ? capabilities.secondary(doc.workspaceId, secondary) : secondary(null)
+      renderSecondaryActions={(lifecycle) =>
+        editable && meeting
+          ? capabilities.secondary(doc.workspaceId, (history) => secondary(history, lifecycle))
+          : secondary(null, lifecycle)
       }
       beforeEditor={capabilities.beforeEditor}
       streaming={capabilities.streaming}

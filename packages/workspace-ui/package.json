@@ -5,6 +5,8 @@
   "description": "Shared workspace shell and tree UI",
   "type": "module",
   "exports": {
+    "./conflicts": "./src/conflicts.tsx",
+    "./home-documents": "./src/home-documents.tsx",
     ".": "./src/index.ts",
     "./styles.css": "./src/styles.css",
     "./host": "./src/host.tsx",

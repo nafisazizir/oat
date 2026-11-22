@@ -12,6 +12,7 @@ import {
 } from '@oat/ui/components/command';
 import { defaultFilter } from 'cmdk';
 import { Spinner } from '@oat/ui/components/spinner';
+import { matchesAppShortcut } from '@oat/ui/hooks/use-app-shortcut';
 import { IconCheck, IconFileText, IconNotes, IconSearch, IconWaveSine } from '@tabler/icons-react';
 import { useCallback, useState, type ComponentProps } from 'react';
 
@@ -185,7 +186,16 @@ export function SearchDialog({
       description="Search notes and transcripts, jump to a page or run a command"
       className="sm:max-w-xl"
     >
-      <Command shouldFilter={false} value={selected} onValueChange={setSelected}>
+      <Command
+        shouldFilter={false}
+        value={selected}
+        onValueChange={setSelected}
+        onKeyDown={(event) => {
+          if (!matchesAppShortcut(event.nativeEvent, 'palette')) return;
+          event.preventDefault();
+          onOpenChange(false);
+        }}
+      >
         <CommandInput
           placeholder="Search notes, transcripts and commands…"
           value={query}

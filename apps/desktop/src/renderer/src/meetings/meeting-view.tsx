@@ -13,6 +13,7 @@ import { BlockFocus, OatEditor } from '@oat/editor/react';
 import { NotionExportButton, useDocumentEnhancement } from '@oat/feature-ui/document';
 import { MoreActions } from '@oat/workspace-ui/page-editor';
 import { useWorkspaceHost } from '@oat/workspace-ui/host';
+import { useShellData } from '@oat/workspace-ui/shell-data';
 import {
   DocumentAssistant,
   AssistantToggleButton,
@@ -76,6 +77,7 @@ import {
 import { GraceLine, PipelineLine } from './post-meeting.tsx';
 import { type AutosaveState, NoteAutosave } from './note-autosave.ts';
 import { meetingAssistantHandle } from './meeting-assistant';
+import { MeetingActions } from '../workspace/meeting-actions';
 import { meetingDocumentAdapter } from './meeting-document';
 import { api } from '../lib/api';
 
@@ -464,7 +466,9 @@ function NoteBody({
     if (contentMoved) setContent(note.contentJson);
   }, [note, autosave]);
 
-  const editable = note.editable;
+  const shell = useShellData();
+  const trashed = note.trashed || shell.trash.some((node) => node.id === documentId);
+  const editable = note.editable && !trashed;
   const [assistant] = useState(() =>
     meetingAssistantHandle({
       documentId,
@@ -488,11 +492,11 @@ function NoteBody({
   const capabilities = useDocumentEnhancement({
     documentId,
     loadedVersion: note.version ?? 0,
-    enabled: !note.trashed,
+    enabled: !trashed,
     editable,
     host: editable ? documentHost : readOnlyHost,
   });
-  const notion = (history: React.ReactNode) => (
+  const notion = (history: React.ReactNode, lifecycle: React.ReactNode) => (
     <NotionExportButton
       documentId={documentId}
       beforeSend={assistant.settle}
@@ -500,11 +504,19 @@ function NoteBody({
         workspaceHost.navigate({ view: 'settings', section: 'integrations' })
       }
       openExternal={(url) => bridge().send('shell:open-external', { url })}
-      fallback={history ? <MoreActions>{history}</MoreActions> : null}
+      fallback={
+        history || lifecycle ? (
+          <MoreActions>
+            {history}
+            {lifecycle}
+          </MoreActions>
+        ) : null
+      }
       wrap={(control) => (
         <MoreActions>
           {history}
           {control}
+          {lifecycle}
         </MoreActions>
       )}
     />
@@ -544,7 +556,7 @@ function NoteBody({
           {!editable && (
             <Badge variant="outline" className="gap-1">
               <IconEye />
-              {note.trashed ? 'In trash' : 'View only'}
+              {trashed ? 'In trash' : 'View only'}
             </Badge>
           )}
 
@@ -566,13 +578,16 @@ function NoteBody({
             }
           />
         </div>
-        {editable ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {capabilities.secondary(note.workspaceId, notion)}
-          </div>
-        ) : (
-          notion(null)
-        )}
+        <MeetingActions
+          id={documentId}
+          beforeRemove={editable ? assistant.settle : undefined}
+          removeDisabled={live}
+          renderSecondaryActions={(lifecycle) =>
+            editable
+              ? capabilities.secondary(note.workspaceId, (history) => notion(history, lifecycle))
+              : notion(null, lifecycle)
+          }
+        />
 
         {conflict && (
           <div

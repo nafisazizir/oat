@@ -103,6 +103,17 @@ beforeEach(() => {
 afterEach(() => store.close());
 
 describe('MeetingNotes', () => {
+  it('marks pending local notes and exposes updated timestamps without marking pulled notes pending', () => {
+    const list = notes.list();
+    expect(list.find((note) => note.documentId === 'd1')).toMatchObject({
+      pending: true,
+      updatedAt: store.document('d1')!.updatedAt,
+    });
+    expect(list.find((note) => note.documentId === 'd-shared')).toMatchObject({
+      pending: false,
+      updatedAt: store.document('d-shared')!.updatedAt,
+    });
+  });
   it('lists meeting notes, newest first; nothing while signed out or closed', () => {
     expect(notes.list().map((n) => [n.documentId, n.meetingId, n.title])).toEqual([
       ['d1', 'm1', 'Standup'],
