@@ -58,6 +58,7 @@ describe('navigation', () => {
   });
 
   it('only http(s) links without credentials are opened externally', () => {
+    expect(isSafeExternalUrl('/d/page?t=65&seg=s1')).toBe(false);
     expect(isSafeExternalUrl('https://oat.example/x')).toBe(true);
     expect(isSafeExternalUrl('mailto:a@b.c')).toBe(false);
     expect(isSafeExternalUrl('file:///Applications/Calculator.app')).toBe(false);

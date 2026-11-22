@@ -20,13 +20,13 @@ import {
 import { useHydrated } from '@/lib/use-hydrated';
 import { cssString, type DeepLinkFocus, focusedLine, type TranscriptLine } from '@/lib/transcript';
 
-import { AssistantChat } from './assistant-chat';
+import { AssistantChat, TranscriptReader } from '@oat/feature-ui/assistant';
 import {
   type OpenDocumentBridge,
   OpenDocumentContext,
+  OpenDocumentAssistantIntegration,
   type OpenDocumentHandle,
 } from './open-document';
-import { TranscriptReader } from './transcript-reader';
 
 /**
  * Where the floating "Ask about this note" button goes (9.3b). By default it floats at the bottom right of the
@@ -59,7 +59,7 @@ export function AssistantToggleAnchor({
       )}
     >
       {feedback && <div className="w-full max-w-content empty:hidden">{feedback}</div>}
-      <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-2xl border border-gray-alpha-300 bg-background-100 p-2">
+      <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-md border border-gray-alpha-300 bg-background-100 p-2">
         {children}
         {slot?.node}
       </div>
@@ -253,7 +253,7 @@ export function DocumentAssistant({
         aria-keyshortcuts="Meta+J"
         onClick={() => toggle(true)}
         className={cn(
-          'rounded-full bg-background-100 px-3 hover:bg-gray-alpha-100',
+          'bg-background-100 px-3 hover:bg-gray-alpha-100',
           !anchored && 'fixed end-6 bottom-6 z-20',
         )}
       >
@@ -274,59 +274,61 @@ export function DocumentAssistant({
 
   return (
     <OpenDocumentContext.Provider value={bridge}>
-      <AssistantToggleContext.Provider value={toggleSlot}>
-        <div className="flex flex-1" data-highlight-block={highlight?.id}>
-          {highlight && (
-            <style>{`[data-testid="note-editor"] [data-id=${cssString(highlight.id)}]{background:var(--selection);border-radius:calc(var(--radius) * 0.75);box-shadow:0 0 0 0.25rem var(--selection);transition:background var(--duration-slow) var(--easing-standard)}`}</style>
-          )}
-          <div className="min-w-0 flex-1">
-            {children}
-            {showTranscript && (
-              <div className="mx-auto w-full max-w-content px-6 pb-14 sm:px-8">
-                <TranscriptReader
-                  lines={transcript}
-                  focusId={focusId}
-                  onClose={() => {
-                    setDismissedKey(focusKey);
-                    router.replace(pathname as Route, { scroll: false });
-                  }}
-                />
-              </div>
+      <OpenDocumentAssistantIntegration>
+        <AssistantToggleContext.Provider value={toggleSlot}>
+          <div className="flex flex-1" data-highlight-block={highlight?.id}>
+            {highlight && (
+              <style>{`[data-testid="note-editor"] [data-id=${cssString(highlight.id)}]{background:var(--selection);border-radius:calc(var(--radius) * 0.75);box-shadow:0 0 0 0.25rem var(--selection);transition:background var(--duration-slow) var(--easing-standard)}`}</style>
+            )}
+            <div className="min-w-0 flex-1">
+              {children}
+              {showTranscript && (
+                <div className="mx-auto w-full max-w-content px-6 pb-14 sm:px-8">
+                  <TranscriptReader
+                    lines={transcript}
+                    focusId={focusId}
+                    onClose={() => {
+                      setDismissedKey(focusKey);
+                      router.replace(pathname as Route, { scroll: false });
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+            {available && open && wide && (
+              <aside
+                ref={panelRef}
+                aria-label="Assistant"
+                data-testid="assistant-panel"
+                // Capture: runs before the focused element's handlers, whatever a tooltip did with the key.
+                onKeyDownCapture={closeOnEscape}
+                className="sticky top-12 flex h-[calc(100svh-3rem)] w-96 shrink-0 flex-col border-s border-gray-alpha-400 bg-background-100 xl:w-[26rem]"
+              >
+                {chat}
+              </aside>
             )}
           </div>
-          {available && open && wide && (
-            <aside
-              ref={panelRef}
-              aria-label="Assistant"
-              data-testid="assistant-panel"
-              // Capture: runs before the focused element's handlers, whatever a tooltip did with the key.
-              onKeyDownCapture={closeOnEscape}
-              className="sticky top-12 flex h-[calc(100svh-3rem)] w-96 shrink-0 flex-col border-s border-gray-alpha-400 bg-background-100 xl:w-[26rem]"
-            >
-              {chat}
-            </aside>
+          {available && !wide && (
+            <Sheet open={open} onOpenChange={(value) => toggle(value)}>
+              <SheetContent
+                ref={panelRef as React.Ref<HTMLDivElement>}
+                side="right"
+                showCloseButton={false}
+                aria-describedby={undefined}
+                data-testid="assistant-panel"
+                // Focus goes back to the toggle via our effect.
+                finalFocus={false}
+                onKeyDownCapture={closeOnEscape}
+                className="gap-0 bg-background-100 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-md"
+              >
+                <SheetTitle className="sr-only">Assistant</SheetTitle>
+                {chat}
+              </SheetContent>
+            </Sheet>
           )}
-        </div>
-        {available && !wide && (
-          <Sheet open={open} onOpenChange={(value) => toggle(value)}>
-            <SheetContent
-              ref={panelRef as React.Ref<HTMLDivElement>}
-              side="right"
-              showCloseButton={false}
-              aria-describedby={undefined}
-              data-testid="assistant-panel"
-              // Focus goes back to the toggle via our effect.
-              finalFocus={false}
-              onKeyDownCapture={closeOnEscape}
-              className="gap-0 bg-background-100 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-md"
-            >
-              <SheetTitle className="sr-only">Assistant</SheetTitle>
-              {chat}
-            </SheetContent>
-          </Sheet>
-        )}
-        {!anchored && toggleButton}
-      </AssistantToggleContext.Provider>
+          {!anchored && toggleButton}
+        </AssistantToggleContext.Provider>
+      </OpenDocumentAssistantIntegration>
     </OpenDocumentContext.Provider>
   );
 }

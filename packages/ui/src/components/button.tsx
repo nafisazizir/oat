@@ -1,7 +1,7 @@
 import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '../lib/utils.ts';
+import { cn } from '@oat/ui/lib/utils';
 
 // Text sits 12px in at 32 and 36px (10 at 24, 16 at 40), square or pill
 // alike, the same inset as fields and one popup edge + padding + item away

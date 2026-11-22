@@ -7,8 +7,6 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { webSettingsUrl } from './web-settings.ts';
-
 import { DESKTOP_SCHEME, findDeepLinkArg } from '@oat/auth/desktop-link';
 import {
   type PermissionsSnapshot,
@@ -26,6 +24,7 @@ import {
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Notification,
   powerMonitor,
@@ -37,7 +36,9 @@ import {
   type WebContents,
 } from 'electron';
 
-import { ApiError, createApiClient } from './api-client.ts';
+import { ApiError, createApiClient, createApiRequester } from './api-client.ts';
+import { registerApiProxy } from './api-proxy.ts';
+import { createSettingsIo } from './settings-io.ts';
 import { AudioPlayback, PlaybackError } from './audio-playback.ts';
 import { AudioStorage, StorageError } from './audio-storage.ts';
 import { AuthController } from './auth.ts';
@@ -243,6 +244,7 @@ async function start() {
     log,
   });
   bridge.handle('app:info', () => ({
+    appOrigin: new URL(config.webUrl).origin,
     version: app.getVersion(),
     platform: process.platform,
     dev: !!config.rendererDevUrl,
@@ -250,9 +252,22 @@ async function start() {
     coldStartMs,
   }));
   bridge.handle('state:get', () => store.snapshot());
-  bridge.handle('settings:open-web', async ({ section }) => {
-    await shell.openExternal(webSettingsUrl(config.webUrl, section));
+  const settingsIo = createSettingsIo({
+    baseUrl: config.webUrl,
+    withSession: (run) => auth.withSession(run),
+    request: createApiRequester({ baseUrl: config.webUrl }),
+    chooseZip: async () => {
+      const result = await dialog.showSaveDialog({
+        title: 'Export my notes',
+        defaultPath: 'oat-notes.zip',
+        filters: [{ name: 'ZIP archive', extensions: ['zip'] }],
+      });
+      return result.canceled ? null : (result.filePath ?? null);
+    },
+    openExternal: (url) => shell.openExternal(url),
   });
+  bridge.handle('settings:export-notes', settingsIo.exportNotes);
+  bridge.handle('settings:connect', settingsIo.connect);
   bridge.handle('auth:sign-in', () => {
     // D-28: no account switch while recording (the meeting belongs to the account that started it).
     if (auth.signedIn && recording.busy) {
@@ -271,9 +286,20 @@ async function start() {
     if (recording.busy) await recording.shutdown();
     await testRecording.stop(); // 9.2: nothing to save, but it uses this account's transcription
     grace.flush(); // 7.5: a meeting in its grace period ends now, in this account's database
+    apiProxy.cancelAll();
     await auth.signOut();
   });
   bridge.handle('api:me', () => auth.me());
+  const apiProxy = registerApiProxy({
+    bridge,
+    baseUrl: config.webUrl,
+    auth,
+    store,
+    request: createApiRequester({
+      baseUrl: config.webUrl,
+      userAgent: `Oat-Desktop/${app.getVersion()} (${process.platform})`,
+    }),
+  });
   bridge.handle('window:open-widget', () => {
     if (!auth.signedIn) throw new BridgeError('unauthorized', 'Sign in first.');
     openWidgetWindow();

@@ -1,22 +1,11 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@oat/ui/components/dropdown-menu';
+import { TemplatePicker } from '@oat/workspace-ui/template-picker';
 import { Alert, AlertAction, AlertTitle } from '@oat/ui/components/alert';
 import { ButtonGroup, ButtonGroupSeparator } from '@oat/ui/components/button-group';
 import { Spinner } from '@oat/ui/components/spinner';
 import { IconAlertCircle, IconChevronDown, IconRefresh, IconSparkles } from '@tabler/icons-react';
-import { useState } from 'react';
-
-import type { TemplateDto, TemplateList } from '@/lib/templates';
 
 import type { Enhancement } from './use-enhancement';
 
@@ -47,26 +36,6 @@ export function EnhanceButton({
   const { state } = enhancement;
   const start = onStart ?? ((input?: StartInput) => void enhancement.start(input));
   const busy = state.phase === 'starting' || state.phase === 'streaming';
-  const [templates, setTemplates] = useState<TemplateList | null>(null);
-  const [loadError, setLoadError] = useState(false);
-
-  const loadTemplates = (open: boolean) => {
-    if (!open || templates) return;
-    setLoadError(false);
-    fetch(`/api/templates?workspaceId=${encodeURIComponent(workspaceId)}`, { cache: 'no-store' })
-      .then((res) => (res.ok ? (res.json() as Promise<TemplateList>) : Promise.reject()))
-      .then(setTemplates, () => setLoadError(true));
-  };
-
-  const item = (t: TemplateDto) => (
-    <DropdownMenuItem
-      key={t.id}
-      data-testid="enhance-template"
-      onClick={() => start({ templateId: t.id })}
-    >
-      {t.name}
-    </DropdownMenuItem>
-  );
 
   return (
     <ButtonGroup>
@@ -81,43 +50,23 @@ export function EnhanceButton({
         {busy ? 'Enhancing…' : regenerate ? 'Regenerate' : 'Enhance'}
       </Button>
       <ButtonGroupSeparator className="bg-gray-700" />
-      <DropdownMenu onOpenChange={loadTemplates}>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              size="icon-sm"
-              disabled={busy}
-              aria-label={regenerate ? 'Regenerate with a template' : 'Enhance with a template'}
-              data-testid="enhance-template-menu"
-            />
-          }
-        >
-          <IconChevronDown />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-52">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>
-              {regenerate ? 'Regenerate with template' : 'Enhance with template'}
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {loadError ? (
-              <DropdownMenuItem disabled>Couldn’t load templates</DropdownMenuItem>
-            ) : !templates ? (
-              <DropdownMenuItem disabled>
-                <Spinner />
-                Loading…
-              </DropdownMenuItem>
-            ) : (
-              <>
-                {templates.builtins.map(item)}
-                {templates.custom.length > 0 && <DropdownMenuSeparator />}
-                {templates.custom.map(item)}
-              </>
-            )}
-            {children}
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <TemplatePicker
+        workspaceId={workspaceId}
+        label={regenerate ? 'Regenerate with template' : 'Enhance with template'}
+        onSelect={(templateId) => start({ templateId })}
+        trigger={
+          <Button
+            size="icon-sm"
+            disabled={busy}
+            aria-label={regenerate ? 'Regenerate with a template' : 'Enhance with a template'}
+            data-testid="enhance-template-menu"
+          >
+            <IconChevronDown />
+          </Button>
+        }
+      >
+        {children}
+      </TemplatePicker>
     </ButtonGroup>
   );
 }

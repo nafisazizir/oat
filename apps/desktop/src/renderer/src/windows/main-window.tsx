@@ -27,11 +27,13 @@ import {
   IconCloudUpload,
   IconExternalLink,
   IconLoader,
-  IconHome,
   IconRefresh,
-  IconSettings,
 } from '@tabler/icons-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useWorkspaceHost, type AppRoute } from '@oat/workspace-ui';
+import { DesktopWorkspaceHost } from '../workspace/desktop-host';
+import { DesktopSidebar } from '../workspace/desktop-sidebar';
+import { DesktopRoutesView } from '../workspace/desktop-routes-view';
 
 import { bridge, BridgeCallError, call } from '../bridge.ts';
 import { AutoStopQuestion, AutoStopToast } from '../auto-stop/auto-stop-notice.tsx';
@@ -40,29 +42,16 @@ import { useCalendar, useMeetingPrompt } from '../calendar/calendar-state.ts';
 import { PromptBanner } from '../calendar/prompt-banner.tsx';
 import { HomeView } from '../meetings/home-view.tsx';
 import { useMainState } from '../main-state.ts';
-import { MeetingList, NewMeetingButton } from '../meetings/meeting-list.tsx';
 import { MeetingView } from '../meetings/meeting-view.tsx';
 import { bumpMeetingsVersion, useMeetingNotes } from '../meetings/meetings-state.ts';
 import { useRecording } from '../recording-state.ts';
 import { isActive } from '../recording-view.ts';
 import { syncLabel, type SyncTone } from '../sync-status.ts';
 import { defaultInputChoice, startRequest } from '../recording/recording-controls.tsx';
-import { ConflictsPanel } from '../sync/conflicts-panel.tsx';
-import { DesktopSearch, DesktopUserMenu } from './shell-menus.tsx';
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarFooter,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarInset,
-  SidebarTrigger,
-} from '@oat/ui/components/sidebar';
+import { SidebarInset, SidebarTrigger } from '@oat/ui/components/sidebar';
 import { RecordingBar, IssueBanner } from '../recording/recording-controls.tsx';
 import { SettingsView } from '../settings/settings-view.tsx';
+import { desktopSettingsSection } from '../workspace/settings-section';
 import { FirstMeetingGuide } from '../onboarding/first-meeting-guide.tsx';
 import { useOnboarding } from '../onboarding/onboarding-state.ts';
 import { OnboardingView } from '../onboarding/onboarding-view.tsx';
@@ -320,9 +309,25 @@ function SignedInShell({
     const ws = notes?.find((n) => n.documentId === documentId)?.workspaceId;
     return ws && ws !== activeWorkspace?.id ? (workspaceNames.get(ws) ?? null) : null;
   };
-  const [selected, setSelected] = useState<string | null>(null);
+  const [route, setRoute] = useState<AppRoute>({ view: 'home' });
+  const selected = route.view === 'document' ? route.id : null;
+  const setSelected = useCallback(
+    (id: string | null) =>
+      setRoute(id ? { view: 'document', id, query: { kind: 'meeting' } } : { view: 'home' }),
+    [],
+  );
   // 3.8: Settings replaces the meeting view (a recording keeps running); opening a note closes it.
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsOpen = route.view === 'settings';
+  const settingsSection = desktopSettingsSection(
+    route.view === 'settings' ? route.section : undefined,
+  );
+  const setSettingsOpen = useCallback(
+    (open: boolean) =>
+      setRoute((current) =>
+        open ? { view: 'settings' } : current.view === 'settings' ? { view: 'home' } : current,
+      ),
+    [],
+  );
   const [options, setOptions] = useState<InvokeResponse<'recording:options'> | null>(null);
   const [choice, setChoice] = useState<string | null>(null);
   const input = choice ?? defaultInputChoice(options);
@@ -338,7 +343,7 @@ function SignedInShell({
   const autoStop = useAutoStopNotice();
   useEffect(
     () => bridge().subscribe('notes:open', ({ documentId }) => setSelected(documentId)),
-    [],
+    [setSelected],
   );
   // 9.2: first run of this account on this Mac → the setup walkthrough; Settings → Setup reopens it.
   const onboarding = useOnboarding(user.id);
@@ -382,77 +387,30 @@ function SignedInShell({
   }
 
   return (
-    <SidebarProvider className="h-full min-h-0 min-w-0 flex-1" data-testid="shell">
-      <Sidebar collapsible="icon">
-        <div className="app-drag h-12 shrink-0" />
-        <SidebarHeader>
-          <SidebarMenu>
-            <DesktopSearch
-              refreshKey={sync.lastSyncedAt}
-              onOpen={(hit) => {
-                if (hit.kind !== 'meeting') return;
-                setSelected(hit.documentId);
-                setSettingsOpen(false);
-              }}
-            />
-          </SidebarMenu>
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarMenu className="px-2">
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={() => {
-                  setSelected(null);
-                  setSettingsOpen(false);
-                }}
-                isActive={!selected && !settingsOpen}
-                data-testid="home-nav"
-              >
-                <IconHome />
-                Home
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-          <div className="group-data-[collapsible=icon]:hidden">
-            <ConflictsPanel refreshKey={sync.lastSyncedAt} />
-          </div>
-          <MeetingList
-            notes={listed}
-            userId={user.id}
-            selected={selected}
-            recordingMeetingId={recording ? activeMeetingId : null}
-            onSelect={(id) => {
-              setSelected(id);
-              setSettingsOpen(false);
-            }}
-          />
-        </SidebarContent>
-        <SidebarFooter data-testid="signed-in">
-          <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Settings"
-                    onClick={() => setSettingsOpen(true)}
-                  />
-                }
-              >
-                <IconSettings />
-              </TooltipTrigger>
-              <TooltipContent>Settings</TooltipContent>
-            </Tooltip>
-            <SyncLine status={sync} />
-          </div>
-          <DesktopUserMenu
-            user={user}
-            workspaces={workspaces}
-            onOpenSettings={() => setSettingsOpen(true)}
-          />
-        </SidebarFooter>
-      </Sidebar>
+    <DesktopWorkspaceHost
+      user={user}
+      notes={notes}
+      snapshot={workspaces.snapshot}
+      lastSyncedAt={sync.lastSyncedAt}
+      route={route}
+      navigate={setRoute}
+      recordingMeetingId={recording ? activeMeetingId : null}
+      recordingActive={recording || recordingStatus === 'stopping'}
+    >
+      <DesktopSidebar
+        user={user}
+        workspaces={workspaces}
+        lastSyncedAt={sync.lastSyncedAt}
+        syncLine={<SyncLine status={sync} />}
+        newMeeting={{
+          disabled: recording || !snapshot,
+          pending: starting.pending,
+          onClick: () => {
+            setSettingsOpen(false);
+            void starting.run(() => call('recording:start', startRequest(input)));
+          },
+        }}
+      />
       <SidebarInset className="min-h-0 min-w-0">
         <header
           className={cn(
@@ -463,14 +421,6 @@ function SignedInShell({
         >
           <SidebarTrigger className="app-no-drag" />
           <div className="ms-auto flex min-w-0 items-center gap-2">
-            <NewMeetingButton
-              disabled={recording || !snapshot}
-              pending={starting.pending}
-              onClick={() => {
-                setSettingsOpen(false);
-                void starting.run(() => call('recording:start', startRequest(input)));
-              }}
-            />
             <div ref={setToolbar} className="app-no-drag min-w-0 overflow-x-auto" />
           </div>
         </header>
@@ -497,43 +447,71 @@ function SignedInShell({
                 </>
               )}
               <SettingsView
+                key={settingsSection}
+                initialSection={settingsSection}
+                workspace={activeWorkspace}
+                recordingActive={recording || recordingStatus === 'stopping'}
                 onClose={() => setSettingsOpen(false)}
                 onOpenSetup={() => setSetupOpen(true)}
+                onWorkspaceExited={() => {
+                  setSelected(null);
+                  setSettingsOpen(false);
+                }}
               />
             </>
           ) : (
-            <MeetingView
-              userId={user.id}
-              documentId={selected}
-              snapshot={snapshot}
-              options={options}
-              input={input}
-              onInputChange={setChoice}
-              controlsContainer={toolbar}
-              home={
-                <>
-                  {onboarding.state.guide && (
-                    <FirstMeetingGuide onDismiss={() => void onboarding.dismissGuide()} />
-                  )}
-                  <HomeView
-                    notes={listed}
-                    calendar={calendar}
-                    recordingMeetingId={recording ? activeMeetingId : null}
-                    otherWorkspace={otherWorkspace}
-                    onOpen={(id) => {
-                      setSelected(id);
-                      setSettingsOpen(false);
-                      bumpMeetingsVersion();
-                    }}
-                  />
-                </>
+            <DesktopRoutesView
+              route={route}
+              notes={notes}
+              recordingControls={
+                recording ? (
+                  <>
+                    <RecordingBar
+                      snapshot={snapshot}
+                      options={options}
+                      input={input}
+                      onInputChange={setChoice}
+                      controlsContainer={toolbar}
+                    />
+                    <IssueBanner snapshot={snapshot} />
+                  </>
+                ) : null
+              }
+              meeting={
+                <MeetingView
+                  userId={user.id}
+                  documentId={selected}
+                  snapshot={snapshot}
+                  options={options}
+                  input={input}
+                  onInputChange={setChoice}
+                  controlsContainer={toolbar}
+                  home={
+                    <>
+                      {onboarding.state.guide && (
+                        <FirstMeetingGuide onDismiss={() => void onboarding.dismissGuide()} />
+                      )}
+                      <HomeView
+                        notes={listed}
+                        calendar={calendar}
+                        recordingMeetingId={recording ? activeMeetingId : null}
+                        otherWorkspace={otherWorkspace}
+                        onOpen={(id) => {
+                          setSelected(id);
+                          setSettingsOpen(false);
+                          bumpMeetingsVersion();
+                        }}
+                      />
+                    </>
+                  }
+                />
               }
             />
           )}
           <AutoStopToast notice={autoStop} />
         </div>
       </SidebarInset>
-    </SidebarProvider>
+    </DesktopWorkspaceHost>
   );
 }
 
@@ -546,7 +524,10 @@ const SYNC_ICONS: Record<SyncTone, { icon: typeof IconCloudCheck; className: str
 };
 
 /** Sync status (2.6): caught up, syncing, waiting, or offline with how much is kept on this Mac. */
-function SyncLine({ status }: { status: SyncStatusSnapshot | undefined }) {
+function SyncLine({ status: snapshot }: { status: SyncStatusSnapshot | undefined }) {
+  const { online } = useWorkspaceHost();
+  const status =
+    snapshot && !online ? { ...snapshot, state: 'offline' as const, error: null } : snapshot;
   const label = status && syncLabel(status);
   if (!status || !label) return <div className="mt-auto" />;
   const { icon: Icon, className } = SYNC_ICONS[label.tone];

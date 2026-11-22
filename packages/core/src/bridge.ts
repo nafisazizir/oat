@@ -12,6 +12,7 @@
  * session token) is ever part of a schema here.
  */
 import { z } from 'zod';
+import { apiInvokeChannels, apiSubscribeChannels } from './bridge-api.ts';
 
 import { autoStopInvokeChannels, autoStopSubscribeChannels } from './bridge-auto-stop.ts';
 import { calendarInvokeChannels, calendarSubscribeChannels } from './bridge-calendar.ts';
@@ -26,6 +27,7 @@ import { storageInvokeChannels, storageSubscribeChannels } from './bridge-storag
 import { transcriptInvokeChannels } from './bridge-transcript.ts';
 
 export * from './bridge-auto-stop.ts';
+export * from './bridge-api.ts';
 export * from './bridge-calendar.ts';
 export * from './bridge-meetings.ts';
 export * from './bridge-onboarding.ts';
@@ -292,6 +294,7 @@ export const mainStateSnapshotSchema = z.object({
 export type MainStateSnapshot = z.infer<typeof mainStateSnapshotSchema>;
 
 export const appInfoSchema = z.object({
+  appOrigin: z.url(),
   version: z.string(),
   platform: z.string(),
   /** `true` when running from the electron-vite dev server (not a built renderer). */
@@ -311,15 +314,21 @@ const none = z.undefined();
 
 export const bridgeContract = {
   invoke: {
+    ...apiInvokeChannels,
     'app:info': { request: none, response: appInfoSchema },
     'state:get': { request: none, response: mainStateSnapshotSchema },
     /** Opens the system browser at the web sign-in page. */
     'auth:sign-in': { request: none, response: z.object({ opened: z.boolean() }) },
-    'settings:open-web': {
-      request: z.object({
-        section: z.enum(['profile', 'preferences', 'integrations', 'workspace', 'members']),
+    'settings:connect': {
+      request: z.strictObject({
+        provider: z.enum(['notion', 'google-calendar']),
+        workspaceId: z.string().regex(/^[A-Za-z0-9_-]{1,100}$/),
       }),
       response: none,
+    },
+    'settings:export-notes': {
+      request: z.strictObject({ workspaceId: z.string().regex(/^[A-Za-z0-9_-]{1,100}$/) }),
+      response: z.object({ count: z.number().int().nonnegative() }).nullable(),
     },
     'auth:cancel-sign-in': { request: none, response: none },
     /**
@@ -410,6 +419,7 @@ export const bridgeContract = {
     ...meetingSendChannels,
   },
   subscribe: {
+    ...apiSubscribeChannels,
     'state:changed': mainStateSnapshotSchema,
     /** Detailed recording state (levels, per-source STT status, issues), at most ~10 per second. */
     'recording:state': recordingSnapshotSchema,

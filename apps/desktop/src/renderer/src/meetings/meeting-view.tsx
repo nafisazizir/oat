@@ -414,7 +414,7 @@ function NoteBody({
           )}
 
           <MeetingTime
-            className="rounded-full border border-gray-alpha-300 px-2 py-1"
+            className="rounded-md border border-gray-alpha-300 px-2 py-1"
             startedAt={note.startedAt}
             endedAt={endedAt}
             live={live}

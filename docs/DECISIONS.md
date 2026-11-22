@@ -300,3 +300,23 @@ visibility inside a workspace) confusing. Privacy is now only per item: every wo
   view-only), it falls back to the first workspace the user can create in, else asks them to create one.
 - **Migration:** existing `personal` rows become ordinary workspaces in place (same id, so no document moves),
   renamed from "Personal" to "<First name>'s workspace"; `kind` and its constraints are dropped.
+
+## D-37 · 2026-11-21 · accepted · human
+
+**Graphite and shared control conventions for web and desktop.** Use Ziiz Graphite in both themes,
+with ink-based brand aliases and a darker light-mode gray-900 for AA on filled fields. Use Ziiz's
+default control radius in app surfaces, including inline groups, and reserve pill shapes for
+avatars, badges and status dots. Use secondary fields and supporting buttons, ghost value
+triggers in settings rows, and compact menus, drawing from the Ziiz Claude showcase.
+
+## D-38 · 2026-11-21 · accepted · human
+
+API foundation: expose REST routes for server-action-only features using shared plain server operations,
+the same validation and @oat/core authorization, and cookie/Better Auth bearer authentication. Client-safe
+DTOs and request schemas live in @oat/services/dto (or @oat/core).
+- Add packages/client (@oat/client), a typed client over an injectable transport, shared by web and desktop.
+- Add a desktop main-process authenticated API proxy: renderer sends {method,path,query,body}; main
+  allowlists /api/* routes, attaches the Keychain bearer token, and returns {status,body}. A streaming
+  variant returns a stream id with chunk subscription and cancellation. Tokens never reach renderer.
+- Desktop meeting notes remain local-first (D-28). settings:open-web stays for now, though the proxy
+  makes it unnecessary. No visual/UI changes are part of this foundation.

@@ -153,7 +153,7 @@ async function joinTeam(name: string, role: 'member' | 'viewer'): Promise<string
 }
 
 const inSection = (section: 'private' | 'shared') =>
-  page.getByTestId(`meeting-section-${section}`).getByTestId('meeting-list-item');
+  page.getByTestId(`tree-section-${section}`).getByTestId('meeting-list-item');
 
 /** Every axe violation (any impact) inside the sidebar, as short lines. */
 async function sidebarViolations(label: string): Promise<string[]> {
@@ -185,11 +185,11 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   const switcher = page.getByTestId('workspace-switcher');
   // The workspace made at sign-up is an ordinary one: its name, and my role in it.
   await expect(switcher).toContainText(OWN);
-  await expect(switcher).toContainText('Owner');
+  await expect(switcher).toContainText('1 member');
   // One workspace: nothing to switch between, so the menu has no workspace list (D-36).
   await expect(switcher).toHaveAttribute('data-switchable', 'false');
   await switcher.click();
-  await expect(page.getByRole('menu')).toContainText('Workspace settings (web)');
+  await expect(page.getByRole('menu')).toContainText('Workspace settings');
   await expect(page.getByTestId('workspace-list')).toHaveCount(0);
   await expect(page.getByTestId('workspace-option')).toHaveCount(0);
   await page.keyboard.press('Escape');
@@ -213,21 +213,17 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   await switcher.click();
   const options = page.getByTestId('workspace-option');
   await expect(options).toHaveCount(3);
-  await expect(options.filter({ hasText: OWN })).toContainText('Owner');
-  await expect(options.filter({ hasText: BOARD })).toContainText('View only');
-  await expect(options.filter({ hasText: DESIGN })).toContainText('Member');
+  await expect(options.filter({ hasText: OWN })).toContainText('1 member');
+  await expect(options.filter({ hasText: BOARD })).toContainText('members');
+  await expect(options.filter({ hasText: DESIGN })).toContainText('members');
   await evidence(page, 'desktop-switcher-open', TASK);
 
   // Design team: its list is empty; a new meeting note records into it.
   await choose(DESIGN);
-  await expect(page.getByTestId('meeting-list-empty')).toBeVisible();
+  await expect(page.getByTestId('tree-empty-private')).toBeVisible();
   // Two sections, each saying what goes there.
-  await expect(page.getByTestId('meeting-section-empty-private')).toHaveText(
-    'Notes only you can see.',
-  );
-  await expect(page.getByTestId('meeting-section-empty-shared')).toHaveText(
-    'Notes everyone here can see.',
-  );
+  await expect(page.getByTestId('tree-empty-private')).toHaveText('Notes only you can see.');
+  await expect(page.getByTestId('tree-empty-shared')).toHaveText('Notes everyone here can see.');
   await expect(page.getByTestId('workspace-hint')).toHaveCount(0);
   await page.getByTestId('new-meeting').click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording', {
@@ -283,7 +279,7 @@ test('Private and Shared: a teammate’s shared note is under Shared, their priv
   });
   await expect(mine).toHaveCount(1);
   await synced();
-  await expect(page.getByTestId('meeting-list')).not.toContainText('Teammate secret');
+  await expect(page.getByTestId('app-sidebar')).not.toContainText('Teammate secret');
   const local = await invoke<{ notes: { documentId: string; title: string }[] }>(
     page,
     'meetings:list',
@@ -314,7 +310,7 @@ test('Private and Shared: a teammate’s shared note is under Shared, their priv
     timeout: scaled(20_000),
   });
   await expect(mine).toHaveCount(0);
-  await expect(page.getByTestId('meeting-section-empty-private')).toBeVisible();
+  await expect(page.getByTestId('tree-empty-private')).toBeVisible();
   await shared.and(page.locator(`[data-document-id="${myNote}"]`)).click();
   await expect(page.getByText(`Everyone in ${DESIGN}`, { exact: true })).toBeVisible();
   // …and back when it is made private again.
@@ -336,7 +332,7 @@ test('as a viewer, new notes go to the first workspace I can add to (and the sid
   await expect(page.getByTestId('workspace-hint')).toHaveText(
     `You can view ${BOARD} but not add notes to it. New notes go to ${DESIGN}.`,
   );
-  await expect(page.getByTestId('meeting-list-empty')).toBeVisible();
+  await expect(page.getByTestId('tree-empty-private')).toBeVisible();
 
   // "Start notes" on an Upcoming event: the note is made in Design team.
   // Upcoming lives on Home (ui-calm).
@@ -367,7 +363,7 @@ test('as a viewer, new notes go to the first workspace I can add to (and the sid
   await expect(upcoming.getByTestId('upcoming-event')).not.toHaveCount(0);
   await expect(upcoming.getByTestId('upcoming-event-workspace')).toHaveCount(0);
   await choose(OWN);
-  await expect(page.getByTestId('meeting-list-empty')).toBeVisible();
+  await expect(page.getByTestId('tree-empty-private')).toBeVisible();
   await expect(page.getByTestId('workspace-hint')).toHaveCount(0);
 });
 
@@ -375,7 +371,7 @@ test('a role change follows by sync; the active workspace survives a relaunch', 
   test.setTimeout(scaled(120_000));
   await choose(DESIGN);
   await sql`update membership set role = 'viewer' where workspace_id = ${designId} and user_id = ${userId}`;
-  await expect(page.getByTestId('workspace-switcher')).toContainText('View only', {
+  await expect(page.getByTestId('workspace-hint')).toContainText('You can view', {
     timeout: scaled(20_000),
   });
   // The one workspace left where I can add notes is my own.
@@ -408,7 +404,7 @@ test('view-only everywhere: the sidebar asks for a workspace and a recording is 
   // My own workspace becomes view-only for me too (as if its other owner had demoted me).
   await sql`update membership set role = 'viewer' where user_id = ${userId}`;
   await expect(page.getByTestId('workspace-hint')).toHaveText(
-    `You can view ${DESIGN} but not add notes to it. Create a workspace of your own on the web to take notes.`,
+    `You can view ${DESIGN} but not add notes to it. Create a workspace to take notes.`,
     { timeout: scaled(20_000) },
   );
 

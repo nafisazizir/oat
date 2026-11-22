@@ -1,4 +1,4 @@
-import { cn } from '../lib/utils.ts';
+import { cn } from '@oat/ui/lib/utils';
 import { IconLoader } from '@tabler/icons-react';
 
 function Spinner({ className, ...props }: Omit<React.ComponentProps<'svg'>, 'strokeWidth'>) {

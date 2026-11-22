@@ -25,7 +25,7 @@ export function TopBarProvider({ children }: { children: ReactNode }) {
           </TooltipContent>
         </Tooltip>
         <div className="ms-auto flex min-w-0 items-center gap-2">
-          <NewNoteButton variant="outline" size="sm" className="rounded-full" />
+          <NewNoteButton variant="secondary" size="sm" />
           <div
             ref={setContainer}
             data-testid="top-bar-actions"

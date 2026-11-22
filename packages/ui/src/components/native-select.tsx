@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { type VariantProps } from 'class-variance-authority';
 
-import { cn } from '../lib/utils.ts';
-import { inputVariants } from './input.tsx';
+import { cn } from '@oat/ui/lib/utils';
+import { inputVariants } from '@oat/ui/components/input';
 import { IconSelector } from '@tabler/icons-react';
 
 type NativeSelectProps = Omit<React.ComponentProps<'select'>, 'size'> &

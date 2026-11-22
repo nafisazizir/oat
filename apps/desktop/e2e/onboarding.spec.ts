@@ -166,6 +166,7 @@ test('fresh profile: setup → permissions → test recording → finish → fir
   // Settings → Setup: states at a glance; "Open setup" runs it again (all allowed: opens at the test).
   await page.getByTestId('workspace-switcher').click();
   await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
+  await page.getByTestId('settings-section-setup').click();
   // The fixture's grants were in memory: after the relaunch macOS (the fixture file) says "not asked" again.
   await expect(page.getByTestId('setup-microphone')).toHaveAttribute('data-state', 'ask');
   await shots('settings-setup');

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { Button } from './components/button.tsx';
+import { ChartStyle } from './components/chart.tsx';
 import {
   Command,
   CommandEmpty,
@@ -49,6 +50,26 @@ describe('cn', () => {
 
   it('keeps a token colour next to a scale size (no false conflict)', () => {
     expect(cn('text-copy-14', 'text-gray-900')).toBe('text-copy-14 text-gray-900');
+  });
+});
+
+describe('ChartStyle', () => {
+  it('scopes themed series colors and keeps declaration delimiters out of the stylesheet', () => {
+    const { container } = render(
+      <ChartStyle
+        id="chart:meetings"
+        config={{
+          'per week': { theme: { light: 'var(--ds-gray-900)', dark: 'oklch(0.9 0 0)' } },
+          invalid: { color: 'gray; color: gray' },
+        }}
+      />,
+    );
+    const css = container.querySelector('style')?.textContent;
+    expect(css).toContain('[data-chart="chart\\3a meetings"]');
+    expect(css).toContain('.dark [data-chart=');
+    expect(css).toContain('--color-per\\20 week: var(--ds-gray-900);');
+    expect(css).toContain('--color-per\\20 week: oklch(0.9 0 0);');
+    expect(css).not.toContain('--color-invalid');
   });
 });
 
@@ -268,6 +289,33 @@ describe('ToggleGroup (segmented)', () => {
 });
 
 describe('Command', () => {
+  it('slots an anchor and its trailing icon into one option', async () => {
+    let selected = '';
+    render(
+      <Command>
+        <CommandInput placeholder="Search…" />
+        <CommandList>
+          <CommandItem
+            asChild
+            value="settings"
+            onSelect={(value) => {
+              selected = value;
+            }}
+          >
+            <a href="#settings">Settings</a>
+          </CommandItem>
+        </CommandList>
+      </Command>,
+    );
+    const option = screen.getByRole('option', { name: 'Settings' });
+    expect(option.tagName).toBe('A');
+    expect(option.getAttribute('href')).toBe('#settings');
+    expect(option.querySelector('svg')).toBeTruthy();
+    expect(option.querySelector('a')).toBeNull();
+    await userEvent.click(option);
+    expect(selected).toBe('settings');
+  });
+
   it('filters items as you type', async () => {
     const user = userEvent.setup();
     render(

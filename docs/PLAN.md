@@ -1,5 +1,7 @@
 # Oat — Plan & Task Board
 
+- [ ] Human-requested shared feature UI, steps 1–6 search/tasks/assistant · PR #26/C2, URL-tab pagination and native document routing verified/pushed; shared block-link scroll/highlight verified on desktop route and web browser; fast static gates pass, all tests pass with CI timeout budget; PR gate after push; native Electron runtime pending · [task](tasks/desktop-feature-search.md)
+
 - [x] Human-requested UI redesign PR 5: calm auth, setup and dialogs · [task](tasks/ui-calm-auth-dialogs.md)
 
 Rules: tasks are picked top-down when deps are done (see `.agent/FACTORY.md` §2). Each task gets a file in
@@ -103,6 +105,11 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 
 ## M9 — Ship v1
 
+- [x] Human-requested Graphite theme and shared control refresh for web and desktop · [task](tasks/graphite-ui-foundation.md)
+
+- [ ] Human-requested: API foundation — REST parity, typed client and authenticated desktop text/JSON proxy implemented; independent review/verification pending (D-38) · deps: 5.1, 5.2, 7.4 · [task](tasks/api-foundation.md)
+- [x] Human-requested: desktop workspace parity — steps 1–7 complete: shared settings merged, screenshot-review fixes verified, 14 post-merge desktop light/dark captures and web/settings e2e/axe results recorded; native macOS validation remains unrun · [task](tasks/desktop-workspace-parity.md)
+
 - [x] Stale desktop e2e + acceptance specs updated for the calm shell; web typography/notion/auth spec races fixed · [task](tasks/e2e-calm-shell-specs.md)
 
 - [x] Human-requested: one kind of workspace — drop personal, join by domain/policy, Private + Shared (D-36); steps A model, B joining, C sidebar + exit export · deps: 5.1, 5.3, 3.9 · [task](tasks/unified-workspaces.md)
@@ -110,6 +117,8 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 - [x] Human-requested UI redesign PR 4: calm home and note surfaces · [task](tasks/ui-calm-note-surfaces.md)
 
 - [x] Human-requested UI redesign PR 3: calm Account / Workspace settings · [task](tasks/ui-calm-settings.md)
+
+- [ ] Shared native settings on web and desktop · [task](tasks/settings-parity.md)
 
 - [x] Human-requested UI redesign PR 2: calm web/desktop shell · [task](tasks/ui-calm-shell.md)
 

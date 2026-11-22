@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 const root = join(import.meta.dirname, '../../..');
@@ -75,6 +76,37 @@ function findings(pattern: RegExp, candidates: string[]) {
   );
 }
 
+const controlTag =
+  /^(?:button|input|select|textarea|summary|a)$|(?:Button|Input|InputGroup|Textarea|Select|Trigger|Toggle(?:Group(?:Item)?)?|TabsList|Menu(?:Checkbox|Radio)?Item|Card)$/;
+const pillRadius = /(?<![\w-])rounded-full(?![\w-])/;
+
+function pillControls(file: string, code: string) {
+  const source = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const violations: string[] = [];
+  function visit(node: ts.Node) {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const tag = node.tagName.getText(source).split('.').at(-1)!;
+      if (controlTag.test(tag)) {
+        const usesPill = node.attributes.properties.some(
+          (attribute) =>
+            ts.isJsxAttribute(attribute) &&
+            ((attribute.name.getText(source) === 'className' &&
+              pillRadius.test(attribute.initializer?.getText(source) ?? '')) ||
+              (attribute.name.getText(source) === 'shape' &&
+                /['"]rounded['"]/.test(attribute.initializer?.getText(source) ?? ''))),
+        );
+        if (usesPill) {
+          const { line } = source.getLineAndCharacterOfPosition(node.getStart(source));
+          violations.push(`${file}:${line + 1}: <${tag}>`);
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  return violations;
+}
+
 describe('repository ziiz vocabulary', () => {
   it('recognizes every bridge slot, including modifiers and variable forms', () => {
     expect(aliases).toHaveLength(31);
@@ -124,6 +156,40 @@ describe('repository ziiz vocabulary', () => {
 
   it('has no bridge aliases in production sources, including registry and previews', () => {
     expect(findings(bridgeReference, files)).toEqual([]);
+  });
+
+  it('checks pill classes and shape props on controls while allowing round avatars and badges', () => {
+    expect(
+      pillControls(
+        'example.tsx',
+        [
+          '<>',
+          '  <Button className={cn("hover:rounded-full", className)} />',
+          '  <Input shape="rounded" />',
+          '  <button className="rounded-full" />',
+          '  <Avatar className="rounded-full" />',
+          '  <Badge className="rounded-full" />',
+          '  <span aria-hidden className="size-2 rounded-full" />',
+          '</>',
+        ].join('\n'),
+      ),
+    ).toEqual(['example.tsx:2: <Button>', 'example.tsx:3: <Input>', 'example.tsx:4: <button>']);
+  });
+
+  it('uses the default Ziiz shape on app and meeting controls', () => {
+    const appScopes = [
+      'apps/web/src/',
+      'apps/desktop/src/renderer/',
+      'packages/meeting-ui/src/',
+      'packages/feature-ui/src/',
+    ];
+    const appTsx = files.filter(
+      (file) =>
+        file.endsWith('.tsx') && appScopes.some((scope) => relative(root, file).startsWith(scope)),
+    );
+    expect(
+      appTsx.flatMap((file) => pillControls(relative(root, file), readFileSync(file, 'utf8'))),
+    ).toEqual([]);
   });
 
   it('uses type roles outside registry components', () => {

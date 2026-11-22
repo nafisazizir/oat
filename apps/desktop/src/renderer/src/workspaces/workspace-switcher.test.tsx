@@ -33,7 +33,13 @@ function view(
 const show = (v: WorkspacesView) =>
   render(
     <SidebarProvider>
-      <WorkspaceSwitcher view={v} account={null} label="Ada" email="ada@example.test" />
+      <WorkspaceSwitcher
+        view={v}
+        account={null}
+        label="Ada"
+        email="ada@example.test"
+        onOpenSettings={vi.fn()}
+      />
     </SidebarProvider>,
   );
 
@@ -113,7 +119,7 @@ describe('WorkspaceSwitcher: nothing to switch between with one workspace (D-36)
     // Still says where I am.
     expect(trigger.textContent).toContain('Ada’s workspace');
     await userEvent.click(trigger);
-    expect(await screen.findByText('Workspace settings (web)')).toBeTruthy();
+    expect(await screen.findByText('Workspace settings')).toBeTruthy();
     expect(screen.queryByTestId('workspace-list')).toBeNull();
     expect(screen.queryAllByTestId('workspace-option')).toHaveLength(0);
   });

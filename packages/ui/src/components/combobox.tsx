@@ -4,11 +4,16 @@ import * as React from 'react';
 import { Combobox as ComboboxPrimitive } from '@base-ui/react';
 import { type VariantProps } from 'class-variance-authority';
 
-import { cn } from '../lib/utils.ts';
-import { useGlide } from '../hooks/use-glide.ts';
-import { Button } from './button.tsx';
-import { inputVariants } from './input.tsx';
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from './input-group.tsx';
+import { cn } from '@oat/ui/lib/utils';
+import { useGlide } from '@oat/ui/hooks/use-glide';
+import { Button } from '@oat/ui/components/button';
+import { inputVariants } from '@oat/ui/components/input';
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@oat/ui/components/input-group';
 import { IconChevronDown, IconX, IconCheck } from '@tabler/icons-react';
 
 // The popup anchors to the whole field, not the inner input, so its width and
@@ -192,7 +197,7 @@ function ComboboxItem({ className, children, ...props }: ComboboxPrimitive.Item.
     <ComboboxPrimitive.Item
       data-slot="combobox-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 ps-2 pe-8 text-label-14 outline-hidden select-none in-data-[size=lg]:py-2 in-data-[size=lg]:ps-3 in-data-[size=lg]:pe-9 data-highlighted:text-gray-1000 not-data-[variant=destructive]:data-highlighted:**:text-gray-1000 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 ps-2 pe-8 text-label-14 outline-hidden select-none in-data-[size=lg]:py-2 in-data-[size=lg]:ps-3 in-data-[size=lg]:pe-9 in-data-[size=sm]:py-1 data-highlighted:text-gray-1000 not-data-[variant=destructive]:data-highlighted:**:text-gray-1000 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}
@@ -219,7 +224,10 @@ function ComboboxLabel({ className, ...props }: ComboboxPrimitive.GroupLabel.Pro
   return (
     <ComboboxPrimitive.GroupLabel
       data-slot="combobox-label"
-      className={cn('px-2 py-1.5 text-label-12 text-gray-900 in-data-[size=lg]:px-3', className)}
+      className={cn(
+        'px-2 py-1.5 text-label-12 text-gray-900 in-data-[size=lg]:px-3 in-data-[size=sm]:py-1',
+        className,
+      )}
       {...props}
     />
   );

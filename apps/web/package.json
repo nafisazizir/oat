@@ -21,6 +21,7 @@
     "@oat/ai": "workspace:*",
     "@oat/auth": "workspace:*",
     "@oat/calendar": "workspace:*",
+    "@oat/client": "workspace:*",
     "@oat/core": "workspace:*",
     "@oat/db": "workspace:*",
     "@oat/editor": "workspace:*",
@@ -28,6 +29,7 @@
     "@oat/integrations-notion": "workspace:*",
     "@oat/meeting-ui": "workspace:*",
     "@oat/services": "workspace:*",
+    "@oat/settings-ui": "workspace:*",
     "@oat/stt": "workspace:*",
     "@oat/ui": "workspace:*",
     "@tabler/icons-react": "catalog:",
@@ -41,7 +43,9 @@
     "redis": "catalog:",
     "server-only": "catalog:",
     "sonner": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@oat/workspace-ui": "workspace:*",
+    "@oat/feature-ui": "workspace:*"
   },
   "devDependencies": {
     "@axe-core/playwright": "catalog:",

@@ -3,10 +3,10 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '../lib/utils.ts';
-import { Button } from './button.tsx';
-import { Input, inputVariants } from './input.tsx';
-import { Textarea } from './textarea.tsx';
+import { cn } from '@oat/ui/lib/utils';
+import { Button } from '@oat/ui/components/button';
+import { Input, inputVariants } from '@oat/ui/components/input';
+import { Textarea } from '@oat/ui/components/textarea';
 
 type Size = 'sm' | 'default' | 'lg';
 type Shape = NonNullable<VariantProps<typeof inputVariants>['shape']>;
@@ -17,7 +17,7 @@ const ShapeContext = React.createContext<Shape>('default');
 function InputGroup({
   className,
   size = 'default',
-  variant = 'default',
+  variant = 'secondary',
   shape = 'default',
   ...props
 }: React.ComponentProps<'div'> & VariantProps<typeof inputVariants> & { size?: Size }) {

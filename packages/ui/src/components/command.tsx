@@ -3,9 +3,15 @@
 import * as React from 'react';
 import { Command as CommandPrimitive } from 'cmdk';
 
-import { cn } from '../lib/utils.ts';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './dialog.tsx';
-import { InputGroup, InputGroupAddon } from './input-group.tsx';
+import { cn } from '@oat/ui/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@oat/ui/components/dialog';
+import { InputGroup, InputGroupAddon } from '@oat/ui/components/input-group';
 import { IconSearch, IconCheck } from '@tabler/icons-react';
 
 type Size = 'sm' | 'default' | 'lg';
@@ -64,17 +70,13 @@ function CommandDialog({
 
 function CommandInput({
   className,
-  variant = 'ghost',
+  variant = 'secondary',
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Input> &
   Pick<React.ComponentProps<typeof InputGroup>, 'variant'>) {
   return (
     <div data-slot="command-input-wrapper" className="p-1 pb-0">
-      <InputGroup
-        variant={variant}
-        size={React.useContext(SizeContext)}
-        className={cn('rounded-lg!', variant === 'default' && 'border-gray-alpha-400/30')}
-      >
+      <InputGroup variant={variant} size={React.useContext(SizeContext)}>
         <CommandPrimitive.Input
           data-slot="command-input"
           className={cn(
@@ -125,7 +127,7 @@ function CommandGroup({
     <CommandPrimitive.Group
       data-slot="command-group"
       className={cn(
-        'overflow-hidden p-1 text-gray-1000 **:[[cmdk-group-heading]]:px-(--command-inset) **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-label-12 **:[[cmdk-group-heading]]:text-gray-900',
+        'overflow-hidden p-1 text-gray-1000 **:[[cmdk-group-heading]]:px-(--command-inset) **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-label-12 **:[[cmdk-group-heading]]:text-gray-900 group-data-[size=sm]/command:**:[[cmdk-group-heading]]:py-1',
         className,
       )}
       {...props}
@@ -150,19 +152,32 @@ function CommandSeparator({
 function CommandItem({
   className,
   children,
+  asChild,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Item>) {
+  const check = (
+    <IconCheck className="ms-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100" />
+  );
+  const content =
+    asChild && React.isValidElement<{ children?: React.ReactNode }>(children) ? (
+      React.cloneElement(children, undefined, children.props.children, check)
+    ) : (
+      <>
+        {children}
+        {check}
+      </>
+    );
   return (
     <CommandPrimitive.Item
+      asChild={asChild}
       data-slot="command-item"
       className={cn(
-        "group/command-item relative flex cursor-default items-center gap-1.5 rounded-sm px-(--command-inset) py-1.5 text-label-14 outline-hidden select-none group-data-[size=lg]/command:py-2 active:bg-gray-alpha-200 in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-gray-alpha-100 data-selected:text-gray-1000 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:**:[svg]:text-gray-1000",
+        "group/command-item relative flex cursor-default items-center gap-1.5 rounded-sm px-(--command-inset) py-1.5 text-label-14 outline-hidden select-none group-data-[size=lg]/command:py-2 group-data-[size=sm]/command:py-1 active:bg-gray-alpha-200 in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-gray-alpha-100 data-selected:text-gray-1000 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:**:[svg]:text-gray-1000",
         className,
       )}
       {...props}
     >
-      {children}
-      <IconCheck className="ms-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100" />
+      {content}
     </CommandPrimitive.Item>
   );
 }

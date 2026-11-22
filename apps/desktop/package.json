@@ -17,21 +17,26 @@
     "e2e": "electron-vite build && playwright test"
   },
   "dependencies": {
+    "@oat/workspace-ui": "workspace:*",
     "@oat/audio": "workspace:*",
     "@oat/auth": "workspace:*",
     "@oat/calendar": "workspace:*",
+    "@oat/client": "workspace:*",
     "@oat/core": "workspace:*",
     "@oat/detection": "workspace:*",
     "@oat/editor": "workspace:*",
     "@oat/local-store": "workspace:*",
     "@oat/meeting-ui": "workspace:*",
+    "@oat/settings-ui": "workspace:*",
     "@oat/stt": "workspace:*",
     "@oat/ui": "workspace:*",
     "@tanstack/react-virtual": "catalog:",
     "@tabler/icons-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "zod": "catalog:"
+    "sonner": "catalog:",
+    "zod": "catalog:",
+    "@oat/feature-ui": "workspace:*"
   },
   "devDependencies": {
     "@testing-library/react": "catalog:",

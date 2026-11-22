@@ -12,12 +12,16 @@ const light = variables(tokens.slice(0, tokens.indexOf('.dark')));
 const dark = variables(tokens.slice(tokens.indexOf('.dark')));
 
 function luminance(value: string) {
-  const [L, C, h] = value.match(/[\d.]+/g)!.map(Number) as [number, number, number];
+  const [lightness, C, h] = value
+    .match(/[\d.]+%?/g)!
+    .map((number) =>
+      number.endsWith('%') ? Number(number.slice(0, -1)) / 100 : Number(number),
+    ) as [number, number, number];
   const a = C * Math.cos((h * Math.PI) / 180);
   const b = C * Math.sin((h * Math.PI) / 180);
-  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
-  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
-  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  const l = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (lightness - 0.0894841775 * a - 1.291485548 * b) ** 3;
   return (
     0.2126 * (4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s) +
     0.7152 * (-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s) +
@@ -25,8 +29,8 @@ function luminance(value: string) {
   );
 }
 
-describe('oat palette', () => {
-  it.each(['background-100', 'background-200', 'gray-100'])(
+describe('Graphite palette', () => {
+  it.each(['background-100', 'background-200', 'gray-100', 'gray-200'])(
     'keeps gray-900 text AA on %s',
     (background) => {
       for (const theme of [light, dark]) {
@@ -40,8 +44,8 @@ describe('oat palette', () => {
     expect([...light.keys()].sort()).toEqual([...dark.keys()].sort());
     expect(light.size).toBeGreaterThan(100);
     for (const name of light.keys()) expect(name).toMatch(/^--ds-/);
-    expect(light.get('--ds-background-100')).toBe('oklch(0.982 0.002 84)');
-    expect(dark.get('--ds-background-100')).not.toBe(light.get('--ds-background-100'));
+    expect(light.get('--ds-background-100')).toBe('oklch(1 0 0)');
+    expect(dark.get('--ds-background-100')).toBe('oklch(0.213 0 0)');
   });
 
   it('keeps search highlight text AA on its amber background in both themes', () => {
@@ -70,6 +74,11 @@ describe('oat palette', () => {
     const brand = [...light.keys()].filter((name) => name.startsWith('--ds-brand-'));
     expect(brand).toHaveLength(22);
     for (const name of brand) expect(styles).toContain(`--color-${name.slice(5)}: var(${name})`);
+    for (const theme of [light, dark]) {
+      expect(theme.get('--ds-brand-700')).toBe('var(--ds-gray-1000)');
+      expect(theme.get('--ds-brand-800')).toBe('var(--ds-gray-950, var(--ds-gray-1000))');
+      expect(theme.get('--ds-brand-on')).toBe('var(--ds-background-100)');
+    }
   });
 
   it('uses bundled Inter, Geist Mono and Newsreader', () => {
@@ -105,11 +114,12 @@ describe('ziiz component vocabulary', () => {
   it('includes the registry beyond the original controls', () => {
     expect(sources).toContain('calendar.tsx');
     expect(sources).toContain('toast.tsx');
-    expect(sources).not.toContain('chart.tsx');
-    expect(sources).not.toContain('carousel.tsx');
+    expect(sources).toContain('chart.tsx');
+    expect(sources).toContain('carousel.tsx');
   });
   it.each(sources)('%s uses ramp colours, not colour literals or stock palettes', (name) => {
-    const code = read('components/' + name);
+    // Recharts selectors match library-generated SVG attributes. The styles themselves use the ramp.
+    const code = read('components/' + name).replaceAll(/\[stroke='#[\da-f]{3}'\]/gi, '');
     for (const pattern of forbidden) expect(code).not.toMatch(pattern);
     expect(code).not.toMatch(/@\/|from ['"]cn['"]/);
   });

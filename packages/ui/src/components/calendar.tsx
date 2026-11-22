@@ -3,8 +3,8 @@
 import * as React from 'react';
 import { DayPicker, getDefaultClassNames, type DayButton, type Locale } from 'react-day-picker';
 
-import { cn } from '../lib/utils.ts';
-import { Button, buttonVariants } from './button.tsx';
+import { cn } from '@oat/ui/lib/utils';
+import { Button, buttonVariants } from '@oat/ui/components/button';
 import { IconChevronDown, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 
 function Calendar({

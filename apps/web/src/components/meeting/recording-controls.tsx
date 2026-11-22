@@ -15,7 +15,7 @@ import { useState, useSyncExternalStore } from 'react';
 
 import { browserRecording, supportsRecording } from '@/lib/browser-recording';
 import { useHydrated } from '@/lib/use-hydrated';
-import { useShellData } from '@/components/app-shell/shell-data';
+import { useShellData } from '@oat/workspace-ui/shell-data';
 
 export function useBrowserRecording() {
   return useSyncExternalStore(
@@ -52,7 +52,9 @@ export function RecordingControls({
   };
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<Button variant="outline" size="sm" disabled={state.pending > 0} />}>
+      <PopoverTrigger
+        render={<Button variant="secondary" size="sm" disabled={state.pending > 0} />}
+      >
         <IconMicrophone aria-hidden />
         Record
       </PopoverTrigger>
@@ -111,7 +113,7 @@ function LiveControls() {
         )}
       </Button>
       <Button
-        variant="outline"
+        variant="secondary"
         size="icon-sm"
         aria-label="Stop recording"
         title="Stop recording"
@@ -134,7 +136,7 @@ export function RecordingFeedback({ documentId }: { documentId: string }) {
           <AlertTitle>Recording needs attention</AlertTitle>
           <AlertDescription>
             {state.error}
-            <Button variant="outline" size="sm" onClick={() => browserRecording.retry()}>
+            <Button variant="secondary" size="sm" onClick={() => browserRecording.retry()}>
               Retry
             </Button>
           </AlertDescription>

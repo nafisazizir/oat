@@ -31,14 +31,7 @@ export function ParticipantSummary(props: ParticipantChipsProps) {
   return (
     <Popover>
       <PopoverTrigger
-        render={
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full"
-            data-testid="attendees-toggle"
-          />
-        }
+        render={<Button variant="secondary" size="sm" data-testid="attendees-toggle" />}
       >
         <IconUsers aria-hidden />
         {count} {count === 1 ? 'attendee' : 'attendees'}
@@ -99,7 +92,7 @@ export function ParticipantChips({
             data-testid="participant-chip"
             data-source={p.source}
             title={p.email ?? undefined}
-            className="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-full border border-gray-alpha-400 bg-background-100 ps-0.5 pe-2.5 text-label-13 text-gray-1000 has-[button]:pe-0.5"
+            className="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-md border border-gray-alpha-400 bg-background-100 ps-0.5 pe-2.5 text-label-13 text-gray-1000 has-[button]:pe-0.5"
           >
             <span
               aria-hidden
@@ -119,7 +112,7 @@ export function ParticipantChips({
                 type="button"
                 aria-label={`Remove ${p.name || p.email}`}
                 onClick={() => void remove(p)}
-                className="flex size-6 shrink-0 items-center justify-center rounded-full text-gray-900 transition-colors hover:bg-gray-alpha-200 hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 focus-visible:outline-none"
+                className="flex size-6 shrink-0 items-center justify-center rounded-md text-gray-900 transition-colors hover:bg-gray-alpha-200 hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 focus-visible:outline-none"
               >
                 <IconX className="size-3" />
               </button>
@@ -190,7 +183,7 @@ function AddParticipant({ onAdd }: { onAdd: NonNullable<ParticipantChipsProps['o
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 rounded-full px-2.5 text-button-12 text-gray-900"
+            className="h-7 px-2.5 text-button-12 text-gray-900"
             data-testid="add-participant"
           />
         }
