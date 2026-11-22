@@ -769,3 +769,22 @@ ci: ok
   shared contract or configuration change; no fresh visual/native check.
 - Commit/push once to `devin/1795308701-workspace-review-fixes`, then resume PR #27's blocking CI loop.
   Final handoff supplies SHA, push result and final remote check status.
+
+### PR #27 — updated integration merge
+
+- Merged integration `4a390f2` into `fd4cc23` using fetch + merge, not rebase.
+- Conflicts: `desktop-host.tsx` retains both the desktop workspace-switch helper and incoming
+  feature provider; `desktop-routes-view.tsx` retains the mounted offline editor/banner and live
+  detail refresh while adding citation BlockFocus and incoming feature routes; `docs/LOG.md`
+  retains both branches' histories. No product decision needed.
+- Extended the citation regression to verify the editor DOM survives going offline and same-page
+  citation retargeting still works, without another detail fetch. Stabilized its shell fixture to
+  mirror real context arrays used by the detail-refresh dependencies.
+- Lockfile changed; `pnpm install --config.strict-dep-builds=false` succeeded (26 workspace projects,
+  already up to date, 1.2s). Log: `/home/ubuntu/oat-pr27-merge-install.log`.
+- `pnpm run ci --fast`: format pass 11.3s, actionlint pass 0.3s, typecheck pass 19.3s,
+  lint pass 7.5s, test pass 26.1s; total 64.4s; `ci: ok`. Desktop 65 files/548 tests,
+  workspace-ui 6 files/71 tests, feature-ui 10 files/116 tests. Log:
+  `/home/ubuntu/oat-pr27-merge-ci-fast.log`.
+- Only ignored prose changed after the passing gate. Merge commit/push and blocking PR #27
+  remote checks follow; final handoff records SHA/status. No fresh visual, browser e2e or native check.

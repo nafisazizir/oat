@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { ApiRequestError } from '@/lib/api-client';
+import { OatApiError } from '@oat/client';
 
 import { setDoneRetryingOnce, toggleFailure } from './task-toggle';
 
 const stale = (version?: number) =>
-  new ApiRequestError(
+  new OatApiError(
     409,
     'stale_version',
     'Changed',
@@ -34,14 +34,12 @@ describe('setDoneRetryingOnce', () => {
 
   it('gives up after one retry so the caller rolls back', async () => {
     const setDone = vi.fn().mockRejectedValue(stale(7));
-    await expect(setDoneRetryingOnce(setDone, 't1', true, 3)).rejects.toBeInstanceOf(
-      ApiRequestError,
-    );
+    await expect(setDoneRetryingOnce(setDone, 't1', true, 3)).rejects.toBeInstanceOf(OatApiError);
     expect(setDone).toHaveBeenCalledTimes(2);
   });
 
   it('does not retry other failures', async () => {
-    const setDone = vi.fn().mockRejectedValue(new ApiRequestError(0, 'network', 'Boom'));
+    const setDone = vi.fn().mockRejectedValue(new OatApiError(0, 'network', 'Boom'));
     await expect(setDoneRetryingOnce(setDone, 't1', true, 3)).rejects.toThrow('Boom');
     expect(setDone).toHaveBeenCalledOnce();
   });
@@ -50,13 +48,13 @@ describe('setDoneRetryingOnce', () => {
 describe('toggleFailure', () => {
   it('reloads the list when the note changed or is gone', () => {
     expect(toggleFailure(stale())).toMatchObject({ reload: true });
-    expect(toggleFailure(new ApiRequestError(404, 'not_found', 'Gone'))).toMatchObject({
+    expect(toggleFailure(new OatApiError(404, 'not_found', 'Gone'))).toMatchObject({
       reload: true,
     });
   });
 
   it('shows the server’s message otherwise', () => {
-    expect(toggleFailure(new ApiRequestError(403, 'forbidden', 'Read only'))).toEqual({
+    expect(toggleFailure(new OatApiError(403, 'forbidden', 'Read only'))).toEqual({
       reload: false,
       description: 'Read only',
     });

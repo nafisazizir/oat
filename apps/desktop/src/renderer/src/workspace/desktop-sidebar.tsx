@@ -77,11 +77,10 @@ export function DesktopSidebar({
       <DesktopSearch
         open={searchOpen}
         onOpenChange={setSearchOpen}
-        refreshKey={lastSyncedAt}
-        onOpen={(hit) => {
-          if (hit.kind === 'meeting')
-            host.navigate({ view: 'document', id: hit.documentId, query: { kind: 'meeting' } });
-        }}
+        onHome={() => host.navigate({ view: 'home' })}
+        onSettings={() => host.navigate({ view: 'settings' })}
+        onNewMeeting={newMeeting.onClick}
+        canStart={!newMeeting.disabled && !newMeeting.pending}
       />
     </div>
   );

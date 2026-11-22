@@ -289,6 +289,33 @@ describe('ToggleGroup (segmented)', () => {
 });
 
 describe('Command', () => {
+  it('slots an anchor and its trailing icon into one option', async () => {
+    let selected = '';
+    render(
+      <Command>
+        <CommandInput placeholder="Search…" />
+        <CommandList>
+          <CommandItem
+            asChild
+            value="settings"
+            onSelect={(value) => {
+              selected = value;
+            }}
+          >
+            <a href="#settings">Settings</a>
+          </CommandItem>
+        </CommandList>
+      </Command>,
+    );
+    const option = screen.getByRole('option', { name: 'Settings' });
+    expect(option.tagName).toBe('A');
+    expect(option.getAttribute('href')).toBe('#settings');
+    expect(option.querySelector('svg')).toBeTruthy();
+    expect(option.querySelector('a')).toBeNull();
+    await userEvent.click(option);
+    expect(selected).toBe('settings');
+  });
+
   it('filters items as you type', async () => {
     const user = userEvent.setup();
     render(

@@ -20,6 +20,7 @@ import { ShellDataProvider } from '@oat/workspace-ui/shell-data';
 import { TopBarProvider } from './top-bar';
 import { TreeActionsProvider } from '@oat/workspace-ui/tree-actions';
 import { useSyncEvents } from './use-sync-events';
+import { WebFeatureProvider } from './feature-provider';
 
 function HostLink({
   route,
@@ -58,12 +59,18 @@ export function AppShell({
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
+  const client = useMemo(() => createOatClient(fetchTransport()), []);
+  const routeHref = hrefOf(routeOf(pathname, search.toString()));
+  const route = useMemo(() => {
+    const url = new URL(routeHref, 'https://oat.invalid');
+    return routeOf(url.pathname, url.search);
+  }, [routeHref]);
   const host = useMemo<WorkspaceHost>(
     () => ({
       platform: 'web',
       appOrigin: typeof window === 'undefined' ? '' : window.location.origin,
-      client: createOatClient(fetchTransport()),
-      route: routeOf(pathname, search.toString()),
+      client,
+      route,
       navigate: (route, options) =>
         options?.replace
           ? router.replace(hrefOf(route) as Route)
@@ -73,7 +80,7 @@ export function AppShell({
       refresh: () => router.refresh(),
       online: true,
     }),
-    [router, pathname, search],
+    [client, router, route],
   );
   useSyncEvents(); // live tree/page updates when another tab or device edits (3.5)
   useEffect(
@@ -95,20 +102,22 @@ export function AppShell({
   return (
     <WorkspaceHost value={host}>
       <ShellDataProvider value={data}>
-        <SidebarProvider defaultOpen={defaultOpen}>
-          <TreeActionsProvider>
-            <CommandMenuProvider>
-              <WebSidebar />
-              <SidebarInset>
-                <TopBarProvider>
-                  <BrowserRecordingBanner />
-                  <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-                </TopBarProvider>
-              </SidebarInset>
-              <CommandMenu />
-            </CommandMenuProvider>
-          </TreeActionsProvider>
-        </SidebarProvider>
+        <WebFeatureProvider>
+          <SidebarProvider defaultOpen={defaultOpen}>
+            <TreeActionsProvider>
+              <CommandMenuProvider>
+                <WebSidebar />
+                <SidebarInset>
+                  <TopBarProvider>
+                    <BrowserRecordingBanner />
+                    <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+                  </TopBarProvider>
+                </SidebarInset>
+                <CommandMenu />
+              </CommandMenuProvider>
+            </TreeActionsProvider>
+          </SidebarProvider>
+        </WebFeatureProvider>
       </ShellDataProvider>
     </WorkspaceHost>
   );

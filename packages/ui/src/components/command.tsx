@@ -152,10 +152,24 @@ function CommandSeparator({
 function CommandItem({
   className,
   children,
+  asChild,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Item>) {
+  const check = (
+    <IconCheck className="ms-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100" />
+  );
+  const content =
+    asChild && React.isValidElement<{ children?: React.ReactNode }>(children) ? (
+      React.cloneElement(children, undefined, children.props.children, check)
+    ) : (
+      <>
+        {children}
+        {check}
+      </>
+    );
   return (
     <CommandPrimitive.Item
+      asChild={asChild}
       data-slot="command-item"
       className={cn(
         "group/command-item relative flex cursor-default items-center gap-1.5 rounded-sm px-(--command-inset) py-1.5 text-label-14 outline-hidden select-none group-data-[size=lg]/command:py-2 group-data-[size=sm]/command:py-1 active:bg-gray-alpha-200 in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-gray-alpha-100 data-selected:text-gray-1000 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:**:[svg]:text-gray-1000",
@@ -163,8 +177,7 @@ function CommandItem({
       )}
       {...props}
     >
-      {children}
-      <IconCheck className="ms-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100" />
+      {content}
     </CommandPrimitive.Item>
   );
 }

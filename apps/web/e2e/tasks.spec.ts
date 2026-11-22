@@ -7,6 +7,7 @@ import { SIGNED_OUT, signInWithMagicLink, uniqueAddress } from './auth-helpers';
 import { apiCreateDocument, unique } from './docs-helpers';
 import { expect, test } from './fixtures';
 import { databaseUrlFile, EVIDENCE_8_4 } from './paths';
+import { verifyFeatureSurface } from './feature-surfaces';
 
 /**
  * Task 8.4 in the browser: action items in a meeting note get an owner (picker) and a due date (picker), survive
@@ -147,6 +148,7 @@ test('assign + date a task, enhance, find it in My tasks, tick it there → the 
   await expect(other.getByTestId('task-owner')).toHaveText(/Riley Chen/);
   await expect(page.getByTestId('task-group').first()).toContainText(title);
   await evidence(page, 'my-tasks');
+  await verifyFeatureSurface(page, 'tasks');
 
   // Tick it here → its note is updated.
   await row.getByRole('checkbox').check();

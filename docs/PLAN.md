@@ -1,5 +1,7 @@
 # Oat — Plan & Task Board
 
+- [ ] Human-requested shared feature UI, steps 1–6 search/tasks/assistant · PR #26/C2, URL-tab pagination and native document routing verified/pushed; shared block-link scroll/highlight verified on desktop route and web browser; fast static gates pass, all tests pass with CI timeout budget; PR gate after push; native Electron runtime pending · [task](tasks/desktop-feature-search.md)
+
 - [x] Human-requested UI redesign PR 5: calm auth, setup and dialogs · [task](tasks/ui-calm-auth-dialogs.md)
 
 Rules: tasks are picked top-down when deps are done (see `.agent/FACTORY.md` §2). Each task gets a file in
@@ -106,7 +108,7 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 - [x] Human-requested Graphite theme and shared control refresh for web and desktop · [task](tasks/graphite-ui-foundation.md)
 
 - [ ] Human-requested: API foundation — REST parity, typed client and authenticated desktop text/JSON proxy implemented; independent review/verification pending (D-38) · deps: 5.1, 5.2, 7.4 · [task](tasks/api-foundation.md)
-- [x] Human-requested: desktop workspace parity — steps 1–7 complete; PR #25/#27 follow-ups cover offline page drafts, live trash/restore, cached workspace switching/visibility and stale online-switch reconciliation. Fast CI passes; prior desktop/web evidence recorded, follow-up banner visually unverified and native macOS validation unrun · [task](tasks/desktop-workspace-parity.md)
+- [x] Human-requested: desktop workspace parity — steps 1–7 complete; PR #25/#27 follow-ups cover offline page drafts, live trash/restore, cached workspace switching/visibility and stale online-switch reconciliation. PR #27 merges integration 4a390f2 with feature routes/citation focus preserved; fast CI passes. Prior desktop/web evidence recorded, follow-up banner visually unverified and native macOS validation unrun · [task](tasks/desktop-workspace-parity.md)
 
 - [x] Stale desktop e2e + acceptance specs updated for the calm shell; web typography/notion/auth spec races fixed · [task](tasks/e2e-calm-shell-specs.md)
 

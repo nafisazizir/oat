@@ -21,7 +21,7 @@ export function hrefOf(route: AppRoute): string {
     case 'template-new':
       return '/templates/new';
     case 'assistant':
-      return `/assistant${route.threadId ? `/${encodeURIComponent(route.threadId)}` : ''}`;
+      return `/assistant${route.threadId ? `?${new URLSearchParams({ thread: route.threadId })}` : ''}`;
     case 'search':
       return `/search${route.q !== undefined ? `?${new URLSearchParams({ q: route.q })}` : ''}`;
     case 'settings':
@@ -59,7 +59,10 @@ export function routeOf(pathname: string, search: string | URLSearchParams = '')
           ? { view: 'template', id: parts[1] }
           : { view: 'templates' };
     case 'assistant':
-      return { view: 'assistant', ...(parts[1] ? { threadId: parts[1] } : {}) };
+      return {
+        view: 'assistant',
+        ...(parts[1] || query.get('thread') ? { threadId: parts[1] || query.get('thread')! } : {}),
+      };
     case 'search':
       return { view: 'search', ...(query.has('q') ? { q: query.get('q')! } : {}) };
     case 'settings':

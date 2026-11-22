@@ -259,6 +259,7 @@ it('forwards stream chunks in order with split UTF-8 and only safe headers, then
         headers: {
           'content-type': 'text/event-stream',
           'x-vercel-ai-ui-message-stream': 'v1',
+          'x-oat-thread-id': 'th1',
           'set-cookie': 'secret',
           authorization: 'secret',
         },
@@ -269,6 +270,7 @@ it('forwards stream chunks in order with split UTF-8 and only safe headers, then
   expect(result.value.headers).toEqual({
     'content-type': 'text/event-stream',
     'x-vercel-ai-ui-message-stream': 'v1',
+    'x-oat-thread-id': 'th1',
   });
   await vi.waitFor(() => expect(s.owner.messages.at(-1)?.channel).toBe('api:stream-end'));
   expect(

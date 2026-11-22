@@ -6,18 +6,13 @@ import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import { Spinner } from '@oat/ui/components/spinner';
 import { IconAlertTriangle, IconCheck, IconRotateClockwise, IconX } from '@tabler/icons-react';
-import type { Route } from 'next';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
-import { isApiError } from '@/lib/api-client';
-import type { DocumentDetail } from '@/lib/api-types';
-import { chatApi } from '@/lib/chat-client';
-import type { ChatProposal } from '@/lib/chat-types';
+import { isApiError } from './chat-client';
+import type { ChatProposal } from '@oat/services/dto/chat';
 
-import { applyServerBlocks, useOpenDocument } from './open-document';
+import { TargetLink, useFeatureUi } from './provider';
+import { useAssistantIntegration, type ProposalApplication } from './assistant-integration';
 import { useChatSession } from './session-context';
 
 /**
@@ -35,8 +30,8 @@ export function ProposalCard({
   question: string | undefined;
 }) {
   const session = useChatSession();
-  const open = useOpenDocument();
-  const router = useRouter();
+  const { client, notify, navigate } = useFeatureUi();
+  const integration = useAssistantIntegration();
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   // Rejecting changes nothing in the note, so it shows at once; a failure puts the buttons back.
@@ -50,39 +45,21 @@ export function ProposalCard({
     setBusy(decision);
     setNotice(null);
     if (decision === 'reject') setOptimistic('rejected');
-    // Approving a change to the note that is open here: lock the editor (nothing typed during the round
-    // trips can be overwritten), save what the user typed first so the change is checked against what they
-    // see, then patch only the changed blocks into the editor.
-    const note =
-      decision === 'approve' && open?.documentId === proposal.documentId ? open.handle() : null;
-    const editor = note?.editor() ?? null;
-    const unlock = editor?.isEditable ? () => editor.setEditable(true, false) : () => {};
-    editor?.setEditable(false, false);
+    let application: ProposalApplication | null = null;
     try {
-      if (note && !(await note.settle())) {
-        setNotice('Your latest edits aren’t saved yet. Try again once they are.');
-        return;
-      }
-      const result = await chatApi.decide(threadId, proposal.id, decision);
+      if (decision === 'approve')
+        application = (await integration.prepareProposal?.(proposal)) ?? null;
+      const result = await client.chat.decideProposal(threadId, proposal.id, { decision });
       if (decision === 'approve') {
-        if (note && result.document) {
-          const doc = await fetch(`/api/documents/${encodeURIComponent(proposal.documentId)}`, {
-            cache: 'no-store',
-          }).then((res) => (res.ok ? (res.json() as Promise<DocumentDetail>) : null));
-          if (doc) {
-            const next = { version: doc.version, contentJson: doc.contentJson };
-            note.adopt(next);
-            const blockIds = proposal.changes.map((c) => c.blockId);
-            if (!editor || !applyServerBlocks(editor, doc.contentJson, blockIds))
-              note.replace(next);
-          }
-          toast.success('Change applied to this note');
+        if (application && result.document) {
+          await application.applied(result);
+          notify.success('Change applied to this note');
         } else {
-          toast.success('Change applied', {
+          notify.success('Change applied', {
             description: title,
             action: {
               label: 'Open note',
-              onClick: () => router.push(`/d/${proposal.documentId}` as Route),
+              onClick: () => navigate({ kind: 'document', id: proposal.documentId }),
             },
           });
         }
@@ -91,7 +68,7 @@ export function ProposalCard({
       if (decision === 'reject') {
         setOptimistic(null);
         if (!isApiError(error, 'proposal_closed')) {
-          toast.error('Couldn’t reject the change', {
+          notify.error('Couldn’t reject the change', {
             description: isApiError(error) ? error.message : 'Something went wrong. Try again.',
           });
         }
@@ -100,10 +77,10 @@ export function ProposalCard({
       } else if (isApiError(error)) {
         setNotice(error.message);
       } else {
-        setNotice('Something went wrong. Try again.');
+        setNotice(error instanceof Error ? error.message : 'Something went wrong. Try again.');
       }
     } finally {
-      unlock();
+      application?.release();
       await session.refresh();
       setOptimistic(null);
       setBusy(null);
@@ -121,13 +98,13 @@ export function ProposalCard({
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-label-12 text-gray-900">Suggested edit to</span>
           {title ? (
-            <Link
-              href={`/d/${proposal.documentId}` as Route}
+            <TargetLink
+              target={{ kind: 'document', id: proposal.documentId }}
               className="truncate text-heading-14 text-gray-1000 underline-offset-2 hover:underline"
               data-testid="proposal-document"
             >
               {title}
-            </Link>
+            </TargetLink>
           ) : (
             <span className="text-heading-14 text-gray-900">A note you can’t open anymore</span>
           )}

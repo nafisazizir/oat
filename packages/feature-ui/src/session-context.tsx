@@ -1,13 +1,10 @@
 'use client';
 
-import type { Route } from 'next';
-import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext } from 'react';
 
-import type { ChatSources, ResolvedCitation } from '@/lib/chat-types';
-import { blockHref, segmentHref } from '@/lib/transcript';
-
-import { useOpenDocument } from './open-document';
+import type { ChatSources, ResolvedCitation } from '@oat/services/dto/chat';
+import { useFeatureUi } from './provider';
+import { useAssistantIntegration } from './assistant-integration';
 
 /** What a conversation's messages need from the session around them. */
 export type ChatSessionApi = {
@@ -36,20 +33,22 @@ export function useChatSession(): ChatSessionApi {
  * that note.
  */
 export function useOpenCitation() {
-  const router = useRouter();
-  const open = useOpenDocument();
+  const { navigate } = useFeatureUi();
+  const integration = useAssistantIntegration();
   return useCallback(
     (citation: ResolvedCitation) => {
-      const here = open?.documentId === citation.documentId;
-      if (citation.kind === 'block') {
-        if (here) open.showBlock(citation.id);
-        else router.push(blockHref(citation.documentId, citation.id) as Route);
-        return;
-      }
-      const href = segmentHref(citation.documentId, citation.startMs, citation.id) as Route;
-      if (here) router.replace(href, { scroll: false });
-      else router.push(href);
+      if (integration.openCitation?.(citation)) return;
+      navigate(
+        citation.kind === 'block'
+          ? { kind: 'document', id: citation.documentId, blockId: citation.id }
+          : {
+              kind: 'document',
+              id: citation.documentId,
+              segmentId: citation.id,
+              timeMs: citation.startMs,
+            },
+      );
     },
-    [open, router],
+    [integration, navigate],
   );
 }
