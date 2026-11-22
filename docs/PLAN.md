@@ -111,6 +111,7 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 - [x] Functional parity G7 + G11: authorized server meeting read-through cache and repeated segment/time/block focus; desktop 571 tests/full fast gate pass. G2 Back readiness test fixed; five CPU-constrained parallel workspace suites pass (99 each). Native runtime/visuals unverified · [task](tasks/functional-parity.md)
 
 - [x] Functional parity G8 + G18: shared document assistant/editor bridge on meetings and pages; native flush/sync and guarded local-writer approval; shared K/B/J guards. Unit/affected fast gates and assistant/document/palette browser checks pass; native runtime/visuals unverified · [task](tasks/functional-parity.md)
+- [x] Functional parity G9 + G10 + G6: shared enhancement/history/restore/Undo, per-document Notion actions and page task-assignee slots; native flush/sync and guarded local-writer adoption. Unit/affected fast gate and enhance/history/Notion/tasks browser checks pass; native runtime/visuals unverified · [task](tasks/functional-parity.md)
 
 - [x] Human-requested Graphite theme and shared control refresh for web and desktop · [task](tasks/graphite-ui-foundation.md)
 

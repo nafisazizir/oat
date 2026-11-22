@@ -10,6 +10,9 @@ import type { InvokeResponse, MeetingNote, RecordingSnapshot } from '@oat/core/b
 import { visibilityBadge } from '@oat/core/sections';
 import { sameDocumentContent } from '@oat/core/sync';
 import { BlockFocus, OatEditor } from '@oat/editor/react';
+import { NotionExportButton, useDocumentEnhancement } from '@oat/feature-ui/document';
+import { MoreActions } from '@oat/workspace-ui/page-editor';
+import { useWorkspaceHost } from '@oat/workspace-ui/host';
 import {
   DocumentAssistant,
   AssistantToggleButton,
@@ -57,7 +60,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalSt
 import { createPortal } from 'react-dom';
 
 import { useMeetingGrace } from '../auto-stop/auto-stop-state.ts';
-import { BridgeCallError, call } from '../bridge.ts';
+import { bridge, BridgeCallError, call } from '../bridge.ts';
 import { NoteEventLine } from '../calendar/note-event-line.tsx';
 import { IssueBanner, RecordingBar } from '../recording/recording-controls.tsx';
 import { TranscriptPanel } from '../recording/transcript-panel.tsx';
@@ -73,6 +76,7 @@ import {
 import { GraceLine, PipelineLine } from './post-meeting.tsx';
 import { type AutosaveState, NoteAutosave } from './note-autosave.ts';
 import { meetingAssistantHandle } from './meeting-assistant';
+import { meetingDocumentAdapter } from './meeting-document';
 import { api } from '../lib/api';
 
 type Content = MeetingNote['contentJson'];
@@ -461,12 +465,50 @@ function NoteBody({
   }, [note, autosave]);
 
   const editable = note.editable;
-  const assistant = meetingAssistantHandle({
+  const [assistant] = useState(() =>
+    meetingAssistantHandle({
+      documentId,
+      autosave,
+      client: api,
+      adopt: (next) => setContent(next as Content),
+    }),
+  );
+  const [documentHost] = useState(() =>
+    meetingDocumentAdapter({ documentId, client: api, assistant }),
+  );
+  const [readOnlyHost] = useState(() =>
+    meetingDocumentAdapter({
+      documentId,
+      client: api,
+      assistant,
+      readOnlyRefresh: () => call('sync:now'),
+    }),
+  );
+  const workspaceHost = useWorkspaceHost();
+  const capabilities = useDocumentEnhancement({
     documentId,
-    autosave,
-    client: api,
-    adopt: (next) => setContent(next as Content),
+    loadedVersion: note.version ?? 0,
+    enabled: !note.trashed,
+    editable,
+    host: editable ? documentHost : readOnlyHost,
   });
+  const notion = (history: React.ReactNode) => (
+    <NotionExportButton
+      documentId={documentId}
+      beforeSend={assistant.settle}
+      onOpenIntegrations={() =>
+        workspaceHost.navigate({ view: 'settings', section: 'integrations' })
+      }
+      openExternal={(url) => bridge().send('shell:open-external', { url })}
+      fallback={history ? <MoreActions>{history}</MoreActions> : null}
+      wrap={(control) => (
+        <MoreActions>
+          {history}
+          {control}
+        </MoreActions>
+      )}
+    />
+  );
   useRegisterOpenDocument(documentId, { ...assistant, editor: () => editorRef.current });
   return (
     <NoteColumn className="gap-6" role="article" data-testid="note">
@@ -524,6 +566,13 @@ function NoteBody({
             }
           />
         </div>
+        {editable ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {capabilities.secondary(note.workspaceId, notion)}
+          </div>
+        ) : (
+          notion(null)
+        )}
 
         {conflict && (
           <div
@@ -556,13 +605,14 @@ function NoteBody({
           {postMeeting}
         </div>
       )}
-      <div data-testid="note-editor">
+      {capabilities.beforeEditor}
+      <div data-testid="note-editor" hidden={capabilities.streaming}>
         <OatEditor
           onReady={(editor) => {
             editorRef.current = editor;
           }}
           value={content}
-          editable={editable}
+          editable={editable && !capabilities.streaming}
           aria-label="My notes"
           placeholder={editable ? 'Jot what matters — Oat transcribes alongside' : false}
           onChange={(json) => {

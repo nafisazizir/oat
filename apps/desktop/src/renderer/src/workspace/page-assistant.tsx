@@ -1,8 +1,13 @@
-import { DocumentAssistant, useRegisterOpenDocument } from '@oat/feature-ui/assistant';
-import { PageEditor, PageEditorSurface, usePageEditor } from '@oat/workspace-ui/page-editor';
+import { DocumentAssistant } from '@oat/feature-ui/assistant';
+import { DocumentEditorSurface } from '@oat/feature-ui/document';
+import { PageEditor } from '@oat/workspace-ui/page-editor';
+import { useWorkspaceHost } from '@oat/workspace-ui/host';
 import type { ComponentProps } from 'react';
+import { bridge, call } from '../bridge';
 
 type DocumentDetail = ComponentProps<typeof PageEditor>['document'];
+const beforeNetwork = () => call('sync:now');
+const openExternal = (url: string) => bridge().send('shell:open-external', { url });
 
 export function AssistantPageEditor({
   document,
@@ -11,6 +16,7 @@ export function AssistantPageEditor({
   document: DocumentDetail;
   workspace: { name: string };
 }) {
+  const host = useWorkspaceHost();
   return (
     <DocumentAssistant
       key={document.id}
@@ -21,27 +27,12 @@ export function AssistantPageEditor({
       focus={{}}
     >
       <PageEditor document={document} workspace={workspace}>
-        <EditorBridge />
-        <PageEditorSurface />
+        <DocumentEditorSurface
+          beforeNetwork={beforeNetwork}
+          openExternal={openExternal}
+          onOpenIntegrations={() => host.navigate({ view: 'settings', section: 'integrations' })}
+        />
       </PageEditor>
     </DocumentAssistant>
   );
-}
-
-function EditorBridge() {
-  const { doc, autosave, editorRef, setContent, setUpdatedAt } = usePageEditor();
-  useRegisterOpenDocument(doc.id, {
-    settle: autosave.settle,
-    editor: () => editorRef.current,
-    adopt(next) {
-      autosave.adopt(next);
-      setUpdatedAt(new Date().toISOString());
-    },
-    replace(next) {
-      autosave.adopt(next);
-      setContent(next.contentJson);
-      setUpdatedAt(new Date().toISOString());
-    },
-  });
-  return null;
 }

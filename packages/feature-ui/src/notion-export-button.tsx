@@ -3,16 +3,13 @@
 import { Button } from '@oat/ui/components/button';
 import { Spinner } from '@oat/ui/components/spinner';
 import { IconArrowUpRight, IconRefresh, IconSend } from '@tabler/icons-react';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { isApiError } from '@/lib/api-client';
-import type { NotionDocumentStatus } from '@/lib/api-types';
-import { formatDay } from '@/lib/format';
-import { notionApi } from '@/lib/notion-client';
-
-const SETTINGS = '/settings/integrations';
+import { isApiError } from './chat-client';
+import type { NotionDocumentStatus } from '@oat/services/dto/api-types';
+import { formatDay } from './format';
+import { useFeatureUi } from './provider';
 
 /**
  * "Send to Notion" / "Update in Notion" on the document page (8.1), with a link to the Notion copy once the
@@ -25,28 +22,37 @@ export function NotionExportButton({
   beforeSend,
   wrap,
   fallback,
+  onOpenIntegrations,
+  openExternal,
 }: {
   documentId: string;
   /** Flush pending edits so Notion gets what's on screen. */
-  beforeSend?: () => Promise<void>;
+  beforeSend?: () => Promise<void | boolean>;
+  onOpenIntegrations(): void;
+  openExternal?(url: string): void;
   /** Places the control (e.g. in a "More actions" popover, 9.3b); only called when Notion is set up. */
   wrap?: (control: React.ReactNode) => React.ReactNode;
   fallback?: React.ReactNode;
 }) {
-  const router = useRouter();
+  const { client } = useFeatureUi();
+  const open =
+    openExternal ??
+    ((url: string) => {
+      window.open(url, '_blank', 'noopener');
+    });
   const [status, setStatus] = useState<NotionDocumentStatus | null>(null);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    notionApi
-      .status(documentId)
+    client.documents
+      .notion(documentId)
       .then((s) => !cancelled && setStatus(s))
       .catch(() => undefined); // no control rather than a broken one
     return () => {
       cancelled = true;
     };
-  }, [documentId]);
+  }, [documentId, client]);
 
   if (!status?.configured) return fallback ?? null;
   const exported = status.export;
@@ -54,7 +60,7 @@ export function NotionExportButton({
   const toSettings = (message: string, description: string, label = 'Open settings') =>
     toast.error(message, {
       description,
-      action: { label, onClick: () => router.push(SETTINGS) },
+      action: { label, onClick: onOpenIntegrations },
     });
 
   async function send() {
@@ -82,8 +88,11 @@ export function NotionExportButton({
     }
     setSending(true);
     try {
-      await beforeSend?.();
-      const result = await notionApi.send(documentId);
+      if ((await beforeSend?.()) === false)
+        throw new Error('Your latest edits aren’t saved yet. Try again once they are.');
+      const result = await client.documents.pushToNotion(documentId, {
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
       setStatus((s) =>
         s
           ? {
@@ -99,7 +108,7 @@ export function NotionExportButton({
       );
       toast.success(exported && !result.created ? 'Updated in Notion' : 'Sent to Notion', {
         description: `In “${connection.target.title || 'Untitled'}”.`,
-        action: { label: 'Open', onClick: () => window.open(result.url, '_blank', 'noopener') },
+        action: { label: 'Open', onClick: () => open(result.url) },
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Please try again.';
@@ -109,7 +118,7 @@ export function NotionExportButton({
         isApiError(error, 'notion_not_connected')
       ) {
         // The server's view changed (revoked, target gone): refresh ours.
-        notionApi.status(documentId).then(setStatus, () => undefined);
+        client.documents.notion(documentId).then(setStatus, () => undefined);
         toSettings('Couldn’t send to Notion', message);
       } else {
         toast.error('Couldn’t send to Notion', { description: message });
@@ -124,6 +133,14 @@ export function NotionExportButton({
       {exported?.url && (
         <a
           href={exported.url}
+          onClick={
+            openExternal
+              ? (event) => {
+                  event.preventDefault();
+                  if (exported.url) openExternal(exported.url);
+                }
+              : undefined
+          }
           target="_blank"
           rel="noopener noreferrer"
           data-testid="notion-link"

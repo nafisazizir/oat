@@ -1040,6 +1040,9 @@ importers:
       '@ai-sdk/react':
         specifier: 'catalog:'
         version: 4.0.177(react@19.3.1)(zod@4.6.7)
+      '@oat/ai':
+        specifier: workspace:*
+        version: link:../ai
       '@oat/client':
         specifier: workspace:*
         version: link:../client
@@ -1067,6 +1070,9 @@ importers:
       markdown-it:
         specifier: 'catalog:'
         version: 15.0.3
+      sonner:
+        specifier: 'catalog:'
+        version: 2.0.8(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
     devDependencies:
       '@testing-library/dom':
         specifier: 'catalog:'

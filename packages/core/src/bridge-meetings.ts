@@ -46,6 +46,7 @@ export const noteContentSchema = z.looseObject({ type: z.literal('doc') });
 
 /** A meeting note opened in the desktop view: header, my notes, participants (no transcript). */
 export const meetingNoteSchema = z.object({
+  version: z.number().int().nonnegative().optional(),
   documentId,
   meetingId: z.string().nullable(),
   workspaceId: z.string(),

@@ -3,15 +3,15 @@
 import type { EnhanceOutput } from '@oat/ai/enhance';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { isApiError } from '@/lib/api-client';
 import type {
   EnhanceEvent,
   EnhancementDto,
   StartEnhanceInput,
   StartEnhanceResult,
-} from '@/lib/enhance';
+} from '@oat/services/dto/enhance';
 
-import { enhanceClient } from './client';
+import { useEnhanceClient, type EnhanceSource } from './enhance-client';
+import type { ApplyDocument } from './document-enhancement';
 
 export type EnhancePhase =
   | { phase: 'idle' }
@@ -29,8 +29,8 @@ const MAX_SILENT_RECONNECTS = 5;
 
 /**
  * Client side of an enhancement run: starts one (`start`), follows its SSE stream, and re-attaches to a run
- * that is still going when the page loads (after a reload or crash). `EventSource` resumes dropped connections
- * by itself with `Last-Event-ID`; the stream ends after `completed` or `failed`.
+ * that is still going when the page loads (after a reload or crash). The typed stream client resumes dropped
+ * connections with `lastEventId`; the stream ends after `completed` or `failed`.
  */
 export function useEnhancement({
   documentId,
@@ -38,6 +38,7 @@ export function useEnhancement({
   enabled,
   beforeStart,
   onCompleted,
+  prepareApply,
 }: {
   documentId: string;
   /** The note version this page rendered (a run that finished after that is picked up on mount). */
@@ -46,14 +47,18 @@ export function useEnhancement({
   enabled: boolean;
   /** Runs before the POST (e.g. flush autosave); return `false` to abort with a message. */
   beforeStart?: () => Promise<boolean>;
-  onCompleted: (event: Completed) => void;
+  onCompleted: (event: Completed, apply?: ApplyDocument) => void | Promise<void>;
+  prepareApply?: () => ApplyDocument;
 }) {
+  const enhanceClient = useEnhanceClient();
   const [state, setState] = useState<EnhancePhase>({ phase: 'idle' });
-  const source = useRef<EventSource | null>(null);
+  const source = useRef<EnhanceSource | null>(null);
   const lastInput = useRef<Omit<StartEnhanceInput, 'idempotencyKey'>>({});
   const completed = useRef(onCompleted);
+  const preparer = useRef(prepareApply);
   useEffect(() => {
     completed.current = onCompleted;
+    preparer.current = prepareApply;
   });
   /** Runs this page already followed, and when it mounted (`follow` picks up only later runs). */
   const followed = useRef(new Set<string>());
@@ -69,8 +74,23 @@ export function useEnhancement({
   }, []);
 
   const attach = useCallback(
-    (enhancementId: string) => {
+    (enhancementId: string, prepared?: ApplyDocument) => {
       detach();
+      let apply: ApplyDocument | undefined;
+      try {
+        apply = prepared ?? preparer.current?.();
+      } catch (error) {
+        setState({
+          phase: 'failed',
+          enhancementId,
+          lost: true,
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Save your edits before loading enhanced notes.',
+        });
+        return;
+      }
       followed.current.add(enhancementId);
       setState({ phase: 'streaming', enhancementId, preview: null });
       const es = enhanceClient.stream(enhancementId);
@@ -91,8 +111,19 @@ export function useEnhancement({
         if (event.type !== 'completed') return;
         es.close();
         if (source.current === es) source.current = null;
-        setState({ phase: 'idle' });
-        completed.current(event);
+        void Promise.resolve()
+          .then(() => completed.current(event, apply))
+          .then(
+            () => setState({ phase: 'idle' }),
+            (error: unknown) =>
+              setState({
+                phase: 'failed',
+                enhancementId,
+                lost: true,
+                message:
+                  error instanceof Error ? error.message : 'Couldn’t load the enhanced notes.',
+              }),
+          );
       });
       es.addEventListener('failed', (e) => {
         const event = JSON.parse((e as MessageEvent<string>).data) as EnhanceEvent;
@@ -107,9 +138,9 @@ export function useEnhancement({
         });
       });
       es.onerror = () => {
-        // CLOSED = the server refused (e.g. 404); otherwise the browser is already reconnecting.
+        // CLOSED = the server refused (e.g. 404); otherwise the stream client is reconnecting.
         silentErrors += 1;
-        if (es.readyState === EventSource.CLOSED || silentErrors > MAX_SILENT_RECONNECTS) {
+        if (es.readyState === 2 || silentErrors > MAX_SILENT_RECONNECTS) {
           es.close();
           if (source.current === es) source.current = null;
           setState({
@@ -121,7 +152,7 @@ export function useEnhancement({
         }
       };
     },
-    [detach],
+    [detach, enhanceClient],
   );
 
   // Re-attach to a run that is still going (reload, another tab, a crash).
@@ -154,32 +185,29 @@ export function useEnhancement({
       if (state.phase === 'starting' || state.phase === 'streaming') return;
       lastInput.current = input;
       setState({ phase: 'starting' });
-      if (beforeStart && !(await beforeStart())) {
-        setState({
-          phase: 'failed',
-          enhancementId: null,
-          message: 'Your latest edits aren’t saved yet, so the AI can’t use them. Try again.',
-        });
-        return;
-      }
       let result: StartEnhanceResult;
       try {
+        if (beforeStart && !(await beforeStart()))
+          throw new Error(
+            'Your latest edits aren’t saved yet, so the AI can’t use them. Try again.',
+          );
+        const apply = prepareApply?.();
         result = await enhanceClient.start(documentId, {
           idempotencyKey: crypto.randomUUID(),
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           ...input,
         });
+        attach(result.enhancement.id, apply);
       } catch (error) {
         setState({
           phase: 'failed',
           enhancementId: null,
-          message: isApiError(error) ? error.message : 'Couldn’t start enhancing. Try again.',
+          message: error instanceof Error ? error.message : 'Couldn’t start enhancing. Try again.',
         });
         return;
       }
-      attach(result.enhancement.id);
     },
-    [attach, beforeStart, documentId, state.phase],
+    [attach, beforeStart, documentId, state.phase, enhanceClient, prepareApply],
   );
 
   /**
@@ -201,7 +229,7 @@ export function useEnhancement({
         if (latest.status === 'generating' || finishedSince) attach(latest.id);
       })
       .catch(() => undefined);
-  }, [attach, documentId, enabled, mountedAt]);
+  }, [attach, documentId, enabled, mountedAt, enhanceClient]);
 
   /** Follow the same run again (after a lost connection). */
   const reattach = useCallback(() => {

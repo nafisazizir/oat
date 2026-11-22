@@ -15,7 +15,8 @@ export function meetingAssistantHandle({
   autosave: NoteAutosave;
   client: OatClient;
   adopt(content: JSONContent): void;
-}): Omit<OpenDocumentHandle, 'editor'> {
+}): Omit<OpenDocumentHandle, 'editor'> & { currentVersion(): number } {
+  let version = 0;
   return {
     async settle() {
       await autosave.flush();
@@ -23,13 +24,15 @@ export function meetingAssistantHandle({
       await call('sync:now');
       const remote = await client.documents.get(documentId);
       const base = autosave.base;
-      return (
+      const settled =
         !autosave.dirty &&
         !!base &&
         remote.title === base.title &&
-        sameDocumentContent(remote.contentJson, base.contentJson)
-      );
+        sameDocumentContent(remote.contentJson, base.contentJson);
+      if (settled) version = remote.version;
+      return settled;
     },
+    currentVersion: () => version,
     adopt: (doc) => adopt(doc.contentJson),
     replace: (doc) => adopt(doc.contentJson),
     prepareApply() {

@@ -10,6 +10,15 @@ vi.mock('@oat/feature-ui/assistant', async (original) => ({
   ...(await original<object>()),
   DocumentAssistant: ({ children }: { children: ReactNode }) => children,
 }));
+vi.mock('@oat/workspace-ui/host', () => ({ useWorkspaceHost: () => ({ navigate: vi.fn() }) }));
+vi.mock('@oat/feature-ui/document', () => ({
+  NotionExportButton: () => null,
+  useDocumentEnhancement: () => ({
+    streaming: false,
+    beforeEditor: null,
+    secondary: (_workspace: string, render: (node: ReactNode) => ReactNode) => render(null),
+  }),
+}));
 
 const model = vi.hoisted(() => ({
   note: null as unknown,

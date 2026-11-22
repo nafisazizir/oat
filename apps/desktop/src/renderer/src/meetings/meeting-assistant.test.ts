@@ -19,7 +19,7 @@ function setup() {
   const autosave = new NoteAutosave({ base: { title: 'Note', contentJson: original }, save });
   const transport = vi.fn(async () => ({
     status: 200,
-    json: async () => ({ title: 'Note', contentJson: original }),
+    json: async () => ({ title: 'Note', contentJson: original, version: 2 }),
   }));
   const adopt = vi.fn();
   const handle = meetingAssistantHandle({
@@ -34,6 +34,7 @@ it('flushes pending local edits before sync and checking server visibility', asy
   const env = setup();
   env.autosave.queue({ contentJson: original });
   expect(await env.handle.settle()).toBe(true);
+  expect(env.handle.currentVersion()).toBe(2);
   expect(env.save.mock.invocationCallOrder[0]).toBeLessThan(call.mock.invocationCallOrder[0]!);
   expect(call).toHaveBeenCalledWith('sync:now');
   expect(call.mock.invocationCallOrder[0]).toBeLessThan(env.transport.mock.invocationCallOrder[0]!);

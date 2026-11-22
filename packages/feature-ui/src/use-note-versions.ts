@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { isApiError } from '@/lib/api-client';
-import type { DocumentDetail } from '@/lib/api-types';
-import type { EnhancementVersionList, RestoreTarget } from '@/lib/enhance';
+import { isApiError } from './chat-client';
+import type { DocumentDetail } from '@oat/services/dto/api-types';
+import type { EnhancementVersionList, RestoreTarget } from '@oat/services/dto/enhance';
 
-import { enhanceClient } from './client';
+import { useEnhanceClient } from './enhance-client';
 
 /** What is about to replace the note body. */
 export type ReplaceKind = 'regenerate' | 'undo' | 'redo' | 'restore';
@@ -35,6 +35,7 @@ export function useNoteVersions({
   settle,
   currentVersion,
   onRestored,
+  prepareApply,
 }: {
   documentId: string;
   /** Live meeting notes the user can edit. */
@@ -44,8 +45,10 @@ export function useNoteVersions({
   /** The note version the editor is at. */
   currentVersion: () => number;
   /** The server wrote a new body: show it and continue from its version. */
-  onRestored: (document: DocumentDetail) => void;
+  onRestored: (document: DocumentDetail) => void | Promise<void>;
+  prepareApply?: () => (document: DocumentDetail) => Promise<void>;
 }) {
+  const enhanceClient = useEnhanceClient();
   const [list, setList] = useState<EnhancementVersionList | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -64,7 +67,7 @@ export function useNoteVersions({
     } catch {
       return null;
     }
-  }, [documentId]);
+  }, [documentId, enhanceClient]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -76,7 +79,7 @@ export function useNoteVersions({
     return () => {
       cancelled = true;
     };
-  }, [enabled, documentId]);
+  }, [enabled, documentId, enhanceClient]);
 
   /**
    * Runs `action` (something that replaces the body) right away if the body is stored somewhere, else after
@@ -92,6 +95,11 @@ export function useNoteVersions({
         const fresh = await refresh();
         if (fresh && !fresh.body.edited) return action();
         setPending({ kind, unchecked: !fresh, run: action });
+      } catch (error) {
+        toast.error('Your latest edits aren’t saved yet', {
+          id: toastId,
+          description: error instanceof Error ? error.message : 'Try again once they are saved.',
+        });
       } finally {
         setChecking(false);
       }
@@ -108,20 +116,16 @@ export function useNoteVersions({
   /** Sets the body to a version / saved note (`output`) or a run's starting notes. Errors are toasted. */
   const restore = useCallback(
     async (id: string, target: RestoreTarget): Promise<boolean> => {
-      if (!(await settle())) {
-        toast.error('Your latest edits aren’t saved yet', {
-          id: toastId,
-          description: 'Wait for “Saved”, then try again.',
-        });
-        return false;
-      }
       setRestoring(true);
       try {
+        if (!(await settle()))
+          throw new Error('Your latest edits aren’t saved yet. Wait for “Saved”, then try again.');
+        const apply = prepareApply?.() ?? restored.current;
         const { document, snapshot } = await enhanceClient.restore(id, {
           baseVersion: currentVersion(),
           target,
         });
-        restored.current(document);
+        await apply(document);
         void refresh();
         if (snapshot) setList((l) => l && { ...l, snapshots: [snapshot, ...l.snapshots] });
         return true;
@@ -134,7 +138,7 @@ export function useNoteVersions({
         } else {
           toast.error('Couldn’t restore', {
             id: toastId,
-            description: isApiError(error) ? error.message : 'Try again in a moment.',
+            description: error instanceof Error ? error.message : 'Try again in a moment.',
           });
         }
         return false;
@@ -142,7 +146,7 @@ export function useNoteVersions({
         setRestoring(false);
       }
     },
-    [currentVersion, refresh, settle, toastId],
+    [currentVersion, refresh, settle, toastId, enhanceClient, prepareApply],
   );
 
   /** Redo: the newest run's output again (guarded). */

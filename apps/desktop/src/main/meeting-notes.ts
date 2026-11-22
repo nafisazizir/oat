@@ -143,6 +143,7 @@ export class MeetingNotes {
       meetingId: meeting?.id ?? null,
       workspaceId: doc.workspaceId,
       workspaceName: workspace?.name ?? null,
+      version: doc.version,
       title: doc.title,
       contentJson: doc.contentJson,
       visibility: doc.visibility,
