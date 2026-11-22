@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from 'react';
 
-import type { SearchResponse, SearchType } from './helpers';
+import type { SearchType } from './helpers';
 import { useFeatureUi } from './provider';
-import { searchSources } from './sources';
+import { searchSources, type SearchResult } from './sources';
 
 export type SearchState =
   | { status: 'idle' }
-  | { status: 'loading'; query: string; data?: SearchResponse; offline?: boolean }
-  | { status: 'done'; query: string; data: SearchResponse; offline?: boolean }
+  | ({ status: 'loading'; query: string } & Partial<SearchResult>)
+  | ({ status: 'done'; query: string } & SearchResult)
   | { status: 'error'; query: string; message: string };
 
 /**
@@ -32,9 +32,7 @@ export function useSearch(
   const q = query.trim();
   const key = JSON.stringify([q, type, workspaceId, limit, attempt]);
   const [result, setResult] = useState<
-    | { key: string; data: SearchResponse; offline?: boolean }
-    | { key: string; error: string }
-    | undefined
+    ({ key: string } & SearchResult) | { key: string; error: string } | undefined
   >();
 
   useEffect(() => {
@@ -42,8 +40,8 @@ export function useSearch(
     const controller = new AbortController();
     const timer = setTimeout(() => {
       searchSources(sources, q, { type, workspaceId, limit, signal: controller.signal }).then(
-        ({ data, offline }) => {
-          if (!controller.signal.aborted) setResult({ key, data, offline });
+        (response) => {
+          if (!controller.signal.aborted) setResult({ key, ...response });
         },
         (error: unknown) => {
           if (controller.signal.aborted) return;
@@ -60,10 +58,16 @@ export function useSearch(
   if (!q) return { status: 'idle' };
   if (result?.key === key) {
     return 'data' in result
-      ? { status: 'done', query: q, data: result.data, offline: result.offline }
+      ? {
+          status: 'done',
+          query: q,
+          data: result.data,
+          offline: result.offline,
+          serverDocuments: result.serverDocuments,
+        }
       : { status: 'error', query: q, message: result.error };
   }
   return result && 'data' in result
-    ? { status: 'loading', query: q, data: result.data }
+    ? { status: 'loading', query: q, data: result.data, serverDocuments: result.serverDocuments }
     : { status: 'loading', query: q };
 }

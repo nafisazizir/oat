@@ -450,4 +450,14 @@ Electron/OS bridge smoke and independent review remain pending. Local commit onl
    then asserts the second bridge request sends the first thread id.
    Checks: feature-ui 9 files / 101 passed; desktop 60 files / 510 passed; feature-ui typecheck passed.
    Logs: /home/ubuntu/pr26-headers-{feature-tests,desktop-tests,typecheck}.log.
-2. Paginated search dedupe: in progress. After both review commits, push once and resume the PR CI loop.
+2. Paginated search dedupe: search results now carry server-document provenance across pages. A shared
+   merge helper suppresses auxiliary hits for any server-claimed document across both sections, dedupes
+   notes by document id and transcripts by segment id, and lets newer server hits replace cached rows.
+   Distinct segments from the same server document remain visible. SearchView accumulates both tabs
+   through this helper, preserving other-section cursors. Tests cover repeated pages/counts, local/server
+   priority in both directions, cross-section claims, distinct segments, empty pages and load errors.
+   Checks: feature-ui 9 files / 106 passed; desktop 60 files / 510 passed; ci --fast all stages pass,
+   ci: ok (62.2s). Logs: /home/ubuntu/pr26-pagination-{feature-tests,desktop-tests,ci}.log.
+
+Both review fixes are committed separately and pushed together. Next: merge the incoming C2 shared
+workspace shell, replace its feature placeholders and verify the resulting hosts/CI.

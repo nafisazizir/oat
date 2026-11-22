@@ -1,7 +1,13 @@
 import { createOatClient, OatApiError } from '@oat/client';
 import { describe, expect, it, vi } from 'vitest';
-import type { NoteHit, SearchResponse } from './helpers';
-import { searchSources, serverSearchSource, type SearchSource } from './sources';
+import type { NoteHit, SearchResponse, TranscriptHit } from './helpers';
+import {
+  mergeSearchPages,
+  searchSources,
+  serverSearchSource,
+  type SearchResult,
+  type SearchSource,
+} from './sources';
 
 export const note = (id: string, title = id): NoteHit => ({
   id,
@@ -22,6 +28,85 @@ const local = (...notes: NoteHit[]): SearchSource => ({
   search: async () => response(...notes),
 });
 const options = () => ({ signal: new AbortController().signal });
+
+const page = (data: SearchResponse, serverDocuments: string[] = []): SearchResult => ({
+  data,
+  offline: false,
+  serverDocuments: new Set(serverDocuments),
+});
+const segment = (id: string, documentId: string): TranscriptHit => ({
+  id,
+  documentId,
+  documentTitle: documentId,
+  source: 'mic',
+  speakerLabel: null,
+  startMs: 0,
+  endMs: 1,
+  updatedAt: '',
+  snippetHtml: id,
+});
+
+describe('search pagination', () => {
+  it('replaces local documents with later server hits without letting later local hits replace server hits', () => {
+    const first = page(response(note('a', 'server A'), note('b', 'local B')), ['a']);
+    const next = page(response(note('b', 'server B'), note('a', 'local A')), ['b']);
+    const merged = mergeSearchPages(first, next);
+    expect(merged.data.notes?.items.map((hit) => hit.title)).toEqual(['server A', 'server B']);
+    expect(merged.serverDocuments).toEqual(new Set(['a', 'b']));
+  });
+
+  it('claims documents across sections while deduping transcript hits by segment, not document', () => {
+    const first = page(
+      {
+        ...response(note('local'), note('other')),
+        transcripts: {
+          items: [segment('s1', 'server'), segment('local-seg', 'local')],
+          nextCursor: 'o20',
+        },
+      },
+      ['server'],
+    );
+    const next = page(
+      {
+        query: 'q',
+        transcripts: {
+          items: [segment('s1', 'server'), segment('s2', 'server'), segment('s3', 'local')],
+          nextCursor: null,
+        },
+      },
+      ['server', 'local'],
+    );
+    const merged = mergeSearchPages(first, next);
+    expect(merged.data.notes?.items.map((hit) => hit.id)).toEqual(['other']);
+    expect(merged.data.transcripts?.items.map((hit) => hit.id)).toEqual(['s1', 's2', 's3']);
+    expect(merged.data.transcripts?.nextCursor).toBeNull();
+    const localAgain = page({
+      query: 'q',
+      transcripts: {
+        items: [segment('local-again', 'server')],
+        nextCursor: null,
+      },
+    });
+    expect(mergeSearchPages(merged, localAgain).data.transcripts?.items).toEqual(
+      merged.data.transcripts?.items,
+    );
+  });
+
+  it('keeps existing hits for empty pages, advances only the provided section cursor and accepts no next page', () => {
+    const first = page(
+      {
+        query: 'q',
+        notes: { items: [note('a')], nextCursor: 'o20' },
+        transcripts: { items: [], nextCursor: 'o40' },
+      },
+      ['a'],
+    );
+    expect(mergeSearchPages(first)).toBe(first);
+    const merged = mergeSearchPages(first, page(response()));
+    expect(merged.data.notes).toEqual({ items: [note('a')], nextCursor: null });
+    expect(merged.data.transcripts?.nextCursor).toBe('o40');
+  });
+});
 
 describe('search sources', () => {
   it('uses the typed client and forwards query options and cancellation', async () => {

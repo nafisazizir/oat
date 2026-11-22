@@ -1,6 +1,6 @@
 # Oat — Plan & Task Board
 
-- [ ] Human-requested shared feature UI, steps 1–6 search/tasks/assistant · shared package/web migration, desktop wiring, settings integration and visual hill-climb implemented; PR #26 pushed, review follow-ups in progress (desktop thread header fixed, pagination dedupe next); fast CI/e2e/screenshots verified before follow-ups; native Electron runtime pending · [task](tasks/desktop-feature-search.md)
+- [ ] Human-requested shared feature UI, steps 1–6 search/tasks/assistant · PR #26 review thread-header and pagination fixes verified; incoming C2 workspace-ui shell integration next; fast CI green (62.2s); web e2e/int and screenshots verified before follow-ups; native Electron runtime pending · [task](tasks/desktop-feature-search.md)
 
 - [x] Human-requested UI redesign PR 5: calm auth, setup and dialogs · [task](tasks/ui-calm-auth-dialogs.md)
 

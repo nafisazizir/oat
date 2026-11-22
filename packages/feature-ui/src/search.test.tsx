@@ -264,4 +264,65 @@ describe('SearchView', () => {
       expect.objectContaining({ cursor: 'o20', type: 'notes' }),
     );
   });
+
+  it('dedupes repeated pages and replaces a cached note with its later server result and count', async () => {
+    const search = vi.fn(async (_q, options) => ({
+      query: 'Found',
+      notes: {
+        items: [
+          options.cursor
+            ? { ...hit, title: 'Server cached', titleHtml: 'Server cached' }
+            : { ...hit, id: 'first', titleHtml: 'First server' },
+        ],
+        nextCursor: options.cursor === 'o40' ? null : options.cursor ? 'o40' : 'o20',
+      },
+    }));
+    const local: SearchSource = {
+      id: 'local',
+      search: async () => ({
+        query: 'Found',
+        notes: {
+          items: [
+            { ...hit, titleHtml: 'Cached local' },
+            { ...hit, id: 'first', titleHtml: 'Stale local' },
+          ],
+          nextCursor: null,
+        },
+      }),
+    };
+    render(
+      <SearchView query="Found" type="notes" onQueryChange={vi.fn()} onTypeChange={vi.fn()} />,
+      {
+        wrapper: wrap(adapter([local, { id: 'server', search }])),
+      },
+    );
+    await screen.findByText('Cached local');
+    await userEvent.click(screen.getByRole('button', { name: 'Load more' }));
+    await screen.findByText('Server cached');
+    expect(screen.queryByText('Cached local')).toBeNull();
+    expect(screen.queryByText('Stale local')).toBeNull();
+    expect(screen.getAllByTestId('search-page-note')).toHaveLength(2);
+    await userEvent.click(screen.getByRole('button', { name: 'Load more' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull());
+    expect(screen.getAllByTestId('search-page-note')).toHaveLength(2);
+    expect(screen.getByRole('tab', { name: /^Notes\s*2$/ })).toBeTruthy();
+  });
+
+  it('retains rows and a retryable cursor when loading another page fails', async () => {
+    const search = vi.fn(async (_q, options) => {
+      if (options.cursor) throw new OatApiError(500, 'unavailable', 'server failed');
+      return { query: 'Found', notes: { items: [hit], nextCursor: 'o20' } };
+    });
+    const value = adapter([{ id: 'server', search }]);
+    render(
+      <SearchView query="Found" type="notes" onQueryChange={vi.fn()} onTypeChange={vi.fn()} />,
+      { wrapper: wrap(value) },
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Load more' }));
+    await waitFor(() =>
+      expect(value.notify.error).toHaveBeenCalledWith('Couldn’t load more results.'),
+    );
+    expect(screen.getAllByTestId('search-page-note')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Load more' }).hasAttribute('disabled')).toBe(false);
+  });
 });

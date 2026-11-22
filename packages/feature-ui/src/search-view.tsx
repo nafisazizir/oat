@@ -36,7 +36,7 @@ import {
 import { Highlight } from './highlight';
 import { useSearch } from './use-search';
 import { TargetLink, useFeatureUi } from './provider';
-import { searchSources } from './sources';
+import { mergeSearchPages, searchSources, type SearchResult } from './sources';
 
 type Tab = 'notes' | 'transcripts';
 const PAGE = 20;
@@ -159,17 +159,8 @@ const code = 'rounded-sm bg-gray-100 px-1 text-copy-13-mono text-gray-1000';
 
 type Extra = {
   for?: SearchResponse;
-  notes?: SearchSection<NoteHit>;
-  transcripts?: SearchSection<TranscriptHit>;
+  page?: SearchResult;
 };
-
-/** `first` followed by `next`; the cursor is the last page's. */
-function concat<T>(first?: SearchSection<T>, next?: SearchSection<T>): SearchSection<T> {
-  return {
-    items: [...(first?.items ?? []), ...(next?.items ?? [])],
-    nextCursor: next ? next.nextCursor : (first?.nextCursor ?? null),
-  };
-}
 
 const countLabel = (section?: SearchSection<unknown>) =>
   section ? `${section.items.length}${section.nextCursor ? '+' : ''}` : '';
@@ -203,10 +194,21 @@ export function SearchView({
     [query, workspaceId, sources],
   );
 
-  const data = search.status === 'done' || search.status === 'loading' ? search.data : undefined;
+  const result = search.status === 'done' || search.status === 'loading' ? search : undefined;
+  const data = result?.data;
   const extra: Extra = more.for === data ? more : { for: data };
-  const notes = concat(data?.notes, extra.notes);
-  const transcripts = concat(data?.transcripts, extra.transcripts);
+  const merged = data
+    ? mergeSearchPages(
+        {
+          data,
+          offline: result?.offline ?? false,
+          serverDocuments: result?.serverDocuments ?? new Set(),
+        },
+        extra.page,
+      ).data
+    : undefined;
+  const notes = merged?.notes ?? { items: [], nextCursor: null };
+  const transcripts = merged?.transcripts ?? { items: [], nextCursor: null };
 
   async function loadMore(which: Tab) {
     const cursor = (which === 'notes' ? notes : transcripts).nextCursor;
@@ -216,7 +218,7 @@ export function SearchView({
     paging.current = controller;
     setLoadingMore(true);
     try {
-      const { data: page } = await searchSources(sources, data.query, {
+      const page = await searchSources(sources, data.query, {
         type: which,
         workspaceId,
         limit: PAGE,
@@ -224,11 +226,7 @@ export function SearchView({
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
-      setMore(
-        which === 'notes'
-          ? { ...extra, for: data, notes: concat(extra.notes, page.notes) }
-          : { ...extra, for: data, transcripts: concat(extra.transcripts, page.transcripts) },
-      );
+      setMore({ for: data, page: extra.page ? mergeSearchPages(extra.page, page) : page });
     } catch {
       if (!controller.signal.aborted) notify.error('Couldn’t load more results.');
     } finally {

@@ -1,5 +1,5 @@
 import { OatApiError, type OatClient } from '@oat/client';
-import type { SearchResponse, SearchType } from './helpers';
+import type { SearchResponse, SearchSection, SearchType } from './helpers';
 
 export type SearchOptions = {
   signal: AbortSignal;
@@ -13,6 +13,50 @@ export type SearchSource = {
   id: string;
   search(q: string, options: SearchOptions): Promise<SearchResponse>;
 };
+
+export type SearchResult = {
+  data: SearchResponse;
+  offline: boolean;
+  serverDocuments: ReadonlySet<string>;
+};
+
+export function mergeSearchPages(first: SearchResult, next?: SearchResult): SearchResult {
+  if (!next) return first;
+  const serverDocuments = new Set([...first.serverDocuments, ...next.serverDocuments]);
+  function merge<T extends { id: string }>(
+    before: SearchSection<T> | undefined,
+    after: SearchSection<T> | undefined,
+    documentId: (hit: T) => string,
+  ): SearchSection<T> | undefined {
+    if (!before && !after) return undefined;
+    const items = new Map<string, T>();
+    for (const [result, section] of [
+      [first, before],
+      [next!, after],
+    ] as const) {
+      for (const hit of section?.items ?? []) {
+        const id = documentId(hit);
+        if (serverDocuments.has(id) && !result.serverDocuments.has(id)) continue;
+        items.set(hit.id, hit);
+      }
+    }
+    return {
+      items: [...items.values()],
+      nextCursor: after ? after.nextCursor : (before?.nextCursor ?? null),
+    };
+  }
+  const notes = merge(first.data.notes, next.data.notes, (hit) => hit.id);
+  const transcripts = merge(first.data.transcripts, next.data.transcripts, (hit) => hit.documentId);
+  return {
+    data: {
+      query: first.data.query,
+      ...(notes && { notes }),
+      ...(transcripts && { transcripts }),
+    },
+    offline: first.offline && next.offline,
+    serverDocuments,
+  };
+}
 
 export function serverSearchSource(client: OatClient): SearchSource {
   return {
@@ -41,6 +85,7 @@ export async function searchSources(sources: SearchSource[], q: string, options:
   answered.sort((a, b) => Number(b.index === server) - Number(a.index === server));
   const data: SearchResponse = { query: q };
   const documents = new Set<string>();
+  const serverDocuments = new Set<string>();
   for (const answer of answered) {
     const claimed = new Set<string>();
     if (answer.data.notes) {
@@ -63,7 +108,10 @@ export async function searchSources(sources: SearchSource[], q: string, options:
       );
       if (answer.index === server) data.transcripts.nextCursor = answer.data.transcripts.nextCursor;
     }
-    for (const id of claimed) documents.add(id);
+    for (const id of claimed) {
+      documents.add(id);
+      if (answer.index === server) serverDocuments.add(id);
+    }
   }
-  return { data, offline: serverResult?.status === 'rejected' || false };
+  return { data, offline: serverResult?.status === 'rejected' || false, serverDocuments };
 }
