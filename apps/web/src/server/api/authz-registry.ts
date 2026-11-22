@@ -13,6 +13,11 @@ export const PUBLIC: Readonly<Record<string, string>> = {
     'Better Auth’s own endpoints; it authenticates itself. Inventory + reasons: @oat/auth endpoints.test.ts.',
   'POST /api/sign-in/magic-link':
     'Redeems a single-use magic-link token (same-origin only); signing in is the point.',
+  'GET /api/settings/consent/browser':
+    'Public to the system browser; displays the account to confirm for a random, expiring ticket issued to a live desktop session.',
+  'POST /api/settings/consent/browser':
+    'Public to the system browser; same-origin confirmation consumes the single-use desktop ticket.',
+  'GET /api/settings/consent/done': 'Static browser handoff result; no privileged data or action.',
 };
 
 /**
@@ -20,6 +25,7 @@ export const PUBLIC: Readonly<Record<string, string>> = {
  * the session (`getSession(` / `requireSession(`).
  */
 export const SELF_SCOPED: Readonly<Record<string, string>> = {
+  'GET /api/settings/environment': 'Reports provider modes, not configuration or credentials.',
   'GET /api/calendar/upcoming': 'Reads the session user’s own calendar connection; no resource id.',
   'action server/actions/calendar.ts#disconnectGoogleCalendarAction':
     'Disconnects the session user’s own Google calendar; no resource id.',

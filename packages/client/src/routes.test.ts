@@ -17,6 +17,9 @@ it('covers every non-skipped API route and HTTP method (OAuth redirects use brow
         '/api/stt/token',
         '/api/integrations/notion/connect',
         '/api/integrations/notion/callback',
+        '/api/settings/consent',
+        '/api/settings/consent/browser',
+        '/api/settings/consent/done',
       ].includes(path)
     )
       continue;

@@ -1,4 +1,5 @@
 import type { DesktopUser, InvokeResponse } from '@oat/core/bridge';
+import type { SharedSettingsSection } from '@oat/settings-ui';
 import {
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -81,7 +82,7 @@ export function DesktopUserMenu({
 }: {
   user: DesktopUser;
   workspaces: WorkspacesView;
-  onOpenSettings: () => void;
+  onOpenSettings: (section?: SharedSettingsSection) => void;
 }) {
   const action = useRecordingAction();
   const [me, setMe] = useState<InvokeResponse<'api:me'> | null>(null);
@@ -94,6 +95,7 @@ export function DesktopUserMenu({
             view={workspaces}
             label={label}
             email={user.email}
+            onOpenSettings={onOpenSettings}
             account={
               <>
                 <DropdownMenuSeparator />
@@ -103,17 +105,9 @@ export function DesktopUserMenu({
                     <span className="block">{label}</span>
                     <span className="block text-label-12 text-gray-900">{user.email}</span>
                   </DropdownMenuLabel>
-                  <DropdownMenuItem onClick={onOpenSettings}>
+                  <DropdownMenuItem onClick={() => onOpenSettings()}>
                     <IconSettings />
                     Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={action.pending}
-                    onClick={() =>
-                      void action.run(() => call('settings:open-web', { section: 'profile' }))
-                    }
-                  >
-                    Profile (web)
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     disabled={action.pending}

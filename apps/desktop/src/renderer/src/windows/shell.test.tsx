@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import type { SearchHitSnapshot, MeetingNoteSummary } from '@oat/core/bridge';
 import { OatApiError, type OatTransport } from '@oat/client';
+import { ThemeProvider } from '@oat/settings-ui';
+import { THEME_STORAGE_KEY } from '@oat/settings-ui/theme';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -64,7 +66,11 @@ vi.mock('../meetings/meeting-view.tsx', () => ({
   ),
 }));
 vi.mock('../settings/settings-view.tsx', () => ({
-  SettingsView: () => <section data-testid="settings">Settings content</section>,
+  SettingsView: ({ initialSection, onClose }: { initialSection: string; onClose(): void }) => (
+    <section data-testid="settings" data-section={initialSection}>
+      Settings content<button onClick={onClose}>Back to notes</button>
+    </section>
+  ),
 }));
 vi.mock('../calendar/calendar-state.ts', () => ({
   useCalendar: () => null,
@@ -126,13 +132,38 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  localStorage.clear();
+  document.documentElement.classList.remove('dark');
   vi.unstubAllGlobals();
 });
 
 describe('desktop shell', () => {
+  it('uses the shared settings theme store from palette commands', async () => {
+    render(<MainWindow />, { wrapper: ThemeProvider });
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    await userEvent.type(screen.getByRole('combobox'), 'dark theme');
+    await userEvent.click(screen.getByRole('option', { name: 'Dark theme' }));
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+    await waitFor(() => expect(document.documentElement.classList.contains('dark')).toBe(true));
+  });
+
+  it('keeps in-app settings and feature navigation reachable together', async () => {
+    render(<MainWindow />, { wrapper: ThemeProvider });
+    await userEvent.click(screen.getByRole('button', { name: 'Assistant' }));
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    await userEvent.type(screen.getByRole('combobox'), 'settings');
+    await userEvent.click(screen.getByRole('option', { name: 'Settings' }));
+    expect(screen.getByTestId('settings').getAttribute('data-section')).toBe('preferences');
+    expect(screen.queryByTestId('chat-empty')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Back to notes' }));
+    expect(await screen.findByTestId('chat-empty')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'My tasks' }));
+    expect(await screen.findByRole('heading', { name: 'My tasks' })).toBeTruthy();
+  });
+
   it('keeps recording controls available while browsing shared feature views', async () => {
     model.recording.status = 'recording';
-    render(<MainWindow />);
+    render(<MainWindow />, { wrapper: ThemeProvider });
     await userEvent.click(screen.getByRole('button', { name: 'Assistant' }));
     expect(await screen.findByRole('button', { name: 'Stop recording' })).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'My tasks' }));
@@ -141,7 +172,7 @@ describe('desktop shell', () => {
 
   it('uses the account email when the desktop display name is absent', async () => {
     model.user.name = null;
-    render(<MainWindow />);
+    render(<MainWindow />, { wrapper: ThemeProvider });
     await userEvent.click(screen.getByRole('button', { name: 'Assistant' }));
     expect(await screen.findByText('Ask across your meetings')).toBeTruthy();
     expect(screen.getByTestId('workspace-switcher').textContent).toContain('alex@example.test');
@@ -149,14 +180,14 @@ describe('desktop shell', () => {
 
   it('asks for a workspace before loading feature data while workspaces are unavailable', async () => {
     model.workspacesReady = false;
-    render(<MainWindow />);
+    render(<MainWindow />, { wrapper: ThemeProvider });
     await userEvent.click(screen.getByRole('button', { name: 'My tasks' }));
     expect(await screen.findByText('Choose a workspace to continue.')).toBeTruthy();
     expect(model.apiTransport).not.toHaveBeenCalled();
   });
 
   it('switches sidebar items to the shared Assistant and My tasks views', async () => {
-    render(<MainWindow />);
+    render(<MainWindow />, { wrapper: ThemeProvider });
     await userEvent.click(screen.getByRole('button', { name: 'Assistant' }));
     expect(await screen.findByText('Ask across your meetings')).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'My tasks' }));
@@ -167,7 +198,7 @@ describe('desktop shell', () => {
   });
 
   it('opens full results from the shared palette with local query state', async () => {
-    render(<MainWindow />);
+    render(<MainWindow />, { wrapper: ThemeProvider });
     fireEvent.keyDown(window, { key: 'k', metaKey: true });
     await userEvent.type(screen.getByRole('combobox'), 'project');
     await userEvent.click(await screen.findByText('Search all results for “project”'));
@@ -203,7 +234,7 @@ describe('desktop shell', () => {
         json: async () => null,
       };
     });
-    render(<MainWindow />);
+    render(<MainWindow />, { wrapper: ThemeProvider });
     await userEvent.click(screen.getByRole('button', { name: 'Assistant' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Ask the assistant' }), {
       target: { value: 'Hello' },
@@ -219,7 +250,7 @@ describe('desktop shell', () => {
   });
 
   it('keeps new meeting recording behavior for click and shortcut', async () => {
-    render(<MainWindow />);
+    render(<MainWindow />, { wrapper: ThemeProvider });
     const button = screen.getByTestId('new-meeting');
     expect(button.className).not.toContain('rounded-full');
     expect(button.closest('header')).not.toBeNull();
@@ -238,7 +269,7 @@ describe('desktop shell', () => {
   });
 
   it('opens the shared palette with Command-K and handles an offline empty result', async () => {
-    render(<MainWindow />);
+    render(<MainWindow />, { wrapper: ThemeProvider });
     const button = screen.getByRole('button', { name: 'Search' });
     expect(
       button.parentElement?.querySelector('[data-sidebar="menu-badge"] kbd')?.textContent,
@@ -254,7 +285,7 @@ describe('desktop shell', () => {
   it.each(['metaKey', 'ctrlKey'] as const)(
     'lets editor link handling consume %s+K before global search',
     (modifier) => {
-      render(<MainWindow />);
+      render(<MainWindow />, { wrapper: ThemeProvider });
       const editor = document.createElement('div');
       editor.contentEditable = 'true';
       screen.getByTestId('meeting-content').append(editor);
@@ -315,7 +346,7 @@ describe('desktop shell', () => {
         createdAt: '2026-11-20T00:00:00Z',
       },
     ];
-    render(<MainWindow />);
+    render(<MainWindow />, { wrapper: ThemeProvider });
     await userEvent.click(screen.getByRole('button', { name: 'Search' }));
     await userEvent.type(screen.getByRole('combobox'), 'project');
     const pageHit = await screen.findByText('Project page');
@@ -333,7 +364,7 @@ describe('desktop shell', () => {
   });
 
   it('exposes workspace and account actions through one footer menu', async () => {
-    render(<MainWindow />);
+    render(<MainWindow />, { wrapper: ThemeProvider });
     for (const [name, channel] of [
       ['Show meeting widget', 'window:open-widget'],
       ['Check connection', 'api:me'],
@@ -350,7 +381,7 @@ describe('desktop shell', () => {
   });
 
   it('surfaces a failed account action', async () => {
-    render(<MainWindow />);
+    render(<MainWindow />, { wrapper: ThemeProvider });
     model.invoke.mockRejectedValueOnce(new Error('offline'));
     await userEvent.click(screen.getByTestId('workspace-switcher'));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Check connection' }));
@@ -358,7 +389,7 @@ describe('desktop shell', () => {
   });
 
   it('keeps the header borderless and the sync and settings controls in the footer', async () => {
-    render(<MainWindow />);
+    render(<MainWindow />, { wrapper: ThemeProvider });
     const header = screen.getByTestId('new-meeting').closest('header')!;
     expect(header.className).not.toContain('border-b');
     expect(document.querySelector('[data-slot="sidebar"] .app-drag')?.className).not.toContain(
@@ -373,7 +404,7 @@ describe('desktop shell', () => {
   });
 
   it('keeps new meeting pending and reports a failure from the header', async () => {
-    render(<MainWindow />);
+    render(<MainWindow />, { wrapper: ThemeProvider });
     let reject!: (error: Error) => void;
     model.invoke.mockImplementation((channel: string) =>
       channel === 'recording:start'
@@ -397,7 +428,7 @@ describe('desktop shell', () => {
 
   it('keeps account actions available before workspaces load', async () => {
     model.workspacesReady = false;
-    render(<MainWindow />);
+    render(<MainWindow />, { wrapper: ThemeProvider });
     expect(screen.getByTestId('workspace-switcher').textContent).toContain('Alex');
     await userEvent.click(screen.getByTestId('workspace-switcher'));
     expect(

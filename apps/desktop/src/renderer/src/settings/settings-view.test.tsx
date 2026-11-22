@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { ThemeProvider } from '@oat/settings-ui';
+import { TooltipProvider } from '@oat/ui/components/tooltip';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,7 +10,39 @@ import { SettingsView } from './settings-view.tsx';
 const model = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock('../bridge.ts', () => ({
   call: model.invoke,
-  bridge: () => ({ subscribe: () => () => {} }),
+  bridge: () => ({
+    subscribe: () => () => {},
+    invoke: async (channel: string, input: { path: string }) => {
+      if (channel !== 'api:request') throw new Error(channel);
+      const body =
+        input.path === '/api/profile'
+          ? {
+              name: 'Ada',
+              email: 'ada@example.test',
+              role: '',
+              team: '',
+              about: '',
+              vocabulary: [],
+              updatedAt: null,
+            }
+          : input.path === '/api/workspaces/team'
+            ? {
+                workspace: { id: 'team', name: 'Design', slug: 'design', icon: null },
+                members: [],
+                invites: [],
+                joinRequests: [],
+                inviteRoles: [],
+                approveRoles: [],
+                role: 'owner',
+                canManage: false,
+                canLeave: true,
+                canDelete: true,
+                restoreDays: 30,
+              }
+            : {};
+      return { ok: true, value: { status: 200, body } };
+    },
+  }),
   BridgeCallError: class extends Error {},
 }));
 vi.mock('../onboarding/onboarding-state.ts', () => ({ usePermissions: () => null }));
@@ -49,10 +83,33 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+type SettingsProps = Partial<Parameters<typeof SettingsView>[0]>;
+
+function show(overrides: SettingsProps = {}) {
+  const view = (updates: SettingsProps = {}) => (
+    <TooltipProvider>
+      <ThemeProvider>
+        <SettingsView
+          initialSection="preferences"
+          workspace={{ id: 'team', name: 'Design' }}
+          recordingActive={false}
+          onClose={vi.fn()}
+          onOpenSetup={vi.fn()}
+          onWorkspaceExited={vi.fn()}
+          {...overrides}
+          {...updates}
+        />
+      </ThemeProvider>
+    </TooltipProvider>
+  );
+  const rendered = render(view());
+  return { update: (updates: SettingsProps) => rendered.rerender(view(updates)) };
+}
+
 describe('grouped desktop settings', () => {
   it('keeps native settings mounted across section navigation, including empty storage', async () => {
-    render(<SettingsView onClose={vi.fn()} onOpenSetup={vi.fn()} />);
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Preferences');
+    show();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Appearance');
     expect(screen.getByRole('navigation', { name: 'Settings sections' }).textContent).toContain(
       'Account',
     );
@@ -80,7 +137,8 @@ describe('grouped desktop settings', () => {
   it('preserves setup and Escape/Back actions', async () => {
     const close = vi.fn();
     const setup = vi.fn();
-    render(<SettingsView onClose={close} onOpenSetup={setup} />);
+    show({ onClose: close, onOpenSetup: setup });
+    await userEvent.click(screen.getByTestId('settings-section-setup'));
     expect(screen.getByTestId('setup-settings').querySelector('[aria-busy]')).toBeTruthy();
     await userEvent.click(screen.getByTestId('open-setup'));
     expect(setup).toHaveBeenCalledOnce();
@@ -91,34 +149,47 @@ describe('grouped desktop settings', () => {
   });
 
   it('offers General and Members for every workspace (D-36: one kind)', async () => {
-    render(<SettingsView onClose={vi.fn()} onOpenSetup={vi.fn()} />);
+    show();
     await screen.findByTestId('autostop-enabled');
-    expect(screen.getByRole('button', { name: 'General (opens in browser)' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Members (opens in browser)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'General' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Members' })).toBeTruthy();
   });
 
-  it('deep-links web-managed account/workspace settings and reports an open failure', async () => {
-    render(<SettingsView onClose={vi.fn()} onOpenSetup={vi.fn()} />);
-    await screen.findByTestId('autostop-enabled');
-    for (const [label, section] of [
-      ['Profile', 'profile'],
-      ['Integrations', 'integrations'],
-      ['General', 'workspace'],
-      ['Members', 'members'],
-    ]) {
-      await userEvent.click(screen.getByRole('button', { name: `${label} (opens in browser)` }));
-      await waitFor(() =>
-        expect(model.invoke).toHaveBeenCalledWith('settings:open-web', { section }),
-      );
-    }
-    model.invoke.mockRejectedValueOnce(new Error('browser unavailable'));
-    await userEvent.click(screen.getByRole('button', { name: 'General (opens in browser)' }));
-    expect(await screen.findByText('Something went wrong.')).toBeTruthy();
+  it('renders profile and workspace panels natively and supports starting on Members', async () => {
+    show({ initialSection: 'members' });
+    expect(await screen.findByRole('heading', { name: 'Members', level: 1 })).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Profile' }));
+    expect(((await screen.findByLabelText('Name')) as HTMLInputElement).value).toBe('Ada');
+    await userEvent.click(screen.getByRole('button', { name: 'General' }));
+    expect(await screen.findByRole('heading', { name: 'Danger zone' })).toBeTruthy();
+  });
+
+  it('blocks workspace leave and delete while recording, including an already open dialog', async () => {
+    const { update } = show({ initialSection: 'workspace', recordingActive: true });
+    const leave = (await screen.findByRole('button', {
+      name: 'Leave workspace',
+    })) as HTMLButtonElement;
+    const remove = screen.getByTestId<HTMLButtonElement>('delete-workspace');
+    expect(leave.disabled).toBe(true);
+    expect(remove.disabled).toBe(true);
+    expect(
+      screen.getAllByText('Stop recording before leaving or deleting a workspace.'),
+    ).toHaveLength(2);
+
+    update({ recordingActive: false });
+    expect(leave.disabled).toBe(false);
+    expect(remove.disabled).toBe(false);
+    await userEvent.click(remove);
+    await userEvent.type(screen.getByLabelText(/type Design to confirm/i), 'Design');
+    const submit = screen.getByRole('button', { name: 'Delete workspace' }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(false);
+    update({ recordingActive: true });
+    expect(submit.disabled).toBe(true);
   });
 
   it('retains storage and recording load errors in their sections', async () => {
     model.invoke.mockRejectedValue(new Error('offline'));
-    render(<SettingsView onClose={vi.fn()} onOpenSetup={vi.fn()} />);
+    show();
     await userEvent.click(screen.getByTestId('settings-section-recording'));
     expect(await screen.findByText('Couldn’t load the recording settings.')).toBeTruthy();
     await userEvent.click(screen.getByTestId('settings-section-storage'));

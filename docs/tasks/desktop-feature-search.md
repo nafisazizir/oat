@@ -9,7 +9,7 @@ Extract shared search, Tasks and assistant interfaces into @oat/feature-ui for w
 SPEC §4 search; DECISIONS D-37/D-38; packages/client/README.md; Ziiz consumer skill and Claude search-dialog reference.
 
 ## Scope
-Steps 1–5: shared search, Tasks and assistant, web integration, desktop wiring and runtime/accessibility/screenshot verification. Local conventional commits permitted for steps 1–4 after checks; step 5 remains uncommitted. No pushes.
+Steps 1–5: shared search, Tasks and assistant, web integration, desktop wiring and runtime/accessibility/screenshot verification. Local conventional implementation/verification commits and integration merges permitted after checks. No pushes.
 
 ## Design notes
 - FeatureUiProvider owns a typed client/transport, navigation and optional real hrefs, notifications,
@@ -303,3 +303,63 @@ chunks above 500 kB. Neither blocks the checks. Full logs: /home/ubuntu/feature-
 /home/ubuntu/feature-ui-step5-ui.log, /home/ubuntu/feature-ui-step5-web-unit.log,
 /home/ubuntu/feature-ui-step5-desktop-test.log, /home/ubuntu/feature-ui-step5-desktop-build.log and
 /home/ubuntu/feature-ui-desktop-screens.log. No step-5 commit or push.
+
+## Integration merge — PR #24 settings parity
+
+STEP 5 committed locally as `19ad04d`. Fetched origin and merged
+`origin/devin/1795304500-parity-integration` at `0f9060e` (PR #24).
+
+- Kept the incoming @oat/settings-ui panels, settings section routing, workspace-exit cleanup,
+  export/connect IPC and shared ThemeProvider/root Toaster. Dropped our feature-provider Toaster.
+- Kept Assistant/My tasks sidebar entries, shared palette/full results, cached document routing
+  and recording controls while Settings or a feature view is open.
+- Palette Settings opens the default preferences section. Back returns to the prior feature view;
+  exiting a workspace clears both selected meeting and feature view.
+- Palette theme commands now use the incoming shared theme store (oat-theme), not the removed
+  desktop-only helper/store. Deleted its dead helper/test and added shell regressions for shared
+  theme updates and Settings/Assistant/Tasks navigation.
+- Kept both stylesheet sources and all dependency/lockfile additions. Retained both PLAN entries
+  and both LOG histories; DECISIONS.md is identical to the incoming branch (no decision conflict).
+  Confirmed settings:open-web is absent from active desktop/core bridge code.
+- Refreshed the scratch bridge for oat-theme, settings environment data, settings:connect and
+  settings:export-notes. Runtime capture checks a single notification region and theme changes in
+  both directions between Settings and the command palette. Browser console/page errors: [].
+- Re-shot all 10 desktop feature screenshots under /home/ubuntu/screens with the merged build;
+  added desktop-settings-light.png and desktop-settings-dark.png. No screenshots or scratch code
+  are tracked. Native Electron/OS bridge verification is still outside this Linux fixture check.
+
+```text
+pnpm --filter @oat/desktop typecheck
+> tsc
+
+pnpm --filter @oat/desktop lint
+> eslint .
+
+pnpm --filter @oat/desktop test
+ Test Files  60 passed (60)
+      Tests  510 passed (510)
+
+pnpm --filter @oat/feature-ui test
+ Test Files  8 passed (8)
+      Tests  94 passed (94)
+
+pnpm run ci --fast
+step        status     time  note
+format      pass      23.1s
+actionlint  pass       0.4s
+typecheck   pass      45.9s
+lint        pass      13.7s
+test        pass      46.2s
+total                129.3s
+
+ci: ok
+
+pnpm --filter @oat/desktop build
+✓ built in 1.25s
+
+node /home/ubuntu/feature-ui-scratch/desktop.mjs
+Desktop renderer screenshots complete. Console/page errors: []
+```
+
+Logs: /home/ubuntu/feature-ui-merge-{desktop,shared,ci,build,screens}.log.
+Build retains the chunk-size advisory; no failing checks. Local merge commit requested; no push.

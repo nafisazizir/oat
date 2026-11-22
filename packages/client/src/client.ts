@@ -59,6 +59,7 @@ import type {
 } from '@oat/services/dto/chat';
 import type { SearchQuery, SearchResponse } from '@oat/services/dto/search';
 import type { ProfileDto, ProfileInput } from '@oat/services/dto/profile';
+import type { SettingsEnvironment } from '@oat/services/dto/settings';
 import type {
   PipelineRunResponse,
   PipelineSettingsDto,
@@ -323,6 +324,9 @@ export function createOatClient(transport: OatTransport) {
       ),
     },
     search: endpoint<SearchResponse>()('GET', '/api/search', queryInput<SearchQuery>),
+    settings: {
+      environment: endpoint<SettingsEnvironment>()('GET', '/api/settings/environment', noInput),
+    },
     profile: {
       get: endpoint<ProfileDto>()('GET', '/api/profile', noInput),
       update: endpoint<ProfileDto>()('PUT', '/api/profile', bodyInput<ProfileInput>),

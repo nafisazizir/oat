@@ -1,5 +1,6 @@
 import { SearchDialog, type SearchCommandGroup } from '@oat/feature-ui/search';
 import { useFeatureUi } from '@oat/feature-ui';
+import { useTheme } from '@oat/settings-ui';
 import {
   IconSettings,
   IconHome,
@@ -10,7 +11,6 @@ import {
   IconMoon,
   IconDeviceDesktop,
 } from '@tabler/icons-react';
-import { setDesktopTheme } from '../theme.ts';
 
 export type DesktopSearchActions = {
   onHome(): void;
@@ -28,6 +28,7 @@ export function FeatureSearch({
   canStart,
 }: DesktopSearchActions & { open: boolean; onOpenChange(open: boolean): void }) {
   const { navigate } = useFeatureUi();
+  const { setTheme } = useTheme();
   const commandGroups: SearchCommandGroup[] = [
     {
       heading: 'Navigate',
@@ -66,19 +67,19 @@ export function FeatureSearch({
           value: 'theme-light',
           text: 'Light theme',
           icon: <IconSun />,
-          onSelect: () => setDesktopTheme('light'),
+          onSelect: () => setTheme('light'),
         },
         {
           value: 'theme-dark',
           text: 'Dark theme',
           icon: <IconMoon />,
-          onSelect: () => setDesktopTheme('dark'),
+          onSelect: () => setTheme('dark'),
         },
         {
           value: 'theme-system',
           text: 'System theme',
           icon: <IconDeviceDesktop />,
-          onSelect: () => setDesktopTheme('system'),
+          onSelect: () => setTheme('system'),
         },
       ],
     },

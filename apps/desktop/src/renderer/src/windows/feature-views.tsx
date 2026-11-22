@@ -3,7 +3,6 @@ import { FeatureUiProvider, useFeatureUi, type AppTarget } from '@oat/feature-ui
 import { AssistantChat } from '@oat/feature-ui/assistant';
 import { SearchView, serverSearchSource } from '@oat/feature-ui/search';
 import { TasksView, type TaskFilters } from '@oat/feature-ui/tasks';
-import { Toaster } from '@oat/ui/components/sonner';
 import { SidebarMenuItem, SidebarMenuButton } from '@oat/ui/components/sidebar';
 import { IconSparkles, IconChecklist } from '@tabler/icons-react';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
@@ -104,12 +103,7 @@ export function DesktopFeatureProvider({
     }),
     [workspaceId, user, navigate, sources],
   );
-  return (
-    <FeatureUiProvider value={value}>
-      {children}
-      <Toaster />
-    </FeatureUiProvider>
-  );
+  return <FeatureUiProvider value={value}>{children}</FeatureUiProvider>;
 }
 
 export function FeatureViews({ view, workspaceId }: { view: FeatureView; workspaceId: string }) {
