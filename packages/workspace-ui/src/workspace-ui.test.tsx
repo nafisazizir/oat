@@ -104,6 +104,21 @@ function setup(
 }
 
 describe('shared workspace shell', () => {
+  it('delegates cached offline switching to the host instead of REST', async () => {
+    const switchWorkspace = vi.fn().mockResolvedValue(undefined);
+    const { user, host } = setup(
+      { ...data, workspaces: [workspace, { ...workspace, id: 'cached', name: 'Cached' }] },
+      false,
+      'desktop',
+      { online: false, switchWorkspace },
+    );
+    const remote = vi.spyOn(host.client.workspaces, 'switchActive');
+    await user.click(screen.getByTestId('workspace-switcher'));
+    await user.click(await screen.findByRole('menuitem', { name: /Cached/ }));
+    expect(switchWorkspace).toHaveBeenCalledWith('cached');
+    expect(remote).not.toHaveBeenCalled();
+    expect(host.refresh).toHaveBeenCalled();
+  });
   it.each([4, 0, null])('exports desktop notes through the host (count %s)', async (count) => {
     const exportNotes = vi.fn().mockResolvedValue(count);
     const { user, host } = setup(

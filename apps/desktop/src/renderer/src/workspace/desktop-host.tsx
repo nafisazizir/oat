@@ -12,6 +12,7 @@ import { SidebarProvider } from '@oat/ui/components/sidebar';
 import { call } from '../bridge';
 import { api } from '../lib/api';
 import { useDesktopShellData } from './use-desktop-shell-data';
+import { switchDesktopWorkspace } from './switch-workspace';
 
 const MeetingLinks = createContext<{
   notes: readonly MeetingNoteSummary[] | null;
@@ -71,6 +72,7 @@ export function DesktopWorkspaceHost({
   children,
   recordingMeetingId,
   recordingActive = false,
+  setActiveWorkspace,
 }: {
   user: DesktopUser;
   notes: readonly MeetingNoteSummary[] | null;
@@ -81,6 +83,7 @@ export function DesktopWorkspaceHost({
   children: ReactNode;
   recordingMeetingId: string | null;
   recordingActive?: boolean;
+  setActiveWorkspace: (workspaceId: string) => Promise<void>;
 }) {
   const shell = useDesktopShellData(user, notes, snapshot, lastSyncedAt);
   const host = useMemo<WorkspaceHost>(
@@ -92,6 +95,8 @@ export function DesktopWorkspaceHost({
       hrefOf,
       refresh: shell.refresh,
       online: shell.online,
+      switchWorkspace: (workspaceId) =>
+        switchDesktopWorkspace(workspaceId, shell.online, setActiveWorkspace),
       appOrigin: shell.appOrigin,
       Link: DesktopLink,
       exportNotes: async (workspaceId) =>
@@ -100,7 +105,15 @@ export function DesktopWorkspaceHost({
         ? 'Stop recording before leaving or deleting a workspace.'
         : undefined,
     }),
-    [route, navigate, shell.refresh, shell.online, shell.appOrigin, recordingActive],
+    [
+      route,
+      navigate,
+      shell.refresh,
+      shell.online,
+      shell.appOrigin,
+      recordingActive,
+      setActiveWorkspace,
+    ],
   );
   return (
     <MeetingLinks.Provider value={{ notes, recordingMeetingId }}>
