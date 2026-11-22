@@ -10,7 +10,7 @@ import {
   AuthTitle,
 } from '@oat/ui/components/auth-layout';
 import { Button } from '@oat/ui/components/button';
-import { useEffect, useState } from 'react';
+import { type ReactElement, useEffect, useState } from 'react';
 import { JoinChoiceList, joinChoices } from './join-choices';
 
 export type JoinSnapshot = { member: boolean; choices: JoinChoices };
@@ -28,11 +28,13 @@ export function JoinWorkspace({
   email,
   initial,
   onHome,
+  homeLink,
 }: {
   client: OatClient;
   email: string;
   initial?: JoinSnapshot;
   onHome(joined?: boolean): void | Promise<void>;
+  homeLink?: ReactElement;
 }) {
   const [snapshot, setSnapshot] = useState(initial);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +111,7 @@ export function JoinWorkspace({
               client={client}
               onHome={onHome}
               onRefresh={refresh}
+              homeLink={homeLink}
             />
           )
         )}

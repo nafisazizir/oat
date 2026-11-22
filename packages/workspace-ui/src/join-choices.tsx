@@ -14,7 +14,7 @@ import {
 import { Spinner } from '@oat/ui/components/spinner';
 import type { OatClient } from '@oat/client';
 import type { JoinChoices } from '@oat/services/dto/workspaces';
-import { useState, useTransition } from 'react';
+import { type ReactElement, useState, useTransition } from 'react';
 
 import { ROLE_INFO, workspaceIcon } from '@oat/settings-ui/workspace';
 
@@ -67,6 +67,7 @@ export function JoinChoiceList({
   client,
   onHome,
   onRefresh,
+  homeLink,
 }: {
   choices: JoinChoice[];
   client: OatClient;
@@ -74,6 +75,8 @@ export function JoinChoiceList({
   onRefresh(): void | Promise<void>;
   /** They already have a workspace (they came from the workspace menu): offer the way back instead. */
   member?: boolean;
+  /** A host link element for "Back to Oat" (web renders a real link to /home). */
+  homeLink?: ReactElement;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -203,7 +206,18 @@ export function JoinChoiceList({
       </ItemGroup>
 
       <div className="flex flex-col gap-3">
-        {member ? (
+        {member && homeLink ? (
+          <Button
+            size="lg"
+            variant="ghost"
+            className="w-full"
+            nativeButton={false}
+            role="link"
+            render={homeLink}
+          >
+            Back to Oat
+          </Button>
+        ) : member ? (
           <Button
             size="lg"
             variant="ghost"
