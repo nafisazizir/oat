@@ -19,12 +19,14 @@ const refreshWorkspace = () => {
 export function SettingsView({
   initialSection,
   workspace,
+  recordingActive,
   onClose,
   onOpenSetup,
   onWorkspaceExited,
 }: {
   initialSection: SettingsSectionId;
   workspace: { id: string; name: string } | null;
+  recordingActive: boolean;
   onClose: () => void;
   onOpenSetup: () => void;
   onWorkspaceExited: () => void;
@@ -80,6 +82,7 @@ export function SettingsView({
               services={{
                 client: api,
                 workspaceId: workspace?.id ?? '',
+                recordingActive,
                 exportNotes: async (workspaceId) =>
                   (await call('settings:export-notes', { workspaceId }))?.count ?? null,
                 connect: (provider, workspaceId) =>

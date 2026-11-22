@@ -51,11 +51,13 @@ function Row({
 function DeleteWorkspaceDialog({
   workspace,
   restoreDays,
+  blockedReason,
   open,
   onOpenChange,
 }: {
   workspace: { id: string; name: string };
   restoreDays: number;
+  blockedReason: string | undefined;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -82,7 +84,7 @@ function DeleteWorkspaceDialog({
           className="contents"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!matches) return;
+            if (!matches || pending || blockedReason) return;
             startTransition(async () => {
               const result = await run(
                 () => client.workspaces.delete(workspace.id, { confirmName: confirm }),
@@ -96,8 +98,8 @@ function DeleteWorkspaceDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {workspace.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              It disappears for every member right away, with all of its notes. It can be restored
-              for {restoreDays} days.
+              {blockedReason ??
+                `It disappears for every member right away, with all of its notes. It can be restored for ${restoreDays} days.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <Field>
@@ -122,7 +124,11 @@ function DeleteWorkspaceDialog({
           )}
           <AlertDialogFooter>
             <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
-            <Button type="submit" variant="destructive" disabled={!matches || pending}>
+            <Button
+              type="submit"
+              variant="destructive"
+              disabled={!matches || pending || Boolean(blockedReason)}
+            >
               {pending && <Spinner data-icon="inline-start" />}
               Delete workspace
             </Button>
@@ -154,7 +160,10 @@ export function WorkspaceDangerZone({
   lastWorkspace: boolean;
   restoreDays: number;
 }) {
-  const { client, exportNotes, onWorkspaceExited } = useSettings();
+  const { client, exportNotes, onWorkspaceExited, recordingActive } = useSettings();
+  const blockedReason = recordingActive
+    ? 'Stop recording before leaving or deleting a workspace.'
+    : undefined;
   const run = useWorkspaceAction();
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -166,7 +175,7 @@ export function WorkspaceDangerZone({
           title="Leave workspace"
           description={
             canLeave
-              ? 'You’ll lose access to its shared notes.'
+              ? (blockedReason ?? 'You’ll lose access to its shared notes.')
               : lastWorkspace
                 ? LAST_WORKSPACE
                 : 'You’re the only owner. Make someone else an owner before you leave.'
@@ -175,7 +184,7 @@ export function WorkspaceDangerZone({
           <Button
             variant="ghost"
             className="text-red-900 hover:bg-red-100 hover:text-red-1000"
-            disabled={!canLeave}
+            disabled={!canLeave || Boolean(blockedReason)}
             onClick={() => setLeaveOpen(true)}
           >
             Leave workspace
@@ -186,14 +195,14 @@ export function WorkspaceDangerZone({
             title="Delete workspace"
             description={
               canDelete
-                ? `Removes it for everyone. Restorable for ${restoreDays} days.`
+                ? (blockedReason ?? `Removes it for everyone. Restorable for ${restoreDays} days.`)
                 : LAST_WORKSPACE
             }
           >
             <Button
               variant="ghost"
               className="text-red-900 hover:bg-red-100 hover:text-red-1000"
-              disabled={!canDelete}
+              disabled={!canDelete || Boolean(blockedReason)}
               data-testid="delete-workspace"
               onClick={() => setDeleteOpen(true)}
             >
@@ -205,6 +214,7 @@ export function WorkspaceDangerZone({
       <LeaveWorkspaceDialog
         workspace={workspace}
         open={leaveOpen}
+        blockedReason={blockedReason}
         onOpenChange={setLeaveOpen}
         download={() => exportNotes(workspace.id)}
         onLeave={async () => {
@@ -217,6 +227,7 @@ export function WorkspaceDangerZone({
         <DeleteWorkspaceDialog
           workspace={workspace}
           restoreDays={restoreDays}
+          blockedReason={blockedReason}
           open={deleteOpen}
           onOpenChange={setDeleteOpen}
         />

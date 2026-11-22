@@ -6,6 +6,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 export interface SettingsServices {
   client: OatClient;
   workspaceId: string;
+  recordingActive?: boolean;
   exportNotes: (id: string) => Promise<number | null>;
   connect: (provider: 'notion' | 'google-calendar', workspaceId: string) => Promise<void>;
   onProfileChanged?: () => void;

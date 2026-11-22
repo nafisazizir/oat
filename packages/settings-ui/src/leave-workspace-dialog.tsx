@@ -29,12 +29,14 @@ const EXPORT_FAILED = 'Couldn’t export your notes. Nothing was downloaded — 
 export function LeaveWorkspaceDialog({
   workspace,
   open,
+  blockedReason,
   onOpenChange,
   onLeave,
   download,
 }: {
   workspace: { id: string; name: string };
   open: boolean;
+  blockedReason?: string;
   onOpenChange: (open: boolean) => void;
   onLeave: () => Promise<{ ok: true } | { ok: false; error: string }>;
   download: () => Promise<number | null>;
@@ -83,9 +85,8 @@ export function LeaveWorkspaceDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Leave {workspace.name}?</AlertDialogTitle>
           <AlertDialogDescription>
-            You’ll lose access to everything in {workspace.name}, including your private notes. They
-            stay behind in the workspace, where nobody else can read them, and you won’t be able to
-            open them again.
+            {blockedReason ??
+              `You’ll lose access to everything in ${workspace.name}, including your private notes. They stay behind in the workspace, where nobody else can read them, and you won’t be able to open them again.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="flex flex-col items-start gap-3" data-testid="leave-export">
@@ -129,7 +130,7 @@ export function LeaveWorkspaceDialog({
           <Button
             type="button"
             variant="destructive"
-            disabled={pending}
+            disabled={pending || Boolean(blockedReason)}
             onClick={() =>
               startTransition(async () => {
                 const result = await onLeave();

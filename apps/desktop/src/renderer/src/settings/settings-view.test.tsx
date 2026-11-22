@@ -33,9 +33,10 @@ vi.mock('../bridge.ts', () => ({
                 joinRequests: [],
                 inviteRoles: [],
                 approveRoles: [],
-                role: 'member',
+                role: 'owner',
                 canManage: false,
                 canLeave: true,
+                canDelete: true,
                 restoreDays: 30,
               }
             : {};
@@ -82,21 +83,27 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function show(overrides: Partial<Parameters<typeof SettingsView>[0]> = {}) {
-  return render(
+type SettingsProps = Partial<Parameters<typeof SettingsView>[0]>;
+
+function show(overrides: SettingsProps = {}) {
+  const view = (updates: SettingsProps = {}) => (
     <TooltipProvider>
       <ThemeProvider>
         <SettingsView
           initialSection="preferences"
           workspace={{ id: 'team', name: 'Design' }}
+          recordingActive={false}
           onClose={vi.fn()}
           onOpenSetup={vi.fn()}
           onWorkspaceExited={vi.fn()}
           {...overrides}
+          {...updates}
         />
       </ThemeProvider>
-    </TooltipProvider>,
+    </TooltipProvider>
   );
+  const rendered = render(view());
+  return { update: (updates: SettingsProps) => rendered.rerender(view(updates)) };
 }
 
 describe('grouped desktop settings', () => {
@@ -155,6 +162,29 @@ describe('grouped desktop settings', () => {
     expect(((await screen.findByLabelText('Name')) as HTMLInputElement).value).toBe('Ada');
     await userEvent.click(screen.getByRole('button', { name: 'General' }));
     expect(await screen.findByRole('heading', { name: 'Danger zone' })).toBeTruthy();
+  });
+
+  it('blocks workspace leave and delete while recording, including an already open dialog', async () => {
+    const { update } = show({ initialSection: 'workspace', recordingActive: true });
+    const leave = (await screen.findByRole('button', {
+      name: 'Leave workspace',
+    })) as HTMLButtonElement;
+    const remove = screen.getByTestId<HTMLButtonElement>('delete-workspace');
+    expect(leave.disabled).toBe(true);
+    expect(remove.disabled).toBe(true);
+    expect(
+      screen.getAllByText('Stop recording before leaving or deleting a workspace.'),
+    ).toHaveLength(2);
+
+    update({ recordingActive: false });
+    expect(leave.disabled).toBe(false);
+    expect(remove.disabled).toBe(false);
+    await userEvent.click(remove);
+    await userEvent.type(screen.getByLabelText(/type Design to confirm/i), 'Design');
+    const submit = screen.getByRole('button', { name: 'Delete workspace' }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(false);
+    update({ recordingActive: true });
+    expect(submit.disabled).toBe(true);
   });
 
   it('retains storage and recording load errors in their sections', async () => {

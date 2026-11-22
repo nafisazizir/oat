@@ -502,6 +502,7 @@ function SignedInShell({
                 key={settingsSection}
                 initialSection={settingsSection}
                 workspace={activeWorkspace}
+                recordingActive={recording || recordingStatus === 'stopping'}
                 onClose={() => setSettingsOpen(false)}
                 onOpenSetup={() => setSetupOpen(true)}
                 onWorkspaceExited={() => {
