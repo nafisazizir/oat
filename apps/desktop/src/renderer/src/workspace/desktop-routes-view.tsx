@@ -172,7 +172,7 @@ function DocumentRoute({
     return () => {
       active = false;
     };
-  }, [id, folder, shell.workspace.id, host.online]);
+  }, [id, folder, shell.workspace.id, shell.documents, shell.trash, host.online]);
   if (!host.online && (!data || folder)) return <OfflineWorkspaceView />;
   if (error)
     return (

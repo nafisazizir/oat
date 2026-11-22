@@ -42,7 +42,7 @@ const model = vi.hoisted(() => {
       title: 'Project page',
       visibility: 'private',
       version: 1,
-      deletedAt: null,
+      deletedAt: null as string | null,
       createdAt: '2026-11-20T00:00:00.000Z',
       updatedAt: '2026-11-20T00:00:00.000Z',
       access: { edit: true, delete: true },
@@ -185,7 +185,18 @@ beforeEach(() => {
           workspaces: [{ ...model.snapshot.workspaces[0], memberCount: 1 }],
         };
       if (request?.path === '/api/workspaces/joinable') body = { invites: [], workspaces: [] };
-      if (request?.path === '/api/documents' && !request.query?.trash) body = [model.page];
+      if (request?.path === '/api/documents')
+        body = Boolean(request.query?.trash) === Boolean(model.page.deletedAt) ? [model.page] : [];
+      if (request?.path === '/api/documents/page' && request.method === 'DELETE')
+        model.page = {
+          ...model.page,
+          deletedAt: '2026-11-22T00:00:00.000Z',
+          version: model.page.version + 1,
+        };
+      if (request?.path === '/api/documents/page/restore') {
+        model.page = { ...model.page, deletedAt: null, version: model.page.version + 1 };
+        body = model.page;
+      }
       if (request?.path === '/api/documents/page') body = model.page;
       return { status: 200, body };
     }
@@ -439,6 +450,21 @@ describe('desktop shell', () => {
     expect(await screen.findByRole('heading', { name: 'Page unavailable' })).toBeTruthy();
     expect(screen.getByText('Page not found')).toBeTruthy();
     expect(screen.queryByRole('heading', { name: 'You’re offline' })).toBeNull();
+  });
+
+  it('refreshes an open page after trash and restore without remounting its editor', async () => {
+    render(<MainWindow />);
+    await userEvent.click(await screen.findByRole('link', { name: 'Project page' }));
+    const title = (await screen.findByTestId('document-title')) as HTMLTextAreaElement;
+    expect(title.readOnly).toBe(false);
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Move to trash' }));
+    const banner = await screen.findByTestId('trash-banner');
+    expect(title.readOnly).toBe(true);
+    await userEvent.click(within(banner).getByRole('button', { name: 'Restore' }));
+    await waitFor(() => expect(title.readOnly).toBe(false));
+    expect(screen.queryByTestId('trash-banner')).toBeNull();
+    expect(screen.getByTestId('document-title')).toBe(title);
   });
 
   it('retains a loaded page and its unsaved title after a network save failure', async () => {
