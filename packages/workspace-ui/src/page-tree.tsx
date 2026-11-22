@@ -158,10 +158,10 @@ export function TreeSection({ area }: { area: Area }) {
   }, actions.canCreate);
 
   return (
-    <SidebarGroup className="group/tree-section" data-testid={`tree-section-${area}`}>
+    <SidebarGroup className="group/tree-section py-1" data-testid={`tree-section-${area}`}>
       <SidebarGroupLabel
         {...rootDrop.handlers}
-        className={cn('ps-8', rootDrop.over && 'bg-brand-100 text-brand-1000')}
+        className={cn(rootDrop.over && 'bg-brand-100 text-brand-1000')}
       >
         {label}
         <IconChevronRight className="ms-1 size-3.5 rotate-90" />

@@ -54,6 +54,12 @@ function WebSidebar() {
           </SidebarMenuItem>
         )
       }
+      footerExtra={
+        <p role="status" className="text-label-12 text-gray-900">
+          <span className="hidden in-data-[sync-live]:inline">Live sync connected</span>
+          <span className="in-data-[sync-live]:hidden">Reconnecting live sync…</span>
+        </p>
+      }
       accountItems={<AccountMenuItems />}
     />
   );

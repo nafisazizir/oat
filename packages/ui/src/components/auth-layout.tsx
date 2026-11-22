@@ -25,3 +25,13 @@ export function AuthContent({ className, ...props }: ComponentProps<'div'>) {
 export function AuthFooter({ className, ...props }: ComponentProps<'div'>) {
   return <div className={cn('flex flex-col gap-2', className)} {...props} />;
 }
+
+export function AuthDivider() {
+  return (
+    <div aria-hidden className="flex items-center gap-3 text-label-12 text-gray-900">
+      <span className="h-px flex-1 bg-gray-alpha-400" />
+      or
+      <span className="h-px flex-1 bg-gray-alpha-400" />
+    </div>
+  );
+}

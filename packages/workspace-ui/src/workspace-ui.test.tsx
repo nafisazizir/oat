@@ -118,6 +118,22 @@ describe('shared workspace shell', () => {
     expect(screen.getByTestId('open-trash')).toBeTruthy();
     await userEvent.click(screen.getByTestId('account-switcher'));
     expect(await screen.findByRole('menuitem', { name: /^Settings$/ })).toBeTruthy();
+    const menu = screen.getByRole('menu');
+    expect(menu.querySelector('strong')?.textContent).toBe('User');
+    expect(menu.textContent?.match(/user@test.com/g)).toHaveLength(1);
+    expect(
+      Array.from(menu.querySelectorAll('[role="menuitem"]'))
+        .slice(0, 2)
+        .map((item) => item.textContent),
+    ).toEqual(['Profile', 'Settings']);
+  });
+
+  it('shows an account name fallback when the profile has no distinct name', async () => {
+    setup({ ...data, user: { ...data.user, name: data.user.email } });
+    await userEvent.click(screen.getByTestId('account-switcher'));
+    const menu = await screen.findByRole('menu');
+    expect(menu.querySelector('strong')?.textContent).toBe('user');
+    expect(menu.textContent?.match(/user@test.com/g)).toHaveLength(1);
   });
 
   it.each([4, 0, null])('exports desktop notes through the host (count %s)', async (count) => {

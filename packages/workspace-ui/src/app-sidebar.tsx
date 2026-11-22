@@ -35,6 +35,7 @@ import {
   IconSettings,
   IconSparkles,
   IconTrash,
+  IconUser,
   IconUserPlus,
 } from '@tabler/icons-react';
 import { useWorkspaceHost } from './host';
@@ -124,18 +125,27 @@ export function WorkspaceSwitcher({
             <span className="truncate text-button-14 text-gray-1000">
               {compact ? currentWorkspace.name : user.name || user.email}
             </span>
+            {compact && <span className="sr-only">{memberLabel(currentWorkspace)}</span>}
           </div>
           <IconChevronDown className="ms-auto text-gray-900" />
         </DropdownMenuTrigger>
         <DropdownMenuContent side={compact ? 'bottom' : 'top'} align="start" className="w-64">
           <div className="min-w-0 px-2 py-2">
-            {user.name && user.name !== user.email && (
-              <p className="truncate text-label-14 text-gray-1000">{user.name}</p>
-            )}
+            <p className="truncate text-copy-14 text-gray-1000">
+              <strong>
+                {user.name && user.name !== user.email ? user.name : user.email.split('@')[0]}
+              </strong>
+            </p>
             <p className="truncate text-label-12 text-gray-900">{user.email}</p>
           </div>
-          <DropdownMenuSeparator />
           <DropdownMenuGroup>
+            <DropdownMenuItem
+              nativeButton={false}
+              render={<Link route={routeOf('/settings/profile')} />}
+            >
+              <IconUser />
+              Profile
+            </DropdownMenuItem>
             <DropdownMenuItem nativeButton={false} render={<Link route={routeOf('/settings')} />}>
               <IconSettings />
               Settings
@@ -311,7 +321,7 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="gap-0">
         {beforeTree}
         {/* D-36: the two places a note can be. New notes start in Private. */}
         <TreeSection area="private" />
@@ -347,7 +357,7 @@ export function AppSidebar({
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="flex items-center gap-1 border-t border-gray-alpha-400 pt-2 group-data-[collapsible=icon]:flex-col">
+        <div className="flex items-center gap-1 border-t border-gray-alpha-400 pt-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-start">
           <SidebarMenu className="min-w-0 flex-1">
             <SidebarMenuItem>
               <WorkspaceSwitcher accountItems={accountItems} status={footerExtra} />

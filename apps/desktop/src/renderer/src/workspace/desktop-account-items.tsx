@@ -4,13 +4,13 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@oat/ui/components/dropdown-menu';
-import { IconAppWindow, IconLogout, IconRefresh, IconUser } from '@tabler/icons-react';
+import { IconAppWindow, IconLogout, IconRefresh } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { call } from '../bridge';
 import { useRecordingAction } from '../recording/recording-controls';
 
-export function useDesktopAccountItems(onOpenSettings: (section?: string) => void) {
+export function useDesktopAccountItems() {
   const action = useRecordingAction();
   const [me, setMe] = useState<InvokeResponse<'api:me'> | null>(null);
   useEffect(() => {
@@ -21,10 +21,6 @@ export function useDesktopAccountItems(onOpenSettings: (section?: string) => voi
       <>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem disabled={action.pending} onClick={() => onOpenSettings('profile')}>
-            <IconUser />
-            Profile
-          </DropdownMenuItem>
           <DropdownMenuItem
             disabled={action.pending}
             onClick={() => void action.run(() => call('window:open-widget'))}
@@ -45,6 +41,9 @@ export function useDesktopAccountItems(onOpenSettings: (section?: string) => voi
             <IconRefresh />
             Check connection
           </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
           <DropdownMenuItem
             disabled={action.pending}
             onClick={() => void action.run(() => call('auth:sign-out'))}

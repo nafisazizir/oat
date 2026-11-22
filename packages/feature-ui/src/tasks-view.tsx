@@ -6,13 +6,7 @@ import { Avatar, AvatarFallback } from '@oat/ui/components/avatar';
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import { Checkbox } from '@oat/ui/components/checkbox';
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@oat/ui/components/empty';
+import { EmptyState } from '@oat/workspace-ui';
 import { Item, ItemActions, ItemContent } from '@oat/ui/components/item';
 import {
   Select,
@@ -179,25 +173,23 @@ export function TasksView({
         ) : state.status === 'loading' && !state.data ? (
           <TasksSkeleton />
         ) : groups.length === 0 ? (
-          <Empty className="border border-gray-alpha-400" data-testid="tasks-empty">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                {status === 'done' ? <IconCircleCheck /> : <IconChecklist />}
-              </EmptyMedia>
-              <EmptyTitle role="heading" aria-level={2}>
-                {status === 'done'
-                  ? 'Nothing done yet'
-                  : due !== 'any'
-                    ? `Nothing ${due === 'overdue' ? 'overdue' : 'due this week'}`
-                    : EMPTY[view].title}
-              </EmptyTitle>
-              <EmptyDescription>
-                {due !== 'any' || status === 'done'
-                  ? 'Try another filter to see more.'
-                  : EMPTY[view].description}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          <EmptyState
+            data-testid="tasks-empty"
+            icon={status === 'done' ? IconCircleCheck : IconChecklist}
+            titleAs="h2"
+            title={
+              status === 'done'
+                ? 'Nothing done yet'
+                : due !== 'any'
+                  ? `Nothing ${due === 'overdue' ? 'overdue' : 'due this week'}`
+                  : EMPTY[view].title
+            }
+            description={
+              due !== 'any' || status === 'done'
+                ? 'Try another filter to see more.'
+                : EMPTY[view].description
+            }
+          />
         ) : (
           <div
             className={cn(
@@ -394,7 +386,7 @@ function TaskToolbar({
   const { status, due } = valueFilters;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <TabsList aria-label="Whose tasks">
+      <TabsList aria-label="Whose tasks" className="rounded-md data-horizontal:h-8">
         {TASK_VIEWS.map((v) => (
           <TabsTrigger key={v} value={v} disabled={disabled} data-testid={`tasks-view-${v}`}>
             {TASK_VIEW_LABELS[v]}

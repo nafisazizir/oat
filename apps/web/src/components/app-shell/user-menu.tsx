@@ -5,9 +5,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@oat/ui/components/dropdown-menu';
-import Link from 'next/link';
 
-import { IconLogout, IconUser, IconSettings } from '@tabler/icons-react';
+import { IconLogout } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import { toast } from 'sonner';
@@ -33,14 +32,6 @@ export function AccountMenuItems() {
     <>
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
-        <DropdownMenuItem nativeButton={false} render={<Link href="/settings/profile" />}>
-          <IconUser />
-          Profile
-        </DropdownMenuItem>
-        <DropdownMenuItem nativeButton={false} render={<Link href="/settings" />}>
-          <IconSettings />
-          Preferences
-        </DropdownMenuItem>
         <DropdownMenuItem disabled={pending} onClick={signOut}>
           <IconLogout />
           Sign out

@@ -23,7 +23,7 @@ export function DesktopSidebar({
   const host = useWorkspaceHost();
   const shell = useShellData();
   const [searchOpen, setSearchOpen] = useState(false);
-  const account = useDesktopAccountItems((section) => host.navigate({ view: 'settings', section }));
+  const account = useDesktopAccountItems();
   const { active, fallback, needsWorkspace } = workspaces;
   return (
     <div className="contents" data-testid="signed-in">
