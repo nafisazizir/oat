@@ -1,5 +1,7 @@
 'use client';
 
+import { cn } from '@oat/ui/lib/utils';
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -244,12 +246,16 @@ export function AppSidebar({
   footerExtra,
   accountItems,
   onSearch,
+  headerClassName,
+  headerRowClassName,
 }: {
   primaryAction?: React.ReactNode;
   beforeTree?: React.ReactNode;
   footerExtra?: React.ReactNode;
   accountItems?: React.ReactNode;
   onSearch?: () => void;
+  headerClassName?: string;
+  headerRowClassName?: string;
 }) {
   const host = useWorkspaceHost();
   const { Link } = host;
@@ -267,8 +273,8 @@ export function AppSidebar({
       // Sidebar changes show before the server confirms them; e2e waits for this before navigating.
       data-saving={saving || undefined}
     >
-      <SidebarHeader className="gap-3 px-2 pt-2">
-        <div className="flex h-8 items-center gap-2">
+      <SidebarHeader className={cn('gap-3 px-2 pt-2', headerClassName)}>
+        <div className={cn('flex h-8 items-center gap-2', headerRowClassName)}>
           <SidebarTrigger data-testid="sidebar-header-trigger" />
           <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
             <WorkspaceSwitcher compact accountItems={accountItems} status={footerExtra} />

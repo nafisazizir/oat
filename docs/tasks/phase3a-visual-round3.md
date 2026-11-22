@@ -108,3 +108,34 @@ Commit/push uses the existing Phase 3a feature branch; command results are repor
 Native Electron/macOS recording, permissions, Finder and playback remain unverified. Desktop keeps
 browser-based sign-in (no new Google/email flow in Electron), its real recording controls and native
 sync/device utilities. No fake contextual assistant action or saved-state indicator was introduced.
+
+## PR 30 follow-up — macOS native title-bar clearance
+
+Review identified that removing the old desktop top spacer put the collapse toggle beneath the native
+close button (`hiddenInset`, traffic lights at x=16/y=18). On Mac only, DesktopSidebar now supplies
+shared header styling overrides: a 48px drag row with an 80px leading control position, no-drag buttons
+and links, and hidden row controls when collapsed. Primary navigation retains its original vertical
+position. The collapsed shell-header toggle already has a safe 48px inset after the 48px sidebar;
+its mobile 96px inset and no-drag behavior are retained. Uses the renderer's existing navigator.platform
+signal, so there is no asynchronous window where controls overlap the traffic lights. Web/non-Mac
+defaults are unchanged.
+
+Regression tests exercise MacIntel/Linux expanded and collapsed transitions, drag/no-drag classes,
+native clearance selectors and the shell-header expand control. Fast CI initially caught a missing
+`cn` import; fixed before commit. Final `pnpm run ci --fast`:
+
+```text
+step        status     time
+format      pass      11.7s
+actionlint  pass       0.2s
+typecheck   pass      10.4s
+lint        pass       3.2s
+test        pass      17.2s
+total                 42.8s
+
+ci: ok
+```
+
+Log: `/home/ubuntu/shots/pr30-macos-ci.log`. This follow-up is visually unverified in native macOS;
+Linux unit checks cannot exercise actual Electron traffic lights or window dragging. PR checks are
+monitored after the separate fix commit/push, with the final outcome reported in the handoff.

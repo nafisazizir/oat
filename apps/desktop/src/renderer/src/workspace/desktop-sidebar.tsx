@@ -25,9 +25,16 @@ export function DesktopSidebar({
   const [searchOpen, setSearchOpen] = useState(false);
   const account = useDesktopAccountItems();
   const { active, fallback, needsWorkspace } = workspaces;
+  const isMac = /Mac/.test(navigator.platform);
   return (
     <div className="contents" data-testid="signed-in">
       <AppSidebar
+        headerClassName={isMac ? 'gap-1 pt-0' : undefined}
+        headerRowClassName={
+          isMac
+            ? 'app-drag h-12 ps-18 group-data-[collapsible=icon]:ps-0 group-data-[collapsible=icon]:[&>*]:invisible [&_button]:app-no-drag [&_a]:app-no-drag'
+            : undefined
+        }
         primaryAction={
           <NewMeetingButton
             {...newMeeting}

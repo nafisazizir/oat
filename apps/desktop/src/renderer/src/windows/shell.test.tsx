@@ -476,6 +476,45 @@ describe('desktop shell', () => {
     expect(screen.getByTestId('settings')).toBeTruthy();
   });
 
+  it.each(['MacIntel', 'Linux x86_64'])(
+    'keeps native title-bar controls safe on %s when expanded and collapsed',
+    async (platform) => {
+      const platformSpy = vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform);
+      try {
+        render(<MainWindow />);
+        const toggle = screen.getByTestId('sidebar-header-trigger');
+        const row = toggle.parentElement!;
+        const header = document.querySelector('header.app-drag')!;
+        if (platform === 'MacIntel') {
+          expect(row.className).toContain('app-drag h-12 ps-18');
+          expect(row.className).toContain('[&_button]:app-no-drag');
+          expect(row.className).toContain('[&_a]:app-no-drag');
+          expect(row.parentElement!.className).toContain('pt-0');
+          expect(row.className).toContain('group-data-[collapsible=icon]:[&>*]:invisible');
+          expect(header.className).toContain('max-md:ps-24');
+          expect(header.className).toContain(
+            'group-has-data-[collapsible=icon]/sidebar-wrapper:ps-12',
+          );
+        } else {
+          expect(row.className).not.toContain('app-drag');
+          expect(row.className).not.toContain('ps-18');
+          expect(header.className).not.toContain('max-md:ps-24');
+        }
+        await userEvent.click(toggle);
+        expect(
+          screen.getByTestId('app-sidebar').closest('[data-state]')?.getAttribute('data-state'),
+        ).toBe('collapsed');
+        expect(screen.getByTestId('sidebar-trigger').className).toContain('app-no-drag');
+        await userEvent.click(screen.getByTestId('sidebar-trigger'));
+        expect(
+          screen.getByTestId('app-sidebar').closest('[data-state]')?.getAttribute('data-state'),
+        ).toBe('expanded');
+      } finally {
+        platformSpy.mockRestore();
+      }
+    },
+  );
+
   it('keeps new meeting pending and reports a failure from the header', async () => {
     render(<MainWindow />);
     let reject!: (error: Error) => void;

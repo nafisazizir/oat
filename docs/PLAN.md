@@ -106,7 +106,8 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 ## M9 — Ship v1
 
 - [x] Human-requested Phase 3a final polish and gate: sidebar captions/account grouping, auth and empty-state
-      consistency; full fast/E2E/axe gates, final screenshots and branch push · [task](tasks/phase3a-visual-round3.md)
+      consistency; full fast/E2E/axe gates, final screenshots and branch push. PR 30 follow-up restores
+      macOS traffic-light clearance in expanded/collapsed sidebar headers · [task](tasks/phase3a-visual-round3.md)
 
 - [x] Human-requested Phase 3a visual hill-climb round 2: aligned sidebar columns, quiet utility rows,
       grouped account menus, single desktop meeting header, flat Coming up, shared Home layout,
