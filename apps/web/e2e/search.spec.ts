@@ -8,6 +8,7 @@ import { SIGNED_OUT, signInWithMagicLink, uniqueAddress } from './auth-helpers';
 import { apiCreateDocument } from './docs-helpers';
 import { expect, test } from './fixtures';
 import { databaseUrlFile, EVIDENCE_3_6 } from './paths';
+import { verifyFeatureSurface } from './feature-surfaces';
 
 /**
  * Task 3.6 in the browser: ⌘K shows ranked note + transcript hits and opens them from the keyboard; the
@@ -123,6 +124,14 @@ test('⌘K finds notes and transcript lines; Enter opens the hit; /search has ta
   // The best hit is selected: Enter opens it.
   await expect(notes.first()).toHaveAttribute('data-selected', 'true');
   await evidence(page, 'palette-results');
+  await verifyFeatureSurface(page, 'search-dialog');
+  const [tab] = await Promise.all([
+    page.context().waitForEvent('page'),
+    notes.first().click({ modifiers: ['ControlOrMeta'] }),
+  ]);
+  await expect(tab).toHaveURL(new RegExp(`/d/${note.id}$`));
+  await tab.close();
+  await expect(palette).toBeVisible();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(new RegExp(`/d/${note.id}$`));
   await expect(page.getByTestId('document-title')).toHaveValue(`Pricing ${word} plan`);
@@ -146,6 +155,7 @@ test('⌘K finds notes and transcript lines; Enter opens the hit; /search has ta
   await expect(main.getByTestId('search-page-note')).toHaveCount(2);
   await expect(main.getByRole('tab', { name: /Notes/ })).toContainText('2');
   await evidence(page, 'search-page-notes');
+  await verifyFeatureSurface(page, 'search-results');
   await main.getByRole('tab', { name: /Transcripts/ }).click();
   await expect(page).toHaveURL(/tab=transcripts/);
   const line = main.getByTestId('search-page-transcript');

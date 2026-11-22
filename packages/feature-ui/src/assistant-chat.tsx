@@ -388,7 +388,7 @@ function ThreadList({
               <ItemTitle className="w-full truncate text-label-14">
                 {thread.title || 'Untitled conversation'}
               </ItemTitle>
-              <ItemDescription className="text-copy-13 tabular-nums">
+              <ItemDescription className="text-copy-13 text-gray-1000 tabular-nums">
                 {thread.scope === 'document' ? 'About a note · ' : ''}
                 {formatDay(thread.updatedAt)}
               </ItemDescription>

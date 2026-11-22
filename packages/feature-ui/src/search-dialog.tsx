@@ -13,28 +13,42 @@ import {
 import { defaultFilter } from 'cmdk';
 import { Spinner } from '@oat/ui/components/spinner';
 import { IconFileText, IconNotes, IconSearch, IconWaveSine } from '@tabler/icons-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ComponentProps } from 'react';
 
 import { formatTimestamp } from './helpers';
 import { Highlight } from './highlight';
 import { useSearch } from './use-search';
 import { type AppTarget, useFeatureUi } from './provider';
 
-function ResultHref({ target, label, close }: { target: AppTarget; label: string; close(): void }) {
+function SearchResultItem({
+  target,
+  onSelect,
+  children,
+  ...props
+}: ComponentProps<typeof CommandItem> & { target: AppTarget }) {
   const { hrefFor, Link = 'a' } = useFeatureUi();
   const href = hrefFor?.(target);
-  return href ? (
-    <Link
-      href={href}
-      aria-label={label}
-      tabIndex={-1}
-      className="absolute inset-0"
-      onClick={(event) => {
-        event.stopPropagation();
-        close();
-      }}
-    />
-  ) : null;
+  if (!href)
+    return (
+      <CommandItem {...props} onSelect={onSelect}>
+        {children}
+      </CommandItem>
+    );
+  return (
+    <CommandItem {...props} onSelect={onSelect} asChild>
+      <Link
+        href={href}
+        onClickCapture={(event) => {
+          event.stopPropagation();
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          onSelect?.(props.value ?? '');
+        }}
+      >
+        {children}
+      </Link>
+    </CommandItem>
+  );
 }
 
 /** A local (client-side) palette entry: sections, the tree's pages and folders, commands. */
@@ -194,18 +208,14 @@ export function SearchDialog({
               {notes.length > 0 && (
                 <CommandGroup heading="Notes">
                   {notes.map((hit) => (
-                    <CommandItem
+                    <SearchResultItem
+                      target={{ kind: 'document', id: hit.id }}
                       key={hit.id}
                       value={`result:note:${hit.id}`}
                       onSelect={run(() => navigate({ kind: 'document', id: hit.id }))}
                       className="items-start"
                       data-testid="search-result-note"
                     >
-                      <ResultHref
-                        target={{ kind: 'document', id: hit.id }}
-                        label={hit.title || 'Untitled'}
-                        close={() => onOpenChange(false)}
-                      />
                       {hit.kind === 'meeting' ? (
                         <IconNotes className="mt-0.5" />
                       ) : (
@@ -223,27 +233,31 @@ export function SearchDialog({
                           />
                         )}
                       </div>
-                    </CommandItem>
+                    </SearchResultItem>
                   ))}
                 </CommandGroup>
               )}
               {transcripts.length > 0 && (
                 <CommandGroup heading="Transcripts">
                   {transcripts.map((hit) => (
-                    <CommandItem
+                    <SearchResultItem
+                      target={{
+                        kind: 'document',
+                        id: hit.documentId,
+                        timeMs: hit.startMs,
+                      }}
                       key={hit.id}
                       value={`result:segment:${hit.id}`}
                       onSelect={run(() =>
-                        navigate({ kind: 'document', id: hit.documentId, timeMs: hit.startMs }),
+                        navigate({
+                          kind: 'document',
+                          id: hit.documentId,
+                          timeMs: hit.startMs,
+                        }),
                       )}
                       className="items-start"
                       data-testid="search-result-transcript"
                     >
-                      <ResultHref
-                        target={{ kind: 'document', id: hit.documentId, timeMs: hit.startMs }}
-                        label={hit.documentTitle || 'Untitled'}
-                        close={() => onOpenChange(false)}
-                      />
                       <IconWaveSine className="mt-0.5" />
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <Highlight className="line-clamp-2 text-copy-14" html={hit.snippetHtml} />
@@ -254,7 +268,7 @@ export function SearchDialog({
                       <span className="mt-0.5 shrink-0 text-label-12-mono text-gray-900 tabular-nums">
                         {formatTimestamp(hit.startMs)}
                       </span>
-                    </CommandItem>
+                    </SearchResultItem>
                   ))}
                 </CommandGroup>
               )}
@@ -278,18 +292,14 @@ export function SearchDialog({
                     Search isn’t available right now.
                   </p>
                 )}
-                <CommandItem
+                <SearchResultItem
+                  target={{ kind: 'search', q }}
                   value="result:all"
                   onSelect={run(() => navigate({ kind: 'search', q }))}
                 >
-                  <ResultHref
-                    target={{ kind: 'search', q }}
-                    label={`Search all results for “${q}”`}
-                    close={() => onOpenChange(false)}
-                  />
                   <IconSearch />
                   <span className="truncate">Search all results for “{q}”</span>
-                </CommandItem>
+                </SearchResultItem>
               </CommandGroup>
               <LocalGroups groups={weak} />
             </>

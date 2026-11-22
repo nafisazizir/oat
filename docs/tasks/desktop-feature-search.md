@@ -9,7 +9,7 @@ Extract shared search, Tasks and assistant interfaces into @oat/feature-ui for w
 SPEC §4 search; DECISIONS D-37/D-38; packages/client/README.md; Ziiz consumer skill and Claude search-dialog reference.
 
 ## Scope
-Steps 1–4: shared search, Tasks and assistant, web integration and desktop wiring. Local conventional commits permitted after checks; no pushes.
+Steps 1–5: shared search, Tasks and assistant, web integration, desktop wiring and runtime/accessibility/screenshot verification. Local conventional commits permitted for steps 1–4 after checks; step 5 remains uncommitted. No pushes.
 
 ## Design notes
 - FeatureUiProvider owns a typed client/transport, navigation and optional real hrefs, notifications,
@@ -30,10 +30,14 @@ Steps 1–4: shared search, Tasks and assistant, web integration and desktop wir
 - [x] Web consumes shared UI through a typed-client host adapter.
 - [x] New package included in source-vocabulary radius enforcement.
 - [x] Desktop shell uses shared search rather than its existing local-search dialog (renderer tests).
-- [ ] Visual review in both themes and desktop/web runtime verification.
+- [x] Web runtime, light/dark feature screenshots and WCAG 2.2 AA axe scans.
+- [x] Built desktop renderer, fixture-backed bridge and light/dark feature screenshots.
+- [ ] Independent review and native Electron/OS bridge smoke test.
 
 ## Remaining work
-Real desktop/web runtime and visual verification remain pending. Cached desktop meetings open natively;
+Independent review and a real Electron/OS bridge smoke test remain pending. Step 5 verifies web runtime
+and the browser-served production desktop renderer with a fixture bridge, not main/preload or OS services.
+Cached desktop meetings open natively;
 MeetingView has no segment/time navigation props, so cached-note deep links open the note only.
 Uncached documents temporarily open on the configured web origin via the external URL bridge, retaining
 block/segment/time query parameters. Pages remain dependent on that web fallback until a native viewer lands.
@@ -227,3 +231,75 @@ Full final gate log: `/home/ubuntu/feature-ui-ci-fast.log`. `git diff --check` c
 React checklist: controlled host state, concurrent sources, cleanup/abort coverage, no effect-based
 derived state, source identities invalidate results after sync, no new shared framework imports.
 Independent review and visual/real-runtime verification remain pending; no push.
+
+## Step 5 — browser verification and screenshot evidence
+
+- Started the compose stack with `pnpm dev:up`; Postgres, Redis, Mailpit, OAuth and mocks healthy.
+  No Docker Hub 429 occurred, so no mirror workaround was needed. Installed Playwright Chromium.
+- Reused the existing in-process AI mock and existing Assistant/Tasks/Search specs (the latter two
+  contain command-menu coverage). Added `e2e/feature-surfaces.ts`: light/dark WCAG 2.0/2.1/2.2 AA
+  axe scans, including contrast and target-size, plus opt-in screenshots via FEATURE_UI_SCREENSHOTS.
+  Scans cover Assistant empty/streamed answer with citations, populated Tasks, Search results and palette.
+- Browser scans found selected thread-date contrast at 4.31:1 and nested interactive links in palette
+  options. Darkened thread-date text and made each web result one native link/option. Fixed CommandItem
+  asChild composition so its trailing check icon belongs inside the slotted root; added regression tests.
+  Preserved host Next Link/prefetch, desktop click navigation, normal mouse/keyboard selection and
+  modifier-click native new-tab navigation (checked in Playwright).
+- The new modifier-click test initially waited for a page-level popup event. A trace and an isolated
+  Chromium reproduction showed native Ctrl-click creates a context page without that event; changed
+  the assertion to wait for the context page. No production workaround was needed.
+- Built desktop with electron-vite and served out/renderer locally. Scratch harness
+  `/home/ubuntu/feature-ui-scratch/desktop.mjs` injects window.oat invoke/subscribe/send, state/workspace/
+  recording fixtures, api:request, api:stream-open/cancel and chunk/end subscriptions, and local search
+  hits with an offline server response. It exercises an actual SSE answer, citation resolution, sidebar
+  navigation, populated Tasks and Cmd/Ctrl-K with offline local results. No console/page errors.
+- All screenshots are outside the repo under `/home/ubuntu/screens/` (20 PNGs, not committed).
+  Web: `web-{assistant-empty,assistant-answer,tasks,search-results,search-dialog}-{light,dark}.png`.
+  Desktop: `desktop-{assistant-empty,assistant-answer,tasks,search-dialog,sidebar}-{light,dark}.png`.
+
+### Step 5 final checks
+
+```text
+DATABASE_URL=postgres://oat:oat@localhost:54329/oat \
+FEATURE_UI_SCREENSHOTS=/home/ubuntu/screens E2E_PORT=3126 E2E_WORKERS=2 E2E_TIMEOUT_SCALE=2 \
+pnpm --filter @oat/web e2e assistant.spec.ts tasks.spec.ts search.spec.ts
+  1 skipped
+  11 passed (1.7m)
+
+DATABASE_URL=postgres://oat:oat@localhost:54329/oat \
+pnpm --filter @oat/web exec vitest run --mode int \
+  src/server/api/search.int.test.ts src/server/tasks/api.int.test.ts src/server/api/chat.int.test.ts
+ Test Files  3 passed (3)
+      Tests  33 passed (33)
+
+pnpm --filter @oat/feature-ui test
+ Test Files  8 passed (8)
+      Tests  94 passed (94)
+
+pnpm --filter @oat/ui test src/components.test.tsx src/source-vocabulary.test.ts
+ Test Files  2 passed (2)
+      Tests  36 passed (36)
+
+pnpm --filter @oat/web test
+ Test Files  31 passed (31)
+      Tests  220 passed (220)
+
+pnpm --filter @oat/desktop exec vitest run src/renderer/src/windows/shell.test.tsx
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+
+pnpm --filter @oat/desktop build
+✓ built in 1.81s
+
+node /home/ubuntu/feature-ui-scratch/desktop.mjs
+Desktop renderer screenshots complete. Console/page errors: []
+```
+
+Feature-ui, UI and web typecheck/lint passed. The sole skipped e2e is the pre-existing opt-in dark
+screenshot-only test; new scans and captures cover dark mode with real results. Next logs an
+`Error: aborted / ECONNRESET` during the passing Stop-stream test; the desktop build warns about
+chunks above 500 kB. Neither blocks the checks. Full logs: /home/ubuntu/feature-ui-web-e2e.log,
+/home/ubuntu/feature-ui-web-int.log, /home/ubuntu/feature-ui-step5-unit.log,
+/home/ubuntu/feature-ui-step5-ui.log, /home/ubuntu/feature-ui-step5-web-unit.log,
+/home/ubuntu/feature-ui-step5-desktop-test.log, /home/ubuntu/feature-ui-step5-desktop-build.log and
+/home/ubuntu/feature-ui-desktop-screens.log. No step-5 commit or push.

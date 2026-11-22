@@ -158,17 +158,25 @@ describe('SearchDialog', () => {
     expect(screen.getByText('Search all results for “missing”')).toBeTruthy();
   });
 
-  it('exposes native links for web results', async () => {
-    const Link: LinkComponent = (props) => <a {...props} data-host-link />;
-    render(<SearchDialog open onOpenChange={vi.fn()} />, {
-      wrapper: wrap({ ...adapter([found]), hrefFor: () => '/d/doc', Link }),
-    });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Found' } });
-    expect((await screen.findByRole('link', { name: 'Found' })).getAttribute('href')).toBe(
-      '/d/doc',
-    );
-    expect(screen.getByRole('link', { name: 'Found' }).hasAttribute('data-host-link')).toBe(true);
-  });
+  it.each(['click', 'keyboard'])(
+    'exposes a single native option/link and navigates once on %s',
+    async (mode) => {
+      const Link: LinkComponent = (props) => <a {...props} data-host-link />;
+      const value = { ...adapter([found]), hrefFor: () => '/d/doc', Link };
+      render(<SearchDialog open onOpenChange={vi.fn()} />, {
+        wrapper: wrap(value),
+      });
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Found' } });
+      const result = await screen.findByTestId('search-result-note');
+      expect(result.getAttribute('href')).toBe('/d/doc');
+      expect(result.hasAttribute('data-host-link')).toBe(true);
+      expect(result.getAttribute('role')).toBe('option');
+      expect(result.querySelector('a')).toBeNull();
+      if (mode === 'click') await userEvent.click(result);
+      else await userEvent.keyboard('{Enter}');
+      expect(value.navigate).toHaveBeenCalledExactlyOnceWith({ kind: 'document', id: 'doc' });
+    },
+  );
 });
 
 describe('SearchView', () => {
