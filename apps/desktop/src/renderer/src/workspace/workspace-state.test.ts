@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { OatApiError, type OatTransport } from '@oat/client';
+import { areaOf } from '@oat/workspace-ui';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { observeApi, useApiOnline } from './api-status';
@@ -102,21 +103,27 @@ describe('desktop local shell data', () => {
       }).workspace.role,
     ).toBe('viewer');
   });
-  it('merges unsynced notes as private meetings only in the active workspace', () => {
-    const merged = mergeLocalNotes(shell, [
-      note,
-      { ...note, documentId: 'other', workspaceId: 'other' },
-    ]);
-    expect(merged.documents).toEqual([
-      expect.objectContaining({
-        id: 'local',
-        kind: 'meeting',
-        visibility: 'private',
-        parentId: null,
-      }),
-    ]);
-    expect(mergeLocalNotes(shell, []).documents).toEqual([]);
-  });
+  it.each(['private', 'workspace', 'link'] as const)(
+    'preserves cached %s visibility on cold offline launch',
+    (visibility) => {
+      const merged = mergeLocalNotes(shell, [
+        { ...note, visibility },
+        { ...note, documentId: 'other', workspaceId: 'other' },
+      ]);
+      expect(merged.documents).toEqual([
+        expect.objectContaining({
+          id: 'local',
+          kind: 'meeting',
+          visibility,
+          parentId: null,
+        }),
+      ]);
+      expect(areaOf(merged.documents[0]!, user.id)).toBe(
+        visibility === 'private' ? 'private' : 'shared',
+      );
+      expect(mergeLocalNotes(shell, []).documents).toEqual([]);
+    },
+  );
   it('does not duplicate server notes or resurrect a trashed note', () => {
     const node = mergeLocalNotes(shell, [note]).documents[0]!;
     expect(mergeLocalNotes({ ...shell, documents: [node] }, [note]).documents).toEqual([node]);

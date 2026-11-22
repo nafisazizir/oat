@@ -38,7 +38,7 @@ export function mergeLocalNotes(shell: ShellData, notes: readonly MeetingNoteSum
       id: n.documentId,
       title: n.title,
       kind: 'meeting',
-      visibility: 'private',
+      visibility: n.visibility,
       parentId: null,
       ownerId: n.ownerId,
       updatedAt: n.endedAt ?? n.startedAt ?? n.createdAt,
