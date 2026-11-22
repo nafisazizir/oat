@@ -152,6 +152,7 @@ function DocumentRoute({
   const shell = useShellData();
   const [data, setData] = useState<DocumentDetail | FolderSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const inTrash = shell.trash.some((node) => node.id === id);
   useEffect(() => {
     let active = true;
     const load = folder
@@ -174,7 +175,7 @@ function DocumentRoute({
     return () => {
       active = false;
     };
-  }, [id, folder, shell.workspace.id]);
+  }, [id, folder, shell.workspace.id, inTrash]);
   if (error)
     return (
       <PageContainer>
