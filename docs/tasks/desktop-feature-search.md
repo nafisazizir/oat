@@ -562,3 +562,26 @@ Desktop tests: 63 files/535 passed; feature-ui: 10 files/116 passed. Final fast 
 ci: ok (60.9s). Pushed-head PR checks follow; result: /home/ubuntu/pr26-native-document-pr-checks.json.
 Logs: /home/ubuntu/pr26-native-document-{desktop,feature,ci}.log. Native Electron/OS and
 visual verification were not repeated for this routing-only correction. No D-number added.
+
+## PR #26 plain-page block citation focus
+
+Follow-up review of 497a29a found DocumentRoute preserved the block query but never consumed it. Moved
+the existing web BlockFocus into @oat/editor/react and retained a thin Next useSearchParams wrapper.
+Desktop passes query.block through DocumentRoute and mounts the shared helper beside PageEditor after
+the document loads. Both hosts now use the same bounded editor-mount polling, centered smooth scroll
+(auto for reduced motion), 2400ms data-block-highlight/CSS treatment, and timer cleanup. Cleanup also
+removes the old highlight when changing citation targets or leaving the page. Cached MeetingView is
+unchanged; the correction is for plain pages.
+
+Added shared helper tests for scrolling/highlighting, reduced motion, delayed editor mount, empty or
+missing targets and cleanup. Desktop route regression checks block focus after asynchronous document
+loading and another citation on the same page, without fetching the document again. The existing real
+web block-link Playwright test also passed: 2 passed including auth setup (1.3m).
+
+Fast format/actionlint/typecheck/lint passed. The unchanged Node-only markdown property test timed out
+at the local default 5000ms twice; its test and imported implementation are unchanged from 497a29a and
+do not import the React helper. Re-ran only the failed test stage with the repository CI timeout budget
+(OAT_TEST_TIMEOUT_SCALE=3, matching .github/workflows/ci.yml): all 24 tasks pass, ci: ok (24.4s).
+Desktop 64 files/536 tests, editor 8/186, feature-ui 10/116, workspace-ui 6/69, web 29/207 passed.
+No test/config timeout edits. Logs: /home/ubuntu/pr26-block-focus-{ci,test-ci,e2e}.log. Pushed-head PR gate
+follows. Native Electron/OS and visual checks were not repeated. No D-number added.

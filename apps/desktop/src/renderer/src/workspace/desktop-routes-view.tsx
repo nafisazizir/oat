@@ -1,4 +1,5 @@
 import { OatApiError } from '@oat/client';
+import { BlockFocus } from '@oat/editor/react';
 import {
   EmptyState,
   PageContainer,
@@ -89,6 +90,7 @@ function ServerRoutes({ route, meeting }: { route: AppRoute; meeting: ReactNode 
       <DocumentRoute
         key={`${route.id}:${shell.workspace.id}`}
         id={route.id}
+        blockId={route.query?.block}
         folder={node?.kind === 'folder'}
         meeting={meeting}
       />
@@ -138,10 +140,12 @@ function MeetingActions({ id }: { id: string }) {
 
 function DocumentRoute({
   id,
+  blockId,
   folder,
   meeting,
 }: {
   id: string;
+  blockId?: string;
   folder: boolean;
   meeting: ReactNode;
 }) {
@@ -189,10 +193,13 @@ function DocumentRoute({
     return data.kind === 'meeting' ? (
       meeting
     ) : (
-      <PageEditor
-        document={data}
-        workspace={shell.workspaces.find((w) => w.id === data.workspaceId) ?? shell.workspace}
-      />
+      <>
+        <PageEditor
+          document={data}
+          workspace={shell.workspaces.find((w) => w.id === data.workspaceId) ?? shell.workspace}
+        />
+        <BlockFocus blockId={blockId} />
+      </>
     );
   const live = shell.documents.find((node) => node.id === data.id && node.kind === 'folder');
   return (
