@@ -13,6 +13,13 @@ import type { AppTarget } from './provider';
 import type { SearchSource } from './sources';
 
 const transport: OatTransport = async () => ({ status: 200, json: async () => ({}) });
+it('retains feature filter fields through route conversion', () => {
+  for (const target of [
+    { kind: 'search', q: 'budget', type: 'transcripts' },
+    { kind: 'tasks', filters: { view: 'created', status: 'done', due: 'soon' } },
+  ] as const)
+    expect(routeFeatureTarget(featureTargetRoute(target))).toEqual(target);
+});
 function setup(platform: WorkspaceHost['platform'] = 'web') {
   const host: WorkspaceHost = {
     platform,

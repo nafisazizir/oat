@@ -307,6 +307,13 @@ export const appInfoSchema = z.object({
 export type AppInfo = z.infer<typeof appInfoSchema>;
 
 const none = z.undefined();
+const inviteRouteSchema = z.object({
+  view: z.literal('invite'),
+  token: z
+    .string()
+    .length(32)
+    .regex(/^[A-Za-z0-9_-]+$/),
+});
 
 // ---------------------------------------------------------------------------------------------------
 // The contract
@@ -317,6 +324,8 @@ export const bridgeContract = {
     ...apiInvokeChannels,
     'app:info': { request: none, response: appInfoSchema },
     'state:get': { request: none, response: mainStateSnapshotSchema },
+    'navigation:get': { request: none, response: inviteRouteSchema.nullable() },
+    'navigation:clear': { request: none, response: none },
     /** Opens the system browser at the web sign-in page. */
     'auth:sign-in': { request: none, response: z.object({ opened: z.boolean() }) },
     'settings:connect': {
@@ -419,6 +428,7 @@ export const bridgeContract = {
     ...meetingSendChannels,
   },
   subscribe: {
+    'navigation:changed': z.object({}),
     ...apiSubscribeChannels,
     'state:changed': mainStateSnapshotSchema,
     /** Detailed recording state (levels, per-source STT status, issues), at most ~10 per second. */

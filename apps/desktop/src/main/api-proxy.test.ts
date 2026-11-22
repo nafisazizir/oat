@@ -83,6 +83,7 @@ describe('API proxy allowlist', () => {
     ['GET', '/api/documents'],
     ['PATCH', '/api/documents/d-1'],
     ['POST', '/api/chat'],
+    ['POST', '/api/invites/lookup'],
     ['GET', '/api/enhancements/e/stream'],
     ['GET', '/api/workspaces/w/export'],
     ['POST', '/api/workspaces/w/join-requests/r/approve'],

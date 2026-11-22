@@ -38,6 +38,7 @@ import * as calendar from '../operations/calendar';
 import * as joining from '../operations/joining';
 import * as members from '../operations/members';
 import * as workspaces from '../operations/workspaces';
+import { loadInviteLanding } from '../invite-landing';
 import { buildWorkspaceSettings } from '../workspace-settings';
 import { ApiError, notFound, unauthorized } from './errors';
 import { apiRoute, readJson, type ApiDeps } from './route';
@@ -213,6 +214,11 @@ export function createWorkspaceApi(deps: ApiDeps, operations: WorkspaceApiDeps) 
     accept: {
       POST: route(async (c, _, req) =>
         result(await members.acceptInvite(c, (await readJson(req, InviteTokenSchema)).token)),
+      ),
+    },
+    lookup: {
+      POST: route(async (c, _, req) =>
+        loadInviteLanding(c.db, (await readJson(req, InviteTokenSchema)).token, c.user),
       ),
     },
     decline: {

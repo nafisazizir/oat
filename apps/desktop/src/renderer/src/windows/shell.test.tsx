@@ -37,6 +37,7 @@ const model = vi.hoisted(() => {
     workspacesReady: true,
     offline: false,
     apiFailure: false,
+    needsSetup: false,
     showFolder: false,
     folderName: 'Projects',
     notes: [] as MeetingNoteSummary[],
@@ -127,7 +128,17 @@ vi.mock('../calendar/calendar-state.ts', () => ({
 }));
 vi.mock('../auto-stop/auto-stop-state.ts', () => ({ useAutoStopNotice: () => null }));
 vi.mock('../onboarding/onboarding-state.ts', () => ({
-  useOnboarding: () => ({ state: { needed: false, guide: false } }),
+  useOnboarding: () => ({
+    state: { needed: model.needsSetup, guide: false },
+    complete: () => {
+      model.needsSetup = false;
+    },
+  }),
+}));
+vi.mock('../onboarding/onboarding-view.tsx', () => ({
+  OnboardingView: ({ onDone }: { onDone(finished: boolean): void }) => (
+    <button onClick={() => onDone(false)}>Finish setup</button>
+  ),
 }));
 vi.mock('../workspaces/workspaces-state.ts', () => ({
   useWorkspaces: () => ({
@@ -161,6 +172,7 @@ beforeEach(() => {
   model.workspacesReady = true;
   model.offline = false;
   model.apiFailure = false;
+  model.needsSetup = false;
   model.showFolder = false;
   model.folderName = 'Projects';
   model.sync.lastSyncedAt = null;
@@ -223,6 +235,24 @@ afterEach(() => {
 });
 
 describe('desktop shell', () => {
+  it('receives a queued native invitation and retains it after first-run setup', async () => {
+    model.needsSetup = true;
+    const invoke = model.invoke.getMockImplementation()!;
+    model.invoke.mockImplementation((channel: string, request?: OatRequest) => {
+      if (channel === 'navigation:get')
+        return Promise.resolve({ view: 'invite', token: 'a'.repeat(32) });
+      if (channel === 'api:request' && request?.path === '/api/invites/lookup')
+        return Promise.resolve({ status: 200, body: { state: 'invalid' } });
+      return invoke(channel, request);
+    });
+    const view = render(<MainWindow />);
+    await waitFor(() => expect(model.invoke).toHaveBeenCalledWith('navigation:get'));
+    await userEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
+    view.rerender(<MainWindow />);
+    expect(
+      await screen.findByRole('heading', { name: 'This invitation isn’t valid' }),
+    ).toBeTruthy();
+  });
   it('uses shared sidebar routes for Tasks, Assistant and the full offline search view', async () => {
     render(<MainWindow />);
     await userEvent.click(screen.getByRole('link', { name: 'My tasks' }));

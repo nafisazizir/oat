@@ -310,6 +310,22 @@ function SignedInShell({
     return ws && ws !== activeWorkspace?.id ? (workspaceNames.get(ws) ?? null) : null;
   };
   const [route, setRoute] = useState<AppRoute>({ view: 'home' });
+  useEffect(() => {
+    let active = true;
+    const read = () => {
+      void call('navigation:get')
+        .then((next) => {
+          if (active && next) setRoute(next);
+        })
+        .catch(() => {});
+    };
+    const unsubscribe = bridge().subscribe('navigation:changed', read);
+    read();
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
   const selected = route.view === 'document' ? route.id : null;
   const setSelected = useCallback(
     (id: string | null) =>
@@ -377,7 +393,7 @@ function SignedInShell({
           onDone={(finished) => {
             setSetupOpen(false);
             setSettingsOpen(false);
-            setSelected(null);
+            setRoute((current) => (current.view === 'invite' ? current : { view: 'home' }));
             // The guide card follows a finished first run; "Set up later" and re-runs go straight back.
             if (firstRun) void onboarding.complete(finished);
           }}

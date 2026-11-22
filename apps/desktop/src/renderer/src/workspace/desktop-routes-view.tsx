@@ -3,6 +3,7 @@ import { BlockFocus } from '@oat/editor/react';
 import {
   EmptyState,
   JoinWorkspace,
+  InviteResponse,
   PageContainer,
   PageEditor,
   ShareDialog,
@@ -112,12 +113,14 @@ function ServerRoutes({ route, meeting }: { route: AppRoute; meeting: ReactNode 
       return <FeatureViews route={route} />;
     case 'join':
       return <JoinRoute />;
+    case 'invite':
+      return <JoinRoute token={route.token} />;
     default:
       return null;
   }
 }
 
-function JoinRoute() {
+function JoinRoute({ token }: { token?: string }) {
   const host = useWorkspaceHost();
   const { user } = useShellData();
   const { client, refresh, navigate } = host;
@@ -130,13 +133,24 @@ function JoinRoute() {
           await call('workspaces:set-active', { workspaceId: activeWorkspaceId });
       }
       refresh();
+      if (token) await call('navigation:clear');
       navigate({ view: 'home' });
     },
-    [client, refresh, navigate],
+    [client, refresh, navigate, token],
   );
   return (
     <div className="m-auto w-full max-w-[25.5rem] px-6 py-10">
-      <JoinWorkspace client={host.client} email={user.email} onHome={onHome} />
+      {token ? (
+        <InviteResponse
+          key={token}
+          client={client}
+          token={token}
+          onHome={onHome}
+          onSwitchAccount={() => call('auth:sign-out')}
+        />
+      ) : (
+        <JoinWorkspace client={client} email={user.email} onHome={onHome} />
+      )}
     </div>
   );
 }

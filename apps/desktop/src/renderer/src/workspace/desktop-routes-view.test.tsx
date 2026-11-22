@@ -40,6 +40,21 @@ vi.mock('@oat/workspace-ui', async (original) => ({
       <button onClick={() => void onHome()}>Back</button>
     </>
   ),
+  InviteResponse: ({
+    token,
+    onHome,
+    onSwitchAccount,
+  }: {
+    token: string;
+    onHome(joined?: boolean): Promise<void>;
+    onSwitchAccount(): Promise<void>;
+  }) => (
+    <>
+      <button onClick={() => void onHome(true)}>Accept {token}</button>
+      <button onClick={() => void onHome()}>Decline</button>
+      <button onClick={() => void onSwitchAccount()}>Switch account</button>
+    </>
+  ),
   PageEditor: () => (
     <div className="oat-editor">
       <p data-id="first">First block</p>
@@ -111,4 +126,36 @@ it('returns from join without switching the local workspace when going Back', as
   await waitFor(() => expect(model.navigate).toHaveBeenCalledWith({ view: 'home' }));
   expect(model.call).not.toHaveBeenCalled();
   expect(model.list).not.toHaveBeenCalled();
+});
+
+it('completes native invitations by syncing selection then clearing the pending handoff', async () => {
+  model.call.mockClear().mockResolvedValue({});
+  model.navigate.mockClear();
+  model.list.mockResolvedValue({ activeWorkspaceId: 'invited' });
+  const token = 'a'.repeat(32);
+  render(<DesktopRoutesView route={{ view: 'invite', token }} notes={[]} meeting={null} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Accept ' + token }));
+  await waitFor(() => expect(model.navigate).toHaveBeenCalledWith({ view: 'home' }));
+  expect(model.call.mock.calls).toEqual([
+    ['sync:now'],
+    ['workspaces:set-active', { workspaceId: 'invited' }],
+    ['navigation:clear'],
+  ]);
+});
+
+it('retains invitations during account switching and clears them on decline without changing selection', async () => {
+  model.call.mockClear().mockResolvedValue({});
+  model.navigate.mockClear();
+  render(
+    <DesktopRoutesView
+      route={{ view: 'invite', token: 'a'.repeat(32) }}
+      notes={[]}
+      meeting={null}
+    />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Switch account' }));
+  expect(model.call.mock.calls).toEqual([['auth:sign-out']]);
+  fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
+  await waitFor(() => expect(model.navigate).toHaveBeenCalledWith({ view: 'home' }));
+  expect(model.call.mock.calls).toEqual([['auth:sign-out'], ['navigation:clear']]);
 });

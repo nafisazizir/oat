@@ -18,6 +18,9 @@ describe('workspace routes', () => {
     { view: 'settings' },
     { view: 'settings', section: 'workspace/members' },
     { view: 'join' },
+    { view: 'invite', token: 'a'.repeat(32) },
+    { view: 'search', q: 'budget', type: 'transcripts' },
+    { view: 'tasks', filters: { view: 'created', status: 'done', due: 'soon' } },
   ];
   it.each(routes)('round trips $view', (route) => {
     const url = new URL(hrefOf(route), 'https://oat.test');
@@ -27,6 +30,13 @@ describe('workspace routes', () => {
     expect(routeOf('')).toEqual({ view: 'home' });
     expect(routeOf('/missing')).toEqual({ view: 'home' });
     expect(routeOf('/d')).toEqual({ view: 'home' });
+  });
+  it('normalizes invalid task filters and search tabs', () => {
+    expect(routeOf('/tasks', '?view=bad&status=bad&due=bad')).toEqual({
+      view: 'tasks',
+      filters: { view: 'assigned', status: 'open', due: 'any' },
+    });
+    expect(routeOf('/search', '?type=bad&q=hello')).toEqual({ view: 'search', q: 'hello' });
   });
   it('keeps section boundaries', () => {
     expect(inSection('/templates/a', '/templates')).toBe(true);

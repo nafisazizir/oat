@@ -5,7 +5,7 @@ import { AssistantChat } from '@oat/feature-ui/assistant';
 import { SearchView, serverSearchSource } from '@oat/feature-ui/search';
 import { TasksView, type TaskFilters } from '@oat/feature-ui/tasks';
 import { useShellData, useWorkspaceHost, type AppRoute } from '@oat/workspace-ui';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { apiTransport } from '../lib/api.ts';
 import { localSearchSource } from '../sync/local-search-source.ts';
@@ -79,12 +79,15 @@ function FeatureContent({
   workspaceName: string;
 }) {
   const { navigate } = useFeatureUi();
-  const [filters, setFilters] = useState<TaskFilters>({
-    view: 'assigned',
-    status: 'open',
-    due: 'any',
-  });
-  const [type, setType] = useState<'notes' | 'transcripts'>('notes');
+  const host = useWorkspaceHost();
+  const filters: TaskFilters =
+    route.view === 'tasks' && route.filters
+      ? route.filters
+      : {
+          view: 'assigned',
+          status: 'open',
+          due: 'any',
+        };
   if (route.view === 'assistant')
     return (
       <AssistantChat
@@ -100,13 +103,16 @@ function FeatureContent({
       <div className="mx-auto flex w-full max-w-content flex-col gap-8 px-6 py-10 sm:px-8 sm:py-14">
         <FeaturePageHeader kind={route.view} workspaceName={workspaceName} />
         {route.view === 'tasks' ? (
-          <TasksView value={filters} onChange={setFilters} />
+          <TasksView
+            value={filters}
+            onChange={(filters) => host.navigate({ view: 'tasks', filters })}
+          />
         ) : (
           <SearchView
             query={route.q ?? ''}
-            onQueryChange={(q) => navigate({ kind: 'search', q })}
-            type={type}
-            onTypeChange={setType}
+            onQueryChange={(q) => host.navigate({ ...route, q })}
+            type={route.type ?? 'notes'}
+            onTypeChange={(type) => host.navigate({ ...route, type })}
           />
         )}
       </div>

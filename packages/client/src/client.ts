@@ -84,6 +84,7 @@ import type {
   MutationResult,
   WorkspaceMutationResult,
   JoinChoices,
+  InviteLanding,
   MemberView,
   InviteView,
   JoinRequestView,
@@ -485,6 +486,11 @@ export function createOatClient(transport: OatTransport) {
       export: endpoint<Response>('response')('GET', '/api/workspaces/[id]/export', byId),
     },
     invites: {
+      lookup: endpoint<InviteLanding>()(
+        'POST',
+        '/api/invites/lookup',
+        (token: string, options: RequestOptions = {}) => bodyInput({ token }, options),
+      ),
       accept: endpoint<MutationResult>()(
         'POST',
         '/api/invites/accept',

@@ -7,7 +7,7 @@ milestone: M9 · deps: api-foundation, settings-parity, desktop-workspace-parity
 
 Inventory the shipped web and desktop surfaces after PR #28, before choosing the next parity work.
 The Before inventory is a source audit, not a claim of runtime equivalence. The After column tracks
-subsequent implementation groups; only G2 and G5 are in the current implementation handoff.
+subsequent implementation groups: G2/G5 are complete; the current handoff implements G3/G14/G13.
 
 ## Context
 
@@ -65,7 +65,12 @@ typed APIs and host callbacks, preserve browser server-side bootstrap, add autho
 and no-workspace bootstrap on desktop, sync/select memberships locally after joining. Keep existing
 auth-panel/list presentation and native recording controls. Google calendar entry navigates within
 the desktop WorkspaceHost; provider consent still uses the secure browser flow from Integrations.
-Other gaps remain open. Shared upcoming-row extraction is deferred (different local sources/actions).
+Shared upcoming-row extraction is deferred (different local sources/actions).
+
+G3/G14/G13: share authenticated invite response states, declare a token lookup API, validate native
+invitation links in main and queue route delivery across sign-in/setup. Both palettes use a shared
+host-command builder. Search tabs and task filters live in AppRoute and serialize to web-compatible
+query parameters. Full desktop history/restart restoration remains G1, not part of this group.
 
 | Surface | Web | Desktop | Source (shared pkg / app-local path) | Gap & proposed fix | Effort (S/M/L) | After / status |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -73,7 +78,7 @@ Other gaps remain open. Shared upcoming-row extraction is deferred (different lo
 | Sign in | `/sign-in`, `/sign-in/confirm`: email magic link, first sign-in is signup | Signed-out, signing-in, rejected/cancel/reopen-browser states; dev-only pasted handoff | W/app/(auth)/sign-in/{page.tsx,sign-in-form.tsx,confirm/page.tsx}; D/windows/main-window.tsx; M/auth.ts | **P1:** retain browser identity flow, no embedded credentials/password UI | — | — |
 | Desktop identity handoff | `/desktop/sign-in` and `desktop-handoff.tsx`, authenticated browser handoff to `oat://auth` | Main matches nonce/state, redeems handoff and stores session; renderer receives user/status only | W/app/(auth)/desktop/sign-in/{page.tsx,desktop-handoff.tsx}; M/auth.ts, M/token-store.ts | **P1:** retain security boundary | — | — |
 | Join workspace | `/join`: invitations, domain join/request/pending, create-own or back; auto-provision/redirect if no choices | `view: join` renders only “Join a workspace” placeholder | W/app/(auth)/join/page.tsx, W/components/workspace/join-choices.tsx; D/workspace/desktop-routes-view.tsx | **G2:** share JoinChoiceList using client joinable/join/request/accept/decline APIs and host navigation; include no-workspace bootstrap | M | Implemented: WS/join-choices.tsx + join-workspace.tsx use typed client APIs; web adapter and desktop JoinRoute share invite/domain/request/pending/create/back; desktop bootstraps only after an authoritative empty API response and syncs/selects joined memberships locally. |
-| Invite landing | `/invite/[token]`: signed-out/sign-in, invalid/inaccessible and accept/decline flow | No invite-token route/OS link dispatch to a native invite view | W/app/(auth)/invite/[token]/page.tsx, W/components/workspace/invite-response.tsx; M/auth.ts, D/windows/main-window.tsx | **G3:** keep email/browser landing but offer verified native handoff; share authenticated invite-response UI with G2 | M | — |
+| Invite landing | `/invite/[token]`: signed-out/sign-in, invalid/inaccessible and accept/decline flow | No invite-token route/OS link dispatch to a native invite view | W/app/(auth)/invite/[token]/page.tsx, W/components/workspace/invite-response.tsx; M/auth.ts, D/windows/main-window.tsx | **G3:** keep email/browser landing but offer verified native handoff; share authenticated invite-response UI with G2 | M | Implemented: WS/invite-response.tsx is shared by both hosts; typed POST /api/invites/lookup plus existing accept/decline; invalid/expired/revoked/used/wrong-account/member/retry states. Main validates only canonical oat://invite/<32-character base64url token>, retains pending navigation across sign-in/setup and delivers via validated bridge. Browser/email remains default; authenticated recipients get optional Open in Oat desktop. |
 | Public share link | `/share/[token]` read-only document/transcript viewer, separate layout and unavailable/not-found | No anonymous share viewer or share-token AppRoute | W/app/share/{layout.tsx,[token]/page.tsx,[token]/not-found.tsx}; WS/share-dialog.tsx | **P2:** public browser viewer is appropriate; optional Open in Oat only after auth/read authorization, never import share tokens into arbitrary API requests | — | — |
 | Home notes | `/home` lists all shell documents except folders | Home lists local meeting summaries, grouped by date, recording marker | W/app/(app)/home/page.tsx, W/components/document/home-notes.tsx; D/meetings/home-view.tsx | **G4:** share home list model and merge accessible server pages/meetings with local pending meetings; retain offline local rows | M | — |
 | Upcoming calendar | Embedded Home list, Google connect/error/no-upcoming/start/open/join-call states; no `/calendar` or `/upcoming` page | Home UpcomingList merges local calendar and Google, existing-note cross-workspace hints | W/components/calendar/{upcoming-meetings.tsx,upcoming-meeting-row.tsx,google-calendar-actions.tsx}; D/calendar/{upcoming-list.tsx,calendar-state.ts}; M/calendar-service.ts | **P3/G5:** keep EventKit source; extract common upcoming row/actions and send desktop Google-connect to native Integrations, not browser settings | M | Implemented: Google CTA navigates directly to native Settings → Integrations (including empty compact Home); main no longer has a browser-connect callback. EventKit remains native; row extraction deferred. |
@@ -93,9 +98,9 @@ Other gaps remain open. Shared upcoming-row extraction is deferred (different lo
 | Templates gallery | `/templates`, filters/gallery empty/loading/error, duplicate/delete | `templates` view uses same gallery | WS/templates-gallery.tsx, WS/template-resource.tsx; D/workspace/desktop-routes-view.tsx | **=:** server-backed/online requirement intentional for now | — | — |
 | Template detail/new | `/templates/[id]`, `/templates/new`; title/body editor, preview, save/unsaved/delete/duplicate | `template`, `template-new` same views | WS/{template-view.tsx,template-editor.tsx,template-preview.tsx,delete-template-dialog.tsx,duplicate-button.tsx}; W/app/(app)/templates | **=:** shared UI; template application to enhancement missing separately in G9 | — | — |
 | Template picker | Enhance template selection | No manual Enhance picker mounted in local meeting | WS/template-picker.tsx; W/components/document/enhance/enhance-toolbar.tsx | **G9:** mount as part of enhancement flow, not another template implementation | L | — |
-| Search full page | `/search?q=&type=`; notes/transcripts tabs, highlights, counts/pagination/retry | `search` route q, controlled local tab state, local + server dedupe/fallback | FEAT/{search-view.tsx,use-search.ts,sources.ts}; W/components/search/search-view.tsx; D/windows/feature-views.tsx, D/sync/local-search-source.ts | **P4/G13:** retain offline/local search; persist desktop tab in route state together with G1 rather than reset on remount | S | — |
-| Command/search palette | Cmd/Ctrl+K; Go to Home/Tasks/Assistant/Templates/Settings; Pages; New note; Toggle sidebar; Light/Dark/System with checked theme | Same SearchDialog; Home/Assistant/Tasks/Settings/New meeting (when allowed), theme; no Templates/Pages/Toggle sidebar command groups or theme check marker | FEAT/search-dialog.tsx; W/components/app-shell/command-menu.tsx; D/windows/{shell-menus.tsx,feature-search.tsx} | **G14:** share host-command builder; distinguish New page from Start recording; keep native-only commands additive | S | — |
-| Tasks | `/tasks`, controlled assigned/status/due filters and URL state, grouped documents, due picker/assignee/checkbox, empty/error/pagination feedback | `tasks` same TasksView, local controlled filters | FEAT/{tasks-view.tsx,task-toggle.ts}; W/components/tasks/tasks-view.tsx; D/windows/feature-views.tsx | **G13:** preserve desktop filter state through route/history; content UI already shared | S | — |
+| Search full page | `/search?q=&type=`; notes/transcripts tabs, highlights, counts/pagination/retry | `search` route q, controlled local tab state, local + server dedupe/fallback | FEAT/{search-view.tsx,use-search.ts,sources.ts}; W/components/search/search-view.tsx; D/windows/feature-views.tsx, D/sync/local-search-source.ts | **P4/G13:** retain offline/local search; persist desktop tab in route state together with G1 rather than reset on remount | S | Implemented: AppRoute stores q/type; desktop SearchView reads and updates route fields, retaining the tab when query changes. Shared route parsing/serialization and feature-target conversions retain validated values. Full history/restart restoration remains G1. |
+| Command/search palette | Cmd/Ctrl+K; Go to Home/Tasks/Assistant/Templates/Settings; Pages; New note; Toggle sidebar; Light/Dark/System with checked theme | Same SearchDialog; Home/Assistant/Tasks/Settings/New meeting (when allowed), theme; no Templates/Pages/Toggle sidebar command groups or theme check marker | FEAT/search-dialog.tsx; W/components/app-shell/command-menu.tsx; D/windows/{shell-menus.tsx,feature-search.tsx} | **G14:** share host-command builder; distinguish New page from Start recording; keep native-only commands additive | S | Implemented: FEAT/host-commands.tsx builds both palettes: common navigation/Templates/Pages, New page, Toggle sidebar, settings sections, workspace switching and checked theme marker. Web keeps New note; desktop has guarded Start recording and native-only settings. |
+| Tasks | `/tasks`, controlled assigned/status/due filters and URL state, grouped documents, due picker/assignee/checkbox, empty/error/pagination feedback | `tasks` same TasksView, local controlled filters | FEAT/{tasks-view.tsx,task-toggle.ts}; W/components/tasks/tasks-view.tsx; D/windows/feature-views.tsx | **G13:** preserve desktop filter state through route/history; content UI already shared | S | Implemented: AppRoute stores assigned/created/all, status and due filters; desktop TasksView is route-controlled. URL round trips validate/normalize filters. Full history/restart restoration remains G1. |
 | Global Assistant | `/assistant?thread=`; new/existing threads, messages/citations, tools/proposal approve/deny, stream stop/retry/error | `assistant` view with threadId; same chat and proxy streaming | FEAT/{assistant-chat.tsx,chat-session.tsx,chat-message.tsx,proposal-card.tsx,answer.tsx}; D/windows/feature-views.tsx | **=:** shared global chat; local-only unsynced text is not automatically server assistant context | — | — |
 | Preferences | `/settings` appearance Light/Dark/System; settings search | Settings preferences, same search/nav and appearance | SET/{index.tsx,preferences.tsx,theme-provider.tsx}; W/components/settings/web-settings.tsx; D/settings/settings-view.tsx | **=:** settings/theme shared | — | — |
 | Profile | `/settings/profile`, name/role/team/vocabulary, load/save/error | Same profile panel; refreshes desktop user after edits | SET/profile-form.tsx; W/components/settings/web-settings.tsx; D/settings/settings-view.tsx | **=:** shared profile UI | — | — |
@@ -246,3 +251,51 @@ meeting citation focus is consumed. No independent reviewer or visual/runtime ve
 - Web requested-state screenshot inspected: /home/ubuntu/oat-parity-evidence/join-screen-requested-light.png.
   All generated Join screenshots saved in that directory; original tracked historical images retained.
   Desktop native rendering, macOS permissions and real OAuth were not visually/runtime verified.
+
+### G3 + G14 + G13 implementation verification
+
+- Authenticated invite UI is framework-neutral workspace-ui, driven by typed @oat/client APIs.
+  Web keeps its signed-out landing and no-referrer metadata. Read-by-token uses POST to avoid adding
+  invite secrets to API URL logs; the response omits the token. Mutation authorization remains the
+  existing recipient-only server operation. API/proxy route coverage includes lookup automatically.
+- Only canonical oat://invite/<32 base64url characters> reaches native route dispatch: no credentials,
+  ports, encoded tokens, suffixes, queries, fragments, extra paths, other schemes/hosts or newlines.
+  Main retains the pending invite until completion, including signed-out/first-run setup and wrong-account
+  sign-out. New navigation bridge channels carry only a schema-validated invite route, never bearer tokens.
+  Existing startup/open-url/second-instance queue feeds the main parser. Protocol registration and
+  native OS launch dispatch are statically wired, not certified by browser tests.
+- Shared host commands cover navigation, Pages, Templates, New page, Toggle sidebar, common settings,
+  workspace switching and themes with an actual check icon. Web retains New note; native Start recording
+  reuses its guarded recording action; native Recording/Storage/Setup remain additive. Host adapters own
+  workspace-switch failures/toasts and platform transports. Shared packages import no Next.js/Electron.
+- Search and task state are route-controlled, with normal/empty/invalid URL round trips and adapter
+  preservation tests. This does not implement desktop browser-like history or restart restoration (G1).
+- First fast gate: format/actionlint/lint passed. Typecheck caught a missing Next Route cast in the web
+  adapter; the desktop route test fixture omitted workspace.name. Fixed both. Two other desktop tests
+  timed out at 5000ms during concurrent browser compilation; affected gates passed using the supported
+  OAT_TEST_TIMEOUT_SCALE=3, without changing timeout/test configuration. Unit totals at that gate:
+  workspace-ui 98, feature-ui 122 and web 209. Final desktop total: 551 tests in 67 files.
+  The startup regression confirms first-run setup preserves queued native invitations. Palette adapter
+  regressions confirm workspace switches use the typed API (whose existing observer updates local
+  selection), report failures and avoid navigation on failure.
+- Final affected gates: OAT_TEST_TIMEOUT_SCALE=3 pnpm run ci --only format,typecheck,lint,test →
+  format pass (30.0s), typecheck pass (28.0s), lint pass (8.5s), test pass (25.4s), total 92.0s,
+  ci: ok; 24/24 test tasks successful, 23 cached with unchanged inputs. Initial actionlint pass retained:
+  no workflow/actionlint inputs changed. After the final documentation update, targeted Prettier and
+  git diff --check are the only affected checks.
+- API integration: DATABASE_URL=postgres://oat:oat@localhost:54329/oat pnpm --filter @oat/web exec vitest run
+  --mode int src/server/api/workspaces.int.test.ts src/server/entrypoints.int.test.ts → 2 files,
+  145 tests passed. Includes unauthenticated lookup refusal, unknown/malformed tokens, invited/wrong-account
+  lookup, recipient-only mutations and post-response states. No real provider/production requests.
+- Browser: DATABASE_URL=postgres://oat:oat@localhost:54329/oat E2E_TIMEOUT_SCALE=3 E2E_WORKERS=2
+  pnpm --filter @oat/web e2e workspaces.spec.ts search.spec.ts → 7 passed (3.6m), 1 existing opt-in
+  dark-evidence skip. Covers authenticated accept, wrong-account sign-out, revoked/used notices, safe
+  native href, command accessibility, Templates/Members navigation and checked themes, plus search
+  pagination/tab stability. One Next destination-stream diagnostic was printed; all selected cases passed.
+- Logs: /home/ubuntu/oat-parity-g3-g14-g13-fast.log,
+  /home/ubuntu/oat-parity-g3-g14-g13-correction.log, /home/ubuntu/oat-parity-g3-g14-g13-final.log,
+  /home/ubuntu/oat-parity-invite-int.log and
+  /home/ubuntu/oat-parity-invite-command-e2e.log. Better Auth endpoint inventory logs discovery failures
+  against its deliberately configured localhost:9 test issuer; this is not an unloaded environment.
+- Browser behavior/axe checked by Playwright; new surfaces are visually unverified. Electron OS
+  protocol registration, macOS native rendering/permissions and real provider consent remain unverified.

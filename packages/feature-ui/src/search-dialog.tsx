@@ -12,7 +12,7 @@ import {
 } from '@oat/ui/components/command';
 import { defaultFilter } from 'cmdk';
 import { Spinner } from '@oat/ui/components/spinner';
-import { IconFileText, IconNotes, IconSearch, IconWaveSine } from '@tabler/icons-react';
+import { IconCheck, IconFileText, IconNotes, IconSearch, IconWaveSine } from '@tabler/icons-react';
 import { useCallback, useState, type ComponentProps } from 'react';
 
 import { formatTimestamp } from './helpers';
@@ -100,6 +100,7 @@ function LocalGroups({ groups }: { groups: SearchCommandGroup[] }) {
         >
           {item.icon}
           {item.text}
+          {item.checked && <IconCheck aria-label="Selected" className="ms-auto size-4" />}
           {item.shortcut && <CommandShortcut>{item.shortcut}</CommandShortcut>}
         </CommandItem>
       ))}

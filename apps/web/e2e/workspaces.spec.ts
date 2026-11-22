@@ -144,6 +144,10 @@ test('invite → accept → change role → remove, with two users', async ({ br
   await signIn(invitee, inviteeEmail);
   await expect(invitee).toHaveURL(new RegExp(`${new URL(inviteLink).pathname}$`));
   await expect(invitee.getByRole('button', { name: 'Accept invitation' })).toBeVisible();
+  await expect(invitee.getByRole('link', { name: 'Open in Oat desktop' })).toHaveAttribute(
+    'href',
+    /^oat:\/\/invite\/[A-Za-z0-9_-]{32}$/,
+  );
   await shot(invitee, 'invite-signed-in');
   await invitee.getByRole('button', { name: 'Accept invitation' }).click();
   await invitee.waitForURL(/\/home$/, { waitUntil: 'load' });

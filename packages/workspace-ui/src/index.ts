@@ -1,5 +1,6 @@
 export { WorkspaceHost, useWorkspaceHost } from './host';
 export { JoinWorkspace, loadJoinSnapshot, type JoinSnapshot } from './join-workspace';
+export { InviteResponse } from './invite-response';
 export { JoinChoiceList, joinChoices, type JoinChoice } from './join-choices';
 export * from './routes';
 export * from './tree';

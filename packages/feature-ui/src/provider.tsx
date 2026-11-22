@@ -9,11 +9,12 @@ import {
   type ComponentType,
 } from 'react';
 import type { SearchSource } from './sources';
+import type { RouteTaskFilters } from '@oat/workspace-ui/routes';
 
 export type AppTarget =
   | { kind: 'document'; id: string; blockId?: string; segmentId?: string; timeMs?: number }
-  | { kind: 'search'; q: string }
-  | { kind: 'tasks' }
+  | { kind: 'search'; q: string; type?: 'notes' | 'transcripts' }
+  | { kind: 'tasks'; filters?: RouteTaskFilters }
   | { kind: 'assistant'; threadId?: string };
 
 export type LinkComponent = ComponentType<Omit<ComponentProps<'a'>, 'href'> & { href: string }>;

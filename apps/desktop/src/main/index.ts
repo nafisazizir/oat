@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { DESKTOP_SCHEME, findDeepLinkArg } from '@oat/auth/desktop-link';
+import { InviteNavigation } from './invite-navigation';
 import {
   type PermissionsSnapshot,
   PLAYBACK_SCHEME,
@@ -251,7 +252,13 @@ async function start() {
     packaged: app.isPackaged,
     coldStartMs,
   }));
+  const inviteNavigation = new InviteNavigation(() => {
+    focusMainWindow();
+    broadcast('navigation:changed', {});
+  });
   bridge.handle('state:get', () => store.snapshot());
+  bridge.handle('navigation:get', () => (auth.signedIn ? inviteNavigation.route : null));
+  bridge.handle('navigation:clear', () => inviteNavigation.clear());
   const settingsIo = createSettingsIo({
     baseUrl: config.webUrl,
     withSession: (run) => auth.withSession(run),
@@ -948,6 +955,7 @@ async function start() {
   void calendar.start();
 
   deliverLink = (url) => {
+    if (inviteNavigation.open(url)) return;
     void auth.handleDeepLink(url).then((signedIn) => {
       if (signedIn) focusMainWindow();
     });

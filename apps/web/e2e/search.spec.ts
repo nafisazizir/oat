@@ -80,6 +80,28 @@ test('command palette separators do not break listbox accessibility', async ({ p
   await expect(dialog).toBeHidden();
 });
 
+test('shared host commands include pages, sidebar, settings and checked themes', async ({
+  page,
+}) => {
+  await page.keyboard.press('ControlOrMeta+k');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await expect(palette.getByRole('option', { name: 'New page', exact: true })).toBeVisible();
+  await expect(palette.getByRole('option', { name: /Toggle sidebar/ })).toBeVisible();
+  await palette.getByRole('option', { name: 'Templates', exact: true }).click();
+  await expect(page).toHaveURL(/\/templates$/);
+  await page.keyboard.press('ControlOrMeta+k');
+  await palette.getByRole('option', { name: 'Members', exact: true }).click();
+  await expect(page).toHaveURL(/\/settings\/workspace\/members$/);
+  await page.keyboard.press('ControlOrMeta+k');
+  await palette.getByRole('option', { name: 'Dark theme', exact: true }).click();
+  await page.keyboard.press('ControlOrMeta+k');
+  await expect(palette.getByRole('option', { name: /Dark theme/ })).toHaveAttribute(
+    'data-checked',
+    'true',
+  );
+  await expect(palette.getByLabel('Selected')).toBeVisible();
+});
+
 test('⌘K finds notes and transcript lines; Enter opens the hit; /search has tabs', async ({
   page,
 }) => {
