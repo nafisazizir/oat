@@ -96,7 +96,9 @@ describe('join choices', () => {
     );
     expect(screen.getAllByText('Requested')).toHaveLength(2);
     expect(screen.getByRole('status').textContent).toContain('Request sent to Ask');
-    fireEvent.click(screen.getByRole('button', { name: 'Back to Oat' }));
+    const back = screen.getByRole<HTMLButtonElement>('button', { name: 'Back to Oat' });
+    await waitFor(() => expect(back.disabled).toBe(false));
+    fireEvent.click(back);
     await waitFor(() => expect(onHome).toHaveBeenCalledOnce());
   });
 
@@ -116,23 +118,30 @@ describe('join choices', () => {
     expect(onHome).not.toHaveBeenCalled();
   });
 
-  it('disables every action while an acceptance is pending', async () => {
-    const { transport, onHome } = setup();
-    let finish!: (value: Awaited<ReturnType<OatTransport>>) => void;
-    transport.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          finish = resolve;
-        }),
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Accept the invitation to Invited' }));
-    for (const button of screen.getAllByRole('button'))
-      expect((button as HTMLButtonElement).disabled).toBe(true);
-    await act(async () => {
-      finish({ status: 200, json: async () => ({ ok: true }) });
-    });
-    expect(onHome).toHaveBeenCalledOnce();
-  });
+  it.each([false, true])(
+    'disables every action while an acceptance is pending (member=%s)',
+    async (member) => {
+      const { transport, onHome } = setup({ member });
+      let finish!: (value: Awaited<ReturnType<OatTransport>>) => void;
+      transport.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Accept the invitation to Invited' }));
+      for (const button of screen.getAllByRole('button'))
+        expect((button as HTMLButtonElement).disabled).toBe(true);
+      if (member) {
+        fireEvent.click(screen.getByRole('button', { name: 'Back to Oat' }));
+        expect(onHome).not.toHaveBeenCalled();
+      }
+      await act(async () => {
+        finish({ status: 200, json: async () => ({ ok: true }) });
+      });
+      expect(onHome).toHaveBeenCalledOnce();
+    },
+  );
 });
 
 describe('join loading and bootstrap', () => {

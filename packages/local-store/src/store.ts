@@ -1073,6 +1073,36 @@ export class LocalStore {
     });
   }
 
+  cacheMeeting(
+    document: SyncDocumentRow,
+    workspace: SyncWorkspaceRow,
+    changes: SyncPullChange[],
+  ): boolean {
+    return this.#remote(() => {
+      if (
+        this.document(document.id) ||
+        this.#get("SELECT 1 FROM outbox WHERE table_name = 'document' AND row_id = ?", document.id)
+      )
+        return false;
+      if (document.kind !== 'meeting' || document.workspaceId !== workspace.id)
+        throw new Error('Invalid meeting cache parents.');
+      if (!this.workspace(workspace.id)) this.#upsertWorkspace(workspace);
+      this.#upsertDocument(document);
+      for (const change of changes) {
+        if (change.op !== 'upsert') throw new Error('Invalid meeting cache change.');
+        if (change.table === 'meeting' && change.row.documentId === document.id)
+          this.#applyChange(change, null, false);
+        else if (
+          (change.table === 'participant' || change.table === 'transcript_segment') &&
+          this.meeting(change.row.meetingId)?.documentId === document.id
+        )
+          this.#applyChange(change, null, false);
+        else throw new Error('Invalid meeting cache child.');
+      }
+      return true;
+    });
+  }
+
   // --- search (3.5, PLAN 3.6 desktop part) ----------------------------------------------------------------
 
   /**

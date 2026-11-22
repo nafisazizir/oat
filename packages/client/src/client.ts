@@ -25,6 +25,7 @@ import type {
   AddParticipantInput,
   MeetingQuery,
 } from '@oat/services/dto/meeting';
+import type { SyncBackfillResponse } from '@oat/core/sync';
 import type {
   EnhancementDto,
   StartEnhanceInput,
@@ -170,6 +171,13 @@ export function createOatClient(transport: OatTransport) {
   ): Payload => ({ query, ...options });
 
   return {
+    sync: {
+      backfill: endpoint<SyncBackfillResponse>()(
+        'GET',
+        '/api/sync/backfill',
+        (document: string, after?: string) => ({ query: { document, after } }),
+      ),
+    },
     documents: {
       list: endpoint<DocumentSummary[]>()('GET', '/api/documents', queryInput<DocumentListQuery>),
       get: endpoint<DocumentDetail>()('GET', '/api/documents/[id]', byId),

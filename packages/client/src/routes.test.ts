@@ -11,7 +11,7 @@ it('covers every non-skipped API route and HTTP method (OAuth redirects use brow
     if (!file.endsWith('/route.ts')) continue;
     const path = '/api/' + file.slice(0, -'/route.ts'.length);
     if (
-      /^\/api\/(auth|sign-in|sync)\//.test(path) ||
+      (/^\/api\/(auth|sign-in|sync)\//.test(path) && path !== '/api/sync/backfill') ||
       [
         '/api/health',
         '/api/stt/token',

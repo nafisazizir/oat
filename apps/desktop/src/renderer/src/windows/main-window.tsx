@@ -310,6 +310,11 @@ function SignedInShell({
     return ws && ws !== activeWorkspace?.id ? (workspaceNames.get(ws) ?? null) : null;
   };
   const [route, setRoute] = useState<AppRoute>({ view: 'home' });
+  const [focusRevision, setFocusRevision] = useState(0);
+  const navigate = useCallback((next: AppRoute) => {
+    setRoute(next);
+    if (next.view === 'document') setFocusRevision((n) => n + 1);
+  }, []);
   useEffect(() => {
     let active = true;
     const read = () => {
@@ -409,7 +414,7 @@ function SignedInShell({
       snapshot={workspaces.snapshot}
       lastSyncedAt={sync.lastSyncedAt}
       route={route}
-      navigate={setRoute}
+      navigate={navigate}
       recordingMeetingId={recording ? activeMeetingId : null}
       recordingActive={recording || recordingStatus === 'stopping'}
     >
@@ -503,6 +508,8 @@ function SignedInShell({
                 <MeetingView
                   userId={user.id}
                   documentId={selected}
+                  focus={route.view === 'document' ? route.query : undefined}
+                  focusRevision={focusRevision}
                   snapshot={snapshot}
                   options={options}
                   input={input}

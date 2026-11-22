@@ -7,7 +7,7 @@ milestone: M9 · deps: api-foundation, settings-parity, desktop-workspace-parity
 
 Inventory the shipped web and desktop surfaces after PR #28, before choosing the next parity work.
 The Before inventory is a source audit, not a claim of runtime equivalence. The After column tracks
-subsequent implementation groups: G2/G5 are complete; the current handoff implements G3/G14/G13.
+subsequent completed implementation groups: G2/G5, G3/G14/G13 and G7/G11.
 
 ## Context
 
@@ -84,11 +84,11 @@ query parameters. Full desktop history/restart restoration remains G1, not part 
 | Upcoming calendar | Embedded Home list, Google connect/error/no-upcoming/start/open/join-call states; no `/calendar` or `/upcoming` page | Home UpcomingList merges local calendar and Google, existing-note cross-workspace hints | W/components/calendar/{upcoming-meetings.tsx,upcoming-meeting-row.tsx,google-calendar-actions.tsx}; D/calendar/{upcoming-list.tsx,calendar-state.ts}; M/calendar-service.ts | **P3/G5:** keep EventKit source; extract common upcoming row/actions and send desktop Google-connect to native Integrations, not browser settings | M | Implemented: Google CTA navigates directly to native Settings → Integrations (including empty compact Home); main no longer has a browser-connect callback. EventKit remains native; row extraction deferred. |
 | Plain document | `/d/[docId]`, editor, title, save/retry/reload/view-only/trash banner, block focus | Native DocumentRoute fetches and renders PageEditor/BlockFocus when online | WS/page-editor.tsx, WS/use-autosave.ts; W/components/document/{document-editor.tsx,block-focus.tsx}; D/workspace/desktop-routes-view.tsx; packages/editor/src/react | **G6:** web wrapper also supplies task-assignee query and Notion actions; extract those adapters into shared editor composition (see G8/G10) | M | — |
 | Folder document | Same `/d/[docId]` dispatch, folder contents and actions | DocumentRoute resolves folder via folder tree and ShellFolderView | WS/folder-view.tsx, WS/folder-actions.tsx; W/app/(app)/d/[docId]/page.tsx; D/workspace/desktop-routes-view.tsx | **=:** shared folder surface | — | — |
-| Meeting document and transcript | MeetingNote wraps DocumentEditor; live/stored transcript, resizable panel, participants, playback, recording | Local MeetingView/OatEditor, local autosave/transcript/playback; selected for kind=meeting or known meeting node | W/components/meeting/meeting-note.tsx; D/meetings/{meeting-view.tsx,note-autosave.ts,meetings-state.ts}; MEET/{side-panel.tsx,participant-summary.tsx} | **G7:** server-discovered meeting routes still dispatch local-only MeetingView; add authorized server read fallback/read-through cache for meetings absent locally, without replacing local writes | L | — |
+| Meeting document and transcript | MeetingNote wraps DocumentEditor; live/stored transcript, resizable panel, participants, playback, recording | Local MeetingView/OatEditor, local autosave/transcript/playback; selected for kind=meeting or known meeting node | W/components/meeting/meeting-note.tsx; D/meetings/{meeting-view.tsx,note-autosave.ts,meetings-state.ts}; MEET/{side-panel.tsx,participant-summary.tsx} | **G7:** server-discovered meeting routes still dispatch local-only MeetingView; add authorized server read fallback/read-through cache for meetings absent locally, without replacing local writes | L | Implemented and unit/fast-gate verified: main MeetingReadThrough uses typed document/workspace reads and paginated sync.backfill. Complete authorized subtrees are cached atomically without outbox echo or cursor changes; existing local documents/pending writes win. Edits retain local autosave/outbox; loading, web-equivalent unavailable, offline/not-cached and retry states. |
 | Document-scoped assistant | Toggle, side panel, document scope, proposals flush/adopt current open editor; Cmd/Ctrl+J | Global Assistant only; no mounted document assistant wrapper around PageEditor/MeetingView | W/components/assistant/{document-assistant.tsx,open-document.tsx}; FEAT/{assistant-chat.tsx,assistant-integration.tsx}; D/windows/feature-views.tsx | **G8:** extract panel/editor-registration composition with desktop settle/adopt bridge; do not equate global Assistant with note-scoped support | L | — |
 | Manual enhance/regenerate | Meeting Enhance toolbar, template choice, streaming preview/error, version history/restore/undo, changed-while-writing choice | Post-meeting pipeline status/retry and grace line only; no manual enhancement/version controls mounted | W/components/document/{document-editor.tsx,enhance/}; D/meetings/{meeting-view.tsx,post-meeting.tsx}; FEAT/chat-session.tsx is not enhancement UI | **G9:** extract enhancement/history controls and integrate version-safe local flush/sync/adopt before server mutation | L | — |
 | Notion per-document action | Send/update, status, open exported page, error/retry/consent guidance in overflow | Shared connection/target settings but no per-note send/update/open action | W/components/notion/notion-export-button.tsx; W/components/document/document-editor.tsx; SET/integrations-panel.tsx; D/meetings/meeting-view.tsx | **G10:** share NotionExportButton through typed client, preflight local flush/sync on desktop | M | — |
-| Meeting citations and positions | `?t=&seg=` opens transcript/selected moment; `?block=` highlights editor block | Routes retain query; plain pages consume block; local MeetingView accepts only documentId, not segment/time/block target | W/app/(app)/d/[docId]/page.tsx, W/lib/transcript.ts; D/workspace/desktop-routes-view.tsx, D/meetings/meeting-view.tsx; FEAT/workspace-adapter.tsx | **G11:** pass normalized focus to MeetingView and consume after transcript/editor load, including repeated citations on same note | M | — |
+| Meeting citations and positions | `?t=&seg=` opens transcript/selected moment; `?block=` highlights editor block | Routes retain query; plain pages consume block; local MeetingView accepts only documentId, not segment/time/block target | W/app/(app)/d/[docId]/page.tsx, W/lib/transcript.ts; D/workspace/desktop-routes-view.tsx, D/meetings/meeting-view.tsx; FEAT/workspace-adapter.tsx | **G11:** pass normalized focus to MeetingView and consume after transcript/editor load, including repeated citations on same note | M | Implemented and unit/fast-gate verified: native MeetingView reuses existing FEAT parseDeepLink/focusedLine and editor BlockFocus, opens/highlights the requested transcript moment after loading and seeks device-local audio when available. A document-navigation revision reapplies identical citations, including repeated block scroll/highlight. |
 | Participant editor | Add/remove popover and participant summary for editable meeting | Same MEET summary; add/remove through local bridge | MEET/participants.tsx; W/components/meeting/meeting-note.tsx; D/meetings/meeting-view.tsx; M/meeting-notes.ts | **=:** common UI, preserve local versus REST writes | — | — |
 | Workspace tree | Private/shared sections; expand/collapse, drag/move, new page/folder | Same AppSidebar/PageTree, server-backed tree with local meeting additions | WS/{app-sidebar.tsx,page-tree.tsx,tree-actions.tsx,optimistic-tree.ts}; D/workspace/use-desktop-shell-data.ts | **=:** mutations permission/online gated; no native-only replacement needed | — | — |
 | Tree/context actions | Section add page/folder; item overflow rename/move; folder new page/folder inside; delete folder/trash note; inline rename and move chooser | Same mounted shared menus/dialogs | WS/{page-tree.tsx,tree-actions.tsx,folder-actions.tsx} | **=:** these are overflow/dropdown menus, not a separate OS right-click menu | — | — |
@@ -299,3 +299,41 @@ meeting citation focus is consumed. No independent reviewer or visual/runtime ve
   against its deliberately configured localhost:9 test issuer; this is not an unloaded environment.
 - Browser behavior/axe checked by Playwright; new surfaces are visually unverified. Electron OS
   protocol registration, macOS native rendering/permissions and real provider consent remain unverified.
+
+### G7 + G11 implementation verification
+
+- Main-owned typed document/workspace/backfill reads and an atomic no-echo cache are implemented.
+  A cache fill never replaces an existing document, pending write or subtree; failed/incomplete reads
+  commit nothing. Edits continue through MeetingNotes/NoteAutosave and the normal outbox. Account/store
+  switches discard in-flight responses. Existing authorized backfill pagination is reused, with no
+  server changes, new response headers or renderer bearer access.
+- MeetingView reuses the already-shared feature-ui focus parser/line resolver and editor BlockFocus.
+  Navigation revisions reapply identical segment/time/block citations; audio seeking remains device-local.
+- OAT_TEST_TIMEOUT_SCALE=3 pnpm run ci --fast initially caught new fixture typing, transport-query typing
+  and synchronous derived-state-effect lint errors; corrected those. First corrected format/typecheck/lint
+  passed (24.0s/22.3s/10.6s). Initial actionlint passed with unchanged inputs.
+- The test stage failed twice in unchanged workspace-ui join-workspace.test.tsx:
+  “requests access, displays the pending badge and confirmation, and offers Back to members”,
+  “expected "vi.fn()" to be called once, but got 0 times” at line 100 (onHome).
+  Suspected pending-transition/click-readiness race; whether the button was disabled at click time is
+  unverified. A detached b11a76d baseline at /home/ubuntu/oat-g7-baseline passed both the focused case and
+  the standalone workspace suite (98 tests); this does not establish a preexisting parallel-gate failure.
+  Follow-up authorization allowed fixing our G2 test. Back already has native disabled semantics and
+  disabled styling while pending; a deferred-acceptance member regression verifies it cannot navigate
+  then. The request test now waits for Back to become enabled before clicking. No component behavior
+  changed. The original click-time state was not captured, but the readiness fix passes stress and CI.
+  The detached baseline was removed with git worktree remove.
+- Independent affected desktop suite: OAT_TEST_TIMEOUT_SCALE=3 pnpm --filter @oat/desktop test →
+  70 files, 571 tests passed (18.98s), including load/cache/error/retry/empty transcript/role/account
+  boundaries, segment/time/block focus and identical repeat citations. Gate local-store: 85 passed;
+  core: 507; client: 59; feature-ui: 122; web: 209.
+- Five concurrent runs of taskset -c 0-3 env OAT_TEST_TIMEOUT_SCALE=3
+  pnpm --filter @oat/workspace-ui test all passed: 8 files/99 tests each (495 test executions).
+  Logs: /home/ubuntu/oat-parity-g7-g11-stress-{1,2,3,4,5}.log.
+- Final OAT_TEST_TIMEOUT_SCALE=3 pnpm run ci --fast: format pass (22.0s), actionlint pass (0.4s),
+  typecheck pass (22.2s), lint pass (6.3s), test pass (31.6s), total 82.5s, ci: ok.
+  All 24 test tasks successful; desktop 571 and workspace-ui 99 tests passed.
+  Log: /home/ubuntu/oat-parity-g7-g11-final-fast.log.
+- Logs: /home/ubuntu/oat-parity-g7-g11-{fast,correction,desktop,baseline-join,baseline-workspace}.log.
+  Web sources/server behavior/shared focus implementations were not changed, so browser e2e was not
+  rerun. Native runtime/visuals remain unverified. One local group commit; no push or new decision.

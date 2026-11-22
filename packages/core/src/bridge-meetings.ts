@@ -69,6 +69,11 @@ export const meetingNoteSchema = z.object({
   calendarEvent: noteCalendarEventSchema.nullable().default(null),
 });
 export type MeetingNote = z.infer<typeof meetingNoteSchema>;
+export const meetingLoadSchema = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('ready'), note: meetingNoteSchema }),
+  z.object({ state: z.enum(['missing', 'offline', 'error']) }),
+]);
+export type MeetingLoad = z.infer<typeof meetingLoadSchema>;
 
 /** A stored (final) transcript segment, on the meeting clock. */
 export const storedSegmentSchema = z.object({
@@ -128,6 +133,10 @@ export const meetingInvokeChannels = {
   'meeting:get': {
     request: z.union([z.strictObject({ documentId }), z.strictObject({ meetingId })]),
     response: meetingNoteSchema.nullable(),
+  },
+  'meeting:load': {
+    request: z.strictObject({ documentId }),
+    response: meetingLoadSchema,
   },
   /** The note's stored transcript (finals), in time order. */
   'meeting:transcript': {

@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import { DESKTOP_SCHEME, findDeepLinkArg } from '@oat/auth/desktop-link';
 import { InviteNavigation } from './invite-navigation';
+import { createMeetingReadClient, MeetingReadThrough } from './meeting-read-through';
 import {
   type PermissionsSnapshot,
   PLAYBACK_SCHEME,
@@ -429,6 +430,18 @@ async function start() {
   };
   bridge.handle('meetings:list', () => ({ notes: notes.list() }));
   bridge.handle('meeting:get', (by) => notes.get(by));
+  const meetingReader = new MeetingReadThrough({
+    store: () => sync.store,
+    userId: signedInUser,
+    notes,
+    onChange: meetingsChanged,
+    client: createMeetingReadClient({
+      auth,
+      baseUrl: config.webUrl,
+      request: createApiRequester({ baseUrl: config.webUrl }),
+    }),
+  });
+  bridge.handle('meeting:load', ({ documentId }) => meetingReader.load(documentId));
   bridge.handle('meeting:transcript', ({ documentId }) =>
     notesCall(() => ({ segments: notes.transcript(documentId) })),
   );

@@ -9,7 +9,8 @@
 import type { InvokeResponse, MeetingNote, RecordingSnapshot } from '@oat/core/bridge';
 import { visibilityBadge } from '@oat/core/sections';
 import { sameDocumentContent } from '@oat/core/sync';
-import { OatEditor } from '@oat/editor/react';
+import { BlockFocus, OatEditor } from '@oat/editor/react';
+import { focusedLine, parseDeepLink, wantsTranscript } from '@oat/feature-ui/assistant';
 import {
   activeSegmentAt,
   MeetingTime,
@@ -75,6 +76,8 @@ export function MeetingView({
   onInputChange,
   home,
   controlsContainer,
+  focus: focusQuery,
+  focusRevision = 0,
 }: {
   userId: string;
   documentId: string | null;
@@ -85,13 +88,15 @@ export function MeetingView({
   /** Replaces the start screen when no note is open (9.2: the first-meeting guide). */
   home?: ReactNode;
   controlsContainer?: HTMLElement | null;
+  focus?: Record<string, string>;
+  focusRevision?: number;
 }) {
-  const { note, loaded } = useMeetingNote(documentId);
+  const { note, loaded, failure, retry } = useMeetingNote(documentId);
   const live = useTranscript();
   const meetingId = note?.meetingId ?? null;
   const recordingThis =
     meetingId !== null && snapshot?.meetingId === meetingId && isActive(snapshot.status);
-  const stored = useStoredTranscript(documentId, !recordingThis);
+  const stored = useStoredTranscript(note ? documentId : null, !recordingThis);
   const transcriptStatus = useTranscriptStatus(documentId ? meetingId : null);
   const [panelOpen, setPanelOpen] = useStoredState<boolean>(
     `oat.desktop.transcript.open:${userId}`,
@@ -103,7 +108,13 @@ export function MeetingView({
     setPanelOpen(false);
     requestAnimationFrame(() => toggleRef.current?.focus({ preventScroll: true }));
   };
-  const [selected, setSelected] = useState<string | undefined>(undefined);
+  const focus = useMemo(() => parseDeepLink(focusQuery ?? {}), [focusQuery]);
+  const [picked, setPicked] = useState<{
+    id: string;
+    query: typeof focusQuery;
+    revision: number;
+    documentId: string | null;
+  } | null>(null);
 
   const segments = useMemo<TranscriptItem[]>(() => {
     if (!documentId) return [];
@@ -125,6 +136,27 @@ export function MeetingView({
     documentId && meetingId && !recordingThis ? meetingId : null,
   );
   const playable = player.available && !recordingThis;
+  const linked = focusedLine(segments, focus);
+  const selected =
+    picked &&
+    picked.query === focusQuery &&
+    picked.revision === focusRevision &&
+    picked.documentId === documentId
+      ? picked.id
+      : linked;
+  const targetMs =
+    focus.seg && linked === focus.seg
+      ? segments.find((s) => s.id === linked)?.startMs
+      : focus.t !== undefined
+        ? focus.t * 1000
+        : undefined;
+  const seek = player.seek;
+  useEffect(() => {
+    if (documentId && wantsTranscript(focus)) {
+      setPanelOpen(true);
+      if (playable && targetMs !== undefined) seek(targetMs);
+    }
+  }, [documentId, focus, focusRevision, linked, targetMs, playable, seek, setPanelOpen]);
   // Re-renders only when the highlighted line changes, not on every frame of the playhead.
   const activeId = useSyncExternalStore(player.clock.subscribe, () =>
     playable ? activeSegmentAt(segments, player.clock.ms) : undefined,
@@ -170,25 +202,46 @@ export function MeetingView({
             ) : !note ? (
               <Empty className="h-full border-none">
                 <EmptyHeader>
-                  <EmptyTitle>This note isn’t on this Mac anymore</EmptyTitle>
-                  <EmptyDescription>It was deleted or moved on another device.</EmptyDescription>
+                  <EmptyTitle>
+                    {failure === 'offline'
+                      ? 'This meeting isn’t available offline'
+                      : failure === 'error'
+                        ? 'Couldn’t load this meeting'
+                        : 'Page not found'}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {failure === 'offline'
+                      ? 'This meeting hasn’t been saved on this Mac yet. Reconnect and try again.'
+                      : failure === 'error'
+                        ? 'Please try again. Your local notes are unchanged.'
+                        : 'It may have been moved or deleted, or you might not have access to it.'}
+                  </EmptyDescription>
+                  <Button variant="outline" onClick={retry}>
+                    Try again
+                  </Button>
                 </EmptyHeader>
               </Empty>
             ) : (
-              <NoteBody
-                key={note.documentId}
-                note={note}
-                live={recordingThis}
-                endedAt={
-                  note.endedAt ?? (graceHere ? new Date(graceHere.endedAt).toISOString() : null)
-                }
-                postMeeting={postMeeting}
-                controlsContainer={controlsContainer}
-              />
+              <>
+                <NoteBody
+                  key={note.documentId}
+                  note={note}
+                  live={recordingThis}
+                  endedAt={
+                    note.endedAt ?? (graceHere ? new Date(graceHere.endedAt).toISOString() : null)
+                  }
+                  postMeeting={postMeeting}
+                  controlsContainer={controlsContainer}
+                />
+                <BlockFocus
+                  key={`${note.documentId}:${focusRevision}:${focus.block ?? ''}`}
+                  blockId={focus.block}
+                />
+              </>
             )}
           </div>
         </div>
-        {documentId && panelOpen && (
+        {documentId && panelOpen && (note || !loaded) && (
           <SidePanel
             id="transcript-panel"
             title={
@@ -216,19 +269,26 @@ export function MeetingView({
             >
               {documentId && meetingId && !recordingThis && <PlaybackBar player={player} />}
               <TranscriptPanel
+                key={`${documentId}:${focusRevision}:${focus.seg ?? ''}:${focus.t ?? ''}`}
                 segments={segments}
                 // A just-recorded note that can be played back follows the playhead, not the live end.
                 live={showsRecording || (followLive && !playable)}
                 snapshot={showsRecording ? snapshot : null}
-                loaded={documentId === null ? live.loaded : stored.loaded}
+                loaded={documentId === null ? live.loaded : loaded && stored.loaded}
                 failed={documentId === null ? live.failed : stored.failed}
                 meetingKey={documentId}
-                focusId={playable ? undefined : selected}
+                focusId={selected}
                 onSelect={
                   playable
                     ? (s) => player.seek(s.startMs)
                     : documentId
-                      ? (s) => setSelected(s.id)
+                      ? (s) =>
+                          setPicked({
+                            id: s.id,
+                            query: focusQuery,
+                            revision: focusRevision,
+                            documentId,
+                          })
                       : undefined
                 }
                 activeId={activeId}

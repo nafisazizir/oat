@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { apiRoutes } from '@oat/client/routes';
+import type { OatRequest } from '@oat/client';
 import type { BridgeApiRequest } from '@oat/core/bridge';
 
 import { ApiError, type createApiRequester } from './api-client.ts';
@@ -17,7 +18,7 @@ import type { MainStore } from './store.ts';
 const safeId = /^[A-Za-z0-9_:-]+(?:\.[A-Za-z0-9_:-]+)*$/;
 
 export function apiProxyUrl(
-  request: Pick<BridgeApiRequest, 'method' | 'path' | 'query'>,
+  request: Pick<OatRequest, 'method' | 'path' | 'query'>,
   baseUrl: string,
 ): URL {
   const { path, method } = request;
