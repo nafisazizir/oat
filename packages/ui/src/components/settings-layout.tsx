@@ -43,7 +43,7 @@ export function SettingsNavGroup({ label, children }: { label: string; children:
 
 export function settingsNavClass(active: boolean) {
   return cn(
-    'flex min-h-8 items-center gap-2 rounded-md border border-transparent px-2 py-1 text-start text-label-14 transition-colors outline-none focus-visible:border-gray-600 focus-visible:ring-3 focus-visible:ring-gray-600/50',
+    'flex min-h-8 items-center gap-2 rounded-md border border-transparent px-2 py-1 text-start text-label-14 outline-none focus-visible:border-gray-600 focus-visible:ring-3 focus-visible:ring-gray-600/50',
     active ? 'bg-gray-alpha-200 text-gray-1000' : 'text-gray-1000 hover:bg-gray-alpha-100',
   );
 }

@@ -356,6 +356,7 @@ test('no calendar access: connect it in Settings → Setup (never asked on its o
   // calendar row says it isn't allowed yet, "Open setup" goes to the calendar step.
   await page.getByTestId('workspace-switcher').click();
   await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
+  await page.getByTestId('settings-section-setup').click();
   await expect(page.getByTestId('setup-calendar')).toHaveAttribute('data-state', 'ask');
   await page.getByTestId('open-setup').click();
   const setup = page.getByTestId('onboarding');

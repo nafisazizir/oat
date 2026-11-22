@@ -1,5 +1,7 @@
 'use client';
 
+import type { OatClient } from '@oat/client';
+import { errorMessage, useSettings } from './services';
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import {
@@ -13,71 +15,15 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@oat/ui/components/popover';
 import { Spinner } from '@oat/ui/components/spinner';
 import { IconDatabase, IconFileText } from '@tabler/icons-react';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { toast } from 'sonner';
-
-import { isApiError } from '@/lib/api-client';
-import type { NotionConnectionInfo, NotionTargetOption } from '@/lib/api-types';
-import { notionApi } from '@/lib/notion-client';
 
 /**
  * "Connect Notion": a plain form POST, so the server answers with the redirect to Notion's consent page and
  * sets the signed state cookie in the same response (works without JS too).
  */
-export function ConnectNotionButton({
-  workspaceId,
-  label = 'Connect Notion',
-  variant = 'default',
-}: {
-  workspaceId: string;
-  label?: string;
-  variant?: 'default' | 'outline';
-}) {
-  const [pending, setPending] = useState(false);
-  return (
-    <form
-      method="post"
-      action="/api/integrations/notion/connect"
-      className="shrink-0"
-      onSubmit={() => setPending(true)}
-    >
-      <input type="hidden" name="workspaceId" value={workspaceId} />
-      <Button type="submit" variant={variant} disabled={pending}>
-        {pending && <Spinner data-icon="inline-start" />}
-        {label}
-      </Button>
-    </form>
-  );
-}
-
-export function DisconnectNotionButton({ workspaceId }: { workspaceId: string }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  return (
-    <Button
-      variant="outline"
-      disabled={pending}
-      onClick={() =>
-        startTransition(async () => {
-          try {
-            await notionApi.disconnect(workspaceId);
-            toast('Notion disconnected');
-            router.replace('/settings/integrations');
-            router.refresh();
-          } catch (error) {
-            toast.error('Couldn’t disconnect Notion', {
-              description: error instanceof Error ? error.message : 'Please try again.',
-            });
-          }
-        })
-      }
-    >
-      {pending && <Spinner data-icon="inline-start" />}
-      Disconnect
-    </Button>
-  );
-}
+type NotionConnectionInfo = NonNullable<Awaited<ReturnType<OatClient['notion']['status']>>>;
+type NotionTargetOption = Awaited<ReturnType<OatClient['notion']['targets']>>[number];
 
 function TargetIcon({ option }: { option: Pick<NotionTargetOption, 'type' | 'icon'> }) {
   if (option.icon) {
@@ -102,7 +48,7 @@ export function NotionTargetPicker({
   workspaceId: string;
   target: NotionConnectionInfo['target'];
 }) {
-  const router = useRouter();
+  const { client, refresh } = useSettings();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<NotionTargetOption[] | null>(null);
@@ -114,8 +60,8 @@ export function NotionTargetPicker({
     let cancelled = false;
     const timer = setTimeout(
       () => {
-        notionApi
-          .search(workspaceId, query)
+        client.notion
+          .targets(workspaceId, query)
           .then((found) => {
             if (cancelled) return;
             setResults(found);
@@ -133,25 +79,25 @@ export function NotionTargetPicker({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [open, query, workspaceId]);
+  }, [client, open, query, workspaceId]);
 
   function choose(option: NotionTargetOption) {
     startSaving(async () => {
       try {
-        await notionApi.setTarget(workspaceId, { type: option.type, id: option.id });
+        await client.notion.target({ workspaceId, type: option.type, id: option.id });
         setOpen(false);
         toast.success(`Notes will go to “${option.title}”`);
-        router.refresh();
+        await refresh();
       } catch (err) {
         toast.error('Couldn’t use that page', {
-          description: isApiError(err) ? err.message : 'Please try again.',
+          description: errorMessage(err, 'Please try again.'),
         });
       }
     });
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-gray-alpha-400 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-md border border-gray-alpha-400 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-label-12 text-gray-900">Send notes to</span>
         {target ? (

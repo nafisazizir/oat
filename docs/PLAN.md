@@ -106,7 +106,7 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 - [x] Human-requested Graphite theme and shared control refresh for web and desktop · [task](tasks/graphite-ui-foundation.md)
 
 - [ ] Human-requested: API foundation — REST parity, typed client and authenticated desktop text/JSON proxy implemented; independent review/verification pending (D-38) · deps: 5.1, 5.2, 7.4 · [task](tasks/api-foundation.md)
-- [x] Human-requested: desktop workspace parity — steps 1–5 shared surfaces wired, Chromium desktop light/dark evidence and web e2e/axe verified; native macOS validation remains unrun · [task](tasks/desktop-workspace-parity.md)
+- [x] Human-requested: desktop workspace parity — steps 1–6 complete including shared-settings base merge and native leave-dialog export; step 5 Chromium/web evidence recorded, post-merge native macOS validation remains unrun · [task](tasks/desktop-workspace-parity.md)
 
 - [x] Stale desktop e2e + acceptance specs updated for the calm shell; web typography/notion/auth spec races fixed · [task](tasks/e2e-calm-shell-specs.md)
 
@@ -115,6 +115,8 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 - [x] Human-requested UI redesign PR 4: calm home and note surfaces · [task](tasks/ui-calm-note-surfaces.md)
 
 - [x] Human-requested UI redesign PR 3: calm Account / Workspace settings · [task](tasks/ui-calm-settings.md)
+
+- [ ] Shared native settings on web and desktop · [task](tasks/settings-parity.md)
 
 - [x] Human-requested UI redesign PR 2: calm web/desktop shell · [task](tasks/ui-calm-shell.md)
 

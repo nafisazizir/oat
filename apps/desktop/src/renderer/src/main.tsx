@@ -1,5 +1,13 @@
 import './styles.css';
 
+import { ThemeProvider, useTheme } from '@oat/settings-ui';
+import {
+  DARK_QUERY,
+  parsePreference,
+  resolveTheme,
+  THEME_STORAGE_KEY,
+} from '@oat/settings-ui/theme';
+import { Toaster } from '@oat/ui/components/sonner';
 import { lazy, StrictMode, Suspense, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -9,11 +17,14 @@ import { windowKindFromHash } from './routes.ts';
 const kind = windowKindFromHash(window.location.hash);
 document.documentElement.dataset.window = kind;
 
-// Follow the OS appearance (tokens.css has light + `.dark`).
-const dark = window.matchMedia('(prefers-color-scheme: dark)');
-const applyTheme = () => document.documentElement.classList.toggle('dark', dark.matches);
-applyTheme();
-dark.addEventListener('change', applyTheme);
+// Apply the stored preference before rendering, then let the shared provider track changes.
+const systemDark = window.matchMedia(DARK_QUERY).matches;
+try {
+  const theme = resolveTheme(parsePreference(localStorage.getItem(THEME_STORAGE_KEY)), systemDark);
+  document.documentElement.classList.toggle('dark', theme === 'dark');
+} catch {
+  document.documentElement.classList.toggle('dark', systemDark);
+}
 
 // Each window kind's UI is its own chunk; a window only loads its own.
 const MainWindow = lazy(() => import('./windows/main-window.tsx'));
@@ -27,10 +38,24 @@ function Rendered() {
   return null;
 }
 
+function DesktopToaster() {
+  const { theme } = useTheme();
+  return <Toaster theme={theme} position="bottom-right" />;
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Suspense fallback={null}>
-      {kind === 'widget' ? <WidgetWindow /> : <MainWindow />}
+      <ThemeProvider>
+        {kind === 'widget' ? (
+          <WidgetWindow />
+        ) : (
+          <>
+            <MainWindow />
+            <DesktopToaster />
+          </>
+        )}
+      </ThemeProvider>
       <Rendered />
     </Suspense>
   </StrictMode>,

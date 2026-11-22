@@ -9,7 +9,7 @@ import {
 } from '@oat/workspace-ui';
 import { createContext, useContext, useMemo, type ReactNode, type ComponentProps } from 'react';
 import { SidebarProvider } from '@oat/ui/components/sidebar';
-import { Toaster } from '@oat/ui/components/sonner';
+import { call } from '../bridge';
 import { api } from '../lib/api';
 import { useDesktopShellData } from './use-desktop-shell-data';
 
@@ -70,6 +70,7 @@ export function DesktopWorkspaceHost({
   navigate,
   children,
   recordingMeetingId,
+  recordingActive = false,
 }: {
   user: DesktopUser;
   notes: readonly MeetingNoteSummary[] | null;
@@ -79,6 +80,7 @@ export function DesktopWorkspaceHost({
   navigate: (route: AppRoute) => void;
   children: ReactNode;
   recordingMeetingId: string | null;
+  recordingActive?: boolean;
 }) {
   const shell = useDesktopShellData(user, notes, snapshot, lastSyncedAt);
   const host = useMemo<WorkspaceHost>(
@@ -92,8 +94,13 @@ export function DesktopWorkspaceHost({
       online: shell.online,
       appOrigin: shell.appOrigin,
       Link: DesktopLink,
+      exportNotes: async (workspaceId) =>
+        (await call('settings:export-notes', { workspaceId }))?.count ?? null,
+      workspaceExitBlockedReason: recordingActive
+        ? 'Stop recording before leaving or deleting a workspace.'
+        : undefined,
     }),
-    [route, navigate, shell.refresh, shell.online, shell.appOrigin],
+    [route, navigate, shell.refresh, shell.online, shell.appOrigin, recordingActive],
   );
   return (
     <MeetingLinks.Provider value={{ notes, recordingMeetingId }}>
@@ -103,7 +110,6 @@ export function DesktopWorkspaceHost({
             <SidebarProvider className="h-full min-h-0 min-w-0 flex-1" data-testid="shell">
               {children}
             </SidebarProvider>
-            <Toaster />
           </TreeActionsProvider>
         </ShellDataProvider>
       </WorkspaceHost>

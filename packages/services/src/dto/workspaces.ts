@@ -108,6 +108,7 @@ export interface JoiningView {
 }
 
 export interface WorkspaceSettings {
+  restoreDays: number;
   workspace: {
     id: string;
     name: string;

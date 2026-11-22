@@ -1,1 +1,1 @@
-export { WorkspaceAvatar } from '@oat/workspace-ui';
+export { WorkspaceAvatar } from '@oat/settings-ui';

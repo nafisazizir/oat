@@ -51,6 +51,7 @@ import { defaultInputChoice, startRequest } from '../recording/recording-control
 import { SidebarInset, SidebarTrigger } from '@oat/ui/components/sidebar';
 import { RecordingBar, IssueBanner } from '../recording/recording-controls.tsx';
 import { SettingsView } from '../settings/settings-view.tsx';
+import { desktopSettingsSection } from '../workspace/settings-section';
 import { FirstMeetingGuide } from '../onboarding/first-meeting-guide.tsx';
 import { useOnboarding } from '../onboarding/onboarding-state.ts';
 import { OnboardingView } from '../onboarding/onboarding-view.tsx';
@@ -317,6 +318,9 @@ function SignedInShell({
   );
   // 3.8: Settings replaces the meeting view (a recording keeps running); opening a note closes it.
   const settingsOpen = route.view === 'settings';
+  const settingsSection = desktopSettingsSection(
+    route.view === 'settings' ? route.section : undefined,
+  );
   const setSettingsOpen = useCallback(
     (open: boolean) =>
       setRoute((current) =>
@@ -391,6 +395,7 @@ function SignedInShell({
       route={route}
       navigate={setRoute}
       recordingMeetingId={recording ? activeMeetingId : null}
+      recordingActive={recording || recordingStatus === 'stopping'}
     >
       <DesktopSidebar
         user={user}
@@ -442,8 +447,16 @@ function SignedInShell({
                 </>
               )}
               <SettingsView
+                key={settingsSection}
+                initialSection={settingsSection}
+                workspace={activeWorkspace}
+                recordingActive={recording || recordingStatus === 'stopping'}
                 onClose={() => setSettingsOpen(false)}
                 onOpenSetup={() => setSetupOpen(true)}
+                onWorkspaceExited={() => {
+                  setSelected(null);
+                  setSettingsOpen(false);
+                }}
               />
             </>
           ) : (

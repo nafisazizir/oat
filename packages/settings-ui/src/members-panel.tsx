@@ -1,5 +1,6 @@
 'use client';
 
+import { useSettings, useWorkspaceAction } from './services';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,16 +37,14 @@ import type { Role } from '@oat/core';
 import { useOptimistic, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
-import { applyMembersAction, type MembersAction, runOptimistic } from '@/lib/members-optimistic';
-import { expiresIn, isRole, ROLE_INFO, ROLES_DESC } from '@/lib/workspace';
-import { approveJoinRequest, declineJoinRequest } from '@/server/actions/joining';
-import { changeRole, removeMember, resendInvite, revokeInvite } from '@/server/actions/members';
+import { applyMembersAction, type MembersAction, runOptimistic } from './members-optimistic';
+import { expiresIn, isRole, ROLE_INFO, ROLES_DESC } from './workspace';
 import type {
   InviteView,
   JoinRequestView,
   MemberView,
   WorkspaceSettings,
-} from '@/server/workspace-settings';
+} from '@oat/services/dto/workspaces';
 
 import { InviteDialog } from './invite-dialog';
 
@@ -66,6 +65,8 @@ function RoleControl({
   member: MemberView;
   apply: Apply;
 }) {
+  const { client } = useSettings();
+  const run = useWorkspaceAction();
   const [, startTransition] = useTransition();
   if (member.assignableRoles.length === 0) {
     return (
@@ -88,7 +89,7 @@ function RoleControl({
         startTransition(async () => {
           const ok = await runOptimistic(
             () => apply({ type: 'role', userId: member.userId, role }),
-            () => changeRole({ workspaceId, userId: member.userId, role }),
+            () => run(() => client.workspaces.updateMember(workspaceId, member.userId, { role })),
             (error) => toast.error('Couldn’t change the role', { description: error }),
           );
           if (ok) toast.success(`${member.name} is now ${ROLE_INFO[role].label.toLowerCase()}`);
@@ -122,6 +123,8 @@ function MemberRow({
   member: MemberView;
   apply: Apply;
 }) {
+  const { client } = useSettings();
+  const run = useWorkspaceAction();
   const [removeOpen, setRemoveOpen] = useState(false);
   const [, startTransition] = useTransition();
 
@@ -130,7 +133,7 @@ function MemberRow({
     startTransition(async () => {
       const ok = await runOptimistic(
         () => apply({ type: 'remove-member', userId: member.userId }),
-        () => removeMember({ workspaceId: workspace.id, userId: member.userId }),
+        () => run(() => client.workspaces.removeMember(workspace.id, member.userId)),
         (error) => toast.error(`Couldn’t remove ${member.name}`, { description: error }),
       );
       if (ok) toast.success(`Removed ${member.name}`);
@@ -199,6 +202,8 @@ function MemberRow({
 }
 
 function InviteRow({ invite, apply }: { invite: InviteView; apply: Apply }) {
+  const { client, workspaceId } = useSettings();
+  const run = useWorkspaceAction();
   const [resending, startResend] = useTransition();
   const [, startRevoke] = useTransition();
   const expired = invite.state === 'expired';
@@ -234,7 +239,7 @@ function InviteRow({ invite, apply }: { invite: InviteView; apply: Apply }) {
               startResend(async () => {
                 const ok = await runOptimistic(
                   () => {},
-                  () => resendInvite(invite.id),
+                  () => run(() => client.workspaces.resendInvite(workspaceId, invite.id)),
                   (error) => toast.error('Couldn’t resend the invite', { description: error }),
                 );
                 if (ok) toast.success(`Invite resent to ${invite.email}`);
@@ -252,7 +257,7 @@ function InviteRow({ invite, apply }: { invite: InviteView; apply: Apply }) {
             startRevoke(async () => {
               const ok = await runOptimistic(
                 () => apply({ type: 'remove-invite', inviteId: invite.id }),
-                () => revokeInvite(invite.id),
+                () => run(() => client.workspaces.revokeInvite(workspaceId, invite.id)),
                 (error) => toast.error('Couldn’t revoke the invite', { description: error }),
               );
               if (ok) toast.success(`Invite to ${invite.email} revoked`);
@@ -268,6 +273,8 @@ function InviteRow({ invite, apply }: { invite: InviteView; apply: Apply }) {
 
 /** Someone asking to join (D-36): pick the role they get and approve, or decline. */
 function JoinRequestRow({ request, roles }: { request: JoinRequestView; roles: Role[] }) {
+  const { client, workspaceId } = useSettings();
+  const run = useWorkspaceAction();
   const [role, setRole] = useState<Role>(
     roles.includes('member') ? 'member' : (roles.at(-1) ?? 'viewer'),
   );
@@ -280,8 +287,8 @@ function JoinRequestRow({ request, roles }: { request: JoinRequestView; roles: R
     startDecision(async () => {
       const result =
         which === 'approve'
-          ? await approveJoinRequest({ requestId: request.id, role })
-          : await declineJoinRequest(request.id);
+          ? await run(() => client.workspaces.approveJoinRequest(workspaceId, request.id, { role }))
+          : await run(() => client.workspaces.declineJoinRequest(workspaceId, request.id));
       if (!result.ok) {
         toast.error(
           which === 'approve' ? `Couldn’t approve ${request.name}` : 'Couldn’t decline the request',

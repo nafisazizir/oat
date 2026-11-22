@@ -11,7 +11,10 @@ import { toast } from 'sonner';
 import { call } from '../bridge';
 import { useRecordingAction } from '../recording/recording-controls';
 
-export function useDesktopAccountItems(user: DesktopUser, onOpenSettings: () => void) {
+export function useDesktopAccountItems(
+  user: DesktopUser,
+  onOpenSettings: (section?: string) => void,
+) {
   const action = useRecordingAction();
   const [me, setMe] = useState<InvokeResponse<'api:me'> | null>(null);
   useEffect(() => {
@@ -27,15 +30,12 @@ export function useDesktopAccountItems(user: DesktopUser, onOpenSettings: () => 
             <span className="block">{user.name || user.email}</span>
             <span className="block text-label-12 text-gray-900">{user.email}</span>
           </DropdownMenuLabel>
-          <DropdownMenuItem onClick={onOpenSettings}>
+          <DropdownMenuItem onClick={() => onOpenSettings()}>
             <IconSettings />
             Settings
           </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={action.pending}
-            onClick={() => void action.run(() => call('settings:open-web', { section: 'profile' }))}
-          >
-            Profile (web)
+          <DropdownMenuItem disabled={action.pending} onClick={() => onOpenSettings('profile')}>
+            Profile
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={action.pending}

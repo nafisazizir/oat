@@ -319,11 +319,16 @@ export const bridgeContract = {
     'state:get': { request: none, response: mainStateSnapshotSchema },
     /** Opens the system browser at the web sign-in page. */
     'auth:sign-in': { request: none, response: z.object({ opened: z.boolean() }) },
-    'settings:open-web': {
-      request: z.object({
-        section: z.enum(['profile', 'preferences', 'integrations', 'workspace', 'members']),
+    'settings:connect': {
+      request: z.strictObject({
+        provider: z.enum(['notion', 'google-calendar']),
+        workspaceId: z.string().regex(/^[A-Za-z0-9_-]{1,100}$/),
       }),
       response: none,
+    },
+    'settings:export-notes': {
+      request: z.strictObject({ workspaceId: z.string().regex(/^[A-Za-z0-9_-]{1,100}$/) }),
+      response: z.object({ count: z.number().int().nonnegative() }).nullable(),
     },
     'auth:cancel-sign-in': { request: none, response: none },
     /**

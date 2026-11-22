@@ -100,7 +100,11 @@ vi.mock('../meetings/meeting-view.tsx', () => ({
   ),
 }));
 vi.mock('../settings/settings-view.tsx', () => ({
-  SettingsView: () => <section data-testid="settings">Settings content</section>,
+  SettingsView: ({ initialSection }: { initialSection: string }) => (
+    <section data-testid="settings" data-settings-section={initialSection}>
+      Settings content
+    </section>
+  ),
 }));
 vi.mock('../calendar/calendar-state.ts', () => ({
   useCalendar: () => null,
@@ -319,6 +323,17 @@ describe('desktop shell', () => {
     await userEvent.click(screen.getByTestId('workspace-switcher'));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Settings' }));
     expect(screen.getByTestId('settings')).toBeTruthy();
+  });
+
+  it.each([
+    ['Invite members', 'members'],
+    ['Workspace settings', 'workspace'],
+    ['Profile', 'profile'],
+  ])('opens %s in shared desktop settings', async (name, section) => {
+    render(<MainWindow />);
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    await userEvent.click(await screen.findByRole('menuitem', { name }));
+    expect(screen.getByTestId('settings').getAttribute('data-settings-section')).toBe(section);
   });
 
   it('surfaces a failed account action', async () => {

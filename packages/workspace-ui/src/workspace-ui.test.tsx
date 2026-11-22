@@ -52,7 +52,12 @@ function Actions() {
   );
 }
 
-function setup(value = data, fail = false, platform: WorkspaceHost['platform'] = 'web') {
+function setup(
+  value = data,
+  fail = false,
+  platform: WorkspaceHost['platform'] = 'web',
+  overrides: Partial<WorkspaceHost> = {},
+) {
   const transport = vi.fn<OatTransport>(async (request: OatRequest) => {
     if (fail)
       return {
@@ -78,6 +83,7 @@ function setup(value = data, fail = false, platform: WorkspaceHost['platform'] =
     refresh: vi.fn(),
     online: true,
     Link: ({ route, ...props }) => <a href={hrefOf(route)} {...props} />,
+    ...overrides,
   };
   const create = vi.spyOn(client.documents, 'create');
   const folder = vi.spyOn(client.folders, 'create');
@@ -98,18 +104,57 @@ function setup(value = data, fail = false, platform: WorkspaceHost['platform'] =
 }
 
 describe('shared workspace shell', () => {
-  it('keeps ZIP export web-only in the desktop leave dialog', async () => {
+  it.each([4, 0, null])('exports desktop notes through the host (count %s)', async (count) => {
+    const exportNotes = vi.fn().mockResolvedValue(count);
+    const { user, host } = setup(
+      { ...data, workspaces: [workspace, { ...workspace, id: 'other' }] },
+      false,
+      'desktop',
+      { exportNotes },
+    );
+    const textExport = vi.spyOn(host.client.workspaces, 'export');
+    await user.click(screen.getByTestId('workspace-switcher'));
+    await user.click(await screen.findByRole('menuitem', { name: 'Leave Workspace' }));
+    await user.click(screen.getByTestId('export-notes'));
+    expect(exportNotes).toHaveBeenCalledWith('w');
+    expect(textExport).not.toHaveBeenCalled();
+    if (count === null) expect(screen.queryByText(/Saved|file is empty/)).toBeNull();
+    else
+      expect(screen.getByRole('status').textContent).toContain(
+        count === 0 ? 'file is empty' : 'Saved 4 notes to a ZIP file',
+      );
+  });
+  it('shows native export failures without leaving the workspace', async () => {
+    const { user, host } = setup(
+      { ...data, workspaces: [workspace, { ...workspace, id: 'other' }] },
+      false,
+      'desktop',
+      {
+        exportNotes: vi.fn().mockRejectedValue(new Error('Couldn’t save the ZIP.')),
+      },
+    );
+    const leave = vi.spyOn(host.client.workspaces, 'leave');
+    await user.click(screen.getByTestId('workspace-switcher'));
+    await user.click(await screen.findByRole('menuitem', { name: 'Leave Workspace' }));
+    await user.click(screen.getByTestId('export-notes'));
+    expect(screen.getByTestId('export-error').textContent).toContain('Couldn’t save the ZIP.');
+    expect(leave).not.toHaveBeenCalled();
+  });
+  it('blocks leaving while recording without blocking export', async () => {
     const { user } = setup(
       { ...data, workspaces: [workspace, { ...workspace, id: 'other' }] },
       false,
       'desktop',
+      {
+        workspaceExitBlockedReason: 'Stop recording before leaving or deleting a workspace.',
+      },
     );
     await user.click(screen.getByTestId('workspace-switcher'));
     await user.click(await screen.findByRole('menuitem', { name: 'Leave Workspace' }));
-    expect(screen.getByTestId('leave-export').textContent).toContain(
-      'ZIP downloads aren’t available in the desktop app yet.',
-    );
-    expect(screen.queryByTestId('export-notes')).toBeNull();
+    expect(
+      (screen.getByRole('button', { name: 'Leave workspace' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect((screen.getByTestId('export-notes') as HTMLButtonElement).disabled).toBe(false);
   });
   it('renders the Private and Shared trees', () => {
     setup();

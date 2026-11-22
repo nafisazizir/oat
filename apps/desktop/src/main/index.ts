@@ -7,8 +7,6 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { webSettingsUrl } from './web-settings.ts';
-
 import { DESKTOP_SCHEME, findDeepLinkArg } from '@oat/auth/desktop-link';
 import {
   type PermissionsSnapshot,
@@ -26,6 +24,7 @@ import {
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Notification,
   powerMonitor,
@@ -39,6 +38,7 @@ import {
 
 import { ApiError, createApiClient, createApiRequester } from './api-client.ts';
 import { registerApiProxy } from './api-proxy.ts';
+import { createSettingsIo } from './settings-io.ts';
 import { AudioPlayback, PlaybackError } from './audio-playback.ts';
 import { AudioStorage, StorageError } from './audio-storage.ts';
 import { AuthController } from './auth.ts';
@@ -252,9 +252,22 @@ async function start() {
     coldStartMs,
   }));
   bridge.handle('state:get', () => store.snapshot());
-  bridge.handle('settings:open-web', async ({ section }) => {
-    await shell.openExternal(webSettingsUrl(config.webUrl, section));
+  const settingsIo = createSettingsIo({
+    baseUrl: config.webUrl,
+    withSession: (run) => auth.withSession(run),
+    request: createApiRequester({ baseUrl: config.webUrl }),
+    chooseZip: async () => {
+      const result = await dialog.showSaveDialog({
+        title: 'Export my notes',
+        defaultPath: 'oat-notes.zip',
+        filters: [{ name: 'ZIP archive', extensions: ['zip'] }],
+      });
+      return result.canceled ? null : (result.filePath ?? null);
+    },
+    openExternal: (url) => shell.openExternal(url),
   });
+  bridge.handle('settings:export-notes', settingsIo.exportNotes);
+  bridge.handle('settings:connect', settingsIo.connect);
   bridge.handle('auth:sign-in', () => {
     // D-28: no account switch while recording (the meeting belongs to the account that started it).
     if (auth.signedIn && recording.busy) {

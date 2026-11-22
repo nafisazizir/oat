@@ -32,6 +32,7 @@
     "react-dom": "^19"
   },
   "dependencies": {
+    "@oat/settings-ui": "workspace:*",
     "@oat/ai": "workspace:*",
     "@oat/ui": "workspace:*",
     "@oat/core": "workspace:*",

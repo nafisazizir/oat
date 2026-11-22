@@ -471,3 +471,71 @@ ci: ok
   and native desktop e2e were not run on Linux; desktop evidence uses the requested stubbed bridge.
   Join and C3 routes remain the placeholders explicitly allowed in Step 4. Screenshots/capture scripts
   live outside git at the requested persistent evidence path. Fix and docs committed locally; no push.
+
+### Step 6 — merge shared-settings base (PR #24)
+
+- Ran `git fetch origin devin/1795304500-parity-integration && git merge FETCH_HEAD`, merging
+  `0f9060e95ffb2d864f8690743ff946139c634587` into this branch, no rebase/force/push.
+- Seven content conflicts resolved:
+  1. `apps/desktop/src/renderer/src/windows/main-window.tsx`: retain workspace host/sidebar and
+     route-based meeting/document behavior, plus #24 SettingsView props, workspace context,
+     recording/stopping guard, setup and workspace-exit callbacks. Settings section derives from
+     the workspace route; new `workspace/settings-section.ts` maps `workspace/members` to `members`,
+     preserves workspace/profile/preferences/integrations/device sections and defaults safely.
+  2. `apps/desktop/src/renderer/src/styles.css`: keep both workspace-ui and settings-ui imports.
+  3. `apps/web/src/app/globals.css`: keep both workspace-ui and settings-ui imports.
+  4. `apps/web/src/components/workspace/workspace-avatar.tsx`: use #24 settings-ui re-export; make
+     workspace-ui's avatar a re-export of the same component to avoid duplicate implementations.
+  5. `packages/settings-ui/src/danger-zone.tsx`: keep #24 services and local shared leave dialog;
+     discard obsolete web server-action/workspace-ui imports (no app imports or package cycle).
+  6. `packages/workspace-ui/src/leave-workspace-dialog.tsx`: adapt settings-ui's shared dialog to
+     WorkspaceHost; REST leave still closes/navigates Home/refreshes. Optional host export callback
+     uses native file saving on desktop, while web retains REST Response/blob download and 429
+     handling. No Electron/bridge/Next imports in the shared package. The old desktop web-only notice
+     is removed. Recording/stopping blocks leaving; export remains available.
+  7. `docs/LOG.md`: retain both C1 and C2 histories and append this integration entry.
+- `docs/PLAN.md`, `shell-menus.tsx`, desktop main/bridge and the lockfile auto-merged. Preserved the C1
+  task entry and C2 completed steps. Retained shell-menus' controlled local search and #24's section
+  callback changes. Updated the newer workspace account slot's stale Profile (web) action to in-app
+  Profile, eliminating the last renderer call to removed `settings:open-web`.
+- Removed workspace-host's extra Toaster: only #24's theme-aware `DesktopToaster` in renderer
+  `main.tsx` mounts for the main window. Desktop host supplies `settings:export-notes`, mapping native
+  cancel to null and zero notes to 0. Existing main-owned authorization, save dialog and streaming
+  implementation is untouched. Added workspace-ui dependency on settings-ui and ran
+  `pnpm install --config.strict-dep-builds=false` (exit 0); regenerated lockfile preserves both packages.
+- Tests added/updated: desktop settings route mapping (normal, default/unknown, nested members),
+  shell clicks for Invite members / Workspace settings / Profile, native host export success/empty/
+  cancellation/error (assert no text-proxy export), and recording-time leave blocking.
+- `pnpm run ci --fast` initially: format/actionlint/test pass; typecheck/lint failed on new Testing
+  Library `exact` options and missing caught-error cause. Fixed both; a dependent desktop typecheck
+  then exposed the other new `exact` option, also fixed. Final affected gates:
+
+```text
+━━ ci summary (--only format,typecheck,lint,test)
+step       status     time  note
+format     pass      10.7s
+typecheck  pass      14.2s
+lint       pass       5.2s
+test       pass      12.2s
+total                42.3s
+
+ci: ok
+```
+
+- Actionlint passed in the initial `--fast` run (`0.3s`); its inputs did not change afterward.
+  Workspace-ui and desktop tests ran through CI's package test tasks (not skipped):
+
+```text
+Desktop:      Test Files 61 passed (61)   Tests 527 passed (527)
+Workspace UI: Test Files  6 passed (6)    Tests  67 passed (67)
+Settings UI:  Test Files  2 passed (2)    Tests  12 passed (12)
+```
+
+- Final `pnpm --filter @oat/desktop exec electron-vite build`: exit 0, renderer
+  `✓ built in 659ms`. Existing chunk-size warning remains; no build-config changes.
+- Logs: `/home/ubuntu/oat-workspace-step6-install.log`, `oat-workspace-step6-ci.log` (initial fast
+  gate), `oat-workspace-step6-ci-final.log` (dependent type error), `oat-workspace-step6-ci-reviewed.log`
+  (final affected gates), `oat-workspace-step6-build-final.log`, all under `/home/ubuntu/`.
+- Post-merge UI is visually unverified; did not rerun web e2e/axe or native macOS Electron/file-save
+  interactions in this step. Step 5 screenshots are pre-merge evidence, not proof of the new settings
+  surfaces. Merge committed locally; nothing pushed.

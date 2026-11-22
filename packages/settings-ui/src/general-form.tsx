@@ -1,5 +1,6 @@
 'use client';
 
+import { useSettings, useWorkspaceAction } from './services';
 import { Alert, AlertDescription } from '@oat/ui/components/alert';
 import { Button } from '@oat/ui/components/button';
 import {
@@ -17,8 +18,7 @@ import { IconAlertCircle } from '@tabler/icons-react';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 
-import { ICON_CHOICES } from '@/lib/workspace';
-import { updateWorkspace } from '@/server/actions/members';
+import { ICON_CHOICES } from './workspace';
 
 import { WorkspaceAvatar } from './workspace-avatar';
 
@@ -33,6 +33,8 @@ export function WorkspaceGeneralForm({
   workspace: { id: string; name: string; slug: string; icon: string | null };
   canEdit: boolean;
 }) {
+  const { client, onWorkspaceChanged } = useSettings();
+  const run = useWorkspaceAction();
   const [name, setName] = useState(workspace.name);
   const [icon, setIcon] = useState<string | null>(workspace.icon);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -46,12 +48,13 @@ export function WorkspaceGeneralForm({
       onSubmit={(event) => {
         event.preventDefault();
         startTransition(async () => {
-          const result = await updateWorkspace({ workspaceId: workspace.id, name, icon });
+          const result = await run(() => client.workspaces.update(workspace.id, { name, icon }));
           if (!result.ok) {
             setError(result.error);
             return;
           }
           setError(null);
+          onWorkspaceChanged?.();
           toast.success('Workspace saved');
         });
       }}
