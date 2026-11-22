@@ -96,6 +96,7 @@ export type ChatSessionProps = {
   suggestions: readonly string[];
   emptyTitle: string;
   emptyDescription: string;
+  layout?: 'page' | 'panel';
   /** Focus the question box on mount. */
   autoFocus?: boolean;
 };
@@ -115,6 +116,7 @@ export function ChatSession({
   suggestions,
   emptyTitle,
   emptyDescription,
+  layout = 'page',
   autoFocus,
 }: ChatSessionProps) {
   const { client, transport: hostTransport } = useFeatureUi();
@@ -241,7 +243,7 @@ export function ChatSession({
           {announcement}
         </p>
         {messages.length === 0 ? (
-          <EmptyChat title={emptyTitle} description={emptyDescription} />
+          <EmptyChat title={emptyTitle} description={emptyDescription} layout={layout} />
         ) : (
           <MessageList messages={messages} busy={busy} lastId={last?.id}>
             {status === 'submitted' && last?.role === 'user' && (
@@ -349,7 +351,15 @@ function MessageList({
   );
 }
 
-function EmptyChat({ title, description }: { title: string; description: string }) {
+function EmptyChat({
+  title,
+  description,
+  layout,
+}: {
+  title: string;
+  description: string;
+  layout: 'page' | 'panel';
+}) {
   const { user } = useFeatureUi();
   const name = user.name?.trim();
   const firstName = name && !name.includes('@') ? name.split(/\s+/)[0] : 'there';
@@ -358,7 +368,14 @@ function EmptyChat({ title, description }: { title: string; description: string 
       className="flex shrink-0 flex-col items-center gap-2 px-4 pb-5 text-center"
       data-testid="chat-empty"
     >
-      <h2 className="text-heading-32 text-gray-1000">Hello, {firstName}</h2>
+      <h2
+        className={cn(
+          'max-w-full text-gray-1000',
+          layout === 'panel' ? 'truncate text-heading-24' : 'text-heading-32',
+        )}
+      >
+        Hello, {firstName}
+      </h2>
       <p className="text-copy-16 text-gray-1000">{title}</p>
       <p className="text-copy-14 text-gray-900">{description}</p>
     </section>

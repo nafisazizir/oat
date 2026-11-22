@@ -23,6 +23,9 @@ it('shares status and comparison triggers with both hosts', () => {
     </ConflictNotice>,
   );
   expect(screen.getByRole('status').textContent).toContain('Both versions');
+  expect(screen.getByRole('status').className).toContain('bg-background-200');
+  expect(screen.getByRole('status').className).not.toContain('bg-amber-100');
+  expect(screen.getByRole('button', { name: 'Compare' }).className).toContain('bg-gray-100');
   fireEvent.click(screen.getByRole('button', { name: 'Compare' }));
   expect(compare).toHaveBeenCalledOnce();
 });

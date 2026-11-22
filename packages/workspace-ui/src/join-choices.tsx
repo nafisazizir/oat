@@ -107,7 +107,7 @@ export function JoinChoiceList({
     <>
       <ItemGroup className="gap-0" data-testid="join-choices">
         {choices.map((choice) => {
-          const variant = choice.key === primary ? 'default' : 'outline';
+          const variant = choice.key === primary ? 'default' : 'secondary';
           return (
             <Item
               key={choice.key}
@@ -130,7 +130,7 @@ export function JoinChoiceList({
                   <>
                     <Button
                       size="sm"
-                      variant="ghost"
+                      variant="secondary"
                       disabled={pending}
                       aria-label={`Decline the invitation to ${choice.workspace.name}`}
                       onClick={() =>

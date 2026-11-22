@@ -57,6 +57,9 @@ it.each([
 });
 it('offers account switching without accepting under the wrong identity', () => {
   const { onSwitchAccount, transport } = setup({ ...initial, access: 'wrong-account' });
+  expect(
+    screen.getByRole('button', { name: 'Sign in with a different account' }).className,
+  ).toContain('bg-gray-100 ');
   fireEvent.click(screen.getByRole('button', { name: 'Sign in with a different account' }));
   expect(onSwitchAccount).toHaveBeenCalledOnce();
   expect(transport).not.toHaveBeenCalled();

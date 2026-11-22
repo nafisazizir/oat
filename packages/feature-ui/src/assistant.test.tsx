@@ -172,6 +172,19 @@ function stream() {
 }
 
 describe('AssistantChat', () => {
+  it.each(['page', 'panel'] as const)(
+    'sizes the %s greeting without changing its accessible name',
+    (layout) => {
+      const env = setup();
+      env.value.user.name = 'Alexandertheverylongfirstname Morgan';
+      render(<AssistantChat scope={scope} workspaceId="w" layout={layout} />, env);
+      const heading = screen.getByRole('heading', { name: 'Hello, Alexandertheverylongfirstname' });
+      expect(heading.className).toContain(
+        layout === 'panel' ? 'text-heading-24' : 'text-heading-32',
+      );
+      expect(heading.classList.contains('truncate')).toBe(layout === 'panel');
+    },
+  );
   it.each([
     ['  Alex  Morgan  ', 'Alex'],
     ['', 'there'],
@@ -181,7 +194,7 @@ describe('AssistantChat', () => {
   ])('greets by first name or a neutral fallback instead of email: %j', (name, greeting) => {
     const env = setup();
     env.value.user.name = name;
-    render(<ChatSession {...sessionProps} />, env);
+    render(<ChatSession {...sessionProps} layout="panel" />, env);
     expect(screen.getByRole('heading', { name: `Hello, ${greeting}` })).toBeTruthy();
     expect(screen.queryByText('Hello, x@studio.example')).toBeNull();
   });

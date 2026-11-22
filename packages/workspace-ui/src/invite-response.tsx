@@ -60,11 +60,15 @@ export function InviteResponse({
       }
     });
   };
-  const action = (label: string, fn: () => void | Promise<void>, ghost = false) => (
+  const action = (
+    label: string,
+    fn: () => void | Promise<void>,
+    variant: 'default' | 'secondary' | 'ghost' = 'secondary',
+  ) => (
     <Button
       size="lg"
       className="w-full"
-      variant={ghost ? 'ghost' : 'default'}
+      variant={variant}
       disabled={pending}
       onClick={() => run(label, fn)}
     >
@@ -140,17 +144,21 @@ export function InviteResponse({
               You’re signed in as <span className="text-gray-1000">{invite.viewerEmail}</span>.
             </p>
             <div className="flex flex-col gap-3">
-              {action('Accept invitation', async () => {
-                await client.invites.accept(token);
-                await onHome(true);
-              })}
+              {action(
+                'Accept invitation',
+                async () => {
+                  await client.invites.accept(token);
+                  await onHome(true);
+                },
+                'default',
+              )}
               {action(
                 'Decline',
                 async () => {
                   await client.invites.decline(token);
                   await onHome();
                 },
-                true,
+                'ghost',
               )}
             </div>
             {desktopUrl && (

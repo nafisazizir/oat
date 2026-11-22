@@ -56,9 +56,11 @@ export function PageError({
         {digest && <p className="text-label-12-mono text-gray-900">Reference {digest}</p>}
       </EmptyHeader>
       <EmptyContent className="flex-row justify-center">
-        <Button onClick={onRetry}>Try again</Button>
+        <Button variant="secondary" onClick={onRetry}>
+          Try again
+        </Button>
         {onReload && (
-          <Button variant="outline" onClick={onReload}>
+          <Button variant="ghost" onClick={onReload}>
             Reload
           </Button>
         )}

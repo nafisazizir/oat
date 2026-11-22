@@ -160,7 +160,7 @@ export function EnhanceToolbar({
         hasHistory ? (
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
             data-testid="history-button"
             onClick={() =>
               openHistory(latest ? { kind: 'version', id: latest.id } : { kind: 'original' })

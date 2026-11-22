@@ -93,7 +93,7 @@ export function JoinWorkspace({
               {error}
             </p>
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => {
                 setError(null);
                 setLoading(true);

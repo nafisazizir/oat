@@ -189,7 +189,7 @@ export function NoteHistoryDialog({
             aria-label="Preview"
             aria-busy={!shown && !failed}
             data-testid="history-preview"
-            className="min-h-48 overflow-y-auto rounded-lg border border-gray-alpha-400 bg-background-100 px-5 py-4 sm:min-h-80"
+            className="min-h-48 overflow-y-auto rounded-lg border border-gray-alpha-200 bg-background-100 px-5 py-4 sm:min-h-80"
           >
             {failed ? (
               <p role="alert" className="flex items-center gap-2 text-copy-14 text-gray-900">
