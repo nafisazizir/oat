@@ -14,6 +14,7 @@ export type WorkspaceHost = {
   Link: ComponentType<{ route: AppRoute } & Omit<ComponentProps<'a'>, 'href'>>;
   refresh(): void;
   online: boolean;
+  switchWorkspace?(workspaceId: string): Promise<void>;
   exportNotes?(workspaceId: string): Promise<number | null>;
   workspaceExitBlockedReason?: string;
 };

@@ -92,7 +92,8 @@ export function WorkspaceSwitcher({
     startTransition(async () => {
       showWorkspace(workspace);
       try {
-        await host.client.workspaces.switchActive(workspace.id);
+        if (host.switchWorkspace) await host.switchWorkspace(workspace.id);
+        else await host.client.workspaces.switchActive(workspace.id);
         host.refresh();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Couldn’t switch workspace.');

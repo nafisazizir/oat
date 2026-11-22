@@ -37,6 +37,14 @@ function fake(workspaces = [workspace], fail = false) {
 }
 
 describe('loadShellData', () => {
+  it('honors a cached desktop choice without overwriting the server default', async () => {
+    const { client, transport } = fake([workspace, { ...workspace, id: 'cached' }]);
+    expect((await loadShellData(client, user, 'cached')).workspace.id).toBe('cached');
+    expect(transport.mock.calls.map(([request]) => request.query)).toContainEqual({
+      workspaceId: 'cached',
+    });
+    expect((await loadShellData(client, user, 'removed')).workspace.id).toBe('w');
+  });
   it('loads the active workspace, tree, trash and join choices through REST', async () => {
     const { client, transport } = fake();
     const data = await loadShellData(client, user);

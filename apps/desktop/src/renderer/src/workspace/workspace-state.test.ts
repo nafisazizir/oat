@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { OatApiError, type OatTransport } from '@oat/client';
-import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { observeApi, useApiOnline } from './api-status';
-import { localShellData, mergeLocalNotes } from './use-desktop-shell-data';
+import { localShellData, mergeLocalNotes, useDesktopShellData } from './use-desktop-shell-data';
+import { api } from '../lib/api';
 
 const { call } = vi.hoisted(() => ({ call: vi.fn(async (..._args: unknown[]) => undefined) }));
 vi.mock('../bridge', () => ({ call, bridge: () => ({}) }));
@@ -22,6 +23,52 @@ const note = {
   endedAt: null,
   createdAt: '2026-11-20',
 };
+
+afterEach(() => vi.restoreAllMocks());
+
+describe('cached desktop workspace selection', () => {
+  it('does not roll back an offline switch or replace it with the server default on reconnect', async () => {
+    const next = { ...workspace, id: 'next', name: 'Next' };
+    vi.spyOn(api.workspaces, 'list').mockResolvedValue({
+      activeWorkspaceId: 'w',
+      workspaces: [workspace, next].map((w) => ({
+        ...w,
+        slug: w.id,
+        icon: null,
+        memberCount: 1,
+        joinedAt: '2026-11-20',
+      })),
+    });
+    vi.spyOn(api.workspaces, 'joinable').mockResolvedValue({ invites: [], workspaces: [] });
+    vi.spyOn(api.folders, 'tree').mockResolvedValue([]);
+    vi.spyOn(api.documents, 'list').mockResolvedValue([]);
+    const snapshot = { workspaces: [workspace, next], activeId: 'w', targetId: 'w' };
+    const { result, rerender, unmount } = renderHook(
+      ({ activeId }) => useDesktopShellData(user, [], { ...snapshot, activeId }, null),
+      { initialProps: { activeId: 'w' } },
+    );
+    await waitFor(() => expect(api.documents.list).toHaveBeenCalled());
+    call.mockClear();
+    await act(async () => {
+      await observeApi(async () => {
+        throw new OatApiError(0, 'network', 'Offline');
+      })({ method: 'GET', path: '/api/workspaces' }).catch(() => {});
+    });
+    rerender({ activeId: 'next' });
+    await waitFor(() => expect(result.current.data.workspace.id).toBe('next'));
+    expect(call).not.toHaveBeenCalledWith('workspaces:set-active', { workspaceId: 'w' });
+    await act(async () => {
+      await observeApi(async () => ({ status: 200, json: async () => [] }))({
+        method: 'GET',
+        path: '/api/workspaces',
+      });
+    });
+    await waitFor(() => expect(result.current.online).toBe(true));
+    expect(result.current.data.workspace.id).toBe('next');
+    expect(api.documents.list).toHaveBeenCalledWith({ workspaceId: 'next' });
+    unmount();
+  });
+});
 
 describe('desktop local shell data', () => {
   it('keeps cached member counts offline without overriding the local role', () => {
