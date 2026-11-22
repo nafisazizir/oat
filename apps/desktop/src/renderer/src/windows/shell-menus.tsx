@@ -1,11 +1,4 @@
-import type { DesktopUser, InvokeResponse, SearchHitSnapshot } from '@oat/core/bridge';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@oat/ui/components/dialog';
+import type { DesktopUser, InvokeResponse } from '@oat/core/bridge';
 import {
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -31,16 +24,15 @@ import { useEffect, useState } from 'react';
 import { WorkspaceSwitcher } from '../workspaces/workspace-switcher.tsx';
 import type { WorkspacesView } from '../workspaces/workspaces-state.ts';
 import { call } from '../bridge.ts';
-import { LocalSearch } from '../sync/local-search.tsx';
+import { FeatureSearch, type DesktopSearchActions } from './feature-search.tsx';
 import { useRecordingAction } from '../recording/recording-controls.tsx';
 
 export function DesktopSearch({
-  refreshKey,
-  onOpen,
-}: {
-  refreshKey: number | null;
-  onOpen: (hit: SearchHitSnapshot) => void;
-}) {
+  onHome,
+  onSettings,
+  onNewMeeting,
+  canStart,
+}: DesktopSearchActions) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -70,21 +62,14 @@ export function DesktopSearch({
           <Kbd>⌘K</Kbd>
         </SidebarMenuBadge>
       </SidebarMenuItem>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Search</DialogTitle>
-            <DialogDescription>Notes and transcripts on this Mac.</DialogDescription>
-          </DialogHeader>
-          <LocalSearch
-            refreshKey={refreshKey}
-            onOpen={(hit) => {
-              onOpen(hit);
-              setOpen(false);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      <FeatureSearch
+        open={open}
+        onOpenChange={setOpen}
+        onHome={onHome}
+        onSettings={onSettings}
+        onNewMeeting={onNewMeeting}
+        canStart={canStart}
+      />
     </>
   );
 }

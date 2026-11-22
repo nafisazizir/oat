@@ -17,6 +17,7 @@
     "e2e": "electron-vite build && playwright test"
   },
   "dependencies": {
+    "sonner": "catalog:",
     "@oat/audio": "workspace:*",
     "@oat/auth": "workspace:*",
     "@oat/calendar": "workspace:*",

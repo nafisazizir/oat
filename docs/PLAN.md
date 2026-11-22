@@ -1,6 +1,6 @@
 # Oat — Plan & Task Board
 
-- [ ] Human-requested shared feature UI, steps 1–3 search/tasks/assistant · shared package/web migration implemented; desktop runtime and visual verification pending · [task](tasks/desktop-feature-search.md)
+- [ ] Human-requested shared feature UI, steps 1–4 search/tasks/assistant · shared package/web migration and desktop wiring implemented; fast CI green, independent review and visual/runtime verification pending · [task](tasks/desktop-feature-search.md)
 
 - [x] Human-requested UI redesign PR 5: calm auth, setup and dialogs · [task](tasks/ui-calm-auth-dialogs.md)
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   APP_ORIGIN,
   contentSecurityPolicy,
+  externalDocumentUrl,
   isSafeExternalUrl,
   isTrustedFrame,
   navigationDecision,
@@ -40,6 +41,25 @@ describe('origins', () => {
 
 describe('navigation', () => {
   const origins = trustedOrigins(undefined);
+
+  it('resolves only document-relative external links against the configured web origin', () => {
+    expect(externalDocumentUrl('/d/page?t=65&seg=s1', 'https://oat.example')).toBe(
+      'https://oat.example/d/page?t=65&seg=s1',
+    );
+    expect(externalDocumentUrl('https://example.com/meeting', 'https://oat.example')).toBe(
+      'https://example.com/meeting',
+    );
+    for (const raw of [
+      '',
+      '//evil.test/d/x',
+      '/settings',
+      '/d/../settings',
+      '/d/x/y',
+      '/d/\\evil.test',
+      'javascript:alert(1)',
+    ])
+      expect(externalDocumentUrl(raw, 'https://oat.example'), raw).toBeNull();
+  });
 
   it('keeps in-app navigation, sends web links to the browser, blocks the rest', () => {
     expect(navigationDecision('app://oat/index.html#/widget', origins)).toBe('allow');

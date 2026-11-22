@@ -69,6 +69,12 @@ import { OnboardingView } from '../onboarding/onboarding-view.tsx';
 import { Wordmark } from '../wordmark.tsx';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import { useWorkspaces } from '../workspaces/workspaces-state.ts';
+import {
+  DesktopFeatureProvider,
+  FeatureNavigation,
+  FeatureViews,
+  type FeatureView,
+} from './feature-views.tsx';
 
 /**
  * The main window: title bar + the account flow; signed in, the sidebar (account, "New meeting note", the
@@ -321,6 +327,7 @@ function SignedInShell({
     return ws && ws !== activeWorkspace?.id ? (workspaceNames.get(ws) ?? null) : null;
   };
   const [selected, setSelected] = useState<string | null>(null);
+  const [featureView, setFeatureView] = useState<FeatureView | null>(null);
   // 3.8: Settings replaces the meeting view (a recording keeps running); opening a note closes it.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [options, setOptions] = useState<InvokeResponse<'recording:options'> | null>(null);
@@ -337,7 +344,12 @@ function SignedInShell({
   const prompt = useMeetingPrompt(true);
   const autoStop = useAutoStopNotice();
   useEffect(
-    () => bridge().subscribe('notes:open', ({ documentId }) => setSelected(documentId)),
+    () =>
+      bridge().subscribe('notes:open', ({ documentId }) => {
+        setSelected(documentId);
+        setSettingsOpen(false);
+        setFeatureView(null);
+      }),
     [],
   );
   // 9.2: first run of this account on this Mac → the setup walkthrough; Settings → Setup reopens it.
@@ -354,6 +366,8 @@ function SignedInShell({
   if (recording && activeMeetingId && opened !== activeMeetingId && recordingNote) {
     setOpened(activeMeetingId);
     setSelected(recordingNote.documentId);
+    setSettingsOpen(false);
+    setFeatureView(null);
   }
   useEffect(() => {
     if (recording && activeMeetingId && opened !== activeMeetingId) bumpMeetingsVersion();
@@ -381,19 +395,24 @@ function SignedInShell({
     );
   }
 
-  return (
+  const shell = (
     <SidebarProvider className="h-full min-h-0 min-w-0 flex-1" data-testid="shell">
       <Sidebar collapsible="icon">
         <div className="app-drag h-12 shrink-0" />
         <SidebarHeader>
           <SidebarMenu>
             <DesktopSearch
-              refreshKey={sync.lastSyncedAt}
-              onOpen={(hit) => {
-                if (hit.kind !== 'meeting') return;
-                setSelected(hit.documentId);
+              onHome={() => {
+                setSelected(null);
                 setSettingsOpen(false);
+                setFeatureView(null);
               }}
+              onSettings={() => setSettingsOpen(true)}
+              onNewMeeting={() => {
+                setSettingsOpen(false);
+                void starting.run(() => call('recording:start', startRequest(input)));
+              }}
+              canStart={!recording && !!snapshot && !starting.pending}
             />
           </SidebarMenu>
         </SidebarHeader>
@@ -404,14 +423,22 @@ function SignedInShell({
                 onClick={() => {
                   setSelected(null);
                   setSettingsOpen(false);
+                  setFeatureView(null);
                 }}
-                isActive={!selected && !settingsOpen}
+                isActive={!selected && !settingsOpen && !featureView}
                 data-testid="home-nav"
               >
                 <IconHome />
                 Home
               </SidebarMenuButton>
             </SidebarMenuItem>
+            <FeatureNavigation
+              view={settingsOpen ? null : featureView}
+              onView={(view) => {
+                setFeatureView(view);
+                setSettingsOpen(false);
+              }}
+            />
           </SidebarMenu>
           <div className="group-data-[collapsible=icon]:hidden">
             <ConflictsPanel refreshKey={sync.lastSyncedAt} />
@@ -419,11 +446,12 @@ function SignedInShell({
           <MeetingList
             notes={listed}
             userId={user.id}
-            selected={selected}
+            selected={featureView ? null : selected}
             recordingMeetingId={recording ? activeMeetingId : null}
             onSelect={(id) => {
               setSelected(id);
               setSettingsOpen(false);
+              setFeatureView(null);
             }}
           />
         </SidebarContent>
@@ -482,25 +510,25 @@ function SignedInShell({
         <div className="relative flex min-h-0 flex-1 flex-col [&>section]:min-h-0">
           <PromptBanner prompt={prompt} recording={startRequest(input)} />
           <AutoStopQuestion notice={autoStop} />
-          {settingsOpen ? (
+          {recording && (settingsOpen || featureView) && (
             <>
-              {recording && (
-                <>
-                  <RecordingBar
-                    snapshot={snapshot}
-                    options={options}
-                    input={input}
-                    onInputChange={setChoice}
-                    controlsContainer={toolbar}
-                  />
-                  <IssueBanner snapshot={snapshot} />
-                </>
-              )}
-              <SettingsView
-                onClose={() => setSettingsOpen(false)}
-                onOpenSetup={() => setSetupOpen(true)}
+              <RecordingBar
+                snapshot={snapshot}
+                options={options}
+                input={input}
+                onInputChange={setChoice}
+                controlsContainer={toolbar}
               />
+              <IssueBanner snapshot={snapshot} />
             </>
+          )}
+          {settingsOpen ? (
+            <SettingsView
+              onClose={() => setSettingsOpen(false)}
+              onOpenSetup={() => setSetupOpen(true)}
+            />
+          ) : featureView ? (
+            <FeatureViews view={featureView} workspaceId={activeWorkspace?.id ?? ''} />
           ) : (
             <MeetingView
               userId={user.id}
@@ -534,6 +562,25 @@ function SignedInShell({
         </div>
       </SidebarInset>
     </SidebarProvider>
+  );
+  return (
+    <DesktopFeatureProvider
+      user={user}
+      workspaceId={activeWorkspace?.id ?? ''}
+      notes={notes}
+      refreshKey={sync.lastSyncedAt}
+      onOpenMeeting={(id) => {
+        setSelected(id);
+        setSettingsOpen(false);
+        setFeatureView(null);
+      }}
+      onView={(view) => {
+        setFeatureView(view);
+        setSettingsOpen(false);
+      }}
+    >
+      {shell}
+    </DesktopFeatureProvider>
   );
 }
 

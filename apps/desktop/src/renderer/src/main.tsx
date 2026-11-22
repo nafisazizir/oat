@@ -5,15 +5,15 @@ import { createRoot } from 'react-dom/client';
 
 import { bridge } from './bridge.ts';
 import { windowKindFromHash } from './routes.ts';
+import { applyDesktopTheme } from './theme.ts';
 
 const kind = windowKindFromHash(window.location.hash);
 document.documentElement.dataset.window = kind;
 
 // Follow the OS appearance (tokens.css has light + `.dark`).
 const dark = window.matchMedia('(prefers-color-scheme: dark)');
-const applyTheme = () => document.documentElement.classList.toggle('dark', dark.matches);
-applyTheme();
-dark.addEventListener('change', applyTheme);
+applyDesktopTheme();
+dark.addEventListener('change', applyDesktopTheme);
 
 // Each window kind's UI is its own chunk; a window only loads its own.
 const MainWindow = lazy(() => import('./windows/main-window.tsx'));

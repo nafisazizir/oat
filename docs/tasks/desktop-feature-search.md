@@ -1,15 +1,15 @@
 # Desktop feature parity — shared search, tasks and assistant
-status: in-progress
+status: review
 milestone: human-requested parity · branch: devin/1795304447-desktop-assistant-tasks-search
 
 ## Goal
-Extract one host-adapted search dialog and results view into @oat/feature-ui for web and desktop.
+Extract shared search, Tasks and assistant interfaces into @oat/feature-ui for web and desktop.
 
 ## Context
 SPEC §4 search; DECISIONS D-37/D-38; packages/client/README.md; Ziiz consumer skill and Claude search-dialog reference.
 
 ## Scope
-Steps 1–3: shared search, Tasks and assistant, web integration. Desktop runtime integration belongs to later handoffs. No commits or pushes.
+Steps 1–4: shared search, Tasks and assistant, web integration and desktop wiring. Local conventional commits permitted after checks; no pushes.
 
 ## Design notes
 - FeatureUiProvider owns a typed client/transport, navigation and optional real hrefs, notifications,
@@ -29,16 +29,14 @@ Steps 1–3: shared search, Tasks and assistant, web integration. Desktop runtim
 - [x] Fake-client/source tests cover merge, dedupe, offline/error/empty cases, cancellation and keyboard selection.
 - [x] Web consumes shared UI through a typed-client host adapter.
 - [x] New package included in source-vocabulary radius enforcement.
-- [ ] Desktop runtime uses shared search rather than its existing local-search dialog.
+- [x] Desktop shell uses shared search rather than its existing local-search dialog (renderer tests).
 - [ ] Visual review in both themes and desktop/web runtime verification.
 
 ## Remaining work
-Desktop runtime is not migrated in this handoff: `windows/shell-menus.tsx` still renders `LocalSearch`.
-Its existing behavior explicitly keeps page hits read-only and only opens meeting hits. A desktop host
-adapter must translate `search:query` snapshots into SearchResponse, use api/apiTransport, and connect
-the search target to a full results surface. The native document/deep-link opening policy needs to be
-handled when wiring that host; current shell only selects a document id and discards segment/time.
-No local source is shipped or wired into either application yet; offline fallback is package-tested.
+Real desktop/web runtime and visual verification remain pending. Cached desktop meetings open natively;
+MeetingView has no segment/time navigation props, so cached-note deep links open the note only.
+Uncached documents temporarily open on the configured web origin via the external URL bridge, retaining
+block/segment/time query parameters. Pages remain dependent on that web fallback until a native viewer lands.
 
 ## Verification / evidence
 Executed on this branch after implementation:
@@ -160,3 +158,72 @@ Initial lint flagged synchronous effect-driven state changes in thread selection
 derive selection during render and update loaded state from request callbacks. Final checks above pass.
 22 helper tests moved from web to package, accounting for web's reduced count. No screenshots, visual,
 real browser/editor, desktop runtime or full CI checks. No commit/push.
+
+## Step 4 — Desktop wiring
+- Committed steps 1–3 locally as `3ed807e feat(feature-ui): share search tasks and assistant across hosts`.
+  Standard git commit hook processing was enabled; no pre-commit hook or hooksPath is configured here.
+  Nothing pushed.
+- Added `windows/feature-views.tsx`: signed-in FeatureUiProvider with api/apiTransport, current workspace,
+  normalized auth user and Sonner notifications/Toaster; no hrefFor/Link. Owns feature views and native/
+  external AppTarget mapping. Main shell additions preserve recording controls and clear competing selection.
+- Shared Assistant and My tasks sidebar entries render native shared views. Tasks filters and full Search
+  query/tab are host-local controlled state. A missing workspace shows a quiet prompt instead of issuing
+  unscoped feature requests. Leaving Assistant unmounts its session and cancels the transport stream.
+- `windows/feature-search.tsx` supplies desktop navigation/new-meeting/theme commands to shared SearchDialog;
+  shell-menus keeps its existing Cmd/Ctrl-K handling, including editor-handled shortcut precedence.
+- `sync/local-search-source.ts` converts local FTS snapshots into safe escaped highlights and shared hits,
+  honors cancellation/filtering and skips auxiliary pagination. Combined with serverSearchSource(api),
+  server documents win online and status-0 failure leaves local results and an offline notice.
+- The existing query-only bridge searches the entire device cache as before. Snapshots lack workspace,
+  visibility and speaker/source metadata: local hits use neutral display defaults (no Private badge or
+  guessed speaker identity); server hits retain real metadata. No search bridge contract was changed.
+- Cached meetings open in MeetingView (it exposes no segment/time props). Uncached documents use the
+  existing shell:open-external bridge with a document-relative path. Main resolves only validated `/d/id`
+  paths against config.webUrl; absolute safe HTTP(S) behavior is unchanged. This small security/main change
+  avoids hard-coding a web origin or exposing configuration/tokens to the renderer.
+- Deleted dead LocalSearch UI; retained search-text helpers. Added persistent light/dark/system commands.
+  Confirmed desktop imports feature-ui/styles.css, whose `@source './'` scans all shared feature classes.
+- Renderer tests cover sidebar switching, missing workspace/name, shared palette and offline results,
+  full search local query updates, cached/external document opens, ongoing recording controls and actual
+  SSE stream AbortSignal cancellation after navigating away. Source/security/theme unit coverage adds
+  merge priority, escaping, empty/error/filter/paging/abort behavior and strict URL resolution.
+
+### Step 4 checks
+Final scoped checks after the last code edits:
+```text
+pnpm --filter @oat/desktop typecheck
+> tsc
+
+pnpm --filter @oat/desktop lint
+> eslint .
+
+pnpm --filter @oat/desktop test
+ Test Files  60 passed (60)
+      Tests  511 passed (511)
+
+pnpm --filter @oat/feature-ui test
+ Test Files  8 passed (8)
+      Tests  93 passed (93)
+```
+An initial desktop typecheck caught nullable auth names and SearchView's notes/transcripts-only tab;
+normalized names to email and initialized the tab to notes. No visual or real Electron runtime checks.
+
+```text
+pnpm run ci --fast
+ Tasks:    22 successful, 22 total
+Cached:    21 cached, 22 total
+
+step        status     time  note
+format      pass      21.8s
+actionlint  pass       0.5s
+typecheck   pass      13.8s
+lint        pass       6.7s
+test        pass      16.0s
+total                 58.9s
+
+ci: ok
+```
+Full final gate log: `/home/ubuntu/feature-ui-ci-fast.log`. `git diff --check` clean.
+React checklist: controlled host state, concurrent sources, cleanup/abort coverage, no effect-based
+derived state, source identities invalidate results after sync, no new shared framework imports.
+Independent review and visual/real-runtime verification remain pending; no push.
