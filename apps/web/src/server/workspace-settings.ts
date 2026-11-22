@@ -12,6 +12,7 @@ import {
   listPendingInvites,
   loadPermissionContext,
   type PendingJoinRequest,
+  WORKSPACE_RESTORE_DAYS,
 } from '@oat/auth';
 import {
   canAddDomain,
@@ -97,6 +98,7 @@ export function buildWorkspaceSettings(input: {
       : null;
   return {
     workspace: input.workspace,
+    restoreDays: WORKSPACE_RESTORE_DAYS,
     role,
     canManage,
     inviteRoles: ROLES.filter((r) => canInvite(ctx, access, r)),

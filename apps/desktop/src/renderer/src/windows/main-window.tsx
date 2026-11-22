@@ -63,6 +63,7 @@ import {
 } from '@oat/ui/components/sidebar';
 import { RecordingBar, IssueBanner } from '../recording/recording-controls.tsx';
 import { SettingsView } from '../settings/settings-view.tsx';
+import type { SettingsSectionId } from '@oat/settings-ui';
 import { FirstMeetingGuide } from '../onboarding/first-meeting-guide.tsx';
 import { useOnboarding } from '../onboarding/onboarding-state.ts';
 import { OnboardingView } from '../onboarding/onboarding-view.tsx';
@@ -323,6 +324,11 @@ function SignedInShell({
   const [selected, setSelected] = useState<string | null>(null);
   // 3.8: Settings replaces the meeting view (a recording keeps running); opening a note closes it.
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<SettingsSectionId>('preferences');
+  const openSettings = (section: SettingsSectionId = 'preferences') => {
+    setSettingsSection(section);
+    setSettingsOpen(true);
+  };
   const [options, setOptions] = useState<InvokeResponse<'recording:options'> | null>(null);
   const [choice, setChoice] = useState<string | null>(null);
   const input = choice ?? defaultInputChoice(options);
@@ -436,7 +442,7 @@ function SignedInShell({
                     variant="ghost"
                     size="icon-sm"
                     aria-label="Settings"
-                    onClick={() => setSettingsOpen(true)}
+                    onClick={() => openSettings()}
                   />
                 }
               >
@@ -446,11 +452,7 @@ function SignedInShell({
             </Tooltip>
             <SyncLine status={sync} />
           </div>
-          <DesktopUserMenu
-            user={user}
-            workspaces={workspaces}
-            onOpenSettings={() => setSettingsOpen(true)}
-          />
+          <DesktopUserMenu user={user} workspaces={workspaces} onOpenSettings={openSettings} />
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="min-h-0 min-w-0">
@@ -497,8 +499,16 @@ function SignedInShell({
                 </>
               )}
               <SettingsView
+                key={settingsSection}
+                initialSection={settingsSection}
+                workspace={activeWorkspace}
+                recordingActive={recording || recordingStatus === 'stopping'}
                 onClose={() => setSettingsOpen(false)}
                 onOpenSetup={() => setSetupOpen(true)}
+                onWorkspaceExited={() => {
+                  setSelected(null);
+                  setSettingsOpen(false);
+                }}
               />
             </>
           ) : (

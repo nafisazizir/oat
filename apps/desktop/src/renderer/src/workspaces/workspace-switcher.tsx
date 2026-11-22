@@ -22,7 +22,6 @@ import { IconCheck, IconEye, IconSelector } from '@tabler/icons-react';
 import { useState, type ReactNode } from 'react';
 
 import { BridgeCallError } from '../bridge.ts';
-import { call } from '../bridge.ts';
 import { roleLabel, type WorkspacesView } from './workspaces-state.ts';
 
 export function WorkspaceTile({
@@ -50,11 +49,13 @@ export function WorkspaceSwitcher({
   account,
   label,
   email,
+  onOpenSettings,
 }: {
   view: WorkspacesView;
   account: ReactNode;
   label: string;
   email: string;
+  onOpenSettings: (section: 'workspace' | 'members') => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const { snapshot, active, fallback, needsWorkspace } = view;
@@ -66,15 +67,6 @@ export function WorkspaceSwitcher({
       await view.setActive(id);
     } catch (e) {
       setError(e instanceof BridgeCallError ? e.message : 'Couldn’t switch workspaces.');
-    }
-  }
-
-  async function openSettings(section: 'workspace' | 'members') {
-    setError(null);
-    try {
-      await call('settings:open-web', { section });
-    } catch {
-      setError('Couldn’t open settings in your browser.');
     }
   }
 
@@ -135,13 +127,11 @@ export function WorkspaceSwitcher({
           )}
           <DropdownMenuGroup>
             {!canSwitch && <DropdownMenuLabel>Workspace</DropdownMenuLabel>}
-            <DropdownMenuItem onClick={() => void openSettings('workspace')}>
-              Workspace settings (web)
+            <DropdownMenuItem onClick={() => onOpenSettings('workspace')}>
+              Workspace settings
             </DropdownMenuItem>
             {active && (
-              <DropdownMenuItem onClick={() => void openSettings('members')}>
-                Members (web)
-              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onOpenSettings('members')}>Members</DropdownMenuItem>
             )}
           </DropdownMenuGroup>
           {account}

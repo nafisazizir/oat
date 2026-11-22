@@ -6,8 +6,8 @@ import { Switch } from '@oat/ui/components/switch';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
 
-import { pipelineApi } from '@/lib/api-client';
-import type { PipelineSettingsDto, UpdatePipelineSettingsInput } from '@/lib/pipeline';
+import { useSettings } from './services';
+import type { PipelineSettingsDto, UpdatePipelineSettingsInput } from '@oat/services/dto/pipeline';
 
 type Key = 'autoEnhance' | 'autoSendToNotion';
 
@@ -29,6 +29,7 @@ export function PipelineSwitch({
   description: { on: string; off: string };
 }) {
   const id = useId();
+  const { client } = useSettings();
   const [checked, setChecked] = useState(initial);
   const [pending, setPending] = useState(false);
 
@@ -37,7 +38,7 @@ export function PipelineSwitch({
     setPending(true);
     try {
       const input: UpdatePipelineSettingsInput = { workspaceId, [setting]: next };
-      const saved: PipelineSettingsDto = await pipelineApi.updateSettings(input);
+      const saved: PipelineSettingsDto = await client.pipeline.updateSettings(input);
       setChecked(saved[setting] === true);
     } catch (error) {
       setChecked(!next);

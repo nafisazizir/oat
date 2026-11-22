@@ -10,14 +10,22 @@ import {
 } from './bridge.ts';
 
 describe('bridge contract', () => {
-  it('accepts only known web settings sections, not arbitrary URLs', () => {
-    const request = bridgeContract.invoke['settings:open-web'].request;
-    for (const section of ['profile', 'preferences', 'integrations', 'workspace', 'members']) {
-      expect(request.safeParse({ section }).success).toBe(true);
+  it('accepts fixed consent providers and workspace IDs, not arbitrary URLs or destinations', () => {
+    const request = bridgeContract.invoke['settings:connect'].request;
+    for (const provider of ['notion', 'google-calendar']) {
+      expect(request.safeParse({ provider, workspaceId: 'team_1' }).success).toBe(true);
     }
-    for (const value of [undefined, {}, { section: '' }, { section: 'https://evil.test' }]) {
+    for (const value of [
+      undefined,
+      {},
+      { provider: 'notion', workspaceId: '../other' },
+      { provider: 'https://evil.test', workspaceId: 'team_1' },
+    ]) {
       expect(request.safeParse(value).success).toBe(false);
     }
+    const download = bridgeContract.invoke['settings:export-notes'].request;
+    expect(download.safeParse({ workspaceId: 'team_1' }).success).toBe(true);
+    expect(download.safeParse({ workspaceId: 'team_1', path: '/etc/example' }).success).toBe(false);
   });
   it('channel names are unique across invoke, send and subscribe', () => {
     const all = [...bridgeChannels.invoke, ...bridgeChannels.send, ...bridgeChannels.subscribe];
