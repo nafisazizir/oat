@@ -1,12 +1,20 @@
 'use client';
 
-import { SidebarInset, SidebarProvider } from '@oat/ui/components/sidebar';
+import { SidebarInset, SidebarMenuItem, SidebarMenuButton } from '@oat/ui/components/sidebar';
+import { IconEdit } from '@tabler/icons-react';
 import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { createOatClient, fetchTransport } from '@oat/client';
-import { WorkspaceHost, hrefOf, routeOf, type AppRoute, AppSidebar } from '@oat/workspace-ui';
+import {
+  WorkspaceHost,
+  hrefOf,
+  routeOf,
+  type AppRoute,
+  AppSidebar,
+  ShellSidebarProvider,
+} from '@oat/workspace-ui';
 import { authClient } from '@/lib/auth-client';
 import { browserRecording } from '@/lib/browser-recording';
 import { BrowserRecordingBanner } from '@/components/meeting/recording-controls';
@@ -14,11 +22,11 @@ import { BrowserRecordingBanner } from '@/components/meeting/recording-controls'
 import type { ShellData } from '@/lib/tree';
 
 import { CommandMenu, CommandMenuProvider, useCommandMenu } from './command-menu';
-import { ThemeMenu } from '../theme-toggle';
+import { useNewNote } from './use-new-note';
 import { AccountMenuItems } from './user-menu';
 import { ShellDataProvider } from '@oat/workspace-ui/shell-data';
 import { TopBarProvider } from './top-bar';
-import { TreeActionsProvider } from '@oat/workspace-ui/tree-actions';
+import { TreeActionsProvider, useTreeActions } from '@oat/workspace-ui/tree-actions';
 import { useSyncEvents } from './use-sync-events';
 import { WebFeatureProvider } from './feature-provider';
 
@@ -31,10 +39,27 @@ function HostLink({
 
 function WebSidebar() {
   const { setOpen } = useCommandMenu();
+  const newNote = useNewNote();
+  const { canCreate } = useTreeActions();
   return (
     <AppSidebar
       onSearch={() => setOpen(true)}
-      footerExtra={<ThemeMenu />}
+      primaryAction={
+        canCreate && (
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="New note" onClick={newNote}>
+              <IconEdit />
+              <span>New note</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )
+      }
+      footerExtra={
+        <p role="status" className="text-label-12 text-gray-900">
+          <span className="hidden in-data-[sync-live]:inline">Live sync connected</span>
+          <span className="in-data-[sync-live]:hidden">Reconnecting live sync…</span>
+        </p>
+      }
       accountItems={<AccountMenuItems />}
     />
   );
@@ -103,7 +128,7 @@ export function AppShell({
     <WorkspaceHost value={host}>
       <ShellDataProvider value={data}>
         <WebFeatureProvider>
-          <SidebarProvider defaultOpen={defaultOpen}>
+          <ShellSidebarProvider defaultOpen={defaultOpen}>
             <TreeActionsProvider>
               <CommandMenuProvider>
                 <WebSidebar />
@@ -116,7 +141,7 @@ export function AppShell({
                 <CommandMenu />
               </CommandMenuProvider>
             </TreeActionsProvider>
-          </SidebarProvider>
+          </ShellSidebarProvider>
         </WebFeatureProvider>
       </ShellDataProvider>
     </WorkspaceHost>

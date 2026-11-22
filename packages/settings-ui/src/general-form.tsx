@@ -23,7 +23,8 @@ import { ICON_CHOICES } from './workspace';
 import { WorkspaceAvatar } from './workspace-avatar';
 
 /** Label column + control column on wide screens; stacked on narrow ones. */
-const ROW = 'gap-2 sm:grid sm:grid-cols-[10rem_1fr] sm:items-center sm:gap-6';
+const ROW =
+  'gap-2 border-b border-gray-alpha-400 py-3 last:border-b-0 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] sm:items-center sm:gap-6';
 
 /** Name + emoji icon (owners/admins), and the read-only address. */
 export function WorkspaceGeneralForm({
@@ -59,7 +60,7 @@ export function WorkspaceGeneralForm({
         });
       }}
     >
-      <FieldGroup className="gap-5">
+      <FieldGroup className="gap-0">
         <Field className={ROW}>
           <FieldContent>
             <FieldTitle>Icon</FieldTitle>
@@ -71,8 +72,8 @@ export function WorkspaceGeneralForm({
                 render={
                   <Button
                     type="button"
-                    variant="secondary"
-                    size="lg"
+                    variant="ghost"
+                    size="sm"
                     className="gap-2 ps-1.5"
                     disabled={!canEdit || pending}
                     data-testid="workspace-icon-button"
@@ -157,7 +158,7 @@ export function WorkspaceGeneralForm({
       )}
       {canEdit ? (
         <div className="flex justify-end">
-          <Button type="submit" disabled={!dirty || pending}>
+          <Button type="submit" variant="secondary" size="sm" disabled={!dirty || pending}>
             {pending && <Spinner data-icon="inline-start" />}
             Save changes
           </Button>

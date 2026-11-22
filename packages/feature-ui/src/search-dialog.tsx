@@ -184,7 +184,7 @@ export function SearchDialog({
       description="Search notes and transcripts, jump to a page or run a command"
       className="sm:max-w-xl"
     >
-      <Command shouldFilter={false} value={selected} onValueChange={setSelected}>
+      <Command size="sm" shouldFilter={false} value={selected} onValueChange={setSelected}>
         <CommandInput
           placeholder="Search notes, transcripts and commands…"
           value={query}

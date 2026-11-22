@@ -31,9 +31,7 @@ for (const theme of ['light', 'dark'] as const) {
       kind: 'page',
     });
     await page.goto('/home');
-    await expect(page.getByRole('heading', { level: 1, name: 'Home', exact: true })).toHaveClass(
-      'sr-only',
-    );
+    await sansTitle(page.getByRole('heading', { level: 1, name: 'Home', exact: true }));
     const homeTitle = page
       .getByTestId('home-note-row')
       .filter({ hasText: homeNote.title })

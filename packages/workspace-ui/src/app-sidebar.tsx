@@ -1,5 +1,7 @@
 'use client';
 
+import { cn } from '@oat/ui/lib/utils';
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,9 +22,11 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarTrigger,
 } from '@oat/ui/components/sidebar';
 import {
   IconCheck,
+  IconChevronDown,
   IconChecklist,
   IconDoorEnter,
   IconHome,
@@ -30,10 +34,10 @@ import {
   IconLogout,
   IconPlus,
   IconSearch,
-  IconSelector,
   IconSettings,
   IconSparkles,
   IconTrash,
+  IconUser,
   IconUserPlus,
 } from '@tabler/icons-react';
 import { useWorkspaceHost } from './host';
@@ -49,8 +53,8 @@ import { CreateWorkspaceDialog } from './create-workspace-dialog';
 import { TreeSection } from './page-tree';
 import { useOptimisticTree, useShellData } from './shell-data';
 import { useTreeActions } from './tree-actions';
-import { Button } from '@oat/ui/components/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
+import { Avatar, AvatarFallback, AvatarImage } from '@oat/ui/components/avatar';
+import { ThemeMenu, useTheme } from '@oat/settings-ui';
 
 function WorkspaceTile({ workspace, className }: { workspace: Workspace; className?: string }) {
   return <WorkspaceAvatar workspace={workspace} {...(className ? { className } : {})} />;
@@ -60,10 +64,18 @@ function memberLabel(workspace: Workspace) {
   return workspace.members === 1 ? '1 member' : `${workspace.members} members`;
 }
 
-export function WorkspaceSwitcher({ accountItems }: { accountItems?: React.ReactNode }) {
+export function WorkspaceSwitcher({
+  accountItems,
+  status,
+  compact = false,
+}: {
+  accountItems?: React.ReactNode;
+  status?: React.ReactNode;
+  compact?: boolean;
+}) {
   const host = useWorkspaceHost();
   const { Link } = host;
-  const { workspace: loadedWorkspace, workspaces, canJoin } = useShellData();
+  const { workspace: loadedWorkspace, workspaces, canJoin, user } = useShellData();
   // The picked workspace shows in the switcher right away; the rest of the shell follows the refresh.
   const [currentWorkspace, showWorkspace] = useOptimistic(loadedWorkspace);
   const [createOpen, setCreateOpen] = useState(false);
@@ -89,29 +101,59 @@ export function WorkspaceSwitcher({ accountItems }: { accountItems?: React.React
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu size="sm">
         <DropdownMenuTrigger
           render={
             <SidebarMenuButton
-              size="lg"
+              size="default"
               className="data-popup-open:bg-gray-alpha-100 group-data-[collapsible=icon]:ps-1!"
               tooltip={currentWorkspace.name}
-              data-testid="workspace-switcher"
+              data-testid={compact ? 'workspace-switcher' : 'account-switcher'}
               data-switchable={canSwitch}
               aria-busy={pending || undefined}
             />
           }
         >
-          <WorkspaceTile workspace={currentWorkspace} />
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate text-button-14 text-gray-1000">{currentWorkspace.name}</span>
-            <span className="truncate text-label-12 text-gray-900">
-              {memberLabel(currentWorkspace)}
+          {compact && <WorkspaceTile workspace={currentWorkspace} className="size-4" />}
+          {!compact && (
+            <Avatar className="size-7">
+              <AvatarImage src={user.image ?? undefined} alt="" />
+              <AvatarFallback className="text-label-12">
+                {(user.name || user.email).slice(0, 1).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          )}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-button-14 text-gray-1000">
+              {compact ? currentWorkspace.name : user.name || user.email}
             </span>
+            {compact && <span className="sr-only">{memberLabel(currentWorkspace)}</span>}
           </div>
-          {canSwitch && <IconSelector className="ms-auto text-gray-900" />}
+          <IconChevronDown className="ms-auto text-gray-900" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="top" align="start" className="w-(--anchor-width) min-w-56">
+        <DropdownMenuContent side={compact ? 'bottom' : 'top'} align="start" className="w-64">
+          <div className="min-w-0 px-2 py-2">
+            <p className="truncate text-copy-14 text-gray-1000">
+              <strong>
+                {user.name && user.name !== user.email ? user.name : user.email.split('@')[0]}
+              </strong>
+            </p>
+            <p className="truncate text-label-12 text-gray-900">{user.email}</p>
+          </div>
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              nativeButton={false}
+              render={<Link route={routeOf('/settings/profile')} />}
+            >
+              <IconUser />
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem nativeButton={false} render={<Link route={routeOf('/settings')} />}>
+              <IconSettings />
+              Settings
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
           {canSwitch && (
             <>
               <DropdownMenuGroup data-testid="workspace-list">
@@ -139,7 +181,7 @@ export function WorkspaceSwitcher({ accountItems }: { accountItems?: React.React
             </>
           )}
           <DropdownMenuGroup>
-            {!canSwitch && <DropdownMenuLabel>Workspace</DropdownMenuLabel>}
+            <DropdownMenuLabel>Workspace</DropdownMenuLabel>
             <DropdownMenuItem
               nativeButton={false}
               render={<Link route={routeOf('/settings/workspace')} />}
@@ -173,10 +215,16 @@ export function WorkspaceSwitcher({ accountItems }: { accountItems?: React.React
             {canLeave && (
               <DropdownMenuItem onClick={() => setLeaveOpen(true)}>
                 <IconLogout />
-                Leave {currentWorkspace.name}
+                <span className="truncate">Leave {currentWorkspace.name}</span>
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
+          {status && (
+            <>
+              <DropdownMenuSeparator />
+              <div className="px-2 py-1.5">{status}</div>
+            </>
+          )}
           {accountItems}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -193,19 +241,21 @@ export function WorkspaceSwitcher({ accountItems }: { accountItems?: React.React
 }
 
 export function AppSidebar({
-  top,
   primaryAction,
   beforeTree,
   footerExtra,
   accountItems,
   onSearch,
+  headerClassName,
+  headerRowClassName,
 }: {
-  top?: React.ReactNode;
   primaryAction?: React.ReactNode;
   beforeTree?: React.ReactNode;
   footerExtra?: React.ReactNode;
   accountItems?: React.ReactNode;
   onSearch?: () => void;
+  headerClassName?: string;
+  headerRowClassName?: string;
 }) {
   const host = useWorkspaceHost();
   const { Link } = host;
@@ -213,6 +263,7 @@ export function AppSidebar({
   const { workspace, trash } = useShellData();
   const { openTrash } = useTreeActions();
   const { saving } = useOptimisticTree();
+  const { theme, setTheme } = useTheme();
 
   return (
     <Sidebar
@@ -222,8 +273,13 @@ export function AppSidebar({
       // Sidebar changes show before the server confirms them; e2e waits for this before navigating.
       data-saving={saving || undefined}
     >
-      {top}
-      <SidebarHeader>
+      <SidebarHeader className={cn('gap-3 px-2 pt-2', headerClassName)}>
+        <div className={cn('flex h-8 items-center gap-2', headerRowClassName)}>
+          <SidebarTrigger data-testid="sidebar-header-trigger" />
+          <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+            <WorkspaceSwitcher compact accountItems={accountItems} status={footerExtra} />
+          </div>
+        </div>
         <SidebarMenu className="gap-0.5">
           {primaryAction}
           <SidebarMenuItem>
@@ -271,81 +327,50 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="gap-0">
         {beforeTree}
         {/* D-36: the two places a note can be. New notes start in Private. */}
         <TreeSection area="private" />
         <TreeSection area="shared" />
+        <div className="mt-auto p-2">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                render={<Link route={routeOf(sections.templates.href)} />}
+                tooltip="Templates"
+                isActive={inSection(pathname, sections.templates.href)}
+              >
+                <IconLayoutGrid />
+                <span>Templates</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="Trash"
+                aria-label={trash.length ? `Trash (${trash.length})` : 'Trash'}
+                onClick={openTrash}
+                data-testid="open-trash"
+              >
+                <IconTrash />
+                <span>Trash</span>
+                {trash.length > 0 && (
+                  <span className="ms-auto text-label-12 text-gray-900">{trash.length}</span>
+                )}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </div>
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
-          <Tooltip>
-            <TooltipTrigger
-              role="link"
-              render={
-                <Button
-                  nativeButton={false}
-                  role="link"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Templates"
-                  render={<Link route={routeOf(sections.templates.href)} />}
-                />
-              }
-            >
-              <IconLayoutGrid />
-            </TooltipTrigger>
-            <TooltipContent>Templates</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="relative"
-                  aria-label={trash.length ? `Trash (${trash.length})` : 'Trash'}
-                  onClick={openTrash}
-                  data-testid="open-trash"
-                />
-              }
-            >
-              <IconTrash />
-              {trash.length > 0 && (
-                <span
-                  aria-hidden
-                  className="absolute end-1 top-1 size-1.5 rounded-full bg-brand-900"
-                />
-              )}
-            </TooltipTrigger>
-            <TooltipContent>Trash{trash.length > 0 ? ` (${trash.length})` : ''}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger
-              role="link"
-              render={
-                <Button
-                  nativeButton={false}
-                  role="link"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Settings"
-                  render={<Link route={routeOf(sections.settings.href)} />}
-                />
-              }
-            >
-              <IconSettings />
-            </TooltipTrigger>
-            <TooltipContent>Settings</TooltipContent>
-          </Tooltip>
-          {footerExtra}
+        <div className="flex items-center gap-1 border-t border-gray-alpha-400 pt-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-start">
+          <SidebarMenu className="min-w-0 flex-1">
+            <SidebarMenuItem>
+              <WorkspaceSwitcher accountItems={accountItems} status={footerExtra} />
+            </SidebarMenuItem>
+          </SidebarMenu>
+          <ThemeMenu theme={theme} setTheme={setTheme} />
         </div>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <WorkspaceSwitcher accountItems={accountItems} />
-          </SidebarMenuItem>
-        </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

@@ -16,6 +16,15 @@ export function PageContainer({ className, ...props }: React.ComponentProps<'div
   return <NoteColumn className={className} {...props} />;
 }
 
+export function HomeLayout({ children, ...props }: React.ComponentProps<'div'>) {
+  return (
+    <PageContainer className="max-w-[744px] gap-8 py-8 sm:py-8" {...props}>
+      <h1 className="text-heading-24 text-gray-1000">Home</h1>
+      {children}
+    </PageContainer>
+  );
+}
+
 export function PageHeader({
   title,
   description,
@@ -53,6 +62,7 @@ export function EmptyState({
   children,
   className,
   titleAs: Title = 'h3',
+  ...props
 }: {
   icon: PageIcon;
   title: string;
@@ -61,9 +71,9 @@ export function EmptyState({
   className?: string;
   /** `h1` when the empty state is the whole page (not found, link unavailable): every page has an h1. */
   titleAs?: 'h1' | 'h2' | 'h3';
-}) {
+} & Omit<React.ComponentProps<'div'>, 'title'>) {
   return (
-    <Empty className={cn('border border-dashed border-gray-alpha-400', className)}>
+    <Empty className={cn('border border-dashed border-gray-alpha-400', className)} {...props}>
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <Icon className="text-gray-900" />

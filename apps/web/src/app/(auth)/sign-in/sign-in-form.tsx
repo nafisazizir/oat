@@ -7,6 +7,7 @@ import {
   AuthTitle,
   AuthDescription,
   AuthContent,
+  AuthDivider,
 } from '@oat/ui/components/auth-layout';
 import { Field, FieldLabel } from '@oat/ui/components/field';
 import { Input } from '@oat/ui/components/input';
@@ -122,7 +123,7 @@ export function SignInForm({
       </AuthHeader>
       <div className="flex flex-col gap-5">
         <Button
-          variant="outline"
+          variant="secondary"
           size="lg"
           className="w-full"
           type="button"
@@ -137,9 +138,7 @@ export function SignInForm({
           Continue with Google
         </Button>
 
-        <p aria-hidden className="text-center text-label-12 text-gray-900">
-          or
-        </p>
+        <AuthDivider />
 
         <form
           className="flex flex-col gap-3"
@@ -153,6 +152,7 @@ export function SignInForm({
             <FieldLabel htmlFor="email">Work email</FieldLabel>
             <Input
               id="email"
+              size="lg"
               name="email"
               type="email"
               autoComplete="email"

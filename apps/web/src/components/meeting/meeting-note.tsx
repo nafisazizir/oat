@@ -211,7 +211,6 @@ export function MeetingNote({
     <>
       {!browserLive && (
         <MeetingTime
-          className="rounded-md border border-gray-alpha-300 px-2 py-1"
           startedAt={info.startedAt}
           endedAt={info.endedAt}
           // Server render + hydration in UTC (they must agree), then the viewer's zone.

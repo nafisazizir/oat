@@ -15,7 +15,13 @@ import {
   MessageScrollerViewport,
 } from '@oat/ui/components/message-scroller';
 import { Spinner } from '@oat/ui/components/spinner';
-import { IconAlertCircle, IconArrowUp, IconPlayerStopFilled } from '@tabler/icons-react';
+import {
+  IconAlertCircle,
+  IconArrowUp,
+  IconCornerDownLeft,
+  IconPlayerStopFilled,
+  IconX,
+} from '@tabler/icons-react';
 import { DefaultChatTransport } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -251,7 +257,7 @@ export function ChatSession({
               <Button
                 key={s}
                 size="sm"
-                variant="ghost"
+                variant="secondary"
                 className="h-auto min-h-8 max-w-full text-start whitespace-normal"
                 onClick={() => ask(s)}
               >
@@ -364,12 +370,12 @@ function Composer({
         send();
       }}
     >
-      <InputGroup className="rounded-xl border-transparent bg-gray-100 p-1 focus-within:border-gray-alpha-500">
+      <InputGroup variant="secondary">
         <InputGroupTextarea
           aria-label="Ask the assistant"
           data-testid="chat-input"
           value={value}
-          rows={1}
+          rows={2}
           maxLength={MAX_QUESTION_CHARS}
           placeholder={placeholder}
           autoFocus={autoFocus}
@@ -380,9 +386,23 @@ function Composer({
               send();
             }
           }}
-          className="max-h-40 min-h-10 [field-sizing:content]"
+          className="max-h-60 min-h-16 [field-sizing:content]"
         />
-        <InputGroupAddon align="inline-end" className="self-end pb-1.5">
+        <InputGroupAddon align="block-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Clear message"
+            title="Clear message"
+            disabled={!value}
+            onClick={() => setValue('')}
+          >
+            <IconX />
+          </Button>
+          <span className="flex flex-1 items-center gap-1.5 text-label-12 text-gray-900">
+            <IconCornerDownLeft className="size-3.5 shrink-0" /> Shift + Enter for a new line
+          </span>
           {busy ? (
             <Button
               type="button"

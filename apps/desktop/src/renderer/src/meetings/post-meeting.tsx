@@ -49,7 +49,7 @@ export function GraceLine({
       </Badge>
       <Button
         variant="ghost"
-        size="xs"
+        size="sm"
         disabled={pending}
         onClick={() => {
           setPending(true);
@@ -146,7 +146,7 @@ export function PipelineLine({
       {failed && run.retryable && status?.canRun && (
         <Button
           variant="ghost"
-          size="xs"
+          size="sm"
           disabled={retrying}
           onClick={() => {
             setRetrying(true);

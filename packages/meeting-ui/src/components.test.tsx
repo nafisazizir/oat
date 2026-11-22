@@ -45,6 +45,12 @@ describe('TranscriptList', () => {
     expect(screen.getByText('Them')).toBeTruthy();
     // One "Me" header for two consecutive mic lines.
     expect(screen.getAllByText('Me')).toHaveLength(1);
+    for (const text of ['Hello from them', 'Hi, me here', 'still typing']) {
+      const bubble = screen.getByText(text);
+      expect(bubble.className).toContain('rounded-lg');
+      expect(bubble.className).toContain('bg-gray-100');
+      expect(bubble.className).not.toContain('blue-');
+    }
   });
 
   it('marks the focused line and reports selections (click and keyboard)', async () => {

@@ -15,8 +15,15 @@ import {
   type AppRoute,
 } from '@oat/workspace-ui';
 import { Button } from '@oat/ui/components/button';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@oat/ui/components/dropdown-menu';
+import { createPortal } from 'react-dom';
 import { Skeleton } from '@oat/ui/components/skeleton';
-import { IconCloudOff, IconFile } from '@tabler/icons-react';
+import { IconCloudOff, IconFile, IconDots, IconTrash } from '@tabler/icons-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import type { MeetingNoteSummary } from '@oat/core/bridge';
@@ -49,11 +56,13 @@ export function DesktopRoutesView({
   notes,
   meeting,
   recordingControls,
+  toolbar,
 }: {
   route: AppRoute;
   notes: readonly MeetingNoteSummary[] | null;
   meeting: ReactNode;
   recordingControls?: ReactNode;
+  toolbar?: HTMLElement | null;
 }) {
   const shell = useShellData();
   if (route.view === 'home') return meeting;
@@ -65,7 +74,7 @@ export function DesktopRoutesView({
     )
       return (
         <>
-          <MeetingActions id={route.id} />
+          <MeetingActions id={route.id} toolbar={toolbar} />
           {meeting}
         </>
       );
@@ -116,26 +125,36 @@ function ServerRoutes({ route, meeting }: { route: AppRoute; meeting: ReactNode 
   }
 }
 
-function MeetingActions({ id }: { id: string }) {
+function MeetingActions({ id, toolbar }: { id: string; toolbar?: HTMLElement | null }) {
   const shell = useShellData();
   const host = useWorkspaceHost();
   const actions = useTreeActions();
   const node = shell.documents.find((n) => n.id === id);
-  return (
-    <div className="flex shrink-0 justify-end gap-2 px-4 py-2">
+  const content = (
+    <div className="flex shrink-0 items-center gap-2">
       <ShareDialog documentId={id} />
       {node?.access.delete && (
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={!host.online}
-          onClick={() => actions.remove(node)}
-        >
-          Move to trash
-        </Button>
+        <DropdownMenu size="sm">
+          <DropdownMenuTrigger
+            render={<Button variant="secondary" size="icon-sm" aria-label="Page actions" />}
+          >
+            <IconDots />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={!host.online}
+              onClick={() => actions.remove(node)}
+            >
+              <IconTrash />
+              Move to trash
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </div>
   );
+  return toolbar ? createPortal(content, toolbar) : content;
 }
 
 function DocumentRoute({

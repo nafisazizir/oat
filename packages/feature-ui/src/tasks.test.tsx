@@ -215,6 +215,8 @@ describe('TasksView', () => {
       setup(async () => json({ items: [], truncated: false })),
     );
     expect(await screen.findByText(title)).toBeTruthy();
+    expect(screen.getByTestId('tasks-empty').className).toContain('border-dashed');
+    expect(screen.getByRole('heading', { name: title }).tagName).toBe('H2');
   });
 
   it('offers retry after a list error', async () => {

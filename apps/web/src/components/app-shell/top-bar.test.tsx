@@ -6,6 +6,7 @@ import { TopBarActions, TopBarProvider } from './top-bar';
 
 vi.mock('@oat/ui/components/sidebar', () => ({
   SidebarTrigger: () => <button>Toggle sidebar</button>,
+  useSidebar: () => ({ open: false, isMobile: false }),
 }));
 vi.mock('./new-note-button', () => ({ NewNoteButton: () => <button>New note</button> }));
 vi.mock('@oat/ui/components/tooltip', () => ({
@@ -25,7 +26,8 @@ describe('top bar action slot', () => {
       </TopBarProvider>,
     );
     expect(html).toContain('data-testid="top-bar-actions"');
-    expect(html).toContain('New note');
+    expect(html).toContain('Toggle sidebar');
+    expect(html).not.toContain('New note');
     expect(html).toContain('<main>Page</main>');
     expect(html).not.toContain('Share');
     expect(html).not.toContain('border-b');

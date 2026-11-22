@@ -23,14 +23,18 @@ export function DesktopSidebar({
   const host = useWorkspaceHost();
   const shell = useShellData();
   const [searchOpen, setSearchOpen] = useState(false);
-  const account = useDesktopAccountItems(user, (section) =>
-    host.navigate({ view: 'settings', section }),
-  );
+  const account = useDesktopAccountItems();
   const { active, fallback, needsWorkspace } = workspaces;
+  const isMac = /Mac/.test(navigator.platform);
   return (
     <div className="contents" data-testid="signed-in">
       <AppSidebar
-        top={<div className="app-drag h-12 shrink-0" />}
+        headerClassName={isMac ? 'gap-1 pt-0' : undefined}
+        headerRowClassName={
+          isMac
+            ? 'app-drag h-12 ps-18 group-data-[collapsible=icon]:ps-0 group-data-[collapsible=icon]:[&>*]:invisible [&_button]:app-no-drag [&_a]:app-no-drag'
+            : undefined
+        }
         primaryAction={
           <NewMeetingButton
             {...newMeeting}
@@ -45,6 +49,11 @@ export function DesktopSidebar({
         beforeTree={
           <div className="group-data-[collapsible=icon]:hidden">
             <ConflictsPanel refreshKey={lastSyncedAt} />
+            {!host.online && (
+              <span role="status" className="px-2 text-label-12 text-gray-900">
+                Offline
+              </span>
+            )}
             {(fallback || needsWorkspace) && (
               <p
                 role="note"
@@ -58,22 +67,13 @@ export function DesktopSidebar({
             )}
           </div>
         }
-        footerExtra={
-          <>
-            {syncLine}
-            <span className="sr-only" data-testid="signed-in-email">
-              {user.email}
-            </span>
-            <div className="sr-only">{account.feedback}</div>
-            {!host.online && (
-              <span role="status" className="text-label-12 text-gray-900">
-                Offline
-              </span>
-            )}
-          </>
-        }
+        footerExtra={syncLine}
         accountItems={account.items}
       />
+      <span className="sr-only" data-testid="signed-in-email">
+        {user.email}
+      </span>
+      <div className="sr-only">{account.feedback}</div>
       <DesktopSearch
         open={searchOpen}
         onOpenChange={setSearchOpen}

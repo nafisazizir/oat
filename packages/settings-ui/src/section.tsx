@@ -35,7 +35,7 @@ export function SettingsList({ className, ...props }: React.ComponentProps<typeo
       role="group"
       className={cn(
         'gap-0',
-        '*:data-[slot=item]:rounded-none *:data-[slot=item]:border-0 *:data-[slot=item]:px-0 *:data-[slot=item]:py-4',
+        '*:data-[slot=item]:rounded-none *:data-[slot=item]:border-0 *:data-[slot=item]:px-0 *:data-[slot=item]:py-3 [&>[data-slot=item]+[data-slot=item]]:border-t [&>[data-slot=item]+[data-slot=item]]:border-gray-alpha-400',
         className,
       )}
       {...props}
@@ -44,5 +44,5 @@ export function SettingsList({ className, ...props }: React.ComponentProps<typeo
 }
 
 export function SettingsHeading({ children }: { children: React.ReactNode }) {
-  return <h1 className="text-heading-24 text-gray-1000">{children}</h1>;
+  return <h1 className="text-heading-16 text-gray-1000">{children}</h1>;
 }

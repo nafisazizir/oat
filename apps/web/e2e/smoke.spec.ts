@@ -11,12 +11,12 @@ test.describe('app shell', () => {
     await expect(page.getByTestId('workspace-switcher')).toContainText('My workspace');
     await expect(page.getByTestId('page-tree')).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toHaveCount(0);
-    await expect(
-      page.getByTestId('top-bar').getByRole('button', { name: 'New note' }),
-    ).toBeVisible();
+    await expect(page.getByTestId('top-bar').getByRole('button', { name: 'New note' })).toHaveCount(
+      0,
+    );
     await expect(
       page.getByTestId('app-sidebar').getByRole('button', { name: 'New note' }),
-    ).toHaveCount(0);
+    ).toBeVisible();
     await expect(page.getByTestId('top-bar-actions')).toBeEmpty();
   });
 
@@ -35,7 +35,7 @@ test.describe('app shell', () => {
     const sidebar = page.locator(sidebarSelector);
     await expect(sidebar).toHaveAttribute('data-state', 'expanded');
 
-    await page.getByTestId('sidebar-trigger').click();
+    await page.getByTestId('sidebar-header-trigger').click();
     await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
     // Collapsed to icons: labels hidden, icon buttons still there.
     await expect(page.getByTestId('open-trash')).toBeVisible();

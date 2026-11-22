@@ -41,7 +41,10 @@ export function SetupSettings({
           {ROWS.map(([label, step]) => {
             const view = permissions ? stepView(step, permissions)! : null;
             return (
-              <div key={label} className="flex min-h-12 items-center justify-between gap-4 py-3">
+              <div
+                key={label}
+                className="flex min-h-12 items-center justify-between gap-4 border-b border-gray-alpha-400 py-3"
+              >
                 <dt className="text-label-14 text-gray-1000">{label}</dt>
                 {view ? (
                   <dd

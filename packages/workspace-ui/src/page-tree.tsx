@@ -158,17 +158,24 @@ export function TreeSection({ area }: { area: Area }) {
   }, actions.canCreate);
 
   return (
-    <SidebarGroup data-testid={`tree-section-${area}`}>
+    <SidebarGroup className="group/tree-section py-1" data-testid={`tree-section-${area}`}>
       <SidebarGroupLabel
         {...rootDrop.handlers}
         className={cn(rootDrop.over && 'bg-brand-100 text-brand-1000')}
       >
         {label}
+        <IconChevronRight className="ms-1 size-3.5 rotate-90" />
       </SidebarGroupLabel>
       {actions.canCreate && (
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={<SidebarGroupAction title={`Add to ${label}`} aria-label={`Add to ${label}`} />}
+            render={
+              <SidebarGroupAction
+                className="opacity-0 group-hover/tree-section:opacity-100 group-focus-within/tree-section:opacity-100 data-popup-open:opacity-100"
+                title={`Add to ${label}`}
+                aria-label={`Add to ${label}`}
+              />
+            }
           >
             <IconPlus />
           </DropdownMenuTrigger>
@@ -263,7 +270,7 @@ function TreeRow({ row, active, onToggle }: { row: Row; active: boolean; onToggl
       )}
       {isFolder && hasChildren && !renaming && (
         <SidebarMenuAction
-          className="right-7"
+          className="end-7 opacity-0 group-hover/menu-item:opacity-100 group-focus-within/menu-item:opacity-100 aria-expanded:bg-transparent aria-expanded:text-gray-1000"
           aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
           aria-expanded={open}
           onClick={onToggle}

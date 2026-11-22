@@ -49,16 +49,16 @@ export function NewMeetingButton({
     return (
       <SidebarMenuItem>
         <SidebarMenuButton
-          className="app-no-drag text-brand-900 hover:text-brand-1000"
-          tooltip="New meeting note · ⌘N"
+          className="app-no-drag"
+          tooltip="New note · ⌘N"
           render={<button disabled={disabled || pending} />}
-          aria-label="New meeting note"
+          aria-label="New note"
           disabled={disabled || pending}
           onClick={onClick}
           data-testid="new-meeting"
         >
           {pending ? <Spinner data-icon="inline-start" /> : <IconEdit />}
-          <span>New meeting note</span>
+          <span>New note</span>
         </SidebarMenuButton>
         <SidebarMenuBadge>
           <Kbd>⌘N</Kbd>

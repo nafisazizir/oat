@@ -195,7 +195,7 @@ export function RecordingBar({
   meetingId?: string | null;
   /** That meeting has been recorded before ("Continue recording"); false: its first recording (7.3). */
   recorded?: boolean;
-  /** Why the open note can't be continued (shown under the bar while idle). */
+  /** Why the open note can't be continued. */
   hint?: string | null;
   controlsContainer?: HTMLElement | null;
 }) {
@@ -225,6 +225,7 @@ export function RecordingBar({
       {status === 'paused' && (
         <Button
           size="sm"
+          variant="secondary"
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:resume'))}
         >
@@ -248,13 +249,13 @@ export function RecordingBar({
         </Button>
       )}
       {status === 'starting' && (
-        <Button disabled>
+        <Button disabled size="sm" variant="secondary">
           <Spinner data-icon="inline-start" />
           Starting…
         </Button>
       )}
       {status === 'stopping' && (
-        <Button disabled variant="secondary">
+        <Button disabled size="sm" variant="secondary">
           <Spinner data-icon="inline-start" />
           Saving…
         </Button>
@@ -324,7 +325,12 @@ export function RecordingBar({
     </div>
   );
   return (
-    <div className="flex flex-col gap-2" data-testid="recording-bar" data-status={status}>
+    <div
+      className="flex flex-col gap-2"
+      title={hint ?? undefined}
+      data-testid="recording-bar"
+      data-status={status}
+    >
       {controlsContainer ? createPortal(controls, controlsContainer) : controls}
       {action.error && (
         <p role="status" className="text-copy-13 text-red-900">
@@ -332,7 +338,7 @@ export function RecordingBar({
         </p>
       )}
       {hint && !action.error && (status === 'idle' || status === 'error') && (
-        <p className="text-copy-13 text-gray-900" data-testid="recording-hint">
+        <p className="sr-only" data-testid="recording-hint">
           {hint}
         </p>
       )}

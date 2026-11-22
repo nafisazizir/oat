@@ -1,14 +1,7 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@oat/ui/components/empty';
+import { EmptyState } from '@oat/workspace-ui';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@oat/ui/components/input-group';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import { Spinner } from '@oat/ui/components/spinner';
@@ -140,18 +133,15 @@ function SearchEmpty({
   action?: React.ReactNode;
 }) {
   return (
-    <Empty className="border border-gray-alpha-400" data-testid="search-empty">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <EmptyIcon />
-        </EmptyMedia>
-        <EmptyTitle role="heading" aria-level={2}>
-          {title}
-        </EmptyTitle>
-        <EmptyDescription>{children}</EmptyDescription>
-      </EmptyHeader>
-      {action && <EmptyContent>{action}</EmptyContent>}
-    </Empty>
+    <EmptyState
+      icon={EmptyIcon}
+      title={title}
+      titleAs="h2"
+      description={children}
+      data-testid="search-empty"
+    >
+      {action}
+    </EmptyState>
   );
 }
 

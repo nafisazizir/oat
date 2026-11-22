@@ -1,6 +1,7 @@
 'use client';
 
 import { groupNotesByDate } from '@oat/meeting-ui';
+import { EmptyState } from '@oat/workspace-ui';
 import { IconFileText, IconNotebook } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -19,9 +20,13 @@ export function HomeNotes({ documents }: { documents: DocumentNode[] }) {
   });
   if (documents.length === 0)
     return (
-      <p className="py-8 text-copy-14 text-gray-900" data-testid="home-empty">
-        No notes yet
-      </p>
+      <div data-testid="home-empty">
+        <EmptyState
+          icon={IconNotebook}
+          title="No notes yet"
+          description="Create a note or start a meeting to capture what matters."
+        />
+      </div>
     );
   return (
     <div className="flex flex-col gap-7" data-testid="home-notes">
