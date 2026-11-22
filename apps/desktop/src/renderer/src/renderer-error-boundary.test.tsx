@@ -23,6 +23,7 @@ it('recovers with Retry without sending any recording command', () => {
     </RendererErrorBoundary>,
   );
   expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeTruthy();
+  expect(screen.getByTestId('renderer-error').className).toContain('h-full');
   expect(screen.getByText(/Any recording keeps running/)).toBeTruthy();
   broken = false;
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }));

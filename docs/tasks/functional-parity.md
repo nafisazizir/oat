@@ -1,4 +1,4 @@
-# functional-parity — Desktop/web functional parity audit
+# functional-parity — Desktop/web audit and implementation
 
 status: done
 milestone: M9 · deps: api-foundation, settings-parity, desktop-workspace-parity, desktop-feature-search · branch: devin/1795313872-parity-audit
@@ -8,6 +8,10 @@ milestone: M9 · deps: api-foundation, settings-parity, desktop-workspace-parity
 Inventory the shipped web and desktop surfaces after PR #28, before choosing the next parity work.
 The Before inventory is a source audit, not a claim of runtime equivalence. The After column tracks
 subsequent completed implementation groups: G2/G5, G3/G14/G13, G7/G11, G8/G18, G9/G10/G6 and G17/G16/G4/G12/G1.
+
+Closeout: **17 gaps implemented; G15 explicitly deferred as optional browser-device storage work**.
+PR #30's shared visual structures are merged. The requested desktop surfaces have light-mode
+built-renderer screenshot evidence below; this is not native macOS runtime certification.
 
 ## Context
 
@@ -29,7 +33,14 @@ are not pages; their UX is accounted for at their callers (including OAuth/conse
 - [x] Menus/dialogs, shortcuts, feedback and local-only capabilities have source references.
 - [x] External-opening call sites and indirect anchor/window navigation are inventoried.
 - [x] Differences have a proposed disposition and S/M/L estimate; platform differences are explicit.
-- [x] Documentation-only diff checked and committed locally; no push authorized.
+- [x] Initial documentation-only audit checked and committed locally without pushing.
+- [x] Implemented G1–G14 and G16–G18 with shared packages and host adapters; G15 disposition explicit.
+- [x] Merged PR #30 structures; shared Assistant greeting uses a name, not an email.
+- [x] Captured and personally inspected all twelve requested desktop surfaces at 1440×900 in light mode.
+- [x] Recorded the real recovery-layout correction, verification and remaining platform boundaries.
+
+Final commit/push is authorized by the screenshot closeout handoff; initial no-push instructions
+above describe the audit phase only.
 
 ## Verification
 
@@ -38,8 +49,8 @@ read renderer dispatch and mounted imports, not just package exports. Search des
 `openExternal`, `shell.open`, `open-external`, `OAT_WEB_URL`, `BETTER_AUTH_URL`, `window.open`,
 `target=`, keyboard handlers, dialog titles and notification/toast sites. Read `apiProxyUrl` and
 the client route collector. Formatting: `pnpm exec prettier --check docs/tasks/functional-parity.md docs/PLAN.md docs/LOG.md`.
-Diff integrity: `git diff --check` and `git status --short`. Global CI/build/e2e gates are intentionally
-not run for a documentation-only audit; no UI, DB or native behavior changed.
+Diff integrity: `git diff --check` and `git status --short`. The original documentation-only audit
+did not run global CI/build/e2e; implementation and closeout verification are recorded under Evidence.
 
 ## Design notes
 
@@ -59,6 +70,10 @@ descriptions. Paths are relative to the repository. Shorthands below expand to c
   A dash means no fix. Grouped rows explicitly enumerate the contained surfaces.
 
 ### Before parity matrix and implementation status
+
+Web/Desktop columns preserve the initial Before inventory. After/status describes implementation;
+the compact final After matrix below is the closeout disposition. Native runtime/visual caveats mean
+real Electron/macOS execution; built-renderer Chromium evidence is separately recorded.
 
 G2/G5 implementation: extract the web join list into framework-neutral workspace-ui, use existing
 typed APIs and host callbacks, preserve browser server-side bootstrap, add authoritative API loading
@@ -113,7 +128,7 @@ query parameters. G1 below now supplies full desktop history/restart restoration
 | First-run onboarding | No wizard by D-35; sign-in/join then Home | Onboarding replacing shell: permissions mic/system/calendar, test recording/results/retry/skip/finish; first-meeting guide; rerun Setup | D/onboarding/{onboarding-view.tsx,onboarding-steps.ts,onboarding-state.ts,first-meeting-guide.tsx}; M/{onboarding-store.ts,test-recording.ts,permissions.ts} | **P8:** native permission walkthrough stays platform-specific | — | — |
 | Recording lifecycle | Browser mic + explicitly shared tab audio; start/pause/resume/stop, session banner, transcript streaming, failures | Sidecar mic + system audio, input picker, meters, pause/resume/stop/continue, capture while other views open, recovery | W/components/meeting/recording-controls.tsx, W/lib/browser-recording; D/recording/{recording-controls.tsx,transcript-panel.tsx}; M/{recording-service.ts,recording-recovery.ts,recording-setup.ts} | **P9:** native call capture stays desktop; web has full tab recording, not merely read-only transcript | — | — |
 | Local audio playback | Browser-recorded audio on recording device only, seek/rate/volume and delete-audio confirm; synced notes without audio still read transcript | Main-owned local archive protocol, per-source playback/seek/rate/volume and transcript highlight | MEET/{playback-bar.tsx,side-panel.tsx}; W/components/meeting/meeting-note.tsx; D/meetings/{audio-player.tsx,playback.ts}; M/{audio-playback.ts,audio-storage.ts} | **P10:** audio never syncs; retain honest unavailable-on-this-device state on both platforms | — | — |
-| Storage management | Per-note browser delete; no global storage/settings page | Aggregate usage, recording list, Show in Finder, retention preview/confirm/save, delete individual audio, active-recording guards | D/settings/storage-settings.tsx; M/{retention.ts,audio-storage.ts}; W/components/meeting/meeting-note.tsx; W/lib/browser-recording | **G15:** optional browser-device storage inventory/retention UX using browser archive; do not expose desktop files or imply synced audio | M | — |
+| Storage management | Per-note browser delete; no global storage/settings page | Aggregate usage, recording list, Show in Finder, retention preview/confirm/save, delete individual audio, active-recording guards | D/settings/storage-settings.tsx; M/{retention.ts,audio-storage.ts}; W/components/meeting/meeting-note.tsx; W/lib/browser-recording | **G15:** optional browser-device storage inventory/retention UX using browser archive; do not expose desktop files or imply synced audio | M | Deferred, not implemented: optional browser-device aggregate storage/retention remains outside these implementation groups. Per-note browser deletion and native inventory/retention remain; neither host exposes another device's audio. |
 | Offline/local persistence | Server-backed notes UI; browser capture/audio persisted locally, not a general offline document workspace | SQLite meetings/notes/transcripts/outbox, pending count, recovery/backfill; plain pages/folders/templates explicitly unavailable offline with Try again | M/{sync-service.ts,meeting-notes.ts,transcript-backfill.ts}; D/workspace/desktop-routes-view.tsx; D/sync-status.ts; W/lib/browser-recording | **P11:** preserve desktop meeting offline contract; general web/page offline parity would be a separate L product project, not a missing shared component | — | — |
 | Local search | Server search; no desktop disk access | Local meeting/transcript/conflicted-copy FTS plus server, status-0 fallback, server provenance wins | D/sync/{local-search-source.ts,search-text.ts}; FEAT/{sources.ts,search.ts}; M/index.ts | **P4:** web can read synced equivalents, not unsynced desktop data; do not upload just for parity | — | — |
 | Conflict resolution | Conflict-copy banner/origin link and resolve dialog on synced copies | Sidebar conflicted-copy list, side-by-side comparison, keep copy/other offline; inline note changed-elsewhere warning | W/components/document/{conflict-banner.tsx,conflict-banner-slot.tsx}; D/sync/conflicts-panel.tsx; D/meetings/meeting-view.tsx; M/sync-service.ts | **G16:** share comparison/status presentation and expose recoverable list-load/detail errors (desktop currently swallows list failure, null detail stays loading); keep local resolution transport | M | Shared WS/conflicts.tsx comparison/status UI; native list/detail loading, missing/error and retry states no longer hidden. Resolution stays local/outbox; main-generated compared revision rejects newer copy/original changes, with Compare again recovery. Web retains original-version guard and server transport. Unit/browser checks pass; native runtime/visuals unverified. |
@@ -197,14 +212,122 @@ not merely a read-only companion. It cannot legitimately read another device's u
 4. `M/api-proxy.ts:apiProxyUrl` checks exact method/template, safe IDs, literal-route priority and same configured origin; rejects encoded/traversal/absolute or malformed paths before requesting.
 5. `registerApiProxy` injects main-owned bearer via `withSession`, limits response headers and owns/cancels streams per sender/session; renderer/preload transports never receive the token (`M/ipc.ts` validates IPC sender/payload).
 
+## Final After matrix
+
+Implemented means the scoped code gap is closed with the tests documented below, not that native
+hardware/OS behavior has been certified on Linux. G15 is an explicit remaining optional feature,
+not completed parity or a claim that browser storage has an aggregate inventory.
+
+| Gap | Before → After | Final status |
+| --- | --- | --- |
+| G1 | Transient native routes → account-scoped restore/back/forward and one invite router, preserving navigation guards | Implemented |
+| G2 | Join placeholder → shared invitations/domain join/request/pending/create/back and authoritative bootstrap | Implemented |
+| G3 | No native invite response → shared authenticated response and strictly validated native invite handoff | Implemented |
+| G4 | Local-only Home → authorized server documents merged with pending/cached native meetings without duplicates | Implemented |
+| G5 | Google CTA exits to web settings → native Integrations; EventKit remains native | Implemented; shared upcoming-row extraction deferred |
+| G6 | Plain-page wrapper lacks integrations → shared task-assignee queries and editor slots | Implemented |
+| G7 | Server-only meetings unavailable → authorized main read-through cache, local-first writes and recoverable unavailable/offline/error states | Implemented |
+| G8 | Only global native assistant → shared document assistant with settle and explicit-approval guarded adoption | Implemented |
+| G9 | No native Enhance/history → shared Enhance/regenerate/history/restore/Undo with version-safe local adoption | Implemented |
+| G10 | No document Notion controls → shared send/update/status/open with native preflight and external Notion open | Implemented |
+| G11 | Citation query ignored → segment/time/block focus, including repeated same-note citations | Implemented |
+| G12 | Divergent meeting lifecycle controls → shared action slots, header actions and in-note trash restore/delete | Implemented |
+| G13 | Transient search/task filters → validated route-backed persistence | Implemented |
+| G14 | Missing palette commands → shared host-command builder, explicit New page/Start recording, theme marker | Implemented |
+| G15 | Browser per-note audio deletion only → unchanged; aggregate browser-device storage/retention is optional future work | Deferred, not implemented |
+| G16 | Separate conflict presentation and hidden native failures → shared comparison/status, load retry and guarded local resolution | Implemented |
+| G17 | Renderer can go blank → shared recovery presentation, Retry/Reload and recording-continuity message; full-window layout corrected during visual review | Implemented |
+| G18 | Different shortcut guards, missing native J → shared guarded K/B/J; native recording N retained | Implemented |
+
+### Remaining intentional platform-specific surfaces
+
+| Item | Retained boundary and reason |
+| --- | --- |
+| P1 | Identity stays in the system browser; main owns session redemption/storage and never exposes bearer tokens to the renderer. |
+| P2 | Anonymous public shares stay browser-owned; a native document open requires authenticated read authorization. |
+| P3 | EventKit remains a native calendar source; native Google settings no longer exit the app, but OS calendar access is not a browser capability. |
+| P4 | Local FTS/conflicted-copy search stays device-local; web can read synced equivalents, not unsynced desktop files. |
+| P5 | Google/Notion OAuth consent stays in the browser; shared settings and status controls stay in-app. |
+| P6 | Native ZIP save/atomic file writes/file-manager affordances use OS dialogs rather than browser downloads. |
+| P7 | Desktop workspace snapshots and recording-aware guards preserve offline/native operation; no blanket recording-policy change. |
+| P8 | Native setup, hardware controls and permission walkthrough remain local; web uses real browser permission/device capabilities. |
+| P9 | Native system-audio capture remains desktop-only; web retains microphone plus explicitly shared browser-tab recording. |
+| P10 | Audio remains on its recording device; both hosts show honest other-device/unavailable states rather than imply synced audio. |
+| P11 | SQLite/outbox/offline meeting recovery retain D-28; general browser/page offline-workspace support is a separate product project. |
+| P12 | OS mic-app detection, silence/call auto-stop and related native notifications require native capabilities. |
+| P13 | Always-on-top widget and capture independent of main-window lifecycle remain native; web has an in-tab recording banner. |
+
+## Closeout evidence
+
+### Built-renderer visual check
+
+Evidence images/tooling remain **outside git**, following the existing C2/visual-pass convention.
+The documented old helper `/home/ubuntu/evidence/c2/capture-desktop.mjs` was absent; reconstructed
+its built-renderer/Chromium/`window.oat` approach from current renderer fixtures in
+`/home/ubuntu/oat-parity-shots/capture.mjs`. The helper serves only localhost and stubs bridge
+responses/events; it does not inject replacement product UI. Build:
+`pnpm --filter @oat/desktop exec electron-vite build` (exit 0; final renderer build 1.05s,
+existing large-chunk advisory only).
+
+All following PNGs are **1440×900, light mode**, personally opened and inspected. Base path:
+**`/home/ubuntu/oat-parity-shots/`**.
+
+| PNG filename | Verified visible surface |
+| --- | --- |
+| `join.png` | Invitations, domain join/request/pending and Back within native shell. |
+| `invite.png` | Authenticated invitation with inviter/workspace and Accept/Decline. |
+| `upcoming-connect-google.png` | Upcoming native Google-connect CTA. |
+| `upcoming.png` | After clicking CTA: native Settings → Integrations, not a browser exit. |
+| `citation.png` | Server-origin meeting returned by meeting:load; cited 0:12 transcript segment highlighted, other-device audio message. |
+| `offline.png` | Offline/not-cached meeting with honest explanation and Try again. |
+| `assistant.png` | Document-scoped meeting assistant, note composer and “Hello, Alex”. |
+| `enhance.png` | Note history dialog with current enhanced version, original notes and body preview; Regenerate behind dialog. |
+| `notion.png` | Meeting action menu with older-copy status, Update in Notion and external Notion link. |
+| `home.png` | Two authorized server documents plus a distinct pending local meeting and Pending sync marker. |
+| `conflicts-load-error.png` | Visible conflicted-copy load error and Try again. |
+| `conflicts.png` | After clicking retry: load error cleared and empty conflict panel removed. |
+| `crash.png` | Full-window centered crash recovery, Try again/Reload and recording-continuity explanation. |
+| `palette.png` | Templates, Pages group, New page, Start recording and Toggle sidebar commands. |
+
+Stub corrections: valid Notion status, template-list and playback DTO shapes and pending-local flag.
+These were fixture failures, not product defects. Crash capture deliberately returns an invalid title
+from the stub to throw during rendering; it is a fault injection, not a claim that real data does this.
+The genuine visual defect was fallback height: its flex child had no flex parent and collapsed to
+content height. Added `h-full` to normal/compact fallback plus regression coverage, rebuilt and
+recaptured/re-inspected crash recovery. Citation was also recaptured with valid other-device playback
+metadata. Successful captures have no unexpected console/page errors; crash has the intended exception.
+
+This verifies renderer presentation and the exercised stub interactions, **not** authenticated main
+read-through/SQLite caching at runtime, real OAuth/protocol launch, live recording through reload,
+macOS title-bar behavior/permissions, or hardware capture. Earlier unit/integration tests cover
+transport/cache guards. No Next/Electron imports were introduced into shared packages and no
+navigation/proxy/security boundaries changed.
+
+### Final checks
+
+- After the recovery-layout code change: `OAT_TEST_TIMEOUT_SCALE=3 pnpm run ci --fast`:
+  format 18.8s, actionlint 0.4s, typecheck 15.7s, lint 8.6s, test 17.7s; **ci: ok**, total 61.2s.
+  All 24 test tasks successful; 23 cached, changed desktop suite executed. Log:
+  `/home/ubuntu/oat-parity-shots/ci-fast.log`.
+- Final build and targeted recapture logs:
+  `/home/ubuntu/oat-parity-shots/build-final.log`,
+  `/home/ubuntu/oat-parity-shots/capture-final.log`; screenshot fixture/report files stay alongside images.
+- Prior merged implementation forced gate: all 24 successful, **0 cached**, 137.4s, ci: ok.
+  Prior smoke/search/assistant/workspaces/documents E2E: **33 passed, 1 existing opt-in skip** (3.9m).
+  Not rerun for the desktop-only fallback height correction.
+- Final documentation formatting and diff integrity checked before commit.
+
 ## Review
 
 Self-review only: traced mounted call sites to distinguish exported/shared capabilities from desktop
 features actually rendered. In particular, shared global chat does not mean document assistant exists;
 typed enhancement APIs do not mean local MeetingView mounts Enhance; retained query fields do not mean
-meeting citation focus is consumed. No independent reviewer or visual/runtime verifier was used.
+meeting citation focus is consumed. No independent reviewer was used. Closeout visual review is
+self-review of the built renderer as documented above, not a native runtime verifier.
 
 ## Evidence
+
+### Original audit (historical)
 
 - Enumerated every `page.tsx` under W/app and all `AppRoute` cases in WS/routes.ts; checked separate
   widget/auth/onboarding dispatch in D/routes.ts and D/windows/main-window.tsx.

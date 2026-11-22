@@ -15,8 +15,8 @@ export class RendererErrorBoundary extends Component<
       <main
         className={
           this.props.compact
-            ? 'flex min-h-0 flex-1 items-center justify-center'
-            : 'flex min-h-0 flex-1 items-center justify-center p-6'
+            ? 'flex h-full min-h-0 flex-1 items-center justify-center'
+            : 'flex h-full min-h-0 flex-1 items-center justify-center p-6'
         }
         data-testid="renderer-error"
       >
