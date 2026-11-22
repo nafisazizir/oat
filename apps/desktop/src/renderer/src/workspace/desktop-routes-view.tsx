@@ -79,7 +79,6 @@ function ServerRoutes({ route, meeting }: { route: AppRoute; meeting: ReactNode 
   const host = useWorkspaceHost();
   const shell = useShellData();
   if (route.view === 'document') {
-    if (!host.online) return <OfflineWorkspaceView />;
     const node = shell.documents.find((n) => n.id === route.id);
     return (
       <DocumentRoute
@@ -160,10 +159,12 @@ function DocumentRoute({
   meeting: ReactNode;
 }) {
   const shell = useShellData();
+  const host = useWorkspaceHost();
   const [data, setData] = useState<DocumentDetail | FolderSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inTrash = shell.trash.some((node) => node.id === id);
   useEffect(() => {
+    if (!host.online) return;
     let active = true;
     const load = folder
       ? api.folders
@@ -174,18 +175,19 @@ function DocumentRoute({
       (doc) => {
         if (active) {
           setData(doc);
-          if (!doc) setError('This item is unavailable.');
+          setError(doc ? null : 'This item is unavailable.');
         }
       },
       (error: unknown) => {
-        if (active)
+        if (active && !(error instanceof OatApiError && error.status === 0))
           setError(error instanceof OatApiError ? error.message : 'Couldn’t load this page.');
       },
     );
     return () => {
       active = false;
     };
-  }, [id, folder, shell.workspace.id, inTrash]);
+  }, [id, folder, shell.workspace.id, inTrash, host.online]);
+  if (!host.online && (!data || folder)) return <OfflineWorkspaceView />;
   if (error)
     return (
       <PageContainer>
@@ -205,6 +207,15 @@ function DocumentRoute({
       meeting
     ) : (
       <>
+        {!host.online && (
+          <div
+            role="status"
+            className="flex items-center gap-2 px-6 py-2 text-copy-13 text-amber-900"
+          >
+            <IconCloudOff className="size-4" aria-hidden />
+            You’re offline. Keep this page open; unsaved edits will retry when you reconnect.
+          </div>
+        )}
         <AssistantPageEditor
           document={data}
           workspace={shell.workspaces.find((w) => w.id === data.workspaceId) ?? shell.workspace}
