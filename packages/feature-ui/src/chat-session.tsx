@@ -3,14 +3,8 @@
 import { useChat } from '@ai-sdk/react';
 import { toFetch, type OatTransport } from '@oat/client';
 import { Alert, AlertDescription } from '@oat/ui/components/alert';
+import { cn } from '@oat/ui/lib/utils';
 import { Button } from '@oat/ui/components/button';
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from '@oat/ui/components/empty';
 import { InputGroup, InputGroupAddon, InputGroupTextarea } from '@oat/ui/components/input-group';
 import {
   MessageScroller,
@@ -206,37 +200,41 @@ export function ChatSession({
 
   return (
     <ChatSessionContext.Provider value={api}>
-      <div className="flex min-h-0 flex-1 flex-col" data-testid="chat-session" data-status={status}>
+      <div
+        className={cn(
+          'flex min-h-0 flex-1 flex-col',
+          messages.length === 0 && 'justify-center overflow-y-auto',
+        )}
+        data-testid="chat-session"
+        data-status={status}
+        data-empty={messages.length === 0}
+      >
         <p role="status" className="sr-only" data-testid="chat-status">
           {announcement}
         </p>
-        <MessageList messages={messages} busy={busy} lastId={last?.id}>
-          {messages.length === 0 && (
-            <EmptyChat
-              title={emptyTitle}
-              description={emptyDescription}
-              suggestions={suggestions}
-              onPick={ask}
-            />
-          )}
-          {status === 'submitted' && last?.role === 'user' && (
-            <p className="flex items-center gap-1.5 text-label-13 text-gray-900">
-              <Spinner aria-hidden role={undefined} className="size-3.5" />
-              Thinking…
-            </p>
-          )}
-          {failure && (
-            <Alert
-              variant="destructive"
-              role="alert"
-              data-testid="chat-error"
-              data-kind={failure.kind}
-            >
-              <IconAlertCircle />
-              <AlertDescription>{failure.message}</AlertDescription>
-            </Alert>
-          )}
-        </MessageList>
+        {messages.length === 0 ? (
+          <EmptyChat title={emptyTitle} description={emptyDescription} />
+        ) : (
+          <MessageList messages={messages} busy={busy} lastId={last?.id}>
+            {status === 'submitted' && last?.role === 'user' && (
+              <p className="flex items-center gap-1.5 text-label-13 text-gray-900">
+                <Spinner aria-hidden role={undefined} className="size-3.5" />
+                Thinking…
+              </p>
+            )}
+            {failure && (
+              <Alert
+                variant="destructive"
+                role="alert"
+                data-testid="chat-error"
+                data-kind={failure.kind}
+              >
+                <IconAlertCircle />
+                <AlertDescription>{failure.message}</AlertDescription>
+              </Alert>
+            )}
+          </MessageList>
+        )}
         <Composer
           busy={busy}
           placeholder={placeholder}
@@ -244,6 +242,24 @@ export function ChatSession({
           onSend={ask}
           onStop={() => void stop()}
         />
+        {messages.length === 0 && (
+          <div
+            className="flex shrink-0 flex-wrap justify-center gap-1 px-4 pb-4"
+            data-testid="chat-suggestions"
+          >
+            {suggestions.map((s) => (
+              <Button
+                key={s}
+                size="sm"
+                variant="ghost"
+                className="h-auto min-h-8 max-w-full text-start whitespace-normal"
+                onClick={() => ask(s)}
+              >
+                {s}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
     </ChatSessionContext.Provider>
   );
@@ -305,36 +321,19 @@ function MessageList({
   );
 }
 
-function EmptyChat({
-  title,
-  description,
-  suggestions,
-  onPick,
-}: {
-  title: string;
-  description: string;
-  suggestions: readonly string[];
-  onPick: (text: string) => void;
-}) {
+function EmptyChat({ title, description }: { title: string; description: string }) {
+  const { user } = useFeatureUi();
   return (
-    <Empty className="my-auto items-stretch p-0 text-start" data-testid="chat-empty">
-      <EmptyHeader className="max-w-none items-start">
-        <EmptyTitle>{title}</EmptyTitle>
-        <EmptyDescription>{description}</EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent className="max-w-none items-stretch gap-1">
-        {suggestions.map((s) => (
-          <Button
-            key={s}
-            variant="secondary"
-            className="h-auto min-h-9 justify-start py-2 text-start whitespace-normal"
-            onClick={() => onPick(s)}
-          >
-            {s}
-          </Button>
-        ))}
-      </EmptyContent>
-    </Empty>
+    <section
+      className="flex shrink-0 flex-col items-center gap-2 px-4 pb-5 text-center"
+      data-testid="chat-empty"
+    >
+      <h2 className="text-heading-32 text-gray-1000">
+        Hello, {user.name.trim().split(/\s+/)[0] || 'there'}
+      </h2>
+      <p className="text-copy-16 text-gray-1000">{title}</p>
+      <p className="text-copy-14 text-gray-900">{description}</p>
+    </section>
   );
 }
 

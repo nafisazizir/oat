@@ -539,7 +539,11 @@ function SignedInShell({
               }}
             />
           ) : featureView ? (
-            <FeatureViews view={featureView} workspaceId={activeWorkspace?.id ?? ''} />
+            <FeatureViews
+              view={featureView}
+              workspaceId={activeWorkspace?.id ?? ''}
+              workspaceName={activeWorkspace?.name ?? ''}
+            />
           ) : (
             <MeetingView
               userId={user.id}

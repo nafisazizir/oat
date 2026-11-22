@@ -2,6 +2,7 @@
 
 import { dueState, formatDue, localDay } from '@oat/editor/task-dates';
 import { Alert, AlertAction, AlertDescription } from '@oat/ui/components/alert';
+import { Avatar, AvatarFallback } from '@oat/ui/components/avatar';
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import { Checkbox } from '@oat/ui/components/checkbox';
@@ -34,6 +35,7 @@ import {
 import { useState } from 'react';
 
 import { formatDay } from './format';
+import { featureListClass, featureRowClass } from './list-styles';
 import {
   groupByDocument,
   TASK_DUE_FILTERS,
@@ -254,8 +256,8 @@ export function TasksView({
   );
 }
 
-const listClass = 'flex flex-col divide-y divide-gray-alpha-400 border-y border-gray-alpha-400';
-const rowClass = 'min-h-13 items-start rounded-none border-0 py-4';
+const listClass = featureListClass;
+const rowClass = cn(featureRowClass, 'min-h-14 items-start border-0 py-4');
 
 function GroupHeader({ children }: { children: React.ReactNode }) {
   return <header className="flex h-5 items-center gap-2 ps-3">{children}</header>;
@@ -276,65 +278,60 @@ function TaskRow({
 }) {
   const state = item.due && !done ? dueState(item.due, today) : undefined;
   return (
-    <Item
-      size="sm"
-      render={<li />}
-      className={rowClass}
-      data-testid="task-row"
-      data-done={done || undefined}
-    >
-      <Checkbox
-        checked={done}
-        disabled={!item.document.canEdit || busy}
-        onCheckedChange={(checked) => onToggle(checked)}
-        aria-label={done ? `Mark “${item.text}” as not done` : `Mark “${item.text}” as done`}
-        title={item.document.canEdit ? undefined : 'You can view this note but not edit it'}
-        className="mt-0.5"
-      />
-      <ItemContent className="min-w-0">
-        <TargetLink
-          target={{ kind: 'document', id: item.document.id, blockId: item.blockId }}
-          className={cn(
-            'text-copy-14 text-gray-1000 underline-offset-4 hover:underline',
-            done && 'text-gray-900 line-through decoration-gray-700',
-          )}
-        >
-          {item.text}
-        </TargetLink>
-      </ItemContent>
-      {(item.owner || item.due) && (
-        <ItemActions className="h-5 gap-1.5">
-          {item.owner && (
-            <Badge
-              variant="secondary"
-              className="max-w-40 ps-0.5"
-              title={item.owner.email ?? item.owner.name}
-              data-testid="task-owner"
-            >
-              <span
-                aria-hidden
-                className="flex size-4 items-center justify-center rounded-full bg-gray-300 text-label-12 text-gray-1000"
+    <li>
+      <Item size="sm" className={rowClass} data-testid="task-row" data-done={done || undefined}>
+        <Checkbox
+          checked={done}
+          disabled={!item.document.canEdit || busy}
+          onCheckedChange={(checked) => onToggle(checked)}
+          aria-label={done ? `Mark “${item.text}” as not done` : `Mark “${item.text}” as done`}
+          title={item.document.canEdit ? undefined : 'You can view this note but not edit it'}
+          className="mt-0.5"
+        />
+        <ItemContent className="min-w-0">
+          <TargetLink
+            target={{ kind: 'document', id: item.document.id, blockId: item.blockId }}
+            className={cn(
+              'text-copy-14 text-gray-1000 underline-offset-4 hover:underline',
+              done && 'text-gray-900 line-through decoration-gray-700',
+            )}
+          >
+            {item.text}
+          </TargetLink>
+        </ItemContent>
+        {(item.owner || item.due) && (
+          <ItemActions className="h-6 gap-1.5">
+            {item.owner && (
+              <Badge
+                variant="secondary"
+                className="h-6 max-w-40 gap-1.5 ps-0.5"
+                title={item.owner.email ?? item.owner.name}
+                data-testid="task-owner"
               >
-                {initials(item.owner.name)}
-              </span>
-              <span className="truncate">{item.owner.isMe ? 'You' : item.owner.name}</span>
-            </Badge>
-          )}
-          {item.due && (
-            <Badge
-              variant={state === 'overdue' ? 'destructive' : 'secondary'}
-              className={cn(state === 'today' && 'bg-amber-200 text-amber-1000')}
-              title={`Due ${item.due}`}
-              data-testid="task-due"
-              data-state={state}
-            >
-              <IconCalendar data-icon="inline-start" aria-hidden />
-              {formatDue(item.due, today)}
-            </Badge>
-          )}
-        </ItemActions>
-      )}
-    </Item>
+                <Avatar aria-hidden className="size-5">
+                  <AvatarFallback className="bg-gray-300 text-label-12 text-gray-1000">
+                    {initials(item.owner.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="truncate">{item.owner.isMe ? 'You' : item.owner.name}</span>
+              </Badge>
+            )}
+            {item.due && (
+              <Badge
+                variant={state === 'overdue' ? 'destructive' : 'secondary'}
+                className={cn('h-6', state === 'today' && 'bg-amber-200 text-amber-1000')}
+                title={`Due ${item.due}`}
+                data-testid="task-due"
+                data-state={state}
+              >
+                <IconCalendar data-icon="inline-start" aria-hidden />
+                {formatDue(item.due, today)}
+              </Badge>
+            )}
+          </ItemActions>
+        )}
+      </Item>
+    </li>
   );
 }
 
@@ -351,17 +348,19 @@ function TasksSkeleton() {
           </GroupHeader>
           <ul className={listClass}>
             {Array.from({ length: rows }, (_, row) => (
-              <Item key={row} size="sm" render={<li />} className={rowClass}>
-                <Skeleton className="mt-0.5 size-4 rounded-sm" />
-                <ItemContent className="min-w-0">
-                  <div className="flex h-5 items-center">
-                    <Skeleton className={cn('h-3.5', row % 2 ? 'w-1/2' : 'w-3/4')} />
-                  </div>
-                </ItemContent>
-                <ItemActions className="h-5 gap-1.5">
-                  <Skeleton className="h-5 w-16 rounded-md" />
-                </ItemActions>
-              </Item>
+              <li key={row}>
+                <Item size="sm" className={rowClass}>
+                  <Skeleton className="mt-0.5 size-4 rounded-sm" />
+                  <ItemContent className="min-w-0">
+                    <div className="flex h-5 items-center">
+                      <Skeleton className={cn('h-3.5', row % 2 ? 'w-1/2' : 'w-3/4')} />
+                    </div>
+                  </ItemContent>
+                  <ItemActions className="h-6 gap-1.5">
+                    <Skeleton className="h-6 w-16 rounded-md" />
+                  </ItemActions>
+                </Item>
+              </li>
             ))}
           </ul>
         </section>

@@ -363,3 +363,77 @@ Desktop renderer screenshots complete. Console/page errors: []
 
 Logs: /home/ubuntu/feature-ui-merge-{desktop,shared,ci,build,screens}.log.
 Build retains the chunk-size advisory; no failing checks. Local merge commit requested; no push.
+
+## STEP 6 — visual hill-climb
+
+- [x] Desktop sidebar now follows web: My tasks, then Assistant (windows/feature-views.tsx).
+- [x] Shared FeaturePageHeader owns the exact Tasks/Search title, workspace subtitle and spacing;
+  used by both web route pages and desktop feature views. Desktop now uses the same page insets/measure.
+  Assistant intentionally has no extra page title during a chat.
+- [x] Search and Tasks share flat divided lists and rounded-md hover/focus highlights. Task dividers
+  live on unstyled list-item wrappers so Item's transparent borders cannot mask them; skeleton and
+  final row boxes share the same minimum height and inner/wrapper classes.
+- [x] Citation chips are spaced, superscript-aligned bordered badges with a 24px target, focus/hover
+  states and source title/tooltip. Added a compact footer of deduplicated cited notes using the same
+  host navigation/in-place citation integration. The Ziiz reply reference has no source-list component;
+  this footer uses existing shared ramp/control conventions.
+- [x] New chat centers the greeting, composer and compact ghost suggestions together; after sending,
+  the composer stays mounted and moves to the bottom of the conversation.
+- [x] Thread navigation uses the main surface with a separating border; rounded-md rows use the
+  sidebar's gray-alpha active/hover treatment.
+- [x] Owner badges use the proper Avatar/Fallback, a 20px initial circle and explicit name gap.
+  Owner/due badges are both 24px high; task skeletons match the row-height change.
+
+Verification adds shared header tests (including blank workspace), composer identity/state tests,
+titled citations, deduplicated source navigation and unavailable-source coverage. Web surface checks
+assert actual empty-state centering, bottom composer placement, citation dimensions/border/spacing,
+avatar dimensions/gap and matching badge heights before axe scans in both themes. Desktop fixtures
+also assert sidebar ordering and Tasks/Search workspace descriptions.
+
+An initial axe scan caught label-content-name-mismatch on the new footer's overridden accessible
+name. Fixed by deriving the name from its numbered visible content (with a screen-reader action
+prefix), preserving the visible text. Updated the skeleton regression to compare both the new
+divider wrapper and its inner row; JSDOM's inline-span name whitespace is normalized in the source
+footer test. Final checks:
+
+```text
+DATABASE_URL=postgres://oat:oat@localhost:54329/oat \
+FEATURE_UI_SCREENSHOTS=/home/ubuntu/screens \
+E2E_PORT=3126 E2E_WORKERS=2 E2E_TIMEOUT_SCALE=2 \
+pnpm --filter @oat/web e2e assistant.spec.ts tasks.spec.ts search.spec.ts
+  1 skipped
+  11 passed (2.4m)
+
+pnpm --filter @oat/feature-ui test
+ Test Files  9 passed (9)
+      Tests  100 passed (100)
+
+pnpm run ci --fast
+step        status     time  note
+format      pass      16.6s
+actionlint  pass       0.3s
+typecheck   pass      13.3s
+lint        pass       4.5s
+test        pass      20.8s
+total                 55.5s
+
+ci: ok
+
+pnpm --filter @oat/desktop build
+✓ built in 1.87s
+
+node /home/ubuntu/feature-ui-scratch/desktop.mjs
+Desktop renderer screenshots complete. Console/page errors: []
+```
+
+The skip is the existing opt-in screenshot-only search test; the regular search test captures both
+themes. CI includes desktop (60 files / 510 tests), shared settings, web units and vocabulary checks.
+
+Re-shot 24 target PNGs outside the repository (all light + dark):
+- /home/ubuntu/screens/web-{assistant-empty,assistant-answer,tasks,search-results,search-dialog}-{light,dark}.png
+- /home/ubuntu/screens/desktop-{sidebar,settings,assistant-empty,assistant-answer,tasks,search-dialog,search-results}-{light,dark}.png
+
+The desktop fixture remains /home/ubuntu/feature-ui-scratch/desktop.mjs. Added full-search desktop
+captures to verify the second shared header. Logs: /home/ubuntu/feature-ui-step6-{tests,e2e,ci,build,desktop-screens}.log.
+Visuals checked in both themes; build still has the non-blocking chunk-size advisory. Native
+Electron/OS bridge smoke and independent review remain pending. Local commit only; no push.

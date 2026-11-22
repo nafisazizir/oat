@@ -2,6 +2,7 @@
 
 import { cn } from '@oat/ui';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
+import { IconFileText } from '@tabler/icons-react';
 import { Fragment, type ReactNode, useMemo } from 'react';
 
 import { type MdNode, parseAnswer } from './chat-markdown';
@@ -187,7 +188,7 @@ function CitationChip({
   const source = session.sources.citations[citationKey];
   const kind = citationKey.startsWith('seg:') ? 'seg' : 'block';
   const base =
-    'mx-0.5 inline-flex h-4.5 min-w-4.5 translate-y-[-1px] items-center justify-center rounded-md px-1 align-middle text-label-12 tabular-nums transition-colors duration-100';
+    'mx-1 inline-flex min-h-6 min-w-6 -translate-y-0.5 items-center justify-center rounded-md border border-gray-alpha-400 bg-gray-200 px-1.5 align-super text-label-12 text-gray-1000 tabular-nums transition-colors duration-100';
 
   if (!source) {
     const saved = session.isSaved(messageId);
@@ -197,11 +198,7 @@ function CitationChip({
         data-state={saved ? 'unavailable' : 'pending'}
         data-kind={kind}
         title={saved ? 'This source is no longer available' : 'Loading source…'}
-        className={cn(
-          base,
-          'bg-gray-100 text-gray-900',
-          saved && 'line-through decoration-gray-700',
-        )}
+        className={cn(base, 'text-gray-900', saved && 'line-through decoration-gray-700')}
       >
         {number}
       </span>
@@ -222,10 +219,11 @@ function CitationChip({
             data-state="ready"
             data-kind={source.kind}
             aria-label={`Source ${number}: ${label}`}
+            title={label}
             onClick={() => openCitation(source)}
             className={cn(
               base,
-              'cursor-pointer bg-gray-100 text-gray-1000 outline-none hover:bg-gray-200 focus-visible:ring-3 focus-visible:ring-gray-600/50',
+              'cursor-pointer outline-none hover:border-gray-alpha-500 hover:bg-gray-300 focus-visible:ring-3 focus-visible:ring-gray-600/50',
             )}
           />
         }
@@ -239,5 +237,42 @@ function CitationChip({
         )}
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+export function AnswerSources({ order }: { order: readonly string[] }) {
+  const { sources } = useChatSession();
+  const openCitation = useOpenCitation();
+  const documents = new Map<
+    string,
+    { source: NonNullable<(typeof sources.citations)[string]>; number: number }
+  >();
+  order.forEach((key, index) => {
+    const source = sources.citations[key];
+    if (source && !documents.has(source.documentId))
+      documents.set(source.documentId, { source, number: index + 1 });
+  });
+  if (!documents.size) return null;
+  return (
+    <section aria-label="Sources" className="mt-2 flex flex-col gap-2" data-testid="answer-sources">
+      <h3 className="text-label-12 text-gray-900">Sources</h3>
+      <div className="flex flex-wrap gap-2">
+        {[...documents].map(([id, { source, number }]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => openCitation(source)}
+            title={source.title}
+            className="inline-flex min-h-6 max-w-full items-center gap-1.5 rounded-md border border-gray-alpha-400 px-2 text-label-12 text-gray-900 outline-none hover:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50"
+          >
+            <IconFileText aria-hidden className="size-3 shrink-0" />
+            <span className="sr-only">Open source note </span>
+            <span className="truncate">
+              {number} {source.title}
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }

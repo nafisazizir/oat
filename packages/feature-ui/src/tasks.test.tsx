@@ -63,6 +63,9 @@ describe('TasksView', () => {
     expect(await screen.findAllByTestId('task-row')).toHaveLength(3);
     expect(screen.getAllByTestId('task-group')).toHaveLength(2);
     expect(screen.getAllByTestId('task-owner')[0]?.textContent).toContain('You');
+    const avatar = screen.getAllByTestId('task-owner')[0]?.querySelector('[data-slot="avatar"]');
+    expect(avatar?.getAttribute('aria-hidden')).toBe('true');
+    expect(avatar?.querySelector('[data-slot="avatar-fallback"]')?.textContent).toBe('AP');
     expect(screen.getAllByTestId('task-due')[0]?.textContent).toContain('Today');
     const link = screen.getByRole('link', { name: 'Do t1' });
     expect(link.getAttribute('href')).toBe('/d/d1?block=block-t1');
@@ -244,12 +247,14 @@ describe('TasksView', () => {
     const { container, unmount } = render(<TasksViewSkeleton />);
     const toolbar = container.querySelector('[role=tablist]')?.parentElement?.className;
     const row = container.querySelector('li')?.className;
+    const rowContent = container.querySelector('li [data-slot="item"]')?.className;
     const section = container.querySelector('section')?.className;
     expect(screen.getByRole('combobox', { name: 'Status' }).hasAttribute('disabled')).toBe(true);
     unmount();
     render(<TasksView value={filters} onChange={vi.fn()} />, setup());
     const task = await screen.findByTestId('task-row');
-    expect(task.className).toBe(row);
+    expect(task.closest('li')?.className).toBe(row);
+    expect(task.className).toBe(rowContent);
     expect(task.closest('section')?.className).toBe(section);
     expect(screen.getByRole('tablist').parentElement?.className).toBe(toolbar);
   });

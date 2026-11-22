@@ -5,3 +5,4 @@ export {
   type AppTarget,
   type LinkComponent,
 } from './provider';
+export { FeaturePageHeader } from './page-header';

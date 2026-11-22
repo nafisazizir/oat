@@ -24,6 +24,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 
 import { formatDay } from './format';
+import { featureListClass, featureRowClass } from './list-styles';
 import {
   formatTimestamp,
   type NoteHit,
@@ -40,10 +41,8 @@ import { searchSources } from './sources';
 type Tab = 'notes' | 'transcripts';
 const PAGE = 20;
 
-const rowClass =
-  'flex gap-3 px-4 py-3 outline-none transition-colors duration-100 hover:bg-gray-alpha-100 focus-visible:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50 focus-visible:ring-inset';
-const listClass =
-  'flex flex-col divide-y divide-gray-alpha-400 overflow-hidden rounded-xl border border-gray-alpha-400';
+const rowClass = `${featureRowClass} flex gap-3 px-3 py-4 outline-none focus-visible:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50 focus-visible:ring-inset`;
+const listClass = featureListClass;
 
 function NoteRow({ hit }: { hit: NoteHit }) {
   const RowIcon = hit.kind === 'meeting' ? IconNotes : IconFileText;
@@ -112,7 +111,7 @@ function ResultsSkeleton() {
   return (
     <div className={listClass} role="status" aria-busy="true" aria-label="Searching">
       {[0, 1, 2, 3].map((row) => (
-        <div key={row} className="flex gap-3 px-4 py-3">
+        <div key={row} className={rowClass}>
           <Skeleton className="mt-0.5 size-4 shrink-0 rounded-sm" />
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex h-5 items-center justify-between gap-3">

@@ -326,7 +326,7 @@ export function AssistantChat({
     <div className="flex min-h-0 flex-1">
       <nav
         aria-label="Conversations"
-        className="hidden w-60 shrink-0 flex-col gap-2 bg-gray-alpha-100 p-3 md:flex"
+        className="hidden w-60 shrink-0 flex-col gap-2 border-e border-gray-alpha-400 p-3 md:flex"
       >
         <Button variant="ghost" size="sm" className="justify-start" onClick={newChat}>
           <IconPlus data-icon="inline-start" />
@@ -382,7 +382,7 @@ function ThreadList({
             render={<button type="button" />}
             onClick={() => onPick(thread.id)}
             aria-current={thread.id === activeId ? 'true' : undefined}
-            className="text-start hover:bg-gray-alpha-100 active:bg-gray-alpha-200 aria-[current=true]:bg-gray-alpha-200"
+            className="rounded-md text-start hover:bg-gray-alpha-100 active:bg-gray-alpha-200 aria-[current=true]:bg-gray-alpha-200 aria-[current=true]:hover:bg-gray-alpha-300"
           >
             <ItemContent className="min-w-0 gap-0">
               <ItemTitle className="w-full truncate text-label-14">

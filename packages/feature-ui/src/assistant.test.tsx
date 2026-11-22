@@ -171,6 +171,51 @@ function stream() {
 }
 
 describe('AssistantChat', () => {
+  it('keeps the composer mounted when leaving the centered new-chat state', async () => {
+    const current = stream();
+    const env = setup(async (request) => current.response(request.signal));
+    render(<ChatSession {...sessionProps} />, env);
+    const input = screen.getByTestId('chat-input');
+    expect(screen.getByTestId('chat-session').getAttribute('data-empty')).toBe('true');
+    expect(screen.getByText('Hello, Alex')).toBeTruthy();
+    expect(screen.getByTestId('chat-suggestions')).toBeTruthy();
+    await send();
+    expect(screen.queryByTestId('chat-empty')).toBeNull();
+    expect(screen.getByTestId('chat-session').getAttribute('data-empty')).toBe('false');
+    expect(screen.getByTestId('chat-input')).toBe(input);
+  });
+
+  it('renders titled citation chips and a deduplicated source-note footer', async () => {
+    const env = setup();
+    render(
+      <ChatSession
+        {...sessionProps}
+        threadId="th1"
+        initialMessages={messages}
+        initialSources={sources}
+      />,
+      env,
+    );
+    const citation = screen.getByRole('button', { name: 'Source 1: Planning note' });
+    expect(citation.getAttribute('title')).toBe('Planning note');
+    expect(
+      screen.getAllByRole('button', { name: /^Open source note\s*1 Planning note$/ }),
+    ).toHaveLength(1);
+    await userEvent.click(
+      screen.getByRole('button', { name: /^Open source note\s*1 Planning note$/ }),
+    );
+    expect(env.value.navigate).toHaveBeenCalledWith({ kind: 'document', id: 'd1', blockId: 'b1' });
+  });
+
+  it('omits the source-note footer when saved citations are unavailable', () => {
+    const env = setup();
+    render(<ChatSession {...sessionProps} threadId="th1" initialMessages={messages} />, env);
+    expect(screen.queryByTestId('answer-sources')).toBeNull();
+    expect(screen.getAllByTestId('citation-chip')[0]?.getAttribute('data-state')).toBe(
+      'unavailable',
+    );
+  });
+
   it('renders threads, loads messages and sources, and follows the selected thread scope', async () => {
     const env = setup();
     const onThreadChange = vi.fn();

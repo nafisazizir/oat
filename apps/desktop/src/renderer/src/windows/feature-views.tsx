@@ -1,5 +1,10 @@
 import type { DesktopUser, MeetingNoteSummary } from '@oat/core/bridge';
-import { FeatureUiProvider, useFeatureUi, type AppTarget } from '@oat/feature-ui';
+import {
+  FeatureUiProvider,
+  FeaturePageHeader,
+  useFeatureUi,
+  type AppTarget,
+} from '@oat/feature-ui';
 import { AssistantChat } from '@oat/feature-ui/assistant';
 import { SearchView, serverSearchSource } from '@oat/feature-ui/search';
 import { TasksView, type TaskFilters } from '@oat/feature-ui/tasks';
@@ -26,20 +31,20 @@ export function FeatureNavigation({
     <>
       <SidebarMenuItem>
         <SidebarMenuButton
-          isActive={view?.kind === 'assistant'}
-          onClick={() => onView({ kind: 'assistant' })}
-        >
-          <IconSparkles />
-          Assistant
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
           isActive={view?.kind === 'tasks'}
           onClick={() => onView({ kind: 'tasks' })}
         >
           <IconChecklist />
           My tasks
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          isActive={view?.kind === 'assistant'}
+          onClick={() => onView({ kind: 'assistant' })}
+        >
+          <IconSparkles />
+          Assistant
         </SidebarMenuButton>
       </SidebarMenuItem>
     </>
@@ -106,17 +111,40 @@ export function DesktopFeatureProvider({
   return <FeatureUiProvider value={value}>{children}</FeatureUiProvider>;
 }
 
-export function FeatureViews({ view, workspaceId }: { view: FeatureView; workspaceId: string }) {
+export function FeatureViews({
+  view,
+  workspaceId,
+  workspaceName,
+}: {
+  view: FeatureView;
+  workspaceId: string;
+  workspaceName: string;
+}) {
   if (!workspaceId)
     return (
       <p role="status" className="p-6 text-copy-14 text-gray-900">
         Choose a workspace to continue.
       </p>
     );
-  return <FeatureContent key={workspaceId} view={view} workspaceId={workspaceId} />;
+  return (
+    <FeatureContent
+      key={workspaceId}
+      view={view}
+      workspaceId={workspaceId}
+      workspaceName={workspaceName}
+    />
+  );
 }
 
-function FeatureContent({ view, workspaceId }: { view: FeatureView; workspaceId: string }) {
+function FeatureContent({
+  view,
+  workspaceId,
+  workspaceName,
+}: {
+  view: FeatureView;
+  workspaceId: string;
+  workspaceName: string;
+}) {
   const { navigate } = useFeatureUi();
   const [filters, setFilters] = useState<TaskFilters>({
     view: 'assigned',
@@ -134,9 +162,9 @@ function FeatureContent({ view, workspaceId }: { view: FeatureView; workspaceId:
       />
     );
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-8">
-      <div className="mx-auto w-full max-w-content">
-        <h1 className="mb-6 text-heading-24">{view.kind === 'tasks' ? 'My tasks' : 'Search'}</h1>
+    <section className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div className="mx-auto flex w-full max-w-content flex-col gap-8 px-6 py-10 sm:px-8 sm:py-14">
+        <FeaturePageHeader kind={view.kind} workspaceName={workspaceName} />
         {view.kind === 'tasks' ? (
           <TasksView value={filters} onChange={setFilters} />
         ) : (

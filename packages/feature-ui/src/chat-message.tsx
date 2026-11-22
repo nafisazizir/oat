@@ -10,7 +10,7 @@ import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
 import { citationOrder } from './chat-markdown';
 import type { ChatProposal, ChatUIMessage } from '@oat/services/dto/chat';
 
-import { Answer } from './answer';
+import { Answer, AnswerSources } from './answer';
 import { ProposalCard } from './proposal-card';
 
 type Part = ChatUIMessage['parts'][number];
@@ -129,7 +129,10 @@ export function AssistantMessage({
       data-role="assistant"
       data-streaming={streaming || undefined}
     >
-      <MessageContent className="gap-2">{items}</MessageContent>
+      <MessageContent className="gap-2">
+        {items}
+        <AnswerSources order={order} />
+      </MessageContent>
     </Message>
   );
 }
