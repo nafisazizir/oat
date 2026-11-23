@@ -46,3 +46,24 @@ Visual review caught B's bottom utility clipping: tightened B group spacing, ret
 rechecked screenshots and checks. Menu capture waits for its entrance animation to finish.
 Next dev remains running at `http://localhost:3000/dev-probes/sidebar-lab`.
 No full CI, production-runtime, mobile or dark-mode visual pass; no existing tests target this new probe.
+
+## Follow-up — collapsible groups
+Added controlled, initially expanded Private/Shared/Chats/Ask Oat groups, with independent local state
+retained when switching variants. Matched TreeSection's SidebarGroup/Label/Action/Content structure,
+trailing chevron geometry and hover/focus/popup-open add affordances. Labels render native buttons
+with aria-expanded; note groups offer New page/New folder and chat groups start a mock chat.
+The real TreeSection currently renders a static rotated chevron, not a section toggle; this probe adds
+the requested toggle behavior without changing the production component.
+
+Focused typecheck/lint exit 0; extended external Playwright harness exit 0:
+
+```text
+Sidebar lab typecheck and lint: PASS
+PASS: A/B/C/D screenshots, navigation, Home, collapsed menus, workspace switch, invalid/empty query, variant control; no browser errors.
+PASS: all group labels toggle independently via click/Enter; hidden rows removed; hover/focus add actions work without toggling; state retained across variants; collapsed-groups screenshot.
+```
+
+Refreshed and inspected `/home/ubuntu/sidebar-lab-shots/{a,b,c,d}.png` plus
+`/home/ubuntu/sidebar-lab-shots/a-groups-collapsed.png` (Shared and Chats collapsed).
+Harness first hit simultaneous outgoing/incoming menu animation nodes; scoped the New folder locator
+to its Shared menu, with no product change needed. Server still responds on port 3000.

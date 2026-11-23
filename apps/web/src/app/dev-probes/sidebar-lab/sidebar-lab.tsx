@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ComponentType } from 'react';
+import { useState, type ComponentType, type ReactNode } from 'react';
 import { Avatar, AvatarFallback } from '@oat/ui/components/avatar';
 import { Button } from '@oat/ui/components/button';
 import {
@@ -31,6 +31,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupAction,
+  SidebarGroupContent,
   SidebarTrigger,
 } from '@oat/ui/components/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
@@ -40,7 +41,9 @@ import {
   IconChevronRight,
   IconChecklist,
   IconFileText,
+  IconFilePlus,
   IconFolder,
+  IconFolderPlus,
   IconLayoutGrid,
   IconLogout,
   IconMessageCircle,
@@ -92,11 +95,87 @@ function IconAction({
   );
 }
 
+function LabGroup({
+  label,
+  open,
+  onToggle,
+  onAdd,
+  children,
+  ask = false,
+}: {
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+  onAdd: (view: string) => void;
+  children: ReactNode;
+  ask?: boolean;
+}) {
+  const notes = label === 'Private' || label === 'Shared';
+  const actionClass =
+    'opacity-0 group-hover/tree-section:opacity-100 group-focus-within/tree-section:opacity-100 data-popup-open:opacity-100';
+  return (
+    <SidebarGroup className="group/tree-section py-1">
+      <SidebarGroupLabel render={<button type="button" aria-expanded={open} onClick={onToggle} />}>
+        {ask && <IconSparkles className="me-2" />}
+        {label}
+        <IconChevronRight className={`ms-1 size-3.5 ${open ? 'rotate-90' : ''}`} />
+      </SidebarGroupLabel>
+      {notes ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <SidebarGroupAction
+                className={actionClass}
+                title={`Add to ${label}`}
+                aria-label={`Add to ${label}`}
+              />
+            }
+          >
+            <IconPlus />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="start">
+            <DropdownMenuItem onClick={() => onAdd(`New ${label.toLowerCase()} note`)}>
+              <IconFilePlus />
+              New page
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onAdd(`New ${label.toLowerCase()} folder`)}>
+              <IconFolderPlus />
+              New folder
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <SidebarGroupAction
+          className={actionClass}
+          title="New chat"
+          aria-label="New chat"
+          onClick={() => onAdd('New chat')}
+        >
+          <IconPlus />
+        </SidebarGroupAction>
+      )}
+      {open && (
+        <SidebarGroupContent>
+          <SidebarMenu className="gap-0.5">{children}</SidebarMenu>
+        </SidebarGroupContent>
+      )}
+    </SidebarGroup>
+  );
+}
+
 export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
   const [variant, setVariant] = useState(initialVariant);
   const [active, setActive] = useState('Home');
   const [workspace, setWorkspace] = useState('Acme');
   const [folderOpen, setFolderOpen] = useState(true);
+  const [groups, setGroups] = useState({
+    Private: true,
+    Shared: true,
+    Chats: true,
+    'Ask Oat': true,
+  });
+  const toggleGroup = (label: keyof typeof groups) =>
+    setGroups((previous) => ({ ...previous, [label]: !previous[label] }));
   const { theme, setTheme } = useTheme();
   const select = (view: string) => setActive(view);
   const row = (label: string, Icon: Icon, nested = false) => (
@@ -157,14 +236,22 @@ export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
               {row('New note', IconPlus)}
               {row('Search', IconSearch)}
               {variant === 'b' && row('Tasks', IconChecklist)}
-              {variant === 'd' && (
-                <>
-                  {row('Ask Oat', IconSparkles)}
-                  {chats.map((chat) => row(chat, IconMessageCircle, true))}
-                  {row('All chats', IconChevronRight, true)}
-                </>
-              )}
             </SidebarMenu>
+          )}
+          {variant === 'd' && (
+            <LabGroup
+              label="Ask Oat"
+              ask
+              open={groups['Ask Oat']}
+              onToggle={() => {
+                toggleGroup('Ask Oat');
+                select('Ask Oat');
+              }}
+              onAdd={select}
+            >
+              {chats.map((chat) => row(chat, IconMessageCircle, true))}
+              {row('All chats', IconChevronRight, true)}
+            </LabGroup>
           )}
         </SidebarHeader>
         <SidebarContent
@@ -174,61 +261,58 @@ export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
               : 'gap-0'
           }
         >
-          <SidebarGroup>
-            <SidebarGroupLabel>Private</SidebarGroupLabel>
-            <SidebarMenu className="gap-0.5">
-              {row('Weekly reflections', IconFileText)}
-              {row('Product ideas', IconFileText)}
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  tooltip="Projects"
-                  aria-expanded={folderOpen}
-                  onClick={() => {
-                    setFolderOpen(!folderOpen);
-                    select('Projects');
-                  }}
-                  isActive={active === 'Projects'}
-                >
-                  <IconFolder />
-                  <span>Projects</span>
-                  {folderOpen ? (
-                    <IconChevronDown className="ms-auto" />
-                  ) : (
-                    <IconChevronRight className="ms-auto" />
-                  )}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {folderOpen && (
-                <>
-                  {row('Website refresh', IconFileText, true)}
-                  {row('Launch checklist', IconFileText, true)}
-                </>
-              )}
-            </SidebarMenu>
-          </SidebarGroup>
-          <SidebarGroup>
-            <SidebarGroupLabel>Shared</SidebarGroupLabel>
-            <SidebarMenu className="gap-0.5">
-              {['Team standup', 'Q3 roadmap', 'Design review'].map((note) =>
-                row(note, IconFileText),
-              )}
-            </SidebarMenu>
-          </SidebarGroup>
-          {variant !== 'd' && (
-            <SidebarGroup className="group/chats">
-              <SidebarGroupLabel>Chats</SidebarGroupLabel>
-              <SidebarGroupAction
-                aria-label="New chat"
-                onClick={() => select('New chat')}
-                className="opacity-0 group-hover/chats:opacity-100 focus-visible:opacity-100"
+          <LabGroup
+            label="Private"
+            open={groups.Private}
+            onToggle={() => toggleGroup('Private')}
+            onAdd={select}
+          >
+            {row('Weekly reflections', IconFileText)}
+            {row('Product ideas', IconFileText)}
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="Projects"
+                aria-expanded={folderOpen}
+                onClick={() => {
+                  setFolderOpen(!folderOpen);
+                  select('Projects');
+                }}
+                isActive={active === 'Projects'}
               >
-                <IconPlus />
-              </SidebarGroupAction>
-              <SidebarMenu className="gap-0.5">
-                {chats.map((chat) => row(chat, IconMessageCircle))}
-                {row('View all', IconChevronRight)}
-              </SidebarMenu>
-            </SidebarGroup>
+                <IconFolder />
+                <span>Projects</span>
+                {folderOpen ? (
+                  <IconChevronDown className="ms-auto" />
+                ) : (
+                  <IconChevronRight className="ms-auto" />
+                )}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            {folderOpen && (
+              <>
+                {row('Website refresh', IconFileText, true)}
+                {row('Launch checklist', IconFileText, true)}
+              </>
+            )}
+          </LabGroup>
+          <LabGroup
+            label="Shared"
+            open={groups.Shared}
+            onToggle={() => toggleGroup('Shared')}
+            onAdd={select}
+          >
+            {['Team standup', 'Q3 roadmap', 'Design review'].map((note) => row(note, IconFileText))}
+          </LabGroup>
+          {variant !== 'd' && (
+            <LabGroup
+              label="Chats"
+              open={groups.Chats}
+              onToggle={() => toggleGroup('Chats')}
+              onAdd={select}
+            >
+              {chats.map((chat) => row(chat, IconMessageCircle))}
+              {row('View all', IconChevronRight)}
+            </LabGroup>
           )}
           {variant === 'b' && (
             <div className="mt-auto shrink-0 p-2 text-gray-900">
