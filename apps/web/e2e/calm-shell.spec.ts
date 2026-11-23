@@ -47,27 +47,16 @@ for (const theme of ['light', 'dark'] as const) {
     });
     await expect(page.getByRole('menu').getByText('Reconnecting live sync…')).toBeHidden();
     await page.keyboard.press('Escape');
+    const openToggle = (await page.getByTestId('sidebar-header-trigger').boundingBox())!;
     await page.getByTestId('sidebar-header-trigger').click();
     await expect(page.locator(sidebarSelector)).toHaveAttribute('data-state', 'collapsed');
-    await expect(sidebar).toHaveCSS('width', '48px');
-    const controls = [
-      sidebar.getByRole('button', { name: 'New note' }),
-      page.getByTestId('workspace-switcher'),
-    ];
-    const boxes = [];
-    for (const control of controls) {
-      await expect(control).toBeVisible();
-      const box = (await control.boundingBox())!;
-      expect(box.width).toBeGreaterThanOrEqual(24);
-      expect(box.height).toBeGreaterThanOrEqual(24);
-      boxes.push(box);
-      await control.focus();
-      await expect(control).toBeFocused();
-    }
-    for (let i = 1; i < boxes.length; i++) {
-      expect(boxes[i]!.x).toBe(boxes[0]!.x);
-      expect(boxes[i]!.y).toBeGreaterThan(boxes[i - 1]!.y);
-    }
+    // Collapsed all the way: no rail left behind, and the toggle stays on the same pixels.
+    await expect(sidebar).not.toBeInViewport();
+    const closedToggle = (await page.getByTestId('sidebar-trigger').boundingBox())!;
+    expect(closedToggle.x).toBe(openToggle.x);
+    expect(closedToggle.y).toBe(openToggle.y);
+    await page.getByTestId('sidebar-trigger').click();
+    await expect(page.locator(sidebarSelector)).toHaveAttribute('data-state', 'expanded');
     await page.getByTestId('workspace-switcher').click();
     await page.getByRole('menuitem', { name: /^Settings/ }).click();
     await expect(page).toHaveURL(/\/settings$/);

@@ -9,7 +9,9 @@ import {
 } from '@oat/workspace-ui';
 import { createContext, useContext, useMemo, type ReactNode, type ComponentProps } from 'react';
 import { ShellSidebarProvider } from '@oat/workspace-ui';
+import { cn } from '@oat/ui/lib/utils';
 import { call } from '../bridge';
+import { useMainState } from '../main-state.ts';
 import { api } from '../lib/api';
 import { useDesktopShellData } from './use-desktop-shell-data';
 import { DesktopFeatureProvider } from '../windows/feature-views';
@@ -87,6 +89,7 @@ export function DesktopWorkspaceHost({
   recordingActive?: boolean;
   setActiveWorkspace: (workspaceId: string) => Promise<void>;
 }) {
+  const fullScreen = useMainState()?.fullScreen;
   const shell = useDesktopShellData(user, notes, snapshot, lastSyncedAt);
   const host = useMemo<WorkspaceHost>(
     () => ({
@@ -124,7 +127,18 @@ export function DesktopWorkspaceHost({
           <ShellDataProvider value={shell.data}>
             <DesktopFeatureProvider notes={notes} refreshKey={lastSyncedAt}>
               <TreeActionsProvider>
-                <ShellSidebarProvider className="h-full min-h-0 min-w-0 flex-1" data-testid="shell">
+                <ShellSidebarProvider
+                  className={cn(
+                    'h-full min-h-0 min-w-0 flex-1',
+                    // Beside the macOS traffic lights the toggle is drawn to match them: a 20px,
+                    // lighter, muted glyph about as tall as a light. In full screen (no lights) and
+                    // on other platforms it is an ordinary 16px sidebar icon.
+                    /Mac/.test(navigator.platform) &&
+                      !fullScreen &&
+                      '[&_[data-slot=sidebar-trigger]:not(:hover)]:text-gray-900 [&_[data-slot=sidebar-trigger]_svg]:size-5! [&_[data-slot=sidebar-trigger]_svg]:stroke-[1.5]',
+                  )}
+                  data-testid="shell"
+                >
                   {children}
                 </ShellSidebarProvider>
               </TreeActionsProvider>

@@ -629,19 +629,19 @@ describe('desktop shell', () => {
         const row = toggle.parentElement!;
         const header = document.querySelector('header.app-drag')!;
         if (platform === 'MacIntel') {
-          expect(row.className).toContain('app-drag h-12 ps-18');
+          expect(row.className).toContain('app-drag h-10');
+          expect(row.className).toContain('ps-17.5');
           expect(row.className).toContain('[&_button]:app-no-drag');
           expect(row.className).toContain('[&_a]:app-no-drag');
           expect(row.parentElement!.className).toContain('pt-0');
-          expect(row.className).toContain('group-data-[collapsible=icon]:[&>*]:invisible');
-          expect(header.className).toContain('max-md:ps-24');
+          expect(header.className).toContain('max-md:ps-20.5');
           expect(header.className).toContain(
-            'group-has-data-[collapsible=icon]/sidebar-wrapper:ps-12',
+            'group-has-data-[collapsible=offcanvas]/sidebar-wrapper:ps-20.5',
           );
         } else {
           expect(row.className).not.toContain('app-drag');
-          expect(row.className).not.toContain('ps-18');
-          expect(header.className).not.toContain('max-md:ps-24');
+          expect(row.className).not.toContain('ps-17.5');
+          expect(header.className).not.toContain('max-md:ps-20.5');
         }
         await userEvent.click(toggle);
         expect(

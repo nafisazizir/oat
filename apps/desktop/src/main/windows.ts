@@ -60,7 +60,9 @@ export function createWindowFactory({
         minWidth: 720,
         minHeight: 480,
         titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-        trafficLightPosition: { x: 16, y: 18 },
+        // 14px lights, 14 in and 13 down: about the same inset from both edges of the corner, and
+        // centred on the renderer's 40px title row (desktop-sidebar.tsx, main-window.tsx).
+        trafficLightPosition: { x: 14, y: 13 },
       });
     },
     /** Small always-on-top in-meeting widget (placeholder until 2.5). */
