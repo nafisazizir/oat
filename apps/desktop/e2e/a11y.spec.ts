@@ -270,7 +270,7 @@ test('every desktop screen: axe clean in light and dark (+ sweep screenshots)', 
 
   // Settings.
   await page.getByTestId('workspace-switcher').click();
-  await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
+  await page.getByRole('menuitem', { name: /^Settings/ }).click();
   await expect(page.getByTestId('settings')).toBeVisible();
   await sweep(page, '14-settings-preferences');
   await page.getByTestId('settings-section-recording').click();

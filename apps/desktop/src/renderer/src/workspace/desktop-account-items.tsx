@@ -25,7 +25,9 @@ export function useDesktopAccountItems() {
             disabled={action.pending}
             onClick={() => void action.run(() => call('window:open-widget'))}
           >
-            <IconAppWindow />
+            <span className="flex size-6 shrink-0 items-center justify-center">
+              <IconAppWindow />
+            </span>
             Show meeting widget
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -38,7 +40,9 @@ export function useDesktopAccountItems() {
               })
             }
           >
-            <IconRefresh />
+            <span className="flex size-6 shrink-0 items-center justify-center">
+              <IconRefresh />
+            </span>
             Check connection
           </DropdownMenuItem>
         </DropdownMenuGroup>
@@ -48,7 +52,9 @@ export function useDesktopAccountItems() {
             disabled={action.pending}
             onClick={() => void action.run(() => call('auth:sign-out'))}
           >
-            <IconLogout />
+            <span className="flex size-6 shrink-0 items-center justify-center">
+              <IconLogout />
+            </span>
             Sign out
           </DropdownMenuItem>
         </DropdownMenuGroup>

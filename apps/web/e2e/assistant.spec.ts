@@ -392,6 +392,20 @@ test.describe('with expected HTTP errors', () => {
     } else {
       await expect(page.locator('[data-highlight-block]')).toBeVisible();
     }
+
+    const chats = page.getByTestId('chats-section');
+    const recent = chats.getByRole('link', {
+      name: 'When does the Lakeside pilot start?',
+      exact: true,
+    });
+    await recent.click();
+    await expect(page).toHaveURL(/\/assistant\?thread=/);
+    await expect(recent).toHaveAttribute('data-active', '');
+    await expect(lastAnswer(page)).toBeVisible();
+    await chats.hover();
+    await chats.getByRole('link', { name: 'New chat' }).click();
+    await expect(page).toHaveURL(/\/assistant$/);
+    await expect(page.getByTestId('chat-empty')).toBeVisible();
   });
 });
 

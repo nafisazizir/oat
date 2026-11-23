@@ -1,5 +1,9 @@
 # Oat — Plan & Task Board
 
+- [x] Ship approved sidebar to shared web/desktop shell; retire lab. Fast gate and required e2e pass; real 1280×800 sidebar screenshots inspected. Native macOS runtime remains unverified; publication follows closeout. [task](tasks/sidebar-production.md)
+
+The sidebar-lab entries below are historical exploration evidence; its route is retired by this rollout.
+
 Sidebar lab header follow-up: items-start aligns avatar top with name line box; focused checks pass,
 menu-zoom.png retaken and visually inspected.
 

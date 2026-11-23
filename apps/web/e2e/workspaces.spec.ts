@@ -265,15 +265,9 @@ test('wrong account, revoked invite, leave and delete', async ({ browser }) => {
   await expect(other.getByRole('heading', { name: 'This invitation was revoked' })).toBeVisible();
   await other.close();
 
-  // The only owner can't leave (button disabled, and the switcher's leave is refused).
+  // The only owner can't leave from Settings.
   await owner.page.goto('/settings/workspace');
   await expect(owner.page.getByRole('button', { name: 'Leave workspace' })).toBeDisabled();
-  await owner.page.getByTestId('workspace-switcher').click();
-  await owner.page.getByRole('menuitem', { name: `Leave ${teamName}` }).click();
-  const leave = owner.page.getByTestId('leave-workspace-dialog');
-  await leave.getByRole('button', { name: 'Leave workspace' }).click();
-  await expect(leave.getByRole('alert')).toContainText('only owner');
-  await leave.getByRole('button', { name: 'Cancel' }).click();
 
   // Delete (type the name to confirm): gone from the switcher, back in the workspace made at sign-up.
   await owner.page.getByRole('button', { name: 'Delete workspace' }).click();

@@ -6,6 +6,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
+import { LeaveWorkspaceDialog } from './leave-workspace-dialog';
+import { useState } from 'react';
 import { AppSidebar } from './app-sidebar';
 import { WorkspaceHost } from './host';
 import { hrefOf } from './routes';
@@ -45,8 +47,11 @@ const data: ShellData = {
 
 function Actions() {
   const actions = useTreeActions();
+  const [leaveOpen, setLeaveOpen] = useState(false);
   return (
     <>
+      <button onClick={() => setLeaveOpen(true)}>Test leave dialog</button>
+      <LeaveWorkspaceDialog workspace={workspace} open={leaveOpen} onOpenChange={setLeaveOpen} />
       <button onClick={() => void actions.newPage()}>Create page</button>
       <button onClick={() => void actions.newFolder({})}>Create folder</button>
     </>
@@ -68,9 +73,11 @@ function setup(
     return {
       status: 200,
       json: async () =>
-        request.path === '/api/folders'
-          ? { ...node, id: 'new-folder', name: 'New folder' }
-          : { ...node, id: 'new-page', folderId: null, version: 1 },
+        request.path === '/api/chat/threads'
+          ? { threads: [] }
+          : request.path === '/api/folders'
+            ? { ...node, id: 'new-folder', name: 'New folder' }
+            : { ...node, id: 'new-page', folderId: null, version: 1 },
     };
   });
   const client = createOatClient(transport);
@@ -111,26 +118,25 @@ describe('shared workspace shell', () => {
     setup();
     expect(screen.getByTestId('sidebar-header-trigger')).toBeTruthy();
     expect(screen.getByTestId('workspace-switcher').textContent).toContain('Workspace');
-    expect(screen.getByTestId('account-switcher').textContent).toContain('User');
-    expect(screen.getByTestId('theme-menu')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Templates' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Workspace' })).toBeTruthy();
+    expect(screen.queryByTestId('theme-menu')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Templates' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
-    expect(screen.getByTestId('open-trash')).toBeTruthy();
-    await userEvent.click(screen.getByTestId('account-switcher'));
-    expect(await screen.findByRole('menuitem', { name: /^Settings$/ })).toBeTruthy();
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    expect(await screen.findByRole('menuitem', { name: /^Settings/ })).toBeTruthy();
     const menu = screen.getByRole('menu');
     expect(menu.querySelector('strong')?.textContent).toBe('User');
     expect(menu.textContent?.match(/user@test.com/g)).toHaveLength(1);
     expect(
       Array.from(menu.querySelectorAll('[role="menuitem"]'))
-        .slice(0, 2)
+        .slice(0, 1)
         .map((item) => item.textContent),
-    ).toEqual(['Profile', 'Settings']);
+    ).toEqual(['Settings⌘,']);
   });
 
   it('shows an account name fallback when the profile has no distinct name', async () => {
     setup({ ...data, user: { ...data.user, name: data.user.email } });
-    await userEvent.click(screen.getByTestId('account-switcher'));
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
     const menu = await screen.findByRole('menu');
     expect(menu.querySelector('strong')?.textContent).toBe('user');
     expect(menu.textContent?.match(/user@test.com/g)).toHaveLength(1);
@@ -160,8 +166,7 @@ describe('shared workspace shell', () => {
       { exportNotes },
     );
     const textExport = vi.spyOn(host.client.workspaces, 'export');
-    await user.click(screen.getByTestId('workspace-switcher'));
-    await user.click(await screen.findByRole('menuitem', { name: 'Leave Workspace' }));
+    await user.click(screen.getByRole('button', { name: 'Test leave dialog' }));
     await user.click(screen.getByTestId('export-notes'));
     expect(exportNotes).toHaveBeenCalledWith('w');
     expect(textExport).not.toHaveBeenCalled();
@@ -181,8 +186,7 @@ describe('shared workspace shell', () => {
       },
     );
     const leave = vi.spyOn(host.client.workspaces, 'leave');
-    await user.click(screen.getByTestId('workspace-switcher'));
-    await user.click(await screen.findByRole('menuitem', { name: 'Leave Workspace' }));
+    await user.click(screen.getByRole('button', { name: 'Test leave dialog' }));
     await user.click(screen.getByTestId('export-notes'));
     expect(screen.getByTestId('export-error').textContent).toContain('Couldn’t save the ZIP.');
     expect(leave).not.toHaveBeenCalled();
@@ -194,8 +198,7 @@ describe('shared workspace shell', () => {
       'web',
       { exportNotes: vi.fn().mockResolvedValue(3) },
     );
-    await user.click(screen.getByTestId('workspace-switcher'));
-    await user.click(await screen.findByRole('menuitem', { name: 'Leave Workspace' }));
+    await user.click(screen.getByRole('button', { name: 'Test leave dialog' }));
     await user.click(screen.getByTestId('export-notes'));
     expect(screen.getByRole('status').textContent).toBe(
       'Saved 3 notes to your downloads. Check the file before you leave.',
@@ -210,8 +213,7 @@ describe('shared workspace shell', () => {
         workspaceExitBlockedReason: 'Stop recording before leaving or deleting a workspace.',
       },
     );
-    await user.click(screen.getByTestId('workspace-switcher'));
-    await user.click(await screen.findByRole('menuitem', { name: 'Leave Workspace' }));
+    await user.click(screen.getByRole('button', { name: 'Test leave dialog' }));
     expect(
       (screen.getByRole('button', { name: 'Leave workspace' }) as HTMLButtonElement).disabled,
     ).toBe(true);
@@ -223,6 +225,16 @@ describe('shared workspace shell', () => {
     expect(screen.getByText('Shared')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Private page' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Shared page' })).toBeTruthy();
+  });
+  it('collapses Private and Shared independently by click and keyboard', async () => {
+    const { user } = setup();
+    await user.click(screen.getByRole('button', { name: 'Private' }));
+    expect(screen.queryByRole('link', { name: 'Private page' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Shared page' })).toBeTruthy();
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('link', { name: 'Private page' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Shared' }));
+    expect(screen.queryByRole('link', { name: 'Shared page' })).toBeNull();
   });
   it('creates pages and folders with the host client and navigates to the page', async () => {
     const { user, create, folder, host } = setup();
@@ -247,7 +259,8 @@ describe('shared workspace shell', () => {
   });
   it('restores trash with client.documents.restore', async () => {
     const { user, restore, host } = setup();
-    await user.click(screen.getByTestId('open-trash'));
+    await user.click(screen.getByTestId('workspace-switcher'));
+    await user.click(await screen.findByTestId('open-trash'));
     await user.click(await screen.findByRole('button', { name: 'Restore' }));
     expect(restore).toHaveBeenCalledWith('t');
     await waitFor(() => expect(host.refresh).toHaveBeenCalled());
@@ -255,7 +268,8 @@ describe('shared workspace shell', () => {
   });
   it('shows an empty trash', async () => {
     const { user } = setup({ ...data, documents: [], trash: [] });
-    await user.click(screen.getByTestId('open-trash'));
+    await user.click(screen.getByTestId('workspace-switcher'));
+    await user.click(await screen.findByTestId('open-trash'));
     expect(await screen.findByText('The trash is empty')).toBeTruthy();
   });
   it('rolls back a failed creation and reports the error', async () => {

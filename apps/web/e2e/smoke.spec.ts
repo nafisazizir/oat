@@ -38,8 +38,10 @@ test.describe('app shell', () => {
     await page.getByTestId('sidebar-header-trigger').click();
     await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
     // Collapsed to icons: labels hidden, icon buttons still there.
+    await page.getByTestId('workspace-switcher').click();
     await expect(page.getByTestId('open-trash')).toBeVisible();
-    await expect(page.getByTestId('theme-menu')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('theme-menu')).toHaveCount(0);
 
     await page.reload();
     await expect(page.locator(sidebarSelector)).toHaveAttribute('data-state', 'collapsed');
@@ -105,7 +107,8 @@ test.describe('app shell', () => {
     const html = page.locator('html');
     await expect(html).not.toHaveClass(/\bdark\b/);
 
-    await page.getByTestId('theme-menu').click();
+    await page.goto('/settings');
+    await page.getByRole('button', { name: /^Theme:/ }).click();
     await page.getByRole('menuitemradio', { name: 'Dark' }).click();
     await expect(html).toHaveClass(/\bdark\b/);
 
@@ -118,7 +121,8 @@ test.describe('app shell', () => {
     await page.waitForLoadState('load');
 
     // System follows the OS appearance, live.
-    await page.getByTestId('theme-menu').click();
+    await page.goto('/settings');
+    await page.getByRole('button', { name: /^Theme:/ }).click();
     await page.getByRole('menuitemradio', { name: 'System' }).click();
     await expect(html).not.toHaveClass(/\bdark\b/);
     await page.emulateMedia({ colorScheme: 'dark' });

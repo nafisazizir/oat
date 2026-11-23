@@ -245,7 +245,8 @@ test('labels say what the visibility is: a workspace-visible note in a workspace
   const solo = await signUp(browser, 'solo', `solo-${Date.now()}.test`);
   const { page } = solo;
   await expect(page).toHaveURL(/\/home$/);
-  await expect(page.getByTestId('workspace-switcher')).toContainText('1 member');
+  const soloWorkspaces = await (await page.request.get('/api/workspaces')).json();
+  expect(soloWorkspaces.workspaces).toEqual([expect.objectContaining({ memberCount: 1 })]);
 
   const shared = await createDoc(page, { title: 'Open to the workspace', visibility: 'workspace' });
   await page.goto(`/d/${shared.id}`);
@@ -288,9 +289,9 @@ test('the workspace list is absent with one workspace and present with two; crea
   await expect(menu).toBeVisible();
   await expect(page.getByTestId('workspace-list')).toHaveCount(0);
   await expect(page.getByTestId('workspace-option')).toHaveCount(0);
-  // Everything else is still there: settings, inviting, the account — and creating a workspace.
-  await expect(menu.getByRole('menuitem', { name: 'Workspace settings' })).toBeVisible();
-  await expect(menu.getByRole('menuitem', { name: 'Invite members' })).toBeVisible();
+  // Workspace management lives in Settings; account actions and creation remain here.
+  await expect(menu.getByRole('menuitem', { name: /^Settings/ })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Invite members' })).toHaveCount(0);
   await expect(menu.getByRole('menuitem', { name: 'Sign out' })).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: /^Leave / })).toHaveCount(0);
   // Nothing is open to this address, so "Join a workspace" isn't offered.
@@ -383,7 +384,9 @@ for (const theme of ['light', 'dark'] as const) {
 
     // The leave dialog says what leaving costs and offers the export.
     await page.getByTestId('workspace-switcher').click();
-    await page.getByRole('menuitem', { name: `Leave ${name}` }).click();
+    await page.getByRole('menuitem', { name: /^Settings/ }).click();
+    await page.getByRole('link', { name: 'General', exact: true }).click();
+    await page.getByRole('button', { name: 'Leave workspace', exact: true }).click();
     const dialog = page.getByTestId('leave-workspace-dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText(`Leave ${name}?`);
@@ -423,7 +426,7 @@ for (const theme of ['light', 'dark'] as const) {
       /^oat-notes-acme-[0-9a-f]+-\d{4}-\d{2}-\d{2}\.zip$/,
     );
     await expect(dialog.getByRole('status')).toHaveText(
-      'Saved 3 notes to your downloads. Check the file before you leave.',
+      'Saved 3 notes to a ZIP file. Check the file before you leave.',
     );
     await expect(dialog.getByTestId('export-error')).toHaveCount(0);
     const files = readZip(readFileSync(await download.path()));

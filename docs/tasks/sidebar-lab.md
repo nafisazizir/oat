@@ -1,4 +1,7 @@
 # Sidebar lab — mock navigation comparison
+
+Historical exploration only: the mock route is retired by [production rollout](sidebar-production.md).
+All URLs, commands and server statements below describe the earlier lab verification, not a live route.
 status: done
 milestone: prototype · deps: none · branch: devin/1795398368-sidebar-lab
 

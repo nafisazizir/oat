@@ -139,7 +139,7 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
       style: 'nextjs-portal { display: none !important; }',
     });
   }
-  await page.getByRole('link', { name: 'Home', exact: true }).click();
+  await page.getByRole('link', { name: 'Oat', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Open recording note' })).toBeVisible();
   await expect(page.getByTestId('web-recording')).toHaveAttribute('data-status', 'recording');
   await page.getByRole('link', { name: 'Open recording note' }).click();

@@ -65,7 +65,8 @@ for (const theme of ['light', 'dark'] as const) {
       }
     }
     await page.getByTestId('workspace-switcher').click();
-    await page.getByRole('menuitem', { name: 'Profile', exact: true }).click();
+    await page.getByRole('menuitem', { name: /^Settings/ }).click();
+    await nav.getByRole('link', { name: 'Profile', exact: true }).click();
     await expect(page).toHaveURL(/\/settings\/profile$/);
     const search = nav.getByRole('searchbox', { name: 'Search settings' });
     await search.fill('calendar');

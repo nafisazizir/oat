@@ -20,19 +20,20 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    await sidebar.getByRole('link', { name: 'Templates', exact: true }).click();
+    await page.getByTestId('workspace-switcher').click();
+    await page.getByRole('menuitem', { name: 'Templates', exact: true }).click();
     await expect(page).toHaveURL(/\/templates$/);
-    await page.getByTestId('account-switcher').click();
-    await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
+    await page.getByTestId('workspace-switcher').click();
+    await page.getByRole('menuitem', { name: /^Settings/ }).click();
     await expect(page).toHaveURL(/\/settings$/);
+    await page.getByTestId('workspace-switcher').click();
     await page.getByTestId('open-trash').click();
     await expect(page.getByTestId('trash-dialog')).toBeVisible();
     await page.keyboard.press('Escape');
 
     await page.getByTestId('workspace-switcher').click();
-    // "Workspace" with one workspace, "Workspaces" (the list) with more (D-36).
-    await expect(page.getByRole('menu')).toContainText('Workspace');
-    await expect(page.getByRole('menuitem', { name: 'Profile', exact: true })).toBeVisible();
+    await expect(page.getByRole('menu')).toContainText('Create workspace');
+    await expect(page.getByRole('menuitem', { name: /^Settings/ })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: 'Sign out', exact: true })).toBeVisible();
     await expect(page.getByRole('menuitem').last()).toHaveText('Sign out');
     await expect(page.getByRole('menu').getByText('Live sync connected')).toBeVisible();
@@ -47,10 +48,7 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(sidebar).toHaveCSS('width', '48px');
     const controls = [
       sidebar.getByRole('button', { name: 'New note' }),
-      sidebar.getByRole('link', { name: 'Templates', exact: true }),
-      page.getByTestId('open-trash'),
-      page.getByTestId('account-switcher'),
-      page.getByTestId('theme-menu'),
+      page.getByTestId('workspace-switcher'),
     ];
     const boxes = [];
     for (const control of controls) {
@@ -66,8 +64,8 @@ for (const theme of ['light', 'dark'] as const) {
       expect(boxes[i]!.x).toBe(boxes[0]!.x);
       expect(boxes[i]!.y).toBeGreaterThan(boxes[i - 1]!.y);
     }
-    await page.getByTestId('account-switcher').click();
-    await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
+    await page.getByTestId('workspace-switcher').click();
+    await page.getByRole('menuitem', { name: /^Settings/ }).click();
     await expect(page).toHaveURL(/\/settings$/);
     await page.evaluate(() => document.fonts.ready);
     const { violations } = await new AxeBuilder({ page })
