@@ -68,8 +68,8 @@ export class MeetingEndGrace implements TranscriptPersistence {
   readonly #graceMs: number;
   readonly #now: () => number;
   #pending: PendingEnd | null = null;
-  /** The pending end stays on disk while its recording is opening. */
-  #resuming = false;
+  /** Live and parked ends for this meeting stay on disk while its recording is opening. */
+  #starting: Pick<PendingEnd, 'meetingId' | 'userId'> | undefined;
   /** Held ends waiting for their account's database to reopen. */
   #parked: PendingEnd[];
   #timer: ReturnType<typeof setTimeout> | undefined;
@@ -91,36 +91,44 @@ export class MeetingEndGrace implements TranscriptPersistence {
   }
 
   async prepareMeeting(meetingId: string, requestedAt: number): Promise<BeginMeeting> {
-    if (this.#pending?.meetingId === meetingId) {
-      this.#resuming = true;
-      this.dispose();
-    }
+    this.#starting = { meetingId, userId: this.#o.userId() };
+    if (this.#pending && this.#isStarting(this.#pending)) this.dispose();
     const beginMeeting = await this.#o.inner.prepareMeeting(meetingId, requestedAt);
     return (startedAt) => {
       beginMeeting(startedAt);
-      this.#clearPreviousEnd(meetingId);
+      this.#clearPreviousEnd();
+      this.#starting = undefined;
     };
   }
 
   cancelMeetingStart(meetingId: string): void {
+    const starting = this.#starting;
+    if (starting?.meetingId !== meetingId) return;
     const pending = this.#pending;
-    if (!this.#resuming || pending?.meetingId !== meetingId) return;
-    this.#resuming = false;
-    if (pending.dueAt <= this.#now()) this.flush(meetingId);
-    else this.#armTimer(pending);
+    const heldPending = pending && this.#isStarting(pending);
+    const heldParked = this.#parked.some((p) => this.#isStarting(p));
+    this.#starting = undefined;
+    if (heldPending) {
+      if (pending.dueAt <= this.#now()) this.flush(meetingId);
+      else this.#armTimer(pending);
+    }
+    if (heldParked) this.accountOpened(starting.userId);
   }
 
-  #clearPreviousEnd(meetingId: string): void {
+  #isStarting(end: PendingEnd): boolean {
+    return this.#starting?.meetingId === end.meetingId && this.#starting.userId === end.userId;
+  }
+
+  #clearPreviousEnd(): void {
     const pending = this.#pending;
-    if (pending?.meetingId === meetingId) {
+    if (pending && this.#isStarting(pending)) {
       // "Continue recording" within the grace period: the meeting never ended.
       this.#set(null);
     } else if (pending) {
       this.flush(); // another meeting starts: the last one is over
     }
-    if (this.#parked.some((p) => p.meetingId === meetingId)) {
-      // Continued after a relaunch, still unended: the held end no longer applies.
-      this.#parked = this.#parked.filter((p) => p.meetingId !== meetingId);
+    if (this.#parked.some((p) => this.#isStarting(p))) {
+      this.#parked = this.#parked.filter((p) => !this.#isStarting(p));
       this.#save();
     }
   }
@@ -159,12 +167,11 @@ export class MeetingEndGrace implements TranscriptPersistence {
     const pending = this.#pending;
     if (
       !pending ||
-      (meetingId !== undefined && (this.#resuming || pending.meetingId !== meetingId))
+      (meetingId !== undefined && (this.#isStarting(pending) || pending.meetingId !== meetingId))
     ) {
       return false;
     }
     this.#pending = null;
-    this.#resuming = false;
     this.dispose();
     let written = false;
     if (pending.userId !== this.#o.userId()) {
@@ -186,7 +193,7 @@ export class MeetingEndGrace implements TranscriptPersistence {
    */
   accountOpened(userId: string | null): void {
     if (!userId || this.#o.userId() !== userId) return;
-    const mine = this.#parked.filter((p) => p.userId === userId);
+    const mine = this.#parked.filter((p) => p.userId === userId && !this.#isStarting(p));
     if (mine.length === 0) return;
     const now = this.#now();
     for (const p of mine) {
@@ -227,7 +234,6 @@ export class MeetingEndGrace implements TranscriptPersistence {
   #set(pending: PendingEnd | null): void {
     this.dispose();
     this.#pending = pending;
-    this.#resuming = false;
     if (pending) this.#armTimer(pending);
     this.#save();
     this.#o.onChange?.(pending);

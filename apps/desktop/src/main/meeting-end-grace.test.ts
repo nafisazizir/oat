@@ -238,6 +238,37 @@ describe('MeetingEndGrace — durable (7.5 review)', () => {
     expect(existsSync(join(dir, 'g.json'))).toBe(false);
   });
 
+  it.each(['ready', 'canceled'])(
+    'holds a parked end until resumed capture is %s',
+    async (outcome) => {
+      const endMeeting = inner.endMeeting;
+      inner.endMeeting = () => {
+        throw new Error('SQLITE_FULL');
+      };
+      const g = durable();
+      g.endMeeting('m1', T0 + 1000);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(g.pending).toBeNull();
+      expect(g.parked).toHaveLength(1);
+
+      const resume = await g.prepareMeeting('m1', T0 + 60_000);
+      inner.endMeeting = endMeeting;
+      g.accountOpened('u1'); // State changed as capture started opening.
+      expect(calls).toEqual([]);
+      expect(durable().parked).toHaveLength(1);
+
+      if (outcome === 'ready') {
+        resume(T0 + 61_000);
+        expect(calls).toEqual(['begin m1 61000']);
+      } else {
+        g.cancelMeetingStart('m1');
+        expect(calls).toEqual(['end m1 1000']);
+      }
+      expect(g.parked).toEqual([]);
+      expect(existsSync(join(dir, 'g.json'))).toBe(false);
+    },
+  );
+
   it('a corrupt file is ignored', () => {
     writeFileSync(join(dir, 'g.json'), '{"ends": [{"meetingId": 4}]}');
     expect(durable().parked).toEqual([]);

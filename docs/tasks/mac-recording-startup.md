@@ -87,3 +87,5 @@ could stay set to Playing after leaving a note. This change fixes both in the de
   the sync outbox or audio index, and recording can be retried. A failed resume keeps the original
   grace deadline. If the database also rejects the end, the durable recovery test verifies that
   the original stop time survives relaunch and another failed write before it can be saved.
+  Once the database is available, recovery holds any parked end for a meeting whose capture is
+  opening. Successful capture clears the old end, and cancellation releases it for recovery.
