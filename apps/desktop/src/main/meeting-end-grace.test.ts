@@ -210,6 +210,34 @@ describe('MeetingEndGrace — durable (7.5 review)', () => {
     expect(calls).toEqual(['end m1 0']);
   });
 
+  it('recovers the original stop time after the database rejects a resume and its pending end', async () => {
+    const endMeeting = inner.endMeeting;
+    inner.prepareMeeting = async () => () => {
+      throw new Error('SQLITE_FULL');
+    };
+    inner.endMeeting = () => {
+      throw new Error('SQLITE_FULL');
+    };
+    const first = durable();
+    first.endMeeting('m1', T0 + 1000);
+    const resume = await first.prepareMeeting('m1', T0 + 2000);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(() => resume(T0 + 60_000)).toThrow('SQLITE_FULL');
+    first.cancelMeetingStart('m1');
+
+    const second = durable();
+    const expected = [{ meetingId: 'm1', endedAt: T0 + 1000, dueAt: T0 + 60_000, userId: 'u1' }];
+    expect(second.parked).toEqual(expected);
+    second.accountOpened('u1');
+    expect(durable().parked).toEqual(expected);
+
+    inner.endMeeting = endMeeting;
+    second.accountOpened('u1');
+    expect(calls).toEqual(['end m1 1000']);
+    expect(second.parked).toEqual([]);
+    expect(existsSync(join(dir, 'g.json'))).toBe(false);
+  });
+
   it('a corrupt file is ignored', () => {
     writeFileSync(join(dir, 'g.json'), '{"ends": [{"meetingId": 4}]}');
     expect(durable().parked).toEqual([]);

@@ -30,6 +30,7 @@ could stay set to Playing after leaving a note. This change fixes both in the de
 - [x] A new recording note is published only after capture opens.
 - [x] A failed local meeting write stops capture and allows a retry.
 - [x] Continuing a meeting holds its pending end until capture opens or the attempt is canceled.
+- [x] A rejected meeting end survives restart and is retried when the account database opens.
 - [x] On macOS, start from Home, capture the real microphone, read a live transcript, pause and resume,
   stop, play the local archive, then repeat in the same app session.
 - [x] Repeat with both the real microphone and system audio.
@@ -84,4 +85,5 @@ could stay set to Playing after leaving a note. This change fixes both in the de
 - All four auto-stop and grace-period E2E tests passed on the Mac. The storage regression test
   simulates a full SQLite disk at capture readiness and checks that capture stops, nothing enters
   the sync outbox or audio index, and recording can be retried. A failed resume keeps the original
-  grace deadline.
+  grace deadline. If the database also rejects the end, the durable recovery test verifies that
+  the original stop time survives relaunch and another failed write before it can be saved.

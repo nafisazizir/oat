@@ -9,7 +9,7 @@
  * force-quit or power loss inside the period doesn't leave the meeting open forever. At launch the file's ends
  * are *parked*; `accountOpened(user)` (that account's database is open) writes the ones that are due and re-arms
  * one that isn't. An end whose account's database isn't the open one when it is due is parked the same way
- * (never written into another account's database).
+ * (never written into another account's database). A failed database write also leaves the end parked.
  *
  * A decorator over the recording's `TranscriptPersistence` (`MeetingPersistence`), so `RecordingService`
  * doesn't change. One live pending end at a time (one recording at a time).
@@ -70,7 +70,7 @@ export class MeetingEndGrace implements TranscriptPersistence {
   #pending: PendingEnd | null = null;
   /** The pending end stays on disk while its recording is opening. */
   #resuming = false;
-  /** Held ends waiting for their account's database (from the file at launch, or parked when due). */
+  /** Held ends waiting for their account's database to reopen. */
   #parked: PendingEnd[];
   #timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -135,21 +135,25 @@ export class MeetingEndGrace implements TranscriptPersistence {
 
   endMeeting(meetingId: string, endedAt: number): void {
     if (this.#pending && this.#pending.meetingId !== meetingId) this.flush();
-    if (this.#graceMs <= 0) {
-      this.#write(meetingId, endedAt);
-      return;
-    }
-    this.#set({
+    const pending = {
       meetingId,
       endedAt,
       dueAt: this.#now() + this.#graceMs,
       userId: this.#o.userId(),
-    });
+    };
+    if (this.#graceMs <= 0) {
+      if (!this.#write(meetingId, endedAt)) {
+        this.#park(pending);
+        this.#save();
+      }
+      return;
+    }
+    this.#set(pending);
   }
 
   /**
    * Writes the pending end now (grace over, "Start now", quit, sign-out, account switch). Returns whether an end
-   * was written. With its account's database closed, the end is parked instead.
+   * was written. If its account's database cannot save it, the end is parked for recovery.
    */
   flush(meetingId?: string): boolean {
     const pending = this.#pending;
@@ -167,10 +171,10 @@ export class MeetingEndGrace implements TranscriptPersistence {
       this.#o.log?.warn(
         `grace: meeting ${pending.meetingId}: its account’s database is closed; ending it when it opens`,
       );
-      this.#parked = [...this.#parked, pending].slice(-MAX_PARKED);
     } else {
       written = this.#write(pending.meetingId, pending.endedAt);
     }
+    if (!written) this.#park(pending);
     this.#save();
     this.#o.onChange?.(null);
     return written;
@@ -184,14 +188,14 @@ export class MeetingEndGrace implements TranscriptPersistence {
     if (!userId || this.#o.userId() !== userId) return;
     const mine = this.#parked.filter((p) => p.userId === userId);
     if (mine.length === 0) return;
-    this.#parked = this.#parked.filter((p) => p.userId !== userId);
     const now = this.#now();
     for (const p of mine) {
       if (p.dueAt > now && !this.#pending) {
+        this.#parked = this.#parked.filter((end) => end !== p);
         this.#set(p); // saves
-        continue;
+      } else if (this.#write(p.meetingId, p.endedAt)) {
+        this.#parked = this.#parked.filter((end) => end !== p);
       }
-      this.#write(p.meetingId, p.endedAt);
     }
     this.#save();
   }
@@ -209,6 +213,15 @@ export class MeetingEndGrace implements TranscriptPersistence {
       this.#o.log?.error(`grace: could not end meeting ${meetingId}`, error);
       return false;
     }
+  }
+
+  #park(pending: PendingEnd): void {
+    this.#parked = [
+      ...this.#parked.filter(
+        (p) => p.meetingId !== pending.meetingId || p.userId !== pending.userId,
+      ),
+      pending,
+    ].slice(-MAX_PARKED);
   }
 
   #set(pending: PendingEnd | null): void {
