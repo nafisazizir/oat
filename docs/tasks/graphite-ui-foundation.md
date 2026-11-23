@@ -46,7 +46,11 @@ and dropdown and context menus default to small.
 
 Independent Claude showcase and registry audit checked the component choices and Oat
 keyboard and accessibility behavior. The sync retains the sidebar shortcut guard,
-tooltip role, Select and Command icon/separator semantics, and ramp-based dialog overlays.
+tooltip role, and Select and Command icon/separator semantics.
+
+Update 2026-11-21: the ramp-based dialog overlay kept by this sync (`bg-gray-alpha-400`) was dropped for
+Ziiz's `bg-black/10` in `dialog.tsx` and `alert-dialog.tsx`. In dark the ramp token is 11% white, so the
+backdrop lightened the app behind a dialog instead of dimming it; light is visually unchanged.
 
 ## Evidence
 

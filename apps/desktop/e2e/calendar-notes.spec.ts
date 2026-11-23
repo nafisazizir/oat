@@ -366,7 +366,7 @@ test('no calendar access: connect it in Settings → Setup (never asked on its o
   await shots(page, 'desktop-connect');
   await mac.getByRole('button', { name: 'Allow calendars' }).click();
   await expect(mac.getByTestId('permission-status')).toHaveAttribute('data-state', 'done');
-  await page.getByTestId('onboarding-later').click();
+  await page.keyboard.press('Escape');
   await expect(upcoming.getByTestId('upcoming-event-title')).toHaveText([
     'Design review',
     tomorrowTitle,
