@@ -515,6 +515,10 @@ export class RecordingService {
     try {
       await this.#controller.start();
     } catch (error) {
+      if (this.#controller.state === 'stopping' || this.#controller.state === 'idle') {
+        await this.#finalize(session);
+        return { meetingId };
+      }
       this.#o.log.error('recording: start failed', error);
       await this.#finalize(session);
       throw new RecordingServiceError('unavailable', startFailureMessage(error));

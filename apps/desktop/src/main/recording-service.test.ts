@@ -425,15 +425,15 @@ describe('RecordingService', () => {
 
 describe('RecordingService: quit and concurrency (review 2.5 #1)', () => {
   it('shutdown cancels a start waiting on native capture', async () => {
-    let finishStart!: () => void;
+    let cancelStart!: (error: Error) => void;
     let finishStop!: (event: Awaited<ReturnType<AudioSource['whenStopped']>>) => void;
-    const starting = new Promise<void>((resolve) => (finishStart = resolve));
+    const starting = new Promise<void>((_, reject) => (cancelStart = reject));
     const stopped = new Promise<Awaited<ReturnType<AudioSource['whenStopped']>>>(
       (resolve) => (finishStop = resolve),
     );
     const stop = vi.fn(async () => {
       finishStop({ type: 'stopped', tUs: 0, reason: 'command', samples: { mic: 0, system: 0 } });
-      finishStart();
+      cancelStart(new Error('sidecar stopped before startup completed'));
     });
     const h = setup({
       source: () => ({
@@ -455,6 +455,7 @@ describe('RecordingService: quit and concurrency (review 2.5 #1)', () => {
     expect(stop).toHaveBeenCalledOnce();
     expect(h.service.busy).toBe(false);
     expect(h.statuses).not.toContain('recording');
+    expect(h.service.snapshot().issues).toEqual([]);
   });
 
   it('shutdown() during a Stop resolves only after the archive files are complete', async () => {

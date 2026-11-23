@@ -200,8 +200,11 @@ export function RecordingBar({
   controlsContainer?: HTMLElement | null;
 }) {
   const action = useRecordingAction();
+  const cancelStart = useRecordingAction();
   const status = snapshot?.status ?? 'idle';
   const active = isActive(status);
+  const stopAction = status === 'starting' ? cancelStart : action;
+  const error = status === 'starting' ? cancelStart.error : action.error;
 
   function start() {
     return action.run(() => call('recording:start', startRequest(input, meetingId)));
@@ -237,7 +240,7 @@ export function RecordingBar({
         <Button
           size="sm"
           variant="secondary"
-          disabled={action.pending || !snapshot}
+          disabled={action.pending || cancelStart.pending || !snapshot}
           onClick={() => void start()}
         >
           {action.pending ? (
@@ -264,8 +267,12 @@ export function RecordingBar({
         <Button
           size="sm"
           variant="secondary"
-          disabled={action.pending}
-          onClick={() => void action.run(() => call('recording:stop'))}
+          disabled={
+            cancelStart.pending ||
+            status === 'stopping' ||
+            (status !== 'starting' && action.pending)
+          }
+          onClick={() => void stopAction.run(() => call('recording:stop'))}
           aria-label={status === 'error' ? 'Dismiss' : 'Stop recording'}
         >
           <IconPlayerStopFilled data-icon="inline-start" />
@@ -332,12 +339,12 @@ export function RecordingBar({
       data-status={status}
     >
       {controlsContainer ? createPortal(controls, controlsContainer) : controls}
-      {action.error && (
+      {error && (
         <p role="status" className="text-copy-13 text-red-900">
-          {action.error}
+          {error}
         </p>
       )}
-      {hint && !action.error && (status === 'idle' || status === 'error') && (
+      {hint && !error && (status === 'idle' || status === 'error') && (
         <p className="sr-only" data-testid="recording-hint">
           {hint}
         </p>
