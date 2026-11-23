@@ -34,10 +34,9 @@ import {
   SidebarGroupContent,
   SidebarTrigger,
 } from '@oat/ui/components/sidebar';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import {
   IconCheck,
-  IconArrowUpRight,
+  IconArrowRight,
   IconDots,
   IconChevronDown,
   IconChevronRight,
@@ -47,6 +46,7 @@ import {
   IconFolder,
   IconFolderPlus,
   IconLayoutGrid,
+  IconList,
   IconLogout,
   IconMessageCircle,
   IconMessages,
@@ -61,40 +61,21 @@ import {
 
 import { useTheme } from '@/components/theme-provider';
 
-type Variant = 'b1' | 'b2' | 'b3' | 'b4';
+type ViewAllIcon = 'none' | 'dots' | 'arrow' | 'list' | 'bubbles';
 type Icon = ComponentType<{ className?: string }>;
-const variants: Record<Variant, string> = {
-  b1: 'Quiet view all',
-  b2: 'More + compact utilities',
-  b3: 'Chats label navigation',
-  b4: 'Text-first chats',
+const viewAllIcons: Record<ViewAllIcon, Icon | null> = {
+  none: null,
+  dots: IconDots,
+  arrow: IconArrowRight,
+  list: IconList,
+  bubbles: IconMessages,
 };
 const chats = ['Q3 planning recap', 'Summarise standups', 'Draft follow-up email'];
 const utilities: [string, Icon][] = [
+  ['Tasks', IconChecklist],
   ['Templates', IconLayoutGrid],
   ['Trash', IconTrash],
 ];
-
-function IconAction({
-  label,
-  icon: Icon,
-  onClick,
-}: {
-  label: string;
-  icon: Icon;
-  onClick: () => void;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={<Button variant="ghost" size="icon-sm" aria-label={label} onClick={onClick} />}
-      >
-        <Icon className="size-4" />
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  );
-}
 
 function LabGroup({
   label,
@@ -102,48 +83,22 @@ function LabGroup({
   onToggle,
   onAdd,
   children,
-  onOpen,
 }: {
   label: string;
   open: boolean;
   onToggle: () => void;
   onAdd: (view: string) => void;
   children: ReactNode;
-  onOpen?: () => void;
 }) {
   const notes = label === 'Private' || label === 'Shared';
   const actionClass =
     'opacity-0 group-hover/tree-section:opacity-100 group-focus-within/tree-section:opacity-100 data-popup-open:opacity-100';
   return (
     <SidebarGroup className="group/tree-section py-1">
-      {onOpen ? (
-        <SidebarGroupLabel className="group/label gap-1">
-          <button
-            type="button"
-            onClick={onOpen}
-            className="flex items-center gap-1 hover:text-gray-1000 focus-visible:outline-auto"
-          >
-            {label}
-            <IconArrowUpRight className="size-3.5 opacity-0 group-hover/label:opacity-100 group-focus-within/label:opacity-100" />
-          </button>
-          <button
-            type="button"
-            aria-label={`Toggle ${label}`}
-            aria-expanded={open}
-            onClick={onToggle}
-            className="hover:text-gray-1000 focus-visible:outline-auto"
-          >
-            <IconChevronRight className={`size-3.5 ${open ? 'rotate-90' : ''}`} />
-          </button>
-        </SidebarGroupLabel>
-      ) : (
-        <SidebarGroupLabel
-          render={<button type="button" aria-expanded={open} onClick={onToggle} />}
-        >
-          {label}
-          <IconChevronRight className={`ms-1 size-3.5 ${open ? 'rotate-90' : ''}`} />
-        </SidebarGroupLabel>
-      )}
+      <SidebarGroupLabel render={<button type="button" aria-expanded={open} onClick={onToggle} />}>
+        {label}
+        <IconChevronRight className={`ms-1 size-3.5 ${open ? 'rotate-90' : ''}`} />
+      </SidebarGroupLabel>
       {notes ? (
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -187,8 +142,9 @@ function LabGroup({
   );
 }
 
-export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
-  const [variant, setVariant] = useState(initialVariant);
+export function SidebarLab({ initialIcon }: { initialIcon: ViewAllIcon }) {
+  const [viewAllIcon, setViewAllIcon] = useState(initialIcon);
+  const ViewAllGlyph = viewAllIcons[viewAllIcon];
   const [active, setActive] = useState('Home');
   const [workspace, setWorkspace] = useState('Acme');
   const [folderOpen, setFolderOpen] = useState(true);
@@ -201,29 +157,19 @@ export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
     setGroups((previous) => ({ ...previous, [label]: !previous[label] }));
   const { theme, setTheme } = useTheme();
   const select = (view: string) => setActive(view);
-  const row = (label: string, Icon: Icon | null, nested = false, muted = false, indent = false) => (
+  const row = (label: string, Icon: Icon, nested = false) => (
     <SidebarMenuItem
       key={label}
       className={nested ? 'ps-5 group-data-[collapsible=icon]:hidden' : undefined}
     >
-      <SidebarMenuButton
-        tooltip={label}
-        isActive={active === label}
-        onClick={() => select(label)}
-        className={`${muted ? 'text-gray-900' : ''} ${indent ? 'ps-8' : ''}`}
-      >
-        {Icon ? (
-          <Icon />
-        ) : (
-          <IconMessageCircle className="hidden group-data-[collapsible=icon]:block" />
-        )}
+      <SidebarMenuButton tooltip={label} isActive={active === label} onClick={() => select(label)}>
+        <Icon />
         <span>{label}</span>
         {label === 'Search' && (
           <SidebarMenuBadge>
             <Kbd>⌘K</Kbd>
           </SidebarMenuBadge>
         )}
-        {label === 'Tasks' && variant === 'b3' && <SidebarMenuBadge>4</SidebarMenuBadge>}
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
@@ -251,7 +197,6 @@ export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
           <SidebarMenu className="gap-0.5">
             {row('New note', IconPlus)}
             {row('Search', IconSearch)}
-            {row('Tasks', IconChecklist)}
           </SidebarMenu>
         </SidebarHeader>
         <SidebarContent className="gap-0 [&_[data-slot=sidebar-group-label]]:h-6">
@@ -302,21 +247,24 @@ export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
             open={groups.Chats}
             onToggle={() => toggleGroup('Chats')}
             onAdd={select}
-            onOpen={variant === 'b3' ? () => select('All chats') : undefined}
           >
-            {chats.map((chat) => row(chat, variant === 'b4' ? null : IconMessageCircle))}
-            {variant === 'b1' && row('View all', null, false, true, true)}
-            {variant === 'b2' && row('More', IconDots, false, true)}
-            {variant === 'b4' && row('All chats', IconMessages, false, true)}
+            {chats.map((chat) => row(chat, IconMessageCircle))}
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="View all"
+                isActive={active === 'All chats'}
+                onClick={() => select('All chats')}
+                className="text-gray-900"
+              >
+                {ViewAllGlyph ? (
+                  <ViewAllGlyph />
+                ) : (
+                  <span aria-hidden="true" className="size-4 shrink-0" />
+                )}
+                <span>View all</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
           </LabGroup>
-          {(variant === 'b1' || variant === 'b3') && (
-            <div className="mt-auto shrink-0 p-2 text-gray-900">
-              <SidebarMenu className="gap-0.5">
-                {row('Templates', IconLayoutGrid)}
-                {row('Trash', IconTrash)}
-              </SidebarMenu>
-            </div>
-          )}
         </SidebarContent>
         <SidebarFooter className="flex-row items-center group-data-[collapsible=icon]:flex-col">
           <SidebarMenu className="min-w-0 flex-1">
@@ -373,15 +321,13 @@ export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
                       ['Create workspace', IconPlus],
                     ])}
                   </DropdownMenuGroup>
-                  {variant === 'b4' && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuGroup>
-                        <DropdownMenuLabel>Library</DropdownMenuLabel>
-                        {library(utilities)}
-                      </DropdownMenuGroup>
-                    </>
-                  )}
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel>Library</DropdownMenuLabel>
+                      {library(utilities)}
+                    </DropdownMenuGroup>
+                  </>
                   <DropdownMenuSeparator />
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>
@@ -409,43 +355,35 @@ export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
               </DropdownMenu>
             </SidebarMenuItem>
           </SidebarMenu>
-          {variant === 'b2' && (
-            <div className="flex shrink-0 text-gray-900 group-data-[collapsible=icon]:flex-col">
-              {utilities.map(([label, Icon]) => (
-                <IconAction key={label} label={label} icon={Icon} onClick={() => select(label)} />
-              ))}
-            </div>
-          )}
         </SidebarFooter>
       </Sidebar>
       <main className="relative min-w-0 flex-1 overflow-auto bg-background-100">
         <div
           className="absolute end-6 top-5 flex gap-1 rounded-lg border border-gray-alpha-400 bg-background-100 p-1"
           role="group"
-          aria-label="Sidebar variant"
+          aria-label="View all icon"
         >
-          {(Object.keys(variants) as Variant[]).map((key) => (
+          <span className="self-center px-2 text-label-12 text-gray-900">View all icon</span>
+          {(Object.keys(viewAllIcons) as ViewAllIcon[]).map((key) => (
             <Button
               key={key}
               size="sm"
-              variant={variant === key ? 'secondary' : 'ghost'}
-              aria-pressed={variant === key}
-              title={variants[key]}
+              variant={viewAllIcon === key ? 'secondary' : 'ghost'}
+              aria-pressed={viewAllIcon === key}
               onClick={() => {
-                setVariant(key);
+                setViewAllIcon(key);
                 const url = new URL(window.location.href);
-                url.searchParams.set('v', key);
+                url.searchParams.delete('v');
+                url.searchParams.set('icon', key);
                 window.history.replaceState(null, '', url);
               }}
             >
-              {key.toUpperCase()}
+              {key}
             </Button>
           ))}
         </div>
         <div className="mx-auto max-w-2xl px-8 pt-36">
-          <p className="mb-3 text-label-12 text-gray-900">
-            SIDEBAR LAB / {variant.toUpperCase()} · {variants[variant]}
-          </p>
+          <p className="mb-3 text-label-12 text-gray-900">SIDEBAR LAB / Refined B1</p>
           <h1 className="mb-8 text-heading-32 text-gray-1000">{active}</h1>
           <div className="space-y-3" aria-hidden="true">
             {['w-full', 'w-5/6', 'w-2/3', 'w-4/5'].map((width) => (

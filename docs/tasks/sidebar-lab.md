@@ -88,3 +88,26 @@ Chromium 1280×800 captures personally inspected: `/home/ubuntu/sidebar-lab-shot
 `b3.png`, `b4.png`; supplemental icon-collapse captures saved alongside them. Harness corrected an
 exact accessible-name expectation for the intentional Tasks count (Tasks 4), no product defect.
 No full CI, production-runtime, mobile or dark-mode visual pass in this iteration.
+
+## Refined B1 — final layout and icon exploration
+Removed B2–B4 and all layout selection; any v query is ignored. Tasks, Templates and Trash now appear
+only in the switcher's Library group, in that order, between workspace actions and Theme. Header,
+New note, Search/shortcut, collapsible Private/Shared/Chats and the sole footer switcher remain.
+The new View all icon control/query supports none/dots/arrow/list/bubbles with a fixed 16px icon slot,
+muted glyph/text and none as the absent/invalid/empty query default. View all opens local All chats.
+
+Focused tsc and new-file eslint exit 0; `/home/ubuntu/sidebar-lab-shots/check-final.mjs` exit 0:
+
+```text
+Sidebar lab typecheck and lint: PASS
+PASS: refined B1 only; Library Tasks/Templates/Trash navigation; group click/keyboard toggles; all five icon queries/controls; identical View all text alignment; empty/invalid/old-query defaults; collapsed switcher; no browser errors.
+PASS: final.png, final-switcher.png and five-option viewall-strip.png captured at 1280px width.
+Dev server port 3000: HTTP 200
+```
+
+Personally inspected `/home/ubuntu/sidebar-lab-shots/final.png` and `final-switcher.png` (1280×800),
+and `viewall-strip.png` (1280×201). The strip combines actual Playwright Chats element captures for
+all five options, with option captions, in a simple HTML image grid; no synthetic redraw of the UI.
+Bounding-box assertions verify every View all text position matches the chat titles and stays identical
+across options. Dev server remains on 3000; no production sidebar/auth/data changes. Prior full-CI,
+production-runtime, mobile and dark-visual limitations remain.
