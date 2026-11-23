@@ -237,9 +237,9 @@ describe('MeetingNotes.fromEvent', () => {
       userId: () => user,
     });
     const start = Date.parse('2026-11-16T19:02:00.000Z');
-    await persistence.prepareMeeting(meetingId, start);
+    const begin = await persistence.prepareMeeting(meetingId, start);
     expect(await notes.cannotContinue(meetingId)).toBeNull();
-    persistence.beginMeeting(meetingId, start);
+    begin(start);
     expect(store.meeting(meetingId)).toMatchObject({
       startedAt: '2026-11-16T19:02:00.000Z',
       endedAt: null,
@@ -257,7 +257,9 @@ describe('MeetingNotes.fromEvent', () => {
     expect((await notes.get({ documentId }))?.recordedHere).toBe(false);
     expect(await notes.cannotContinue(meetingId)).toMatch(/another device/);
     // A second begin (resume) keeps the first start.
-    persistence.beginMeeting(meetingId, Date.parse('2026-11-16T19:20:00.000Z'));
+    const resumeAt = Date.parse('2026-11-16T19:20:00.000Z');
+    const resume = await persistence.prepareMeeting(meetingId, resumeAt);
+    resume(resumeAt);
     expect(store.meeting(meetingId)?.startedAt).toBe('2026-11-16T19:02:00.000Z');
   });
 });

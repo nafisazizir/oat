@@ -30,8 +30,7 @@ beforeEach(() => {
   user = 'u1';
   changes = [];
   inner = {
-    prepareMeeting: async () => {},
-    beginMeeting: (id, at) => void calls.push(`begin ${id} ${at - T0}`),
+    prepareMeeting: async (id) => (at) => void calls.push(`begin ${id} ${at - T0}`),
     saveSegment: (id, s) => void calls.push(`segment ${id} ${s.id}`),
     meetingEndMs: () => 42,
     endMeeting: (id, at) => void calls.push(`end ${id} ${at - T0}`),
@@ -42,7 +41,8 @@ afterEach(() => vi.useRealTimers());
 describe('MeetingEndGrace (7.5)', () => {
   it('writes the end (with the stop time) only when the grace period runs out', async () => {
     const g = grace();
-    g.beginMeeting('m1', T0);
+    const begin = await g.prepareMeeting('m1', T0);
+    begin(T0);
     g.endMeeting('m1', T0 + 1000);
     expect(calls).toEqual(['begin m1 0']);
     expect(g.pending).toMatchObject({ meetingId: 'm1', endedAt: T0 + 1000, dueAt: T0 + 60_000 });
@@ -58,9 +58,9 @@ describe('MeetingEndGrace (7.5)', () => {
     const g = grace();
     g.endMeeting('m1', T0);
     await vi.advanceTimersByTimeAsync(30_000);
-    await g.prepareMeeting('m1', T0 + 30_000);
+    const resume = await g.prepareMeeting('m1', T0 + 30_000);
     expect(g.pending?.meetingId).toBe('m1');
-    g.beginMeeting('m1', T0 + 30_000);
+    resume(T0 + 30_000);
     await vi.advanceTimersByTimeAsync(120_000);
     expect(calls).toEqual(['begin m1 30000']);
     // Stopped again: a fresh grace period from the new stop.
@@ -72,7 +72,8 @@ describe('MeetingEndGrace (7.5)', () => {
   it('another meeting starting, "Finish now" and quit end it at once', async () => {
     const g = grace();
     g.endMeeting('m1', T0);
-    g.beginMeeting('m2', T0 + 5000);
+    const begin = await g.prepareMeeting('m2', T0 + 5000);
+    begin(T0 + 5000);
     expect(calls).toEqual(['end m1 0', 'begin m2 5000']);
     g.endMeeting('m2', T0 + 9000);
     g.flush('other');
@@ -153,7 +154,8 @@ describe('MeetingEndGrace — durable (7.5 review)', () => {
     third.endMeeting('m2', T0 + 60_000);
     third.dispose();
     const fourth = durable();
-    fourth.beginMeeting('m2', T0 + 70_000); // continued after the relaunch, before the database event
+    const resume = await fourth.prepareMeeting('m2', T0 + 70_000);
+    resume(T0 + 70_000); // continued after the relaunch, before the database event
     fourth.accountOpened('u1');
     expect(calls).toEqual(['end m1 0', 'begin m2 70000']);
     expect(existsSync(join(dir, 'g.json'))).toBe(false);

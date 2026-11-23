@@ -716,7 +716,14 @@ describe('RecordingService + local database (2.6)', () => {
       sync: { kick() {} },
       onChange() {},
     });
-    await db.persistence.prepareMeeting(meetingId, Date.now());
+    db.store.createMeeting({
+      meetingId,
+      documentId: 'existing-note',
+      ownerId: 'u1',
+      workspaceId: 'ws',
+      title: 'Existing note',
+      startedAt: null,
+    });
     const failed = setup({
       persistence: db.persistence,
       source: () => new FileSource({ input: { stereo: join(baseDir, 'missing.wav') } }),
@@ -784,8 +791,7 @@ describe('RecordingService + local database (2.6)', () => {
 
   it('a store failure becomes an issue; recording and the live transcript carry on', async () => {
     const failing: TranscriptPersistence = {
-      prepareMeeting: async () => {},
-      beginMeeting: () => {},
+      prepareMeeting: async () => () => {},
       saveSegment: () => {
         throw new Error('disk I/O error');
       },

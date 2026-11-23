@@ -63,11 +63,11 @@ export type InputSpec = { input: 'sidecar' } | { input: 'file'; fixture: string 
  * Where the meeting and its final segments are stored (2.6: the local SQLite cache, synced). Segments are
  * on the meeting clock; an empty final is a retraction.
  */
+export type BeginMeeting = (startedAt: number) => void;
+
 export interface TranscriptPersistence {
-  /** Ensure the note exists before opening audio. A rejection fails the start with its message. */
-  prepareMeeting(meetingId: string, requestedAt: number): Promise<void>;
-  /** Stamp the first start or reopen an ended meeting once capture starts. */
-  beginMeeting(meetingId: string, startedAt: number): void;
+  /** Check local storage and workspace before opening audio. Commit the note when capture starts. */
+  prepareMeeting(meetingId: string, requestedAt: number): Promise<BeginMeeting>;
   saveSegment(meetingId: string, segment: LiveSegment): void;
   /** Latest stored segment end of a meeting (ms, meeting clock), for resuming it after a relaunch. */
   meetingEndMs?(meetingId: string): number;
@@ -191,6 +191,7 @@ interface Session {
   readonly offsetMs: number;
   readonly archive: RecordingArchive;
   readonly stt: SttPipe;
+  readonly beginMeeting: BeginMeeting | undefined;
   /** Recording clock (frame `tUs`) of the `started` event: session time 0. */
   originUs: number | undefined;
   lastEndUs: number | undefined;
@@ -395,9 +396,10 @@ export class RecordingService {
 
     const meetingId = requested ?? (this.#o.newMeetingId ?? (() => uuidv7()))();
     this.#startingMeetingId = meetingId;
+    let beginMeeting: BeginMeeting | undefined;
     if (this.#o.persistence) {
       try {
-        await this.#o.persistence.prepareMeeting(meetingId, this.#now());
+        beginMeeting = await this.#o.persistence.prepareMeeting(meetingId, this.#now());
       } catch (error) {
         this.#o.log.error('recording: could not create the meeting', error);
         throw new RecordingServiceError(
@@ -503,6 +505,7 @@ export class RecordingService {
       offsetMs,
       archive,
       stt,
+      beginMeeting,
       originUs: undefined,
       lastEndUs: undefined,
       finalized: undefined,
@@ -746,7 +749,7 @@ export class RecordingService {
       session.originUs = event.tUs;
       this.#startedAt = this.#now();
       try {
-        this.#o.persistence?.beginMeeting(session.meetingId, this.#startedAt);
+        session.beginMeeting?.(this.#startedAt);
       } catch (error) {
         this.#o.log.error('recording: could not stamp the meeting start', error);
       }

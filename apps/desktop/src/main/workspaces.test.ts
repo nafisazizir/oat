@@ -445,7 +445,8 @@ describe('view-only everywhere', () => {
       },
       null,
     );
-    await p.prepareMeeting('m1', Date.now());
+    const begin = await p.prepareMeeting('m1', Date.now());
+    begin(Date.now());
     const made = await notes.fromEvent(event('a'));
     expect(db.documents().map((d) => d.workspaceId)).toEqual(['mine', 'mine']);
     expect(db.document(made.documentId)?.workspaceId).toBe('mine');
@@ -496,14 +497,16 @@ describe('new notes land in the target workspace', () => {
       newNoteWorkspace: (t) => w.newNoteWorkspace(t),
     });
     w.setActive('me');
-    await p.prepareMeeting('m1', Date.now());
+    const begin = await p.prepareMeeting('m1', Date.now());
+    begin(Date.now());
     expect(store.document('doc-1')).toMatchObject({
       workspaceId: 'me',
       visibility: 'private',
       ownerId: 'u1',
     });
     w.setActive('board');
-    await p.prepareMeeting('m2', Date.now());
+    const beginNext = await p.prepareMeeting('m2', Date.now());
+    beginNext(Date.now());
     expect(store.document('doc-2')?.workspaceId).toBe('design');
   });
 

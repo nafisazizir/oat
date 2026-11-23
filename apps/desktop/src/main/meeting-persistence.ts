@@ -3,9 +3,8 @@
  * the moment it is final, and every write nudges sync (its outbox triggers queue the row; `SyncService`
  * pushes it).
  *
- * - Start: the meeting row and its `meeting` document (private, workspace root, owned by the user, in
- *   the active workspace when they may create there, else the first one where they may — 3.9, D-36) are
- *   created before opening audio. Capture readiness stamps the start or reopens the existing meeting.
+ * - Start: resolve the workspace before opening audio. Once capture is ready, create the meeting and
+ *   its private document with the start time already set, or reopen the existing meeting.
  * - Finals only (D-19: a final replaces its interim; interims never reach the database). An empty final is
  *   a retraction and deletes the segment.
  * - Stop: `ended_at` is stamped.
@@ -13,7 +12,7 @@
 import type { LiveSegment } from '@oat/core/bridge';
 import { type LocalStore, uuidv7 } from '@oat/local-store';
 
-import type { TranscriptPersistence } from './recording-service.ts';
+import type { BeginMeeting, TranscriptPersistence } from './recording-service.ts';
 import { noNoteWorkspaceMessage } from './workspaces.ts';
 
 export interface MeetingPersistenceOptions {
@@ -69,27 +68,35 @@ export class MeetingPersistence implements TranscriptPersistence {
     return store;
   }
 
-  async prepareMeeting(meetingId: string, requestedAt: number): Promise<void> {
+  async prepareMeeting(meetingId: string, requestedAt: number): Promise<BeginMeeting> {
     const userId = this.#o.userId();
     if (!userId) throw new PersistenceError('Sign in to record.');
-    if (this.#store().meeting(meetingId)) return;
-    const workspaceId = await this.#o.newNoteWorkspace(this.#o.workspaceTimeoutMs);
     const store = this.#store();
+    if (store.meeting(meetingId)) {
+      return (startedAt) => this.#resumeMeeting(store, meetingId, startedAt);
+    }
+    const workspaceId = await this.#o.newNoteWorkspace(this.#o.workspaceTimeoutMs);
     if (!workspaceId) throw new PersistenceError(noNoteWorkspaceMessage(store));
-    store.createMeeting({
-      meetingId,
-      documentId: (this.#o.newId ?? (() => uuidv7()))(),
-      workspaceId,
-      ownerId: userId,
-      title: meetingTitle(requestedAt),
-      startedAt: null,
-    });
-    this.#o.sync.kick();
-    this.#o.onChange?.();
+    return (startedAt) => {
+      if (
+        store.createMeeting({
+          meetingId,
+          documentId: (this.#o.newId ?? (() => uuidv7()))(),
+          workspaceId,
+          ownerId: userId,
+          title: meetingTitle(requestedAt),
+          startedAt: new Date(startedAt).toISOString(),
+        })
+      ) {
+        this.#o.sync.kick();
+        this.#o.onChange?.();
+      } else {
+        this.#resumeMeeting(store, meetingId, startedAt);
+      }
+    };
   }
 
-  beginMeeting(meetingId: string, startedAt: number): void {
-    const store = this.#store();
+  #resumeMeeting(store: LocalStore, meetingId: string, startedAt: number): void {
     const meeting = store.meeting(meetingId);
     if (!meeting) return;
     const patch = {
