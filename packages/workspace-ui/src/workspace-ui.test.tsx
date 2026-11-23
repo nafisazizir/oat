@@ -114,6 +114,24 @@ function setup(
 }
 
 describe('shared workspace shell', () => {
+  it('removes invisible group toggles from keyboard navigation in icon mode', async () => {
+    const { user } = setup();
+    const labels = ['Private', 'Shared', 'Chats'].map((name) =>
+      screen.getByRole('button', { name }),
+    );
+    const toggle = screen.getByTestId('sidebar-header-trigger');
+    await user.click(toggle);
+    for (const label of labels) {
+      expect(label.tabIndex).toBe(-1);
+      expect(label.getAttribute('aria-hidden')).toBe('true');
+      expect(label.classList.contains('group-data-[collapsible=icon]:hidden')).toBe(true);
+    }
+    await user.click(toggle);
+    for (const label of labels) {
+      expect(label.tabIndex).toBe(0);
+      expect(label.getAttribute('aria-hidden')).toBeNull();
+    }
+  });
   it.each(['web', 'desktop'] as const)('opens Settings once per Cmd/Ctrl+, on %s', (platform) => {
     const { host } = setup(data, false, platform);
     fireEvent.keyDown(window, { key: ',', metaKey: true });

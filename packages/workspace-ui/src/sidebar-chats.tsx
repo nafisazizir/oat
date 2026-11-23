@@ -11,6 +11,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from '@oat/ui/components/sidebar';
 import { IconChevronRight, IconDots, IconMessageCircle, IconPlus } from '@tabler/icons-react';
 import { useWorkspaceHost } from './host';
@@ -20,6 +21,8 @@ export function ChatsSection() {
   const { client, Link, route, online } = useWorkspaceHost();
   const { workspace } = useShellData();
   const [open, setOpen] = useState(true);
+  const { state, isMobile } = useSidebar();
+  const iconOnly = state === 'collapsed' && !isMobile;
   const [threads, setThreads] = useState<ChatThreadSummary[]>([]);
   const threadId = route.view === 'assistant' ? route.threadId : undefined;
   useEffect(() => {
@@ -44,8 +47,15 @@ export function ChatsSection() {
   return (
     <SidebarGroup className="group/tree-section py-1" data-testid="chats-section">
       <SidebarGroupLabel
+        className="group-data-[collapsible=icon]:hidden"
         render={
-          <button type="button" aria-expanded={open} onClick={() => setOpen((value) => !value)} />
+          <button
+            type="button"
+            tabIndex={iconOnly ? -1 : 0}
+            aria-hidden={iconOnly || undefined}
+            aria-expanded={open}
+            onClick={() => setOpen((value) => !value)}
+          />
         }
       >
         Chats

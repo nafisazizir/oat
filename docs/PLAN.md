@@ -1,6 +1,7 @@
 # Oat — Plan & Task Board
 
 - [x] Ship approved sidebar to shared web/desktop shell; retire lab. Fast gate and required e2e pass; real 1280×800 sidebar screenshots inspected. Native macOS runtime remains unverified; publication follows closeout. [task](tasks/sidebar-production.md)
+- [x] PR #34 review follow-up: independent export, fresh-chat intent, tree-create expansion, Settings shortcut and collapsed-label focus fixes implemented with regression tests; final fast gate passes (62.2s). PR monitoring follows publication. [task](tasks/sidebar-production.md)
 
 The sidebar-lab entries below are historical exploration evidence; its route is retired by this rollout.
 

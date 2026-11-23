@@ -93,3 +93,37 @@ Logs: ~/sidebar-lab-shots/production-e2e.log, production-e2e-first.log,
 production-e2e-second.log, production-baseline-e2e.log. Compose images pulled via
 mirror.gcr.io and retagged. Screenshots/evidence harness and baseline comparison worktree
 remain outside the product diff. Native macOS runtime and independent review remain unverified.
+
+## PR #34 review follow-up
+All five findings at 7738b5c were real and have focused regression coverage:
+- Export was reachable only through a permission/recording-gated Leave button. Settings General
+  now offers standalone Export my notes regardless of exit permissions or recording state, using
+  the same platform export service. Leave/delete guards are unchanged. Tests cover sole-owner,
+  recording, empty, cancelled and failed exports (settings.test.tsx: 8 passed).
+- The sidebar plus could navigate to the already-current empty Assistant URL without resetting its
+  draft. A workspace-scoped UI intent now invokes the page Assistant's existing newChat routine;
+  document panels and other workspaces ignore it. Modified clicks retain normal link behavior.
+  Assistant regression suite: 38 passed; Chats suite: 7 passed.
+- Creating from a collapsed tree section now expands it before page/folder creation, exposing the
+  folder's inline rename field. Both creation paths are tested.
+- Settings now registers Cmd/Ctrl+, via useAppShortcut in the shared sidebar. No application menu,
+  accelerator or duplicate Settings shortcut exists in desktop source; DesktopLink also respects
+  defaultPrevented. Shortcut hook tests: 9 passed; shared shell checks both web/desktop hosts.
+- Icon-mode tree/chat labels are display:none, aria-hidden and tabIndex=-1, restored in expanded
+  mode. Mobile's expanded sheet remains accessible. Final affected shell/Chats run: 27 passed.
+
+Final local gate after all five fixes (`pnpm run ci --fast`):
+```text
+step        status     time  note
+format      pass      11.7s
+actionlint  pass       0.3s
+typecheck   pass      19.3s
+lint        pass       4.7s
+test        pass      26.2s
+total                 62.2s
+
+ci: ok
+```
+Log: ~/sidebar-lab-shots/pr34-review-fast.log. PR checks are monitored on #34 after publication.
+No new visual capture was requested: the new standalone export row and collapsed-label layout are
+visually unverified. Native macOS runtime remains unverified.

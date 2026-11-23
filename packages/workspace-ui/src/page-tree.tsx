@@ -18,6 +18,7 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from '@oat/ui/components/sidebar';
 import { Spinner } from '@oat/ui/components/spinner';
 import { SECTION_INFO } from '@oat/core/sections';
@@ -132,6 +133,8 @@ export function TreeSection({ area }: { area: Area }) {
   const actions = useTreeActions();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const [open, setOpen] = useState(true);
+  const { state, isMobile } = useSidebar();
+  const iconOnly = state === 'collapsed' && !isMobile;
   const { label, empty } = SECTION_INFO[area];
   // Only this section's items: a shared folder never lists my private page (it is under Private).
   const { items, roots } = sectionOf(documents, area, user.id);
@@ -163,9 +166,18 @@ export function TreeSection({ area }: { area: Area }) {
       <SidebarGroupLabel
         {...rootDrop.handlers}
         render={
-          <button type="button" aria-expanded={open} onClick={() => setOpen((value) => !value)} />
+          <button
+            type="button"
+            tabIndex={iconOnly ? -1 : 0}
+            aria-hidden={iconOnly || undefined}
+            aria-expanded={open}
+            onClick={() => setOpen((value) => !value)}
+          />
         }
-        className={cn(rootDrop.over && 'bg-brand-100 text-brand-1000')}
+        className={cn(
+          'group-data-[collapsible=icon]:hidden',
+          rootDrop.over && 'bg-brand-100 text-brand-1000',
+        )}
       >
         {label}
         <IconChevronRight className={cn('ms-1 size-3.5', open && 'rotate-90')} />
