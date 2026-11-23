@@ -1,5 +1,7 @@
 # Oat — Plan & Task Board
 
+- [x] Human-requested dev-only sidebar A/B/C/D lab · Focused typecheck/lint and Chromium interaction checks pass; 1280×800 expanded/collapsed and A-menu screenshots at /home/ubuntu/sidebar-lab-shots/. Dev server port 3000; no production navigation edits. [task](tasks/sidebar-lab.md)
+
 - [x] Human-requested PR #31 Graphite visual round 3c · Implemented; 62 AFTER app PNGs/19 comparison sheets reviewed, conflict axe AA and link/greeting checks pass. Full E2E gate passes: web 91 passed/17 skipped, editor 16 passed/2 skipped. Final fast gate passes all five steps without scaling (24 cached test tasks). User accepted/authorized commit/push; publication follows closeout. Baseline/native limits retained. Evidence /home/ubuntu/oat-shots/ · [task](tasks/visual-hillclimb-3c-baseline.md)
 
 - [x] Functional parity closeout: G1–G14/G16–G18 implemented; G15 explicitly deferred optional browser-device aggregate storage. Twelve requested desktop surfaces captured and inspected in light-mode 1440×900 built renderer with stubbed bridge (14 PNGs); fixed full-window recovery layout, fast CI passes. Evidence/tooling at /home/ubuntu/oat-parity-shots/, outside git. P1–P13 retained; real Electron/macOS/recording/provider consent unverified. Final feature-branch push authorized · [task](tasks/functional-parity.md)
