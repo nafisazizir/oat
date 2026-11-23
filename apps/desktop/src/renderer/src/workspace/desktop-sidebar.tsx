@@ -1,6 +1,8 @@
 import type { DesktopUser } from '@oat/core/bridge';
+import { cn } from '@oat/ui/lib/utils';
 import { AppSidebar, useShellData, useWorkspaceHost } from '@oat/workspace-ui';
 import { useState, type ReactNode } from 'react';
+import { useMainState } from '../main-state.ts';
 import { NewMeetingButton } from '../meetings/meeting-list';
 import { ConflictsPanel } from '../sync/conflicts-panel';
 import { DesktopSearch } from '../windows/shell-menus';
@@ -30,13 +32,16 @@ export function DesktopSidebar({
   const account = useDesktopAccountItems();
   const { active, fallback, needsWorkspace } = workspaces;
   const isMac = /Mac/.test(navigator.platform);
+  // Full screen has no traffic lights to clear: the toggle sits at the edge, as on other platforms.
+  const fullScreen = useMainState()?.fullScreen;
+  const lights = isMac && !fullScreen;
   return (
     <div className="contents" data-testid="signed-in">
       <AppSidebar
         headerClassName={isMac ? 'gap-1 pt-0' : undefined}
         headerRowClassName={
           isMac
-            ? 'app-drag h-12 ps-18 group-data-[collapsible=icon]:ps-0 group-data-[collapsible=icon]:[&>*]:invisible [&_button]:app-no-drag [&_a]:app-no-drag'
+            ? cn('app-drag h-10 [&_button]:app-no-drag [&_a]:app-no-drag', lights && 'ps-17.5')
             : undefined
         }
         primaryAction={

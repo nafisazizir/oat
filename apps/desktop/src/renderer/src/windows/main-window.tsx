@@ -297,6 +297,7 @@ function SignedInShell({
   recordingStatus: MainState['recording']['status'];
 }) {
   const snapshot = useRecording();
+  const fullScreen = useMainState()?.fullScreen;
   const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null);
   const notes = useMeetingNotes(true);
   // 3.9: the sidebar shows one workspace's notes; new notes go there when I can create there.
@@ -399,8 +400,10 @@ function SignedInShell({
         <ShellHeader
           className={cn(
             'app-drag sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 bg-background-100 px-3',
+            /Mac/.test(navigator.platform) && 'h-10',
             /Mac/.test(navigator.platform) &&
-              'max-md:ps-24 group-has-data-[collapsible=icon]/sidebar-wrapper:ps-12',
+              !fullScreen &&
+              'max-md:ps-20.5 group-has-data-[collapsible=offcanvas]/sidebar-wrapper:ps-20.5',
           )}
         >
           <div className="ms-auto flex min-w-0 items-center gap-2">

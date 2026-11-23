@@ -219,6 +219,15 @@ async function start() {
   if (config.rendererDevUrl) addDevServerCsp(config.rendererDevUrl);
 
   const store = new MainStore();
+  // Full screen hides the traffic lights, so the title row gives their space back (only the main
+  // window can go full screen).
+  app.on('browser-window-created', (_event, win) => {
+    const set = (fullScreen: boolean) =>
+      store.update((s) => (Boolean(s.fullScreen) === fullScreen ? s : { ...s, fullScreen }));
+    win.on('enter-full-screen', () => set(true));
+    win.on('leave-full-screen', () => set(false));
+    win.on('closed', () => set(false));
+  });
   const api = createApiClient({
     baseUrl: config.webUrl,
     ...(config.syncUrl ? { syncBaseUrl: config.syncUrl } : {}),

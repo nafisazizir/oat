@@ -23,7 +23,6 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
   SidebarTrigger,
 } from '@oat/ui/components/sidebar';
 import {
@@ -183,13 +182,15 @@ export function AppSidebar({
   useAppShortcut('settings', () => host.navigate({ view: 'settings' }));
   return (
     <Sidebar
-      collapsible="icon"
+      collapsible="offcanvas"
       data-testid="app-sidebar"
       data-workspace-id={workspace.id}
       data-saving={saving || undefined}
     >
       <SidebarHeader className={cn('gap-3 px-2 pt-2', headerClassName)}>
-        <div className={cn('flex h-8 items-center gap-2', headerRowClassName)}>
+        {/* The toggle's box starts 8px in, like the menu buttons below, so its glyph lines up with
+            their icons and "Oat" with their labels. ShellHeader's toggle sits on the same pixels. */}
+        <div className={cn('flex h-8 items-center', headerRowClassName)}>
           <SidebarTrigger data-testid="sidebar-header-trigger" />
           <Link
             route={{ view: 'home' }}
@@ -227,7 +228,6 @@ export function AppSidebar({
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
-      <SidebarRail />
     </Sidebar>
   );
 }

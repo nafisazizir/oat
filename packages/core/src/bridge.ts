@@ -287,6 +287,8 @@ export const mainStateSchema = z.object({
   activeMeetingId: z.string().nullable(),
   /** Desktop sync (2.6). */
   sync: syncStatusSchema,
+  /** The main window is in native full screen, where macOS hides the traffic lights. */
+  fullScreen: z.boolean().optional(),
 });
 export type MainState = z.infer<typeof mainStateSchema>;
 

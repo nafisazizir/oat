@@ -37,10 +37,9 @@ test.describe('app shell', () => {
 
     await page.getByTestId('sidebar-header-trigger').click();
     await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
-    // Collapsed to icons: labels hidden, icon buttons still there.
-    await page.getByTestId('workspace-switcher').click();
-    await expect(page.getByRole('menuitem', { name: 'Sign out' })).toBeVisible();
-    await page.keyboard.press('Escape');
+    // Collapsed all the way: nothing of the sidebar is left on screen, only the header's toggle.
+    await expect(page.getByTestId('workspace-switcher')).not.toBeInViewport();
+    await expect(page.getByTestId('sidebar-trigger')).toBeVisible();
     await expect(page.getByTestId('theme-menu')).toHaveCount(0);
 
     await page.reload();
