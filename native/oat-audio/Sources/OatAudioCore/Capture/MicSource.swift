@@ -71,8 +71,23 @@ public final class MicSource: CaptureSource, @unchecked Sendable {
         pipeline.cancel()
     }
 
-    /// Runs on `control`.
+    /// Runs on `control`. An engine that will not start with voice processing (the VPIO unit can fail to
+    /// initialise on some devices or while another app holds it) is rebuilt once without it: a recording
+    /// without echo cancellation beats one without a microphone.
     private func startEngine() throws {
+        guard echoCancellation else { return try startEngine(echoCancellation: false) }
+        do {
+            try startEngine(echoCancellation: true)
+        } catch let error as CodedError where error.code == "mic_start_failed" {
+            delegate?.source(id, didFailWithCode: "aec_unavailable",
+                             message: "engine did not start with voice processing, capturing without echo cancellation: \(error)",
+                             fatal: false)
+            try startEngine(echoCancellation: false)
+        }
+    }
+
+    /// Runs on `control`.
+    private func startEngine(echoCancellation: Bool) throws {
         let engine = AVAudioEngine()
         let input = engine.inputNode
         var voiceProcessing = false

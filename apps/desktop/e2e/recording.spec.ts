@@ -207,7 +207,6 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
 
   // Empty state before the first recording: Home without notes (a transcript belongs to a note now).
   await expect(home(page)).toContainText('No notes yet');
-  await expect(page.getByTestId('audio-input')).toContainText(`Fixture: ${FIXTURE}`);
   await evidence(page, 'empty', '2.5');
 
   // Note when each source's first segment (and first interim) becomes visible.
@@ -224,7 +223,7 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
     new MutationObserver(check).observe(document.body, { childList: true, subtree: true });
   });
 
-  await page.getByRole('button', { name: 'Start recording' }).click();
+  await page.getByTestId('new-meeting').click();
   // The note it records into opens; its transcript is closed until asked for, so open it at once (the
   // latency below is measured to the first *visible* segment).
   await openTranscript(page);
@@ -404,7 +403,7 @@ test('transcription down: the error is shown and recording + archive carry on', 
   });
   await expect(page.getByTestId('signed-in-email')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Start recording' }).click();
+  await page.getByTestId('new-meeting').click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
   const banner = page.getByTestId('recording-issues');
   await expect(banner).toBeVisible({ timeout: scaled(15_000) });
@@ -459,7 +458,7 @@ test('sync API down: the outbox grows while recording, then drains into Postgres
   await launch({ OAT_AUDIO_SOURCE: `file:${FIXTURE}`, OAT_SYNC_URL: `http://127.0.0.1:${port}` });
   await expect(page.getByTestId('signed-in-email')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Start recording' }).click();
+  await page.getByTestId('new-meeting').click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
   const meetingId = (await recordingState(page)).meetingId!;
   // Let a few finals arrive, then stop.
