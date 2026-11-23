@@ -98,7 +98,7 @@ export class MeetingPersistence implements TranscriptPersistence {
 
   #resumeMeeting(store: LocalStore, meetingId: string, startedAt: number): void {
     const meeting = store.meeting(meetingId);
-    if (!meeting) return;
+    if (!meeting) throw new PersistenceError('The meeting note is no longer on this Mac.');
     const patch = {
       endedAt: null,
       ...(meeting.startedAt === null ? { startedAt: new Date(startedAt).toISOString() } : {}),

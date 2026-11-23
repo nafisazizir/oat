@@ -28,6 +28,7 @@ could stay set to Playing after leaving a note. This change fixes both in the de
 - [x] Stopping or quitting cancels a pending capture startup.
 - [x] A failed first recording leaves the same note eligible for retry.
 - [x] A new recording note is published only after capture opens.
+- [x] A failed local meeting write stops capture and allows a retry.
 - [x] Continuing a meeting holds its pending end until capture opens or the attempt is canceled.
 - [x] On macOS, start from Home, capture the real microphone, read a live transcript, pause and resume,
   stop, play the local archive, then repeat in the same app session.
@@ -80,3 +81,7 @@ could stay set to Playing after leaving a note. This change fixes both in the de
 - On the Mac, an initial hardware run missed a mock microphone transcript segment in its second
   recording. The rerun passed two complete microphone and system-audio recordings, both transcripts
   and playback. The pre-existing calendar note also passed failure, cancellation and retry.
+- All four auto-stop and grace-period E2E tests passed on the Mac. The storage regression test
+  simulates a full SQLite disk at capture readiness and checks that capture stops, nothing enters
+  the sync outbox or audio index, and recording can be retried. A failed resume keeps the original
+  grace deadline.

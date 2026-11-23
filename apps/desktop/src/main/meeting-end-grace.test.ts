@@ -95,15 +95,30 @@ describe('MeetingEndGrace (7.5)', () => {
     g.endMeeting('m1', T0);
     const begin = await g.prepareMeeting('m2', T0 + 5000);
     begin(T0 + 5000);
-    expect(calls).toEqual(['end m1 0', 'begin m2 5000']);
+    expect(calls).toEqual(['begin m2 5000', 'end m1 0']);
     g.endMeeting('m2', T0 + 9000);
     g.flush('other');
     expect(g.pending?.meetingId).toBe('m2');
     g.flush('m2');
     g.flush();
-    expect(calls).toEqual(['end m1 0', 'begin m2 5000', 'end m2 9000']);
+    expect(calls).toEqual(['begin m2 5000', 'end m1 0', 'end m2 9000']);
     await vi.advanceTimersByTimeAsync(120_000);
     expect(calls).toHaveLength(3);
+  });
+
+  it('keeps the original end when the resumed meeting cannot be saved', async () => {
+    inner.prepareMeeting = async () => () => {
+      throw new Error('local database unavailable');
+    };
+    const g = grace();
+    g.endMeeting('m1', T0);
+    const resume = await g.prepareMeeting('m1', T0 + 1000);
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(() => resume(T0 + 60_000)).toThrow('local database unavailable');
+    expect(calls).toEqual([]);
+    g.cancelMeetingStart('m1');
+    expect(calls).toEqual(['end m1 0']);
   });
 
   it('never writes into another account’s database', () => {

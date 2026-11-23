@@ -154,6 +154,7 @@ export interface PowerEvents {
 }
 
 const SLEEP_ISSUE = 'system_sleep';
+const MEETING_SAVE_FAILURE = 'Recording couldn’t start: the meeting can’t be saved on this Mac.';
 
 /** Thrown by commands; `code` maps to a bridge error code. */
 export class RecordingServiceError extends Error {
@@ -161,8 +162,9 @@ export class RecordingServiceError extends Error {
   constructor(
     readonly code: 'invalid_state' | 'unavailable',
     message: string,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
   }
 }
 
@@ -415,7 +417,7 @@ export class RecordingService {
           'unavailable',
           error instanceof Error && error.name === 'PersistenceError'
             ? error.message
-            : 'Recording couldn’t start: the meeting can’t be saved on this Mac.',
+            : MEETING_SAVE_FAILURE,
         );
       }
     }
@@ -525,7 +527,16 @@ export class RecordingService {
     this.#session = session;
 
     try {
-      await this.#controller.start();
+      await this.#controller.start((event) => {
+        const startedAt = this.#now();
+        try {
+          session.beginMeeting?.(startedAt);
+        } catch (error) {
+          throw new RecordingServiceError('unavailable', MEETING_SAVE_FAILURE, { cause: error });
+        }
+        session.originUs = event.tUs;
+        this.#startedAt = startedAt;
+      });
     } catch (error) {
       if (this.#controller.state === 'stopping' || this.#controller.state === 'idle') {
         await this.#finalize(session);
@@ -533,6 +544,7 @@ export class RecordingService {
       }
       this.#o.log.error('recording: start failed', error);
       await this.#finalize(session);
+      if (error instanceof RecordingServiceError) throw error;
       throw new RecordingServiceError('unavailable', startFailureMessage(error));
     }
     return { meetingId };
@@ -752,18 +764,7 @@ export class RecordingService {
   }
 
   #onAudioEvent(event: AudioEvent): void {
-    const session = this.#session;
-    if (!session) return;
-    if (event.type === 'started') {
-      session.originUs = event.tUs;
-      this.#startedAt = this.#now();
-      try {
-        session.beginMeeting?.(this.#startedAt);
-      } catch (error) {
-        this.#o.log.error('recording: could not stamp the meeting start', error);
-      }
-      this.#changed(true);
-    } else if (event.type === 'overrun') {
+    if (this.#session && event.type === 'overrun') {
       this.#issue({
         scope: 'audio',
         code: 'overrun',
@@ -1027,6 +1028,7 @@ interface SttPipeOptions {
 const who = (source: AudioSourceKind) => (source === 'mic' ? 'Your microphone' : 'Meeting');
 
 function startFailureMessage(error: unknown): string {
+  if (error instanceof RecordingServiceError) return error.message;
   const text = error instanceof Error ? error.message : String(error);
   if (/not found|no such file|ENOENT|does not exist|could not find/i.test(text)) {
     return 'Recording couldn’t start: the audio helper is missing.';

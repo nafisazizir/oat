@@ -742,6 +742,48 @@ describe('RecordingService + local database (2.6)', () => {
     db.store.close();
   });
 
+  it('a failed meeting write stops capture at readiness and allows a retry', async () => {
+    const db = localDb();
+    const audio = new AudioIndex({ path: ':memory:' });
+    const source = new FileSource({
+      input: { stereo: join(FIXTURES, 'standup-short.wav') },
+      speed: 'realtime',
+    });
+    const h = setup({
+      persistence: db.persistence,
+      store: audio,
+      source: vi
+        .fn(() => new FileSource({ input: { stereo: join(FIXTURES, 'standup-short.wav') } }))
+        .mockReturnValueOnce(source),
+    });
+    vi.spyOn(db.store, 'createMeeting').mockImplementationOnce(() => {
+      throw new Error('SQLITE_FULL');
+    });
+    const meetingId = 'write-failed';
+    const message = 'Recording couldn’t start: the meeting can’t be saved on this Mac.';
+
+    await expect(h.service.start({ meetingId, spec: fixture })).rejects.toMatchObject({
+      code: 'unavailable',
+      message,
+    });
+    expect(source.state).toBe('stopped');
+    expect(h.service.status).toBe('error');
+    expect(h.statuses).not.toContain('recording');
+    expect(h.service.snapshot()).toMatchObject({
+      startedAt: null,
+      issues: expect.arrayContaining([expect.objectContaining({ message, fatal: true })]),
+    });
+    expect(db.store.meeting(meetingId)).toBeUndefined();
+    expect(db.store.outbox()).toEqual([]);
+    expect(await audio.list({ meetingId })).toEqual([]);
+
+    await expect(h.service.start({ meetingId, spec: fixture })).resolves.toEqual({ meetingId });
+    expect(db.store.meeting(meetingId)?.startedAt).not.toBeNull();
+    await h.service.stop();
+    audio.close();
+    db.store.close();
+  });
+
   it('no workspace known (fresh cache, offline): the start fails visibly', async () => {
     const db = localDb(false);
     const h = setup({ persistence: db.persistence });

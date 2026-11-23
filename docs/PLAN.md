@@ -1,7 +1,7 @@
 # Oat — Plan & Task Board
 
 - [ ] Human-requested macOS recording startup fix and hardware verification. Both real audio sources
-  passed on the Mac. PR review fixes cover startup cancellation, note sync and post-meeting grace.
+  passed on the Mac. PR review fixes cover startup cancellation, note write failures and post-meeting grace.
   The full CI gate still has four web E2E failures reproduced on the base revision.
   [task](tasks/mac-recording-startup.md)
 

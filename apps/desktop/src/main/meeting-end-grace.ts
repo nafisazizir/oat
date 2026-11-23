@@ -97,8 +97,8 @@ export class MeetingEndGrace implements TranscriptPersistence {
     }
     const beginMeeting = await this.#o.inner.prepareMeeting(meetingId, requestedAt);
     return (startedAt) => {
-      this.#clearPreviousEnd(meetingId);
       beginMeeting(startedAt);
+      this.#clearPreviousEnd(meetingId);
     };
   }
 
