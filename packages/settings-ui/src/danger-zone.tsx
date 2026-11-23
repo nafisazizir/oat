@@ -141,6 +141,54 @@ function DeleteWorkspaceDialog({
 
 const LAST_WORKSPACE = 'This is your only workspace. Create or join another one first.';
 
+function ExportNotesRow({ workspaceId }: { workspaceId: string }) {
+  const { exportNotes } = useSettings();
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  return (
+    <Row
+      title="Export my notes"
+      description="Download the notes you created here as Markdown in a ZIP file."
+    >
+      <div className="flex flex-col items-start gap-2">
+        <Button
+          variant="outline"
+          disabled={pending}
+          onClick={() =>
+            startTransition(async () => {
+              setMessage(null);
+              setError(null);
+              try {
+                const count = await exportNotes(workspaceId);
+                if (count !== null)
+                  setMessage(
+                    count === 0
+                      ? 'You have no notes of your own here, so the file is empty.'
+                      : `Saved ${count === 1 ? '1 note' : `${count} notes`} to a ZIP file.`,
+                  );
+              } catch {
+                setError('Couldn’t export your notes. Nothing was downloaded — try again.');
+              }
+            })
+          }
+        >
+          {pending && <Spinner data-icon="inline-start" />}
+          Export my notes
+        </Button>
+        <p role="status" className="text-copy-13 text-gray-900 empty:hidden">
+          {message}
+        </p>
+        {error && (
+          <p role="alert" className="text-copy-13 text-red-900">
+            {error}
+          </p>
+        )}
+      </div>
+    </Row>
+  );
+}
+
 /**
  * Leave (anyone but the last owner) and delete (owners) — neither for the viewer's last workspace (D-36),
  * which the rows say instead of only disabling their buttons.
@@ -171,6 +219,7 @@ export function WorkspaceDangerZone({
   return (
     <>
       <ItemGroup role="group" className="gap-0">
+        <ExportNotesRow workspaceId={workspace.id} />
         <Row
           title="Leave workspace"
           description={

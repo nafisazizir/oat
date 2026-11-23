@@ -49,8 +49,11 @@ const workspace: WorkspaceSettings = {
   joinRequests: [],
 };
 
-function show(active: SettingsSectionId) {
-  let settings = workspace;
+function show(
+  active: SettingsSectionId,
+  options: { canLeave?: boolean; recordingActive?: boolean } = {},
+) {
+  let settings = { ...workspace, canLeave: options.canLeave ?? workspace.canLeave };
   const transport = vi.fn(async ({ path, method, body }: OatRequest) => {
     let result: unknown;
     switch (path) {
@@ -81,7 +84,7 @@ function show(active: SettingsSectionId) {
     return { status: 200, json: async () => result };
   });
   const connect = vi.fn(async () => {});
-  const exportNotes = vi.fn(async () => 2);
+  const exportNotes = vi.fn<() => Promise<number | null>>(async () => 2);
   render(
     <TooltipProvider>
       <SettingsPanel
@@ -95,6 +98,7 @@ function show(active: SettingsSectionId) {
           connect,
           exportNotes,
           onWorkspaceExited: vi.fn(),
+          recordingActive: options.recordingActive,
         }}
       />
     </TooltipProvider>,
@@ -187,4 +191,35 @@ it('shows the viewer’s membership and management controls from the API', async
   show('members');
   expect((await screen.findByTestId('member-row')).textContent).toContain('Ada');
   expect(screen.getByRole('button', { name: 'Invite people' })).toBeTruthy();
+});
+
+it.each([false, true])(
+  'exports independently of leave permission while recording=%s',
+  async (recordingActive) => {
+    const { exportNotes } = show('workspace', { canLeave: false, recordingActive });
+    const button = await screen.findByRole('button', { name: 'Export my notes' });
+    expect(screen.getByRole('button', { name: 'Leave workspace' }).hasAttribute('disabled')).toBe(
+      true,
+    );
+    await userEvent.click(button);
+    expect(exportNotes).toHaveBeenCalledWith('team');
+    expect(await screen.findByText('Saved 2 notes to a ZIP file.')).toBeTruthy();
+  },
+);
+
+it('handles empty, cancelled and failed standalone exports', async () => {
+  const { exportNotes } = show('workspace', { canLeave: false });
+  exportNotes.mockResolvedValueOnce(0);
+  const button = await screen.findByRole('button', { name: 'Export my notes' });
+  await userEvent.click(button);
+  expect(await screen.findByText(/file is empty/)).toBeTruthy();
+  exportNotes.mockResolvedValueOnce(null);
+  await userEvent.click(button);
+  expect(screen.queryByText(/file is empty/)).toBeNull();
+  exportNotes.mockRejectedValueOnce(new Error('failed'));
+  await userEvent.click(button);
+  expect(await screen.findByRole('alert')).toHaveProperty(
+    'textContent',
+    expect.stringContaining('Couldn’t export'),
+  );
 });
