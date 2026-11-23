@@ -52,8 +52,11 @@ const live = (id: string, text: string, isFinal = true) => ({
 
 describe('MeetingPersistence', () => {
   it('creates the meeting + its document once (resuming reuses them)', async () => {
-    await p.beginMeeting('m1', T0);
-    await p.beginMeeting('m1', T0 + 60_000);
+    await p.prepareMeeting('m1', T0);
+    expect(store.meeting('m1')?.startedAt).toBeNull();
+    p.beginMeeting('m1', T0);
+    await p.prepareMeeting('m1', T0 + 60_000);
+    p.beginMeeting('m1', T0 + 60_000);
     expect(store.documents()).toHaveLength(1);
     expect(store.meeting('m1')).toMatchObject({
       documentId: 'doc-1',
@@ -66,16 +69,16 @@ describe('MeetingPersistence', () => {
       workspaceId: 'ws',
     });
     expect(meetingTitle(T0)).toMatch(/^Meeting, Nov 14, /);
-    expect(kicks).toBe(1);
+    expect(kicks).toBe(2);
   });
 
   it('refuses without a user or a known workspace', async () => {
     user = null;
-    await expect(p.beginMeeting('m1', T0)).rejects.toBeInstanceOf(PersistenceError);
+    await expect(p.prepareMeeting('m1', T0)).rejects.toBeInstanceOf(PersistenceError);
     user = 'u1';
     workspace = null;
     // My workspaces are on this Mac, but none takes a new note (view-only everywhere): create one (D-36).
-    await expect(p.beginMeeting('m1', T0)).rejects.toThrow(/Create a workspace of your own/);
+    await expect(p.prepareMeeting('m1', T0)).rejects.toThrow(/Create a workspace of your own/);
     expect(store.documents()).toHaveLength(0);
     expect(kicks).toBe(0);
   });
@@ -88,14 +91,15 @@ describe('MeetingPersistence', () => {
       sync: { kick: () => void kicks++ },
       newNoteWorkspace: async () => null,
     });
-    await expect(fresh.beginMeeting('m1', T0)).rejects.toThrow(/connect once/);
-    await expect(fresh.beginMeeting('m1', T0)).rejects.toBeInstanceOf(PersistenceError);
+    await expect(fresh.prepareMeeting('m1', T0)).rejects.toThrow(/connect once/);
+    await expect(fresh.prepareMeeting('m1', T0)).rejects.toBeInstanceOf(PersistenceError);
     expect(empty.documents()).toHaveLength(0);
     empty.close();
   });
 
   it('stores finals (rounded to ms), skips interims, deletes on retraction, kicks only on change', async () => {
-    await p.beginMeeting('m1', T0);
+    await p.prepareMeeting('m1', T0);
+    p.beginMeeting('m1', T0);
     kicks = 0;
     p.saveSegment('m1', live('s1', 'interim', false));
     expect(store.segments('m1')).toHaveLength(0);
@@ -121,7 +125,8 @@ describe('MeetingPersistence', () => {
   });
 
   it('stamps the end of the meeting', async () => {
-    await p.beginMeeting('m1', T0);
+    await p.prepareMeeting('m1', T0);
+    p.beginMeeting('m1', T0);
     p.endMeeting('m1', T0 + 120_000);
     expect(store.meeting('m1')!.endedAt).toBe('2026-11-14T15:06:00.000Z');
     p.endMeeting('unknown', T0);

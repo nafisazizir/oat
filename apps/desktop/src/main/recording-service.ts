@@ -64,8 +64,10 @@ export type InputSpec = { input: 'sidecar' } | { input: 'file'; fixture: string 
  * on the meeting clock; an empty final is a retraction.
  */
 export interface TranscriptPersistence {
-  /** Before the audio starts (new or resumed meeting). A rejection fails the start with its message. */
-  beginMeeting(meetingId: string, startedAt: number): Promise<void>;
+  /** Ensure the note exists before opening audio. A rejection fails the start with its message. */
+  prepareMeeting(meetingId: string, requestedAt: number): Promise<void>;
+  /** Stamp the first start or reopen an ended meeting once capture starts. */
+  beginMeeting(meetingId: string, startedAt: number): void;
   saveSegment(meetingId: string, segment: LiveSegment): void;
   /** Latest stored segment end of a meeting (ms, meeting clock), for resuming it after a relaunch. */
   meetingEndMs?(meetingId: string): number;
@@ -395,7 +397,7 @@ export class RecordingService {
     this.#startingMeetingId = meetingId;
     if (this.#o.persistence) {
       try {
-        await this.#o.persistence.beginMeeting(meetingId, this.#now());
+        await this.#o.persistence.prepareMeeting(meetingId, this.#now());
       } catch (error) {
         this.#o.log.error('recording: could not create the meeting', error);
         throw new RecordingServiceError(
@@ -612,10 +614,12 @@ export class RecordingService {
       ]);
       this.#transcript.flush();
       this.#reportSessionGaps(session, outcome);
-      try {
-        this.#o.persistence?.endMeeting(session.meetingId, this.#now());
-      } catch (error) {
-        this.#o.log.error('recording: could not stamp the meeting end', error);
+      if (session.originUs !== undefined) {
+        try {
+          this.#o.persistence?.endMeeting(session.meetingId, this.#now());
+        } catch (error) {
+          this.#o.log.error('recording: could not stamp the meeting end', error);
+        }
       }
       const sessionMs = Math.max(
         0,
@@ -737,6 +741,11 @@ export class RecordingService {
     if (event.type === 'started') {
       session.originUs = event.tUs;
       this.#startedAt = this.#now();
+      try {
+        this.#o.persistence?.beginMeeting(session.meetingId, this.#startedAt);
+      } catch (error) {
+        this.#o.log.error('recording: could not stamp the meeting start', error);
+      }
       this.#changed(true);
     } else if (event.type === 'overrun') {
       this.#issue({

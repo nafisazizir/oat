@@ -332,7 +332,7 @@ describe('in no workspace at all', () => {
       workspaceTimeoutMs: 10,
       newNoteWorkspace: (t) => x.newNoteWorkspace(t),
     });
-    const refused = await p.beginMeeting('m1', Date.now()).catch((e: unknown) => e);
+    const refused = await p.prepareMeeting('m1', Date.now()).catch((e: unknown) => e);
     expect(refused).toBeInstanceOf(PersistenceError);
     expect((refused as Error).message).toBe(NO_WORKSPACE_MESSAGE);
     expect(db.documents()).toEqual([]);
@@ -412,7 +412,7 @@ describe('view-only everywhere', () => {
       sync: { kick() {} },
       newNoteWorkspace: (t) => x.newNoteWorkspace(t),
     });
-    const refused = await p.beginMeeting('m1', Date.now()).catch((e: unknown) => e);
+    const refused = await p.prepareMeeting('m1', Date.now()).catch((e: unknown) => e);
     expect(refused).toBeInstanceOf(PersistenceError);
     expect((refused as Error).message).toBe(CREATE_WORKSPACE_MESSAGE);
 
@@ -445,7 +445,7 @@ describe('view-only everywhere', () => {
       },
       null,
     );
-    await p.beginMeeting('m1', Date.now());
+    await p.prepareMeeting('m1', Date.now());
     const made = await notes.fromEvent(event('a'));
     expect(db.documents().map((d) => d.workspaceId)).toEqual(['mine', 'mine']);
     expect(db.document(made.documentId)?.workspaceId).toBe('mine');
@@ -496,14 +496,14 @@ describe('new notes land in the target workspace', () => {
       newNoteWorkspace: (t) => w.newNoteWorkspace(t),
     });
     w.setActive('me');
-    await p.beginMeeting('m1', Date.now());
+    await p.prepareMeeting('m1', Date.now());
     expect(store.document('doc-1')).toMatchObject({
       workspaceId: 'me',
       visibility: 'private',
       ownerId: 'u1',
     });
     w.setActive('board');
-    await p.beginMeeting('m2', Date.now());
+    await p.prepareMeeting('m2', Date.now());
     expect(store.document('doc-2')?.workspaceId).toBe('design');
   });
 

@@ -88,7 +88,11 @@ export class MeetingEndGrace implements TranscriptPersistence {
     return this.#parked;
   }
 
-  async beginMeeting(meetingId: string, startedAt: number): Promise<void> {
+  prepareMeeting(meetingId: string, requestedAt: number): Promise<void> {
+    return this.#o.inner.prepareMeeting(meetingId, requestedAt);
+  }
+
+  beginMeeting(meetingId: string, startedAt: number): void {
     const pending = this.#pending;
     if (pending?.meetingId === meetingId) {
       // "Continue recording" within the grace period: the meeting never ended.
@@ -101,7 +105,7 @@ export class MeetingEndGrace implements TranscriptPersistence {
       this.#parked = this.#parked.filter((p) => p.meetingId !== meetingId);
       this.#save();
     }
-    await this.#o.inner.beginMeeting(meetingId, startedAt);
+    this.#o.inner.beginMeeting(meetingId, startedAt);
   }
 
   saveSegment(meetingId: string, segment: LiveSegment): void {

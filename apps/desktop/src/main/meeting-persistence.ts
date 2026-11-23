@@ -5,8 +5,7 @@
  *
  * - Start: the meeting row and its `meeting` document (private, workspace root, owned by the user, in
  *   the active workspace when they may create there, else the first one where they may — 3.9, D-36) are
- *   created before the
- *   audio starts; resuming a meeting reuses them.
+ *   created before opening audio. Capture readiness stamps the start or reopens the existing meeting.
  * - Finals only (D-19: a final replaces its interim; interims never reach the database). An empty final is
  *   a retraction and deletes the segment.
  * - Stop: `ended_at` is stamped.
@@ -36,7 +35,7 @@ export interface MeetingPersistenceOptions {
   newNoteWorkspace: (timeoutMs?: number) => Promise<string | null>;
 }
 
-/** Thrown by `beginMeeting`; the message is shown to the user. */
+/** Thrown by `prepareMeeting`; the message is shown to the user. */
 export class PersistenceError extends Error {
   override name = 'PersistenceError';
 }
@@ -70,23 +69,10 @@ export class MeetingPersistence implements TranscriptPersistence {
     return store;
   }
 
-  async beginMeeting(meetingId: string, startedAt: number): Promise<void> {
+  async prepareMeeting(meetingId: string, requestedAt: number): Promise<void> {
     const userId = this.#o.userId();
     if (!userId) throw new PersistenceError('Sign in to record.');
-    const existing = this.#store().meeting(meetingId);
-    if (existing) {
-      // Resuming (D-24): same meeting, same note — and it is in progress again. A note made from a calendar
-      // event (7.3) or on the web has no start yet: its first recording is its start.
-      const patch = {
-        endedAt: null,
-        ...(existing.startedAt === null ? { startedAt: new Date(startedAt).toISOString() } : {}),
-      };
-      if (this.#store().updateMeeting(meetingId, patch)) {
-        this.#o.sync.kick();
-        this.#o.onChange?.();
-      }
-      return;
-    }
+    if (this.#store().meeting(meetingId)) return;
     const workspaceId = await this.#o.newNoteWorkspace(this.#o.workspaceTimeoutMs);
     const store = this.#store();
     if (!workspaceId) throw new PersistenceError(noNoteWorkspaceMessage(store));
@@ -95,11 +81,25 @@ export class MeetingPersistence implements TranscriptPersistence {
       documentId: (this.#o.newId ?? (() => uuidv7()))(),
       workspaceId,
       ownerId: userId,
-      title: meetingTitle(startedAt),
-      startedAt: new Date(startedAt).toISOString(),
+      title: meetingTitle(requestedAt),
+      startedAt: null,
     });
     this.#o.sync.kick();
     this.#o.onChange?.();
+  }
+
+  beginMeeting(meetingId: string, startedAt: number): void {
+    const store = this.#store();
+    const meeting = store.meeting(meetingId);
+    if (!meeting) return;
+    const patch = {
+      endedAt: null,
+      ...(meeting.startedAt === null ? { startedAt: new Date(startedAt).toISOString() } : {}),
+    };
+    if (store.updateMeeting(meetingId, patch)) {
+      this.#o.sync.kick();
+      this.#o.onChange?.();
+    }
   }
 
   saveSegment(meetingId: string, segment: LiveSegment): void {

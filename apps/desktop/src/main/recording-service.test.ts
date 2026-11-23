@@ -31,6 +31,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TranscriptStore } from '../shared/transcript.ts';
 import type { Logger } from './ipc.ts';
+import { MeetingNotes } from './meeting-notes.ts';
 import { MeetingPersistence } from './meeting-persistence.ts';
 import { Workspaces } from './workspaces.ts';
 import {
@@ -705,6 +706,34 @@ describe('RecordingService + local database (2.6)', () => {
     audio.close();
   });
 
+  it('a failed first recording leaves its note eligible for a retry', async () => {
+    const db = localDb();
+    const meetingId = 'first-attempt';
+    const notes = new MeetingNotes({
+      store: () => db.store,
+      userId: () => 'u1',
+      sync: { kick() {} },
+      onChange() {},
+    });
+    await db.persistence.prepareMeeting(meetingId, Date.now());
+    const failed = setup({
+      persistence: db.persistence,
+      source: () => new FileSource({ input: { stereo: join(baseDir, 'missing.wav') } }),
+    });
+    await expect(failed.service.start({ meetingId, spec: fixture })).rejects.toMatchObject({
+      code: 'unavailable',
+    });
+    expect(db.store.meeting(meetingId)).toMatchObject({ startedAt: null, endedAt: null });
+    expect(await notes.cannotContinue(meetingId)).toBeNull();
+
+    const retry = setup({ persistence: db.persistence });
+    await expect(retry.service.start({ meetingId, spec: fixture })).resolves.toEqual({ meetingId });
+    expect(db.store.meeting(meetingId)?.startedAt).not.toBeNull();
+    await retry.service.stop();
+    expect(db.store.documents()).toHaveLength(1);
+    db.store.close();
+  });
+
   it('no workspace known (fresh cache, offline): the start fails visibly', async () => {
     const db = localDb(false);
     const h = setup({ persistence: db.persistence });
@@ -754,7 +783,8 @@ describe('RecordingService + local database (2.6)', () => {
 
   it('a store failure becomes an issue; recording and the live transcript carry on', async () => {
     const failing: TranscriptPersistence = {
-      beginMeeting: async () => {},
+      prepareMeeting: async () => {},
+      beginMeeting: () => {},
       saveSegment: () => {
         throw new Error('disk I/O error');
       },
