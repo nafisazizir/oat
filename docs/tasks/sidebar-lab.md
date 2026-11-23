@@ -130,6 +130,13 @@ capture enlarged 400% with ImageMagick point filtering; no circular ring over th
 Real sidebar and shared avatar implementation unchanged. Server left on 3000; local commit, no push.
 
 ## Simplified switcher menu
+Shape correction: user Avatar root uses rounded-md/after:rounded-md and fallback rounded-md,
+matching workspace tiles instead of the previously requested circle. Everything else unchanged.
+`Sidebar lab typecheck and lint: PASS`; menu interaction harness passes without browser errors.
+`PASS: identical user/workspace root, fill and ring radii; matching 24px slots and fill/text/typography.`
+Retaken and personally inspected final-switcher.png and 4× menu-zoom.png under
+/home/ubuntu/sidebar-lab-shots/; user and workspace tiles have identical rounded-square shapes.
+
 Alignment follow-up: shared Avatar sm matches WorkspaceAvatar computed 24px size (the sm data
 variant overrides size-5), bg-gray-200/text-gray-1000, text-label-12 and shared round border ring.
 Menu action icons centered in 24px slots; identity and workspace initials use the same left x.

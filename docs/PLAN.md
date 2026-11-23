@@ -1,5 +1,8 @@
 # Oat — Plan & Task Board
 
+Sidebar lab shape correction: user avatar now uses rounded-md fill and after ring, matching
+workspace tiles exactly. Focused typecheck/lint and browser checks pass; refreshed both screenshots.
+
 Sidebar lab alignment follow-up: user avatar matches workspace tiles (24px computed size,
 fill/ring/initial typography, round shape retained); all leading slots aligned. Focused checks pass;
 final-switcher.png and 4× menu-zoom.png refreshed and visually inspected.
