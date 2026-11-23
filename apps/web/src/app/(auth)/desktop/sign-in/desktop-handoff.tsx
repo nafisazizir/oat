@@ -143,29 +143,32 @@ export function DesktopHandoff({
         <IconShieldExclamation className="text-amber-900" aria-hidden />
         <AlertDescription className="text-gray-1000">{HANDOFF_WARNING}</AlertDescription>
       </Alert>
-      <Button
-        size="lg"
-        className="w-full"
-        type="button"
-        disabled={!hydrated || ui.pending}
-        onClick={continueToApp}
-      >
-        {ui.pending ? (
-          <Spinner data-icon="inline-start" />
-        ) : (
-          <IconDeviceDesktop data-icon="inline-start" />
-        )}
-        Continue to the app
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        type="button"
-        disabled={!hydrated || ui.pending}
-        onClick={switchAccount}
-      >
-        Use a different account
-      </Button>
+      <div className="flex flex-col gap-2">
+        <Button
+          size="lg"
+          className="w-full"
+          type="button"
+          disabled={!hydrated || ui.pending}
+          onClick={continueToApp}
+        >
+          {ui.pending ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <IconDeviceDesktop data-icon="inline-start" />
+          )}
+          Continue to the app
+        </Button>
+        <Button
+          variant="ghost"
+          size="lg"
+          className="w-full"
+          type="button"
+          disabled={!hydrated || ui.pending}
+          onClick={switchAccount}
+        >
+          Use a different account
+        </Button>
+      </div>
       <p role="status" className="text-center text-copy-13 text-red-900 empty:hidden">
         {ui.error}
       </p>
