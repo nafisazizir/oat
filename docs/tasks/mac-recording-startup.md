@@ -89,3 +89,8 @@ could stay set to Playing after leaving a note. This change fixes both in the de
   the original stop time survives relaunch and another failed write before it can be saved.
   Once the database is available, recovery holds any parked end for a meeting whose capture is
   opening. Successful capture clears the old end, and cancellation releases it for recovery.
+- The hosted Devin Mac passed 653 desktop unit tests, seven compiled-helper integrations and four
+  recording/playback E2E cases. Its system exposes no physical audio devices. The compiled helper
+  used synthetic audio and both archived tracks decoded with signal. A manual Stop race found in
+  this run now has a regression check that playback refresh waits until the meeting becomes idle.
+  The auto-stop fixture also waits for the detector to recognize the fake call before recording.

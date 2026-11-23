@@ -2,7 +2,8 @@
 
 - [ ] Human-requested macOS recording startup fix and hardware verification. Both real audio sources
   passed on the Mac. PR review fixes cover startup cancellation and storage failures while starting
-  or ending a recording.
+  or ending a recording. Hosted Mac verification covers the compiled helper with synthetic audio
+  because the hosted environment has no audio devices.
   The full CI gate still has four web E2E failures reproduced on the base revision.
   [task](tasks/mac-recording-startup.md)
 

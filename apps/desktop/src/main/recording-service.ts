@@ -661,11 +661,17 @@ export class RecordingService {
     })().finally(() => {
       if (this.#session === session) this.#closing = false;
       this.#changed(true);
-      try {
-        this.#o.onArchiveClosed?.(session.meetingId);
-      } catch (error) {
-        this.#o.log.error('recording: archive-closed listener failed', error);
-      }
+      const notify = () => {
+        try {
+          this.#o.onArchiveClosed?.(session.meetingId);
+        } catch (error) {
+          this.#o.log.error('recording: archive-closed listener failed', error);
+        }
+      };
+      // A manual Stop still marks the meeting busy until its command finishes.
+      // Refresh playback only after it can open the closed archive.
+      if (this.#stopPromise) void this.#stopPromise.then(notify, notify);
+      else notify();
     });
     return session.finalized;
   }
