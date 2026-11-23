@@ -42,6 +42,31 @@ const renderChats = () =>
     </SidebarProvider>,
   );
 describe('sidebar chats', () => {
+  it.each([
+    [{ view: 'assistant', threadId: 'saved' }, {}],
+    [{ view: 'home' }, {}],
+    [{ view: 'assistant' }, { ctrlKey: true }],
+    [{ view: 'assistant' }, { metaKey: true }],
+  ] as const)('preserves normal link navigation for %j with %j', (route, modifiers) => {
+    model.route = route;
+    model.threads.mockResolvedValue({ threads: [] });
+    renderChats();
+    const reset = vi.fn();
+    const navigation = vi.fn();
+    const intercept = (event: MouseEvent) => {
+      navigation(event.defaultPrevented);
+      event.preventDefault();
+    };
+    window.addEventListener(NEW_WORKSPACE_CHAT_EVENT, reset);
+    window.addEventListener('click', intercept);
+    const link = screen.getByRole('link', { name: 'New chat' });
+    expect(link.getAttribute('href')).toBe('/assistant');
+    fireEvent.click(link, modifiers);
+    expect(navigation).toHaveBeenCalledWith(false);
+    expect(reset).not.toHaveBeenCalled();
+    window.removeEventListener('click', intercept);
+    window.removeEventListener(NEW_WORKSPACE_CHAT_EVENT, reset);
+  });
   it('requests a fresh chat even when already on the empty assistant route', () => {
     model.route = { view: 'assistant' };
     model.threads.mockResolvedValue({ threads: [] });

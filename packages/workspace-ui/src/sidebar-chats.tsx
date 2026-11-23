@@ -66,6 +66,7 @@ export function ChatsSection() {
         onClick={(event) => {
           if (
             route.view === 'assistant' &&
+            !threadId &&
             !event.metaKey &&
             !event.ctrlKey &&
             !event.shiftKey &&
