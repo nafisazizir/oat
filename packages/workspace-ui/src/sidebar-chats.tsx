@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { ChatThreadSummary } from '@oat/services/dto/chat';
+import { requestNewWorkspaceChat } from '@oat/ui/lib/assistant-events';
 import {
   SidebarGroup,
   SidebarGroupAction,
@@ -52,6 +53,19 @@ export function ChatsSection() {
       </SidebarGroupLabel>
       <SidebarGroupAction
         render={<Link route={{ view: 'assistant' }} />}
+        onClick={(event) => {
+          if (
+            route.view === 'assistant' &&
+            !event.metaKey &&
+            !event.ctrlKey &&
+            !event.shiftKey &&
+            !event.altKey &&
+            event.button === 0
+          ) {
+            event.preventDefault();
+            requestNewWorkspaceChat(workspace.id);
+          }
+        }}
         aria-label="New chat"
         title="New chat"
         className="opacity-0 group-hover/tree-section:opacity-100 group-focus-within/tree-section:opacity-100"

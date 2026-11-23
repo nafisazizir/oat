@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { createOatClient, OatApiError, type OatRequest, type OatResponse } from '@oat/client';
 import { bridgeTransport } from '@oat/client/bridge';
+import { requestNewWorkspaceChat } from '@oat/ui/lib/assistant-events';
 import type {
   ChatProposal,
   ChatSources,
@@ -336,6 +337,50 @@ describe('AssistantChat', () => {
     rerender(<AssistantChat scope={scope} workspaceId="w" layout="page" selectedThreadId={null} />);
     expect(await screen.findByText('Ask across your meetings')).toBeTruthy();
     expect(screen.queryByTestId('chat-answer')).toBeNull();
+  });
+
+  it('resets an unsent draft when the sidebar requests a fresh workspace chat', async () => {
+    const env = setup();
+    const onThreadChange = vi.fn();
+    const view = render(
+      <AssistantChat
+        scope={scope}
+        workspaceId="w"
+        layout="page"
+        selectedThreadId={null}
+        onThreadChange={onThreadChange}
+      />,
+      env,
+    );
+    const input = await screen.findByRole('textbox', { name: 'Ask the assistant' });
+    fireEvent.change(input, { target: { value: 'Unsent draft' } });
+    act(() => requestNewWorkspaceChat('another-workspace'));
+    expect((input as HTMLTextAreaElement).value).toBe('Unsent draft');
+    act(() => requestNewWorkspaceChat('w'));
+    expect(
+      (screen.getByRole('textbox', { name: 'Ask the assistant' }) as HTMLTextAreaElement).value,
+    ).toBe('');
+    expect(onThreadChange).toHaveBeenCalledWith(null);
+    view.unmount();
+    onThreadChange.mockClear();
+    act(() => requestNewWorkspaceChat('w'));
+    expect(onThreadChange).not.toHaveBeenCalled();
+  });
+
+  it('does not reset a document panel for a workspace new-chat request', async () => {
+    const env = setup();
+    render(
+      <AssistantChat
+        scope={{ kind: 'document', documentId: 'd1' }}
+        workspaceId="w"
+        layout="panel"
+      />,
+      env,
+    );
+    const input = await screen.findByRole('textbox', { name: 'Ask the assistant' });
+    fireEvent.change(input, { target: { value: 'Note draft' } });
+    act(() => requestNewWorkspaceChat('w'));
+    expect((input as HTMLTextAreaElement).value).toBe('Note draft');
   });
 
   it('filters panel history to its note and supports new chat', async () => {

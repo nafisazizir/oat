@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
+import { NEW_WORKSPACE_CHAT_EVENT } from '@oat/ui/lib/assistant-events';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { SidebarProvider } from '@oat/ui/components/sidebar';
@@ -41,6 +42,18 @@ const renderChats = () =>
     </SidebarProvider>,
   );
 describe('sidebar chats', () => {
+  it('requests a fresh chat even when already on the empty assistant route', () => {
+    model.route = { view: 'assistant' };
+    model.threads.mockResolvedValue({ threads: [] });
+    renderChats();
+    const reset = vi.fn();
+    window.addEventListener(NEW_WORKSPACE_CHAT_EVENT, reset);
+    const link = screen.getByRole('link', { name: 'New chat' });
+    fireEvent.click(link);
+    expect(reset).toHaveBeenCalledOnce();
+    expect((reset.mock.calls[0]![0] as CustomEvent).detail).toEqual({ workspaceId: 'w' });
+    window.removeEventListener(NEW_WORKSPACE_CHAT_EVENT, reset);
+  });
   it('shows five newest threads, active selection and new/all links; collapses independently', async () => {
     model.threads.mockResolvedValue({
       threads: Array.from({ length: 7 }, (_, i) => ({
