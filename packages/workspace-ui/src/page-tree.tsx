@@ -184,11 +184,21 @@ export function TreeSection({ area }: { area: Area }) {
             <IconPlus />
           </DropdownMenuTrigger>
           <DropdownMenuContent side="right" align="start">
-            <DropdownMenuItem onClick={() => void actions.newPage({ area })}>
+            <DropdownMenuItem
+              onClick={() => {
+                setOpen(true);
+                void actions.newPage({ area });
+              }}
+            >
               <IconFilePlus />
               New page
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => void actions.newFolder({ area })}>
+            <DropdownMenuItem
+              onClick={() => {
+                setOpen(true);
+                void actions.newFolder({ area });
+              }}
+            >
               <IconFolderPlus />
               New folder
             </DropdownMenuItem>

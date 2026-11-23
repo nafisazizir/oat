@@ -236,6 +236,25 @@ describe('shared workspace shell', () => {
     await user.click(screen.getByRole('button', { name: 'Shared' }));
     expect(screen.queryByRole('link', { name: 'Shared page' })).toBeNull();
   });
+  it.each(['New page', 'New folder'])(
+    'expands a collapsed section when creating %s',
+    async (name) => {
+      const { user, host } = setup();
+      const label = screen.getByRole('button', { name: 'Private' });
+      await user.click(label);
+      expect(label.getAttribute('aria-expanded')).toBe('false');
+      await user.click(screen.getByRole('button', { name: 'Add to Private' }));
+      await user.click(await screen.findByRole('menuitem', { name }));
+      expect(label.getAttribute('aria-expanded')).toBe('true');
+      if (name === 'New folder')
+        expect(await screen.findByRole('textbox', { name: 'Rename New folder' })).toBeTruthy();
+      else
+        await waitFor(() =>
+          expect(host.navigate).toHaveBeenCalledWith({ view: 'document', id: 'new-page' }),
+        );
+    },
+  );
+
   it('creates pages and folders with the host client and navigates to the page', async () => {
     const { user, create, folder, host } = setup();
     await user.click(screen.getByRole('button', { name: 'Create page' }));
