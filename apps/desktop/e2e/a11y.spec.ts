@@ -213,7 +213,7 @@ test('every desktop screen: axe clean in light and dark (+ sweep screenshots)', 
   writeFileSync(join(dir, 'apps.json'), '[]');
 
   // A live recording, and the widget.
-  await page.getByRole('button', { name: 'Start recording' }).click();
+  await page.getByTestId('new-meeting').click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
   const notes = page.getByRole('textbox', { name: 'My notes' });
   await notes.click();

@@ -157,7 +157,7 @@ test('storage settings: list, show in Finder, delete audio (transcript kept), si
   await seed(userId);
 
   // A real meeting: record the fixture until a few finals are saved.
-  await page.getByRole('button', { name: 'Start recording' }).click();
+  await page.getByTestId('new-meeting').click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
   const meetingId = ((await invoke(page, 'recording:get')).value as { meetingId: string })
     .meetingId;

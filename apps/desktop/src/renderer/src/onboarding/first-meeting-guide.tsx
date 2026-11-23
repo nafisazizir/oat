@@ -9,7 +9,7 @@ const STEPS: { icon: Icon; title: string; body: string }[] = [
   {
     icon: IconMicrophone,
     title: 'Start recording when the call begins',
-    body: 'Press Start recording, pick the meeting under Upcoming, or say yes when Oat notices a call and asks “Start notes?”.',
+    body: 'Press New meeting note, pick the meeting under Upcoming, or say yes when Oat notices a call and asks “Start notes?”.',
   },
   {
     icon: IconNotes,
