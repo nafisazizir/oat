@@ -133,7 +133,7 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 - [x] Human-requested Graphite theme and shared control refresh for web and desktop · [task](tasks/graphite-ui-foundation.md)
 
 - [ ] Human-requested: API foundation — REST parity, typed client and authenticated desktop text/JSON proxy implemented; independent review/verification pending (D-38) · deps: 5.1, 5.2, 7.4 · [task](tasks/api-foundation.md)
-- [x] Human-requested: desktop workspace parity — steps 1–7 complete: shared settings merged, screenshot-review fixes verified, 14 post-merge desktop light/dark captures and web/settings e2e/axe results recorded; native macOS validation remains unrun · [task](tasks/desktop-workspace-parity.md)
+- [x] Human-requested: desktop workspace parity — steps 1–7 complete; PR #25/#27 follow-ups cover offline page drafts, live trash/restore, cached workspace switching/visibility and stale online-switch reconciliation. Fast CI passes; prior desktop/web evidence recorded, follow-up banner visually unverified and native macOS validation unrun · [task](tasks/desktop-workspace-parity.md)
 
 - [x] Stale desktop e2e + acceptance specs updated for the calm shell; web typography/notion/auth spec races fixed · [task](tasks/e2e-calm-shell-specs.md)
 

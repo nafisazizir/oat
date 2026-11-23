@@ -390,6 +390,7 @@ function SignedInShell({
       user={user}
       notes={notes}
       snapshot={workspaces.snapshot}
+      setActiveWorkspace={workspaces.setActive}
       lastSyncedAt={sync.lastSyncedAt}
       route={route}
       navigate={navigate}
