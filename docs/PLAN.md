@@ -1,8 +1,8 @@
 # Oat — Plan & Task Board
 
 - [ ] Human-requested macOS recording startup fix and hardware verification. Both real audio sources
-  passed on the Mac. PR review fixes cover retrying the same note and stopping during startup. The full
-  CI gate still has four web E2E failures reproduced on the base revision.
+  passed on the Mac. PR review fixes cover startup cancellation, note sync and post-meeting grace.
+  The full CI gate still has four web E2E failures reproduced on the base revision.
   [task](tasks/mac-recording-startup.md)
 
 - [x] Ship approved sidebar to shared web/desktop shell; retire lab. Fast gate and required e2e pass; real 1280×800 sidebar screenshots inspected. Native macOS runtime remains unverified; publication follows closeout. [task](tasks/sidebar-production.md)

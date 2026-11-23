@@ -262,7 +262,7 @@ test('undo keeps recording; Continue recording within the grace period starts no
   // recording's: 7.2 contract). Nothing on screen shows it (that event was prompted already), and the file
   // source polls every 100 ms: give it a second.
   await page.waitForTimeout(1_000);
-  await page.getByRole('button', { name: 'New meeting note' }).click();
+  await page.getByTestId('new-meeting').click();
   await expect(bar()).toHaveAttribute('data-status', 'recording', { timeout: scaled(20_000) });
   const { meetingId } = await invoke<{ meetingId: string }>(page, 'recording:get');
   await expect((await segments()).first()).toBeVisible({ timeout: scaled(30_000) });
@@ -350,7 +350,7 @@ test('in-person silence → "Meeting over?" → Keep going; the Recording settin
 test('a crash inside the grace period: the relaunch ends the meeting and the pipeline runs', async () => {
   test.setTimeout(scaled(180_000));
   await page.getByTestId('settings-close').click();
-  await page.getByRole('button', { name: 'New meeting note' }).click();
+  await page.getByTestId('new-meeting').click();
   await expect(bar()).toHaveAttribute('data-status', 'recording', { timeout: scaled(20_000) });
   const { meetingId } = await invoke<{ meetingId: string }>(page, 'recording:get');
   await expect((await segments()).nth(2)).toBeVisible({ timeout: scaled(30_000) });

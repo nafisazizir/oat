@@ -27,6 +27,8 @@ could stay set to Playing after leaving a note. This change fixes both in the de
 - [x] One working source is enough to record. Startup warnings remain visible.
 - [x] Stopping or quitting cancels a pending capture startup.
 - [x] A failed first recording leaves the same note eligible for retry.
+- [x] A new recording note is published only after capture opens.
+- [x] Continuing a meeting holds its pending end until capture opens or the attempt is canceled.
 - [x] On macOS, start from Home, capture the real microphone, read a live transcript, pause and resume,
   stop, play the local archive, then repeat in the same app session.
 - [x] Repeat with both the real microphone and system audio.
@@ -72,3 +74,9 @@ could stay set to Playing after leaving a note. This change fixes both in the de
 - The updated Electron build passed a simulated startup failure, a canceled start, and a successful
   recording on the same note on the Mac. A separate hardware run on that build recorded two more
   sessions with both real sources and verified mock transcription, pause, resume, stop and playback.
+- The second review follow-up verifies that preparing a new recording leaves the sync outbox empty
+  until capture starts. Timer tests cover a restart that outlasts the deadline, cancellation on both
+  sides of the deadline, and recovery of the pending end after a crash while capture is opening.
+- On the Mac, an initial hardware run missed a mock microphone transcript segment in its second
+  recording. The rerun passed two complete microphone and system-audio recordings, both transcripts
+  and playback. The pre-existing calendar note also passed failure, cancellation and retry.
