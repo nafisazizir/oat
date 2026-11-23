@@ -26,6 +26,7 @@ could stay set to Playing after leaving a note. This change fixes both in the de
 - [x] Oat stays in Starting until a device opens. A complete failure rejects the start with diagnostics.
 - [x] One working source is enough to record. Startup warnings remain visible.
 - [x] Stopping or quitting cancels a pending capture startup.
+- [x] A failed first recording leaves the same note eligible for retry.
 - [x] On macOS, start from Home, capture the real microphone, read a live transcript, pause and resume,
   stop, play the local archive, then repeat in the same app session.
 - [x] Repeat with both the real microphone and system audio.
@@ -63,3 +64,11 @@ could stay set to Playing after leaving a note. This change fixes both in the de
 - The playback failure reproduced when leaving the first note during playback and stopping the next
   recording. The player now clears its state when it unloads an audio source even if the media element
   drops the pending pause event.
+- PR review follow-up: meeting persistence now stamps the start and changes the end grace state
+  when capture starts. The note's Stop button sends a cancellation while Start is still pending.
+  Desktop unit tests cover same-note failure and retry, cancellation without a device error, and the
+  enabled Stop button. Desktop typecheck, lint, and all four checked-in Mac recording and playback
+  E2E tests passed after these changes.
+- The updated Electron build passed a simulated startup failure, a canceled start, and a successful
+  recording on the same note on the Mac. A separate hardware run on that build recorded two more
+  sessions with both real sources and verified mock transcription, pause, resume, stop and playback.
