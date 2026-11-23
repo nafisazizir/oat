@@ -67,3 +67,24 @@ Refreshed and inspected `/home/ubuntu/sidebar-lab-shots/{a,b,c,d}.png` plus
 `/home/ubuntu/sidebar-lab-shots/a-groups-collapsed.png` (Shared and Chats collapsed).
 Harness first hit simultaneous outgoing/incoming menu animation nodes; scoped the New folder locator
 to its Shared menu, with no product change needed. Server still responds on port 3000.
+
+## B-selected iteration — B1–B4
+Replaced the old variants with B-based comparisons; default/unknown/old query values now select B1.
+Kept B's New note, Search/shortcut, Tasks and collapsible trees, and the common switcher menu.
+B1 uses title-aligned muted text-only View all and bottom utilities; B2 uses muted Dots/More and
+tooltip footer utilities beside the switcher; B3 separates Chats-label navigation from its collapse
+button, exposes a hover arrow, shows task count 4, and retains bottom utilities; B4 has text-only chat
+rows, muted Messages/All chats, and switcher Library utilities. No production sidebar changes.
+
+Focused typecheck/lint exit 0; external `/home/ubuntu/sidebar-lab-shots/check-b.mjs` exit 0:
+
+```text
+Sidebar lab typecheck and lint: PASS
+PASS: B1–B4 query/control selection, default/invalid query fallback, navigation/Home, independent group toggles, B-specific chat treatments/utilities/count, collapsed switchers, and state retention; no browser errors.
+Dev server port 3000: HTTP 200
+```
+
+Chromium 1280×800 captures personally inspected: `/home/ubuntu/sidebar-lab-shots/b1.png`, `b2.png`,
+`b3.png`, `b4.png`; supplemental icon-collapse captures saved alongside them. Harness corrected an
+exact accessible-name expectation for the intentional Tasks count (Tasks 4), no product defect.
+No full CI, production-runtime, mobile or dark-mode visual pass in this iteration.

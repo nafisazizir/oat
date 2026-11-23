@@ -37,6 +37,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import {
   IconCheck,
+  IconArrowUpRight,
+  IconDots,
   IconChevronDown,
   IconChevronRight,
   IconChecklist,
@@ -47,11 +49,11 @@ import {
   IconLayoutGrid,
   IconLogout,
   IconMessageCircle,
+  IconMessages,
   IconPalette,
   IconPlus,
   IconSearch,
   IconSettings,
-  IconSparkles,
   IconTrash,
   IconUser,
   IconUserPlus,
@@ -59,18 +61,17 @@ import {
 
 import { useTheme } from '@/components/theme-provider';
 
-type Variant = 'a' | 'b' | 'c' | 'd';
+type Variant = 'b1' | 'b2' | 'b3' | 'b4';
 type Icon = ComponentType<{ className?: string }>;
 const variants: Record<Variant, string> = {
-  a: 'Minimal',
-  b: 'Chat as section, tasks kept',
-  c: 'Ultra',
-  d: 'Ask-first',
+  b1: 'Quiet view all',
+  b2: 'More + compact utilities',
+  b3: 'Chats label navigation',
+  b4: 'Text-first chats',
 };
 const chats = ['Q3 planning recap', 'Summarise standups', 'Draft follow-up email'];
 const utilities: [string, Icon][] = [
   ['Templates', IconLayoutGrid],
-  ['Tasks', IconChecklist],
   ['Trash', IconTrash],
 ];
 
@@ -101,25 +102,48 @@ function LabGroup({
   onToggle,
   onAdd,
   children,
-  ask = false,
+  onOpen,
 }: {
   label: string;
   open: boolean;
   onToggle: () => void;
   onAdd: (view: string) => void;
   children: ReactNode;
-  ask?: boolean;
+  onOpen?: () => void;
 }) {
   const notes = label === 'Private' || label === 'Shared';
   const actionClass =
     'opacity-0 group-hover/tree-section:opacity-100 group-focus-within/tree-section:opacity-100 data-popup-open:opacity-100';
   return (
     <SidebarGroup className="group/tree-section py-1">
-      <SidebarGroupLabel render={<button type="button" aria-expanded={open} onClick={onToggle} />}>
-        {ask && <IconSparkles className="me-2" />}
-        {label}
-        <IconChevronRight className={`ms-1 size-3.5 ${open ? 'rotate-90' : ''}`} />
-      </SidebarGroupLabel>
+      {onOpen ? (
+        <SidebarGroupLabel className="group/label gap-1">
+          <button
+            type="button"
+            onClick={onOpen}
+            className="flex items-center gap-1 hover:text-gray-1000 focus-visible:outline-auto"
+          >
+            {label}
+            <IconArrowUpRight className="size-3.5 opacity-0 group-hover/label:opacity-100 group-focus-within/label:opacity-100" />
+          </button>
+          <button
+            type="button"
+            aria-label={`Toggle ${label}`}
+            aria-expanded={open}
+            onClick={onToggle}
+            className="hover:text-gray-1000 focus-visible:outline-auto"
+          >
+            <IconChevronRight className={`size-3.5 ${open ? 'rotate-90' : ''}`} />
+          </button>
+        </SidebarGroupLabel>
+      ) : (
+        <SidebarGroupLabel
+          render={<button type="button" aria-expanded={open} onClick={onToggle} />}
+        >
+          {label}
+          <IconChevronRight className={`ms-1 size-3.5 ${open ? 'rotate-90' : ''}`} />
+        </SidebarGroupLabel>
+      )}
       {notes ? (
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -172,25 +196,34 @@ export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
     Private: true,
     Shared: true,
     Chats: true,
-    'Ask Oat': true,
   });
   const toggleGroup = (label: keyof typeof groups) =>
     setGroups((previous) => ({ ...previous, [label]: !previous[label] }));
   const { theme, setTheme } = useTheme();
   const select = (view: string) => setActive(view);
-  const row = (label: string, Icon: Icon, nested = false) => (
+  const row = (label: string, Icon: Icon | null, nested = false, muted = false, indent = false) => (
     <SidebarMenuItem
       key={label}
       className={nested ? 'ps-5 group-data-[collapsible=icon]:hidden' : undefined}
     >
-      <SidebarMenuButton tooltip={label} isActive={active === label} onClick={() => select(label)}>
-        <Icon />
+      <SidebarMenuButton
+        tooltip={label}
+        isActive={active === label}
+        onClick={() => select(label)}
+        className={`${muted ? 'text-gray-900' : ''} ${indent ? 'ps-8' : ''}`}
+      >
+        {Icon ? (
+          <Icon />
+        ) : (
+          <IconMessageCircle className="hidden group-data-[collapsible=icon]:block" />
+        )}
         <span>{label}</span>
         {label === 'Search' && (
           <SidebarMenuBadge>
             <Kbd>⌘K</Kbd>
           </SidebarMenuBadge>
         )}
+        {label === 'Tasks' && variant === 'b3' && <SidebarMenuBadge>4</SidebarMenuBadge>}
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
@@ -214,53 +247,14 @@ export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
             >
               Oat
             </button>
-            {variant === 'c' && (
-              <div className="ms-auto flex group-data-[collapsible=icon]:hidden">
-                <IconAction label="Search" icon={IconSearch} onClick={() => select('Search')} />
-                <IconAction
-                  label="New note"
-                  icon={IconPlus}
-                  onClick={() => select('Untitled note')}
-                />
-              </div>
-            )}
           </div>
-          {variant === 'c' && (
-            <SidebarMenu className="hidden gap-0.5 group-data-[collapsible=icon]:flex">
-              {row('Search', IconSearch)}
-              {row('New note', IconPlus)}
-            </SidebarMenu>
-          )}
-          {variant !== 'c' && (
-            <SidebarMenu className="gap-0.5">
-              {row('New note', IconPlus)}
-              {row('Search', IconSearch)}
-              {variant === 'b' && row('Tasks', IconChecklist)}
-            </SidebarMenu>
-          )}
-          {variant === 'd' && (
-            <LabGroup
-              label="Ask Oat"
-              ask
-              open={groups['Ask Oat']}
-              onToggle={() => {
-                toggleGroup('Ask Oat');
-                select('Ask Oat');
-              }}
-              onAdd={select}
-            >
-              {chats.map((chat) => row(chat, IconMessageCircle, true))}
-              {row('All chats', IconChevronRight, true)}
-            </LabGroup>
-          )}
+          <SidebarMenu className="gap-0.5">
+            {row('New note', IconPlus)}
+            {row('Search', IconSearch)}
+            {row('Tasks', IconChecklist)}
+          </SidebarMenu>
         </SidebarHeader>
-        <SidebarContent
-          className={
-            variant === 'b'
-              ? 'gap-0 [&_[data-slot=sidebar-group]]:py-1 [&_[data-slot=sidebar-group-label]]:h-6'
-              : 'gap-0'
-          }
-        >
+        <SidebarContent className="gap-0 [&_[data-slot=sidebar-group-label]]:h-6">
           <LabGroup
             label="Private"
             open={groups.Private}
@@ -303,18 +297,19 @@ export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
           >
             {['Team standup', 'Q3 roadmap', 'Design review'].map((note) => row(note, IconFileText))}
           </LabGroup>
-          {variant !== 'd' && (
-            <LabGroup
-              label="Chats"
-              open={groups.Chats}
-              onToggle={() => toggleGroup('Chats')}
-              onAdd={select}
-            >
-              {chats.map((chat) => row(chat, IconMessageCircle))}
-              {row('View all', IconChevronRight)}
-            </LabGroup>
-          )}
-          {variant === 'b' && (
+          <LabGroup
+            label="Chats"
+            open={groups.Chats}
+            onToggle={() => toggleGroup('Chats')}
+            onAdd={select}
+            onOpen={variant === 'b3' ? () => select('All chats') : undefined}
+          >
+            {chats.map((chat) => row(chat, variant === 'b4' ? null : IconMessageCircle))}
+            {variant === 'b1' && row('View all', null, false, true, true)}
+            {variant === 'b2' && row('More', IconDots, false, true)}
+            {variant === 'b4' && row('All chats', IconMessages, false, true)}
+          </LabGroup>
+          {(variant === 'b1' || variant === 'b3') && (
             <div className="mt-auto shrink-0 p-2 text-gray-900">
               <SidebarMenu className="gap-0.5">
                 {row('Templates', IconLayoutGrid)}
@@ -323,15 +318,8 @@ export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
             </div>
           )}
         </SidebarContent>
-        <SidebarFooter>
-          {variant === 'c' && (
-            <div className="flex gap-1 text-gray-900 group-data-[collapsible=icon]:flex-col">
-              {utilities.map(([label, Icon]) => (
-                <IconAction key={label} label={label} icon={Icon} onClick={() => select(label)} />
-              ))}
-            </div>
-          )}
-          <SidebarMenu>
+        <SidebarFooter className="flex-row items-center group-data-[collapsible=icon]:flex-col">
+          <SidebarMenu className="min-w-0 flex-1">
             <SidebarMenuItem>
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -385,12 +373,12 @@ export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
                       ['Create workspace', IconPlus],
                     ])}
                   </DropdownMenuGroup>
-                  {(variant === 'a' || variant === 'd') && (
+                  {variant === 'b4' && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
                         <DropdownMenuLabel>Library</DropdownMenuLabel>
-                        {library(utilities.filter(([name]) => variant !== 'd' || name !== 'Tasks'))}
+                        {library(utilities)}
                       </DropdownMenuGroup>
                     </>
                   )}
@@ -421,6 +409,13 @@ export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
               </DropdownMenu>
             </SidebarMenuItem>
           </SidebarMenu>
+          {variant === 'b2' && (
+            <div className="flex shrink-0 text-gray-900 group-data-[collapsible=icon]:flex-col">
+              {utilities.map(([label, Icon]) => (
+                <IconAction key={label} label={label} icon={Icon} onClick={() => select(label)} />
+              ))}
+            </div>
+          )}
         </SidebarFooter>
       </Sidebar>
       <main className="relative min-w-0 flex-1 overflow-auto bg-background-100">
@@ -458,7 +453,7 @@ export function SidebarLab({ initialVariant }: { initialVariant: Variant }) {
             ))}
           </div>
           <p className="mt-10 text-label-12 text-gray-900">
-            {variant === 'd' ? 'Tasks live on Home' : 'Mock workspace · Nothing here is saved'}
+            Mock workspace · Nothing here is saved
           </p>
         </div>
       </main>

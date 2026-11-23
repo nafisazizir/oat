@@ -9,5 +9,5 @@ export default async function SidebarLabPage({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const { v } = await searchParams;
-  return <SidebarLab initialVariant={v === 'b' || v === 'c' || v === 'd' ? v : 'a'} />;
+  return <SidebarLab initialVariant={v === 'b2' || v === 'b3' || v === 'b4' ? v : 'b1'} />;
 }

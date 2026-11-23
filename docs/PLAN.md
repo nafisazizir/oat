@@ -1,6 +1,6 @@
 # Oat — Plan & Task Board
 
-- [x] Human-requested dev-only sidebar A/B/C/D lab · Follow-up: all group labels toggle independent local expansion with TreeSection-style trailing chevrons and hover/focus add controls. Focused typecheck/lint and Chromium interaction checks pass; refreshed 1280×800 variants plus a-groups-collapsed.png at /home/ubuntu/sidebar-lab-shots/. Dev server port 3000; no production navigation edits. [task](tasks/sidebar-lab.md)
+- [x] Human-requested dev-only sidebar lab · Selected B; now compares B1–B4 chat actions and utility placements, retaining local collapsible groups. Focused typecheck/lint and Chromium interactions pass; inspected 1280×800 b1..b4.png at /home/ubuntu/sidebar-lab-shots/. Dev server port 3000; real navigation untouched. Earlier A/B/C/D evidence retained. [task](tasks/sidebar-lab.md)
 
 - [x] Human-requested PR #31 Graphite visual round 3c · Implemented; 62 AFTER app PNGs/19 comparison sheets reviewed, conflict axe AA and link/greeting checks pass. Full E2E gate passes: web 91 passed/17 skipped, editor 16 passed/2 skipped. Final fast gate passes all five steps without scaling (24 cached test tasks). User accepted/authorized commit/push; publication follows closeout. Baseline/native limits retained. Evidence /home/ubuntu/oat-shots/ · [task](tasks/visual-hillclimb-3c-baseline.md)
 
