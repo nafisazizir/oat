@@ -220,7 +220,7 @@ export function TreeSection({ area }: { area: Area }) {
       {open && (
         <SidebarGroupContent>
           <SidebarMenu data-testid={area === 'private' ? 'page-tree' : 'shared-tree'}>
-            {rows.length === 0 && (
+            {rows.length === 0 && empty && (
               <li
                 className="px-2 py-1 text-copy-13 text-gray-900 group-data-[collapsible=icon]:hidden"
                 data-testid={`tree-empty-${area}`}

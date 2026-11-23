@@ -17,6 +17,8 @@ import { IconChevronRight, IconDots, IconMessageCircle, IconPlus } from '@tabler
 import { useWorkspaceHost } from './host';
 import { useShellData } from './shell-data';
 
+const RECENT_LIMIT = 5;
+
 export function ChatsSection() {
   const { client, Link, route, online } = useWorkspaceHost();
   const { workspace } = useShellData();
@@ -24,22 +26,29 @@ export function ChatsSection() {
   const { state, isMobile } = useSidebar();
   const iconOnly = state === 'collapsed' && !isMobile;
   const [threads, setThreads] = useState<ChatThreadSummary[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  // "View all" only earns its row when the list is truncated. The icon rail hides the group
+  // action, so there it stays as the one way into the Assistant.
+  const showAll = hasMore || iconOnly;
   const threadId = route.view === 'assistant' ? route.threadId : undefined;
   useEffect(() => {
     if (!online) return;
     const controller = new AbortController();
     void client.chat.threads({ workspaceId: workspace.id }, { signal: controller.signal }).then(
       (result) => {
-        if (!controller.signal.aborted)
-          setThreads(
-            result.threads
-              .slice()
-              .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-              .slice(0, 5),
-          );
+        if (controller.signal.aborted) return;
+        setThreads(
+          result.threads
+            .slice()
+            .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+            .slice(0, RECENT_LIMIT),
+        );
+        setHasMore(result.threads.length > RECENT_LIMIT);
       },
       () => {
-        if (!controller.signal.aborted) setThreads([]);
+        if (controller.signal.aborted) return;
+        setThreads([]);
+        setHasMore(false);
       },
     );
     return () => controller.abort();
@@ -62,7 +71,9 @@ export function ChatsSection() {
         <IconChevronRight className={`ms-1 size-3.5 ${open ? 'rotate-90' : ''}`} />
       </SidebarGroupLabel>
       <SidebarGroupAction
-        render={<Link route={{ view: 'assistant' }} />}
+        render={
+          <Link route={{ view: 'assistant' }} data-testid={showAll ? undefined : 'nav-assistant'} />
+        }
         onClick={(event) => {
           if (
             route.view === 'assistant' &&
@@ -98,16 +109,18 @@ export function ChatsSection() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                render={<Link route={{ view: 'assistant' }} data-testid="nav-assistant" />}
-                className="text-gray-900"
-                tooltip="View all chats"
-              >
-                <IconDots />
-                <span>View all</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {showAll && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link route={{ view: 'assistant' }} data-testid="nav-assistant" />}
+                  className="text-gray-900"
+                  tooltip="View all chats"
+                >
+                  <IconDots />
+                  <span>View all</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
         </SidebarGroupContent>
       )}

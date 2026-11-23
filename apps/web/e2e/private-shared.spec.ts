@@ -110,12 +110,12 @@ for (const theme of ['light', 'dark'] as const) {
     const me = owner.page;
     const found: string[] = [];
 
-    // Two quiet sections, Private first, each saying what goes there while it is empty.
+    // Two quiet sections, Private first; Private says what goes there while it is empty.
     await expect(me.locator(`${SIDEBAR} [data-testid^="tree-section-"]`)).toHaveCount(2);
     await expect(section(me, 'private')).toContainText('Private');
     await expect(section(me, 'shared')).toContainText('Shared');
     await expect(me.getByTestId('tree-empty-private')).toHaveText('Notes only you can see.');
-    await expect(me.getByTestId('tree-empty-shared')).toHaveText('Notes everyone here can see.');
+    await expect(me.getByTestId('tree-empty-shared')).toHaveCount(0);
     const order = await me
       .locator(`${SIDEBAR} [data-testid^="tree-section-"]`)
       .evaluateAll((els) => els.map((el) => el.getAttribute('data-testid')));
