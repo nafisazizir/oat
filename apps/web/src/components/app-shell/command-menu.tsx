@@ -52,6 +52,7 @@ export function CommandMenu() {
       ? () => void tree.newPage({ kind: 'page', area: 'private' })
       : undefined,
     newNote: tree.canCreate ? newNote : undefined,
+    openTrash: tree.openTrash,
     switchWorkspace: (id) => {
       void host.client.workspaces
         .switchActive(id)

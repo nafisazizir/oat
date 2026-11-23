@@ -15,6 +15,7 @@ import {
   AuthHeader,
   AuthTitle,
 } from '@oat/ui/components/auth-layout';
+import { DropdownMenuSeparator } from '@oat/ui/components/dropdown-menu';
 import { Input } from '@oat/ui/components/input';
 import { Label } from '@oat/ui/components/label';
 import { Skeleton } from '@oat/ui/components/skeleton';
@@ -384,6 +385,7 @@ function SignedInShell({
         workspaces={workspaces}
         lastSyncedAt={sync.lastSyncedAt}
         syncLine={<SyncLine status={sync} />}
+        syncNotice={<SyncLine status={sync} menu />}
         newMeeting={{
           disabled: recording || !snapshot,
           pending: starting.pending,
@@ -526,14 +528,36 @@ const SYNC_ICONS: Record<SyncTone, { icon: typeof IconCloudCheck; className: str
   problem: { icon: IconAlertTriangle, className: 'text-red-900' },
 };
 
-/** Sync status (2.6): caught up, syncing, waiting, or offline with how much is kept on this Mac. */
-function SyncLine({ status: snapshot }: { status: SyncStatusSnapshot | undefined }) {
+/**
+ * Sync status (2.6): caught up, syncing, waiting, or offline with how much is kept on this Mac. `menu` is
+ * the line in the workspace menu, which says nothing while everything is synced.
+ */
+function SyncLine({
+  status: snapshot,
+  menu = false,
+}: {
+  status: SyncStatusSnapshot | undefined;
+  menu?: boolean;
+}) {
   const { online } = useWorkspaceHost();
   const status =
     snapshot && !online ? { ...snapshot, state: 'offline' as const, error: null } : snapshot;
   const label = status && syncLabel(status);
-  if (!status || !label) return <div className="mt-auto" />;
+  if (!status || !label) return menu ? null : <div className="mt-auto" />;
   const { icon: Icon, className } = SYNC_ICONS[label.tone];
+  if (menu)
+    return label.tone === 'ok' ? null : (
+      <>
+        <DropdownMenuSeparator />
+        <p
+          data-testid="sync-notice"
+          className="flex items-center gap-2 px-2 py-1.5 text-label-12 text-gray-900"
+        >
+          <Icon aria-hidden className={`size-4 shrink-0 ${className}`} />
+          {status.error ?? label.text}
+        </p>
+      </>
+    );
   return (
     <span
       role="status"

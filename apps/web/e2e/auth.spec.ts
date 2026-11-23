@@ -143,7 +143,7 @@ test.describe('magic link', () => {
       await signInWithMagicLink(page, email, baseURL!);
       await expect(page).toHaveURL(/\/home$/);
     }
-    // One workspace: it is named on the menu button, and there is no list to switch in (D-36).
+    // One workspace: it is named on the menu button, and the menu lists just that one (D-40).
     await expect(page.getByTestId('workspace-switcher')).toContainText('My workspace');
     await expect(page.getByTestId('workspace-switcher')).toHaveAttribute(
       'data-switchable',
@@ -151,7 +151,7 @@ test.describe('magic link', () => {
     );
     await page.getByTestId('workspace-switcher').click();
     await expect(page.getByRole('menu')).toBeVisible();
-    await expect(page.getByTestId('workspace-option')).toHaveCount(0);
+    await expect(page.getByTestId('workspace-option')).toHaveCount(1);
   });
 });
 

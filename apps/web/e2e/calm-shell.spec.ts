@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 
+import { runCommand } from './docs-helpers';
 import { expect, sidebarSelector, test } from './fixtures';
 
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -20,28 +21,31 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    await page.getByTestId('workspace-switcher').click();
-    await page.getByRole('menuitem', { name: 'Templates', exact: true }).click();
+    await runCommand(page, 'Templates');
     await expect(page).toHaveURL(/\/templates$/);
     await page.getByTestId('workspace-switcher').click();
     await page.getByRole('menuitem', { name: /^Settings/ }).click();
     await expect(page).toHaveURL(/\/settings$/);
-    await page.getByTestId('workspace-switcher').click();
-    await page.getByTestId('open-trash').click();
+    await runCommand(page, 'Trash');
     await expect(page.getByTestId('trash-dialog')).toBeVisible();
     await page.keyboard.press('Escape');
 
     await page.getByTestId('workspace-switcher').click();
     await expect(page.getByRole('menu')).toContainText('Create workspace');
+    // Tasks, Templates and Trash are in the palette, not the menu.
+    await expect(page.getByRole('menuitem', { name: 'Templates', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: /^Trash/ })).toHaveCount(0);
     await expect(page.getByRole('menuitem', { name: /^Settings/ })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: 'Sign out', exact: true })).toBeVisible();
     await expect(page.getByRole('menuitem').last()).toHaveText('Sign out');
-    await expect(page.getByRole('menu').getByText('Live sync connected')).toBeVisible();
+    // Live sync says nothing while it works; the menu only reports it reconnecting.
+    await expect(page.getByRole('menu').getByText('Reconnecting live sync…')).toBeHidden();
     await page.evaluate(() => delete document.documentElement.dataset.syncLive);
     await expect(page.getByRole('menu').getByText('Reconnecting live sync…')).toBeVisible();
     await page.evaluate(() => {
       document.documentElement.dataset.syncLive = '';
     });
+    await expect(page.getByRole('menu').getByText('Reconnecting live sync…')).toBeHidden();
     await page.keyboard.press('Escape');
     await page.getByTestId('sidebar-header-trigger').click();
     await expect(page.locator(sidebarSelector)).toHaveAttribute('data-state', 'collapsed');

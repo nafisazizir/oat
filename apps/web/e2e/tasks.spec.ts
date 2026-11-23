@@ -4,7 +4,7 @@ import { createDb, meeting, participant, transcriptSegment } from '@oat/db';
 import type { Page } from '@playwright/test';
 
 import { SIGNED_OUT, signInWithMagicLink, uniqueAddress } from './auth-helpers';
-import { apiCreateDocument, unique } from './docs-helpers';
+import { apiCreateDocument, runCommand, unique } from './docs-helpers';
 import { expect, test } from './fixtures';
 import { databaseUrlFile, EVIDENCE_8_4 } from './paths';
 import { verifyFeatureSurface } from './feature-surfaces';
@@ -130,9 +130,8 @@ test('assign + date a task, enhance, find it in My tasks, tick it there → the 
     taskRow(page, 'Book a room').getByRole('button', { name: 'Assigned to Riley Chen. Change' }),
   ).toBeVisible();
 
-  // My tasks (sidebar): the worker picks the note up from the change log within a moment.
-  await page.getByTestId('workspace-switcher').click();
-  await page.getByTestId('nav-tasks').click();
+  // My tasks (⌘K palette): the worker picks the note up from the change log within a moment.
+  await runCommand(page, 'My tasks');
   await expect(page).toHaveURL(/\/tasks/);
   const row = page.getByTestId('task-row').filter({ hasText: 'Send the pilot proposal' });
   await expect(async () => {

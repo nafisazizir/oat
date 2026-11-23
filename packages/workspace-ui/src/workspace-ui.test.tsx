@@ -52,6 +52,7 @@ function Actions() {
     <>
       <button onClick={() => setLeaveOpen(true)}>Test leave dialog</button>
       <LeaveWorkspaceDialog workspace={workspace} open={leaveOpen} onOpenChange={setLeaveOpen} />
+      <button onClick={actions.openTrash}>Open trash</button>
       <button onClick={() => void actions.newPage()}>Create page</button>
       <button onClick={() => void actions.newFolder({})}>Create folder</button>
     </>
@@ -170,20 +171,24 @@ describe('shared workspace shell', () => {
     await userEvent.click(screen.getByTestId('workspace-switcher'));
     expect(await screen.findByRole('menuitem', { name: /^Settings/ })).toBeTruthy();
     const menu = screen.getByRole('menu');
+    // The name alone — the email is not repeated under it.
     expect(menu.querySelector('strong')?.textContent).toBe('User');
-    expect(menu.textContent?.match(/user@test.com/g)).toHaveLength(1);
+    expect(menu.textContent).not.toContain('user@test.com');
     expect(
       Array.from(menu.querySelectorAll('[role="menuitem"]'))
         .slice(0, 1)
         .map((item) => item.textContent),
     ).toEqual(['Settings⌘,']);
+    // Tasks, Templates and Trash are reached from the ⌘K palette, not this menu.
+    for (const name of ['Tasks', 'Templates', 'Trash'])
+      expect(screen.queryByRole('menuitem', { name })).toBeNull();
   });
 
-  it('shows an account name fallback when the profile has no distinct name', async () => {
+  it('shows the email when the profile has no distinct name', async () => {
     setup({ ...data, user: { ...data.user, name: data.user.email } });
     await userEvent.click(screen.getByTestId('workspace-switcher'));
     const menu = await screen.findByRole('menu');
-    expect(menu.querySelector('strong')?.textContent).toBe('user');
+    expect(menu.querySelector('strong')?.textContent).toBe('user@test.com');
     expect(menu.textContent?.match(/user@test.com/g)).toHaveLength(1);
   });
 
@@ -323,8 +328,7 @@ describe('shared workspace shell', () => {
   });
   it('restores trash with client.documents.restore', async () => {
     const { user, restore, host } = setup();
-    await user.click(screen.getByTestId('workspace-switcher'));
-    await user.click(await screen.findByTestId('open-trash'));
+    await user.click(screen.getByRole('button', { name: 'Open trash' }));
     await user.click(await screen.findByRole('button', { name: 'Restore' }));
     expect(restore).toHaveBeenCalledWith('t');
     await waitFor(() => expect(host.refresh).toHaveBeenCalled());
@@ -332,8 +336,7 @@ describe('shared workspace shell', () => {
   });
   it('shows an empty trash', async () => {
     const { user } = setup({ ...data, documents: [], trash: [] });
-    await user.click(screen.getByTestId('workspace-switcher'));
-    await user.click(await screen.findByTestId('open-trash'));
+    await user.click(screen.getByRole('button', { name: 'Open trash' }));
     expect(await screen.findByText('The trash is empty')).toBeTruthy();
   });
   it('rolls back a failed creation and reports the error', async () => {

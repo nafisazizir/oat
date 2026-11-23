@@ -335,7 +335,7 @@ visibility inside a workspace) confusing. Privacy is now only per item: every wo
   (Markdown) before leaving; the leave dialog offers it. Admins still cannot read other members' private notes.
   What happens to orphaned private notes afterwards (retention/purge) is unchanged and stays a later task.
 - **Agent refinements (reversible):** while a user has one workspace the workspace menu shows no workspace list or
-  selector arrows (the menu itself stays, so settings, invite, create and join remain reachable); the last workspace
+  selector arrows (the list part is superseded by D-40) (the menu itself stays, so settings, invite, create and join remain reachable); the last workspace
   a user belongs to can't be left or deleted without first creating/joining another (no account is ever
   workspace-less); where the desktop used to fall back to Personal (recording while the active workspace is
   view-only), it falls back to the first workspace the user can create in, else asks them to create one.
@@ -371,3 +371,20 @@ Back/Continue row never move; longer states scroll inside it. Progress is four c
 mid = done, faint = to do), in both first-run and Settings re-runs; the Oat mark and the "Signed in as" line
 are gone (the app behind shows the account). There is no button to leave: a click outside the dialog or Escape
 closes it, which skips setup (ignored while the test recording runs); Settings → Setup brings it back. Chosen by the human after prototyping three container directions.
+
+## D-40 · 2026-11-23 · accepted · human
+
+The workspace menu always lists my workspaces, with a tick on the current one, even when I have only one (like
+Notion). Supersedes the "no workspace list while a user has one workspace" agent refinement in D-36: without the
+list, the menu did not say which workspace its settings and "Create workspace" belonged to.
+
+## D-41 · 2026-11-23 · accepted · human
+
+The workspace menu is: who is signed in (avatar and one line — the name, or the email when there is no name) ·
+Settings · Workspaces · the host's own actions (desktop: Show meeting widget) · Sign out. Out of the menu:
+
+- **Library** (Tasks, Templates, Trash): reached from the ⌘K palette, which gains a Trash command.
+- **Sync status while all is well** ("All changes synced" on desktop, "Live sync connected" on web): the menu
+  only shows a line when sync is syncing, waiting, offline or failing. The desktop status stays in the page
+  for assistive tech.
+- **Check connection** (desktop): removed.

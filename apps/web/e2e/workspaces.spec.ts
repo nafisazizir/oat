@@ -159,7 +159,7 @@ test('invite → accept → change role → remove, with two users', async ({ br
   );
   await invitee.getByTestId('workspace-switcher').click();
   await expect(invitee.getByRole('menu')).toBeVisible();
-  await expect(invitee.getByTestId('workspace-option')).toHaveCount(0);
+  await expect(invitee.getByTestId('workspace-option')).toHaveCount(1);
   await shot(invitee, 'invitee-switcher');
   await invitee.keyboard.press('Escape');
 
@@ -209,7 +209,7 @@ test('invite → accept → change role → remove, with two users', async ({ br
   );
   await invitee.getByTestId('workspace-switcher').click();
   await expect(invitee.getByRole('menu')).toBeVisible();
-  await expect(invitee.getByTestId('workspace-option')).toHaveCount(0);
+  await expect(invitee.getByTestId('workspace-option')).toHaveCount(1);
 
   // The used invite link now says so.
   await invitee.goto(inviteLink);
@@ -285,7 +285,7 @@ test('wrong account, revoked invite, leave and delete', async ({ browser }) => {
   );
   await owner.page.getByTestId('workspace-switcher').click();
   await expect(owner.page.getByRole('menu')).toBeVisible();
-  await expect(owner.page.getByTestId('workspace-option')).toHaveCount(0);
+  await expect(owner.page.getByTestId('workspace-option')).toHaveCount(1);
   // The last workspace can't be left, so the menu doesn't offer it.
   await expect(owner.page.getByRole('menuitem', { name: /^Leave / })).toHaveCount(0);
   await owner.page.keyboard.press('Escape');
@@ -344,7 +344,7 @@ test('wrong account, revoked invite, leave and delete', async ({ browser }) => {
   );
   await guestPage.getByTestId('workspace-switcher').click();
   await expect(guestPage.getByRole('menu')).toBeVisible();
-  await expect(guestPage.getByTestId('workspace-option')).toHaveCount(0);
+  await expect(guestPage.getByTestId('workspace-option')).toHaveCount(1);
   await guestContext.close();
 
   await owner.context.close();

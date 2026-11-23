@@ -41,6 +41,16 @@ async function relaunch() {
   return app!;
 }
 
+/** Who the server says the stored token belongs to (an authenticated call through main). */
+function connectedAs(p: Page) {
+  return p.evaluate(async () => {
+    const oat = window.oat as unknown as {
+      invoke(c: string): Promise<{ ok: boolean; value?: { user: { email: string } } }>;
+    };
+    return (await oat.invoke('api:me')).value?.user.email;
+  });
+}
+
 /** Everything the renderer can see, as one string (to prove the token isn't in it). */
 function rendererView(p: Page) {
   return p.evaluate(async () => {
@@ -208,9 +218,7 @@ test('signs in through the browser and the oat:// deep link; the token stays in 
   // The real link, as macOS delivers it.
   await deliverDeepLink(electronApp, redirectUrl);
   await expect(page.getByTestId('signed-in-email')).toHaveText(email);
-  await page.getByTestId('workspace-switcher').click();
-  await page.getByRole('menuitem', { name: 'Check connection' }).click();
-  await expect(page.getByTestId('api-me')).toHaveText(`Connected as ${email}`);
+  expect(await connectedAs(page)).toBe(email);
 
   // Stored with safeStorage: encrypted on disk, decryptable in main only.
   const stored = await readStoredSession(electronApp);
@@ -257,9 +265,7 @@ test('keeps the session across restarts; sign-out revokes it', async () => {
   // Restart: signed in straight from the Keychain-encrypted file, no browser.
   const electronApp = await relaunch();
   await expect(page.getByTestId('signed-in-email')).toHaveText(user.email);
-  await page.getByTestId('workspace-switcher').click();
-  await page.getByRole('menuitem', { name: 'Check connection' }).click();
-  await expect(page.getByTestId('api-me')).toHaveText(`Connected as ${user.email}`);
+  expect(await connectedAs(page)).toBe(user.email);
   expect(await openedUrls(electronApp)).toEqual([]);
 
   await page.getByTestId('workspace-switcher').click();

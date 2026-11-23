@@ -29,13 +29,10 @@ import {
 import {
   IconCheck,
   IconChevronDown,
-  IconChecklist,
   IconDoorEnter,
-  IconLayoutGrid,
   IconPlus,
   IconSearch,
   IconSettings,
-  IconTrash,
 } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import { useWorkspaceHost } from './host';
@@ -45,7 +42,6 @@ import { CreateWorkspaceDialog } from './create-workspace-dialog';
 import { TreeSection } from './page-tree';
 import { ChatsSection } from './sidebar-chats';
 import { useOptimisticTree, useShellData } from './shell-data';
-import { useTreeActions } from './tree-actions';
 
 function MenuIcon({ children }: { children: ReactNode }) {
   return <span className="flex size-6 shrink-0 items-center justify-center">{children}</span>;
@@ -60,8 +56,7 @@ export function WorkspaceSwitcher({
 }) {
   const host = useWorkspaceHost();
   const { Link } = host;
-  const { workspace: loadedWorkspace, workspaces, canJoin, user, trash } = useShellData();
-  const { openTrash } = useTreeActions();
+  const { workspace: loadedWorkspace, workspaces, canJoin, user } = useShellData();
   const [currentWorkspace, showWorkspace] = useOptimistic(loadedWorkspace);
   const [createOpen, setCreateOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -98,21 +93,17 @@ export function WorkspaceSwitcher({
           <IconChevronDown className="ms-auto text-gray-900 group-data-[collapsible=icon]:hidden" />
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" align="start" className="w-64">
-          <div className="flex items-start gap-2 px-2 py-2">
+          {/* Who is signed in: the name, or the email when there is no name — one line. */}
+          <div className="flex items-center gap-2 px-2 py-2">
             <Avatar size="sm" className="rounded-md after:rounded-md">
               <AvatarImage src={user.image ?? undefined} alt="" className="rounded-md" />
               <AvatarFallback className="rounded-md bg-gray-200 text-label-12 text-gray-1000">
                 {(user.name || user.email).slice(0, 1).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-copy-14 text-gray-1000">
-                <strong>
-                  {user.name && user.name !== user.email ? user.name : user.email.split('@')[0]}
-                </strong>
-              </p>
-              <p className="truncate text-label-12 text-gray-900">{user.email}</p>
-            </div>
+            <p className="min-w-0 flex-1 truncate text-copy-14 text-gray-1000">
+              <strong>{user.name || user.email}</strong>
+            </p>
           </div>
           <DropdownMenuGroup>
             <DropdownMenuItem nativeButton={false} render={<Link route={{ view: 'settings' }} />}>
@@ -124,25 +115,22 @@ export function WorkspaceSwitcher({
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuGroup data-testid={canSwitch ? 'workspace-list' : undefined}>
-            {canSwitch && (
-              <>
-                <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-                {workspaces.map((workspace) => (
-                  <DropdownMenuItem
-                    key={workspace.id}
-                    data-testid="workspace-option"
-                    onClick={() => {
-                      if (workspace.id !== currentWorkspace.id) switchTo(workspace);
-                    }}
-                  >
-                    <WorkspaceAvatar workspace={workspace} />
-                    <span className="min-w-0 truncate">{workspace.name}</span>
-                    {workspace.id === currentWorkspace.id && <IconCheck className="ms-auto" />}
-                  </DropdownMenuItem>
-                ))}
-              </>
-            )}
+          {/* My workspaces, the current one ticked — listed even when there is only one (D-40). */}
+          <DropdownMenuGroup data-testid="workspace-list">
+            <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+            {workspaces.map((workspace) => (
+              <DropdownMenuItem
+                key={workspace.id}
+                data-testid="workspace-option"
+                onClick={() => {
+                  if (workspace.id !== currentWorkspace.id) switchTo(workspace);
+                }}
+              >
+                <WorkspaceAvatar workspace={workspace} />
+                <span className="min-w-0 truncate">{workspace.name}</span>
+                {workspace.id === currentWorkspace.id && <IconCheck className="ms-auto" />}
+              </DropdownMenuItem>
+            ))}
             <DropdownMenuItem onClick={() => setCreateOpen(true)}>
               <MenuIcon>
                 <IconPlus />
@@ -161,44 +149,8 @@ export function WorkspaceSwitcher({
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Library</DropdownMenuLabel>
-            <DropdownMenuItem
-              nativeButton={false}
-              render={<Link route={{ view: 'tasks' }} data-testid="nav-tasks" />}
-            >
-              <MenuIcon>
-                <IconChecklist />
-              </MenuIcon>
-              <span>Tasks</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem nativeButton={false} render={<Link route={{ view: 'templates' }} />}>
-              <MenuIcon>
-                <IconLayoutGrid />
-              </MenuIcon>
-              <span>Templates</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={openTrash}
-              data-testid="open-trash"
-              aria-label={trash.length ? `Trash (${trash.length})` : 'Trash'}
-            >
-              <MenuIcon>
-                <IconTrash />
-              </MenuIcon>
-              <span>Trash</span>
-              {trash.length > 0 && (
-                <span className="ms-auto text-label-12 text-gray-900">{trash.length}</span>
-              )}
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-          {status && (
-            <>
-              <DropdownMenuSeparator />
-              <div className="px-2 py-1.5">{status}</div>
-            </>
-          )}
+          {/* Tasks, Templates and Trash are in the ⌘K palette, not here. */}
+          {status}
           {accountItems}
         </DropdownMenuContent>
       </DropdownMenu>
