@@ -13,12 +13,9 @@ export type SidebarSection = 'private' | 'shared';
 
 export const SIDEBAR_SECTIONS: readonly SidebarSection[] = ['private', 'shared'];
 
-/**
- * What the sidebar says for each section: its label and, where one helps, what goes there (shown while
- * it is empty). Shared has none: an empty Shared section is just its label.
- */
-export const SECTION_INFO: Readonly<Record<SidebarSection, { label: string; empty?: string }>> = {
-  private: { label: 'Private', empty: 'Notes only you can see.' },
+/** What the sidebar says for each section. An empty section is just its label. */
+export const SECTION_INFO: Readonly<Record<SidebarSection, { label: string }>> = {
+  private: { label: 'Private' },
   shared: { label: 'Shared' },
 };
 

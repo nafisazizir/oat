@@ -135,7 +135,7 @@ export function TreeSection({ area }: { area: Area }) {
   const [open, setOpen] = useState(true);
   const { state, isMobile } = useSidebar();
   const iconOnly = state === 'collapsed' && !isMobile;
-  const { label, empty } = SECTION_INFO[area];
+  const { label } = SECTION_INFO[area];
   // Only this section's items: a shared folder never lists my private page (it is under Private).
   const { items, roots } = sectionOf(documents, area, user.id);
   const rows = visibleRows(items, roots, collapsed, activeAncestorsOf(items, pathname));
@@ -220,14 +220,6 @@ export function TreeSection({ area }: { area: Area }) {
       {open && (
         <SidebarGroupContent>
           <SidebarMenu data-testid={area === 'private' ? 'page-tree' : 'shared-tree'}>
-            {rows.length === 0 && empty && (
-              <li
-                className="px-2 py-1 text-copy-13 text-gray-900 group-data-[collapsible=icon]:hidden"
-                data-testid={`tree-empty-${area}`}
-              >
-                {empty}
-              </li>
-            )}
             {rows.map((row) => (
               <TreeRow
                 key={row.node.id}

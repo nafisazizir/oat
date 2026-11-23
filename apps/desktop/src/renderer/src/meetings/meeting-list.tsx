@@ -111,16 +111,7 @@ export function MeetingList({
           data-testid={`meeting-section-${section}`}
         >
           <SidebarGroupLabel>{SECTION_INFO[section].label}</SidebarGroupLabel>
-          {sections[section].length === 0 ? (
-            SECTION_INFO[section].empty && (
-              <p
-                className="px-2 py-1 text-copy-13 text-gray-900 group-data-[collapsible=icon]:hidden"
-                data-testid={`meeting-section-empty-${section}`}
-              >
-                {SECTION_INFO[section].empty}
-              </p>
-            )
-          ) : (
+          {sections[section].length > 0 && (
             <SidebarMenu>
               {sections[section].map((n) => {
                 const active = n.documentId === selected;

@@ -110,7 +110,7 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
 
   // Nothing open yet: Home without notes, an empty list.
   await expect(home(page)).toContainText('No notes yet');
-  await expect(page.getByTestId('tree-empty-private')).toBeVisible();
+  await expect(page.getByTestId('tree-section-private').getByTestId('tree-item')).toHaveCount(0);
   await shots(page, 'desktop-start');
 
   // "New meeting note": the note is created and opened, and the recording runs into it.

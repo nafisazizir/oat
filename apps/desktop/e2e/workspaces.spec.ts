@@ -219,10 +219,10 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
 
   // Design team: its list is empty; a new meeting note records into it.
   await choose(DESIGN);
-  await expect(page.getByTestId('tree-empty-private')).toBeVisible();
-  // Two sections; Private says what goes there, an empty Shared is just its label.
-  await expect(page.getByTestId('tree-empty-private')).toHaveText('Notes only you can see.');
-  await expect(page.getByTestId('tree-empty-shared')).toHaveCount(0);
+  // Two sections; an empty one is just its label.
+  await expect(page.getByTestId('tree-section-private')).toContainText('Private');
+  await expect(page.getByTestId('tree-section-shared')).toContainText('Shared');
+  await expect(page.getByTestId('tree-section-private').getByTestId('tree-item')).toHaveCount(0);
   await expect(page.getByTestId('workspace-hint')).toHaveCount(0);
   await page.getByTestId('new-meeting').click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording', {
@@ -309,7 +309,7 @@ test('Private and Shared: a teammate’s shared note is under Shared, their priv
     timeout: scaled(20_000),
   });
   await expect(mine).toHaveCount(0);
-  await expect(page.getByTestId('tree-empty-private')).toBeVisible();
+  await expect(page.getByTestId('tree-section-private').getByTestId('tree-item')).toHaveCount(0);
   await shared.and(page.locator(`[data-document-id="${myNote}"]`)).click();
   await expect(page.getByText(`Everyone in ${DESIGN}`, { exact: true })).toBeVisible();
   // …and back when it is made private again.
@@ -331,7 +331,7 @@ test('as a viewer, new notes go to the first workspace I can add to (and the sid
   await expect(page.getByTestId('workspace-hint')).toHaveText(
     `You can view ${BOARD} but not add notes to it. New notes go to ${DESIGN}.`,
   );
-  await expect(page.getByTestId('tree-empty-private')).toBeVisible();
+  await expect(page.getByTestId('tree-section-private').getByTestId('tree-item')).toHaveCount(0);
 
   // "Start notes" on an Upcoming event: the note is made in Design team.
   // Upcoming lives on Home (ui-calm).
@@ -362,7 +362,7 @@ test('as a viewer, new notes go to the first workspace I can add to (and the sid
   await expect(upcoming.getByTestId('upcoming-event')).not.toHaveCount(0);
   await expect(upcoming.getByTestId('upcoming-event-workspace')).toHaveCount(0);
   await choose(OWN);
-  await expect(page.getByTestId('tree-empty-private')).toBeVisible();
+  await expect(page.getByTestId('tree-section-private').getByTestId('tree-item')).toHaveCount(0);
   await expect(page.getByTestId('workspace-hint')).toHaveCount(0);
 });
 

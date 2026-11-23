@@ -126,9 +126,7 @@ describe('visibilityBadge', () => {
 });
 
 describe('SECTION_INFO', () => {
-  it('names both sections and says what goes in Private; Shared has no empty hint', () => {
+  it('names both sections', () => {
     expect(SIDEBAR_SECTIONS.map((s) => SECTION_INFO[s].label)).toEqual(['Private', 'Shared']);
-    expect(SECTION_INFO.private.empty).toBe('Notes only you can see.');
-    expect(SECTION_INFO.shared.empty).toBeUndefined();
   });
 });

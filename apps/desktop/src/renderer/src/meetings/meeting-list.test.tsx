@@ -83,15 +83,10 @@ describe('MeetingList: Private and Shared (D-36)', () => {
     expect(titles('private')).toEqual(['standup']);
   });
 
-  it('says what goes in a section while it is empty', () => {
-    render(list([note('mine-private', 'private')]));
-    expect(screen.queryByTestId('meeting-section-empty-private')).toBeNull();
-    expect(screen.queryByTestId('meeting-section-empty-shared')).toBeNull();
-    cleanup();
+  it('shows an empty section as just its label', () => {
     render(list([]));
-    expect(screen.getByTestId('meeting-section-empty-private').textContent).toBe(
-      'Notes only you can see.',
-    );
+    expect(screen.getByTestId('meeting-section-private').textContent).toBe('Private');
+    expect(screen.getByTestId('meeting-section-shared').textContent).toBe('Shared');
     // No notes at all: the list as a whole is marked empty.
     expect(screen.getByTestId('meeting-list-empty')).toBeTruthy();
     expect(screen.queryByTestId('meeting-list')).toBeNull();
