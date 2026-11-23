@@ -112,12 +112,14 @@ export function MeetingList({
         >
           <SidebarGroupLabel>{SECTION_INFO[section].label}</SidebarGroupLabel>
           {sections[section].length === 0 ? (
-            <p
-              className="px-2 py-1 text-copy-13 text-gray-900 group-data-[collapsible=icon]:hidden"
-              data-testid={`meeting-section-empty-${section}`}
-            >
-              {SECTION_INFO[section].empty}
-            </p>
+            SECTION_INFO[section].empty && (
+              <p
+                className="px-2 py-1 text-copy-13 text-gray-900 group-data-[collapsible=icon]:hidden"
+                data-testid={`meeting-section-empty-${section}`}
+              >
+                {SECTION_INFO[section].empty}
+              </p>
+            )
           ) : (
             <SidebarMenu>
               {sections[section].map((n) => {

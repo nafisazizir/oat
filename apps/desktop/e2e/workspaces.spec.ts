@@ -220,9 +220,9 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   // Design team: its list is empty; a new meeting note records into it.
   await choose(DESIGN);
   await expect(page.getByTestId('tree-empty-private')).toBeVisible();
-  // Two sections, each saying what goes there.
+  // Two sections; Private says what goes there, an empty Shared is just its label.
   await expect(page.getByTestId('tree-empty-private')).toHaveText('Notes only you can see.');
-  await expect(page.getByTestId('tree-empty-shared')).toHaveText('Notes everyone here can see.');
+  await expect(page.getByTestId('tree-empty-shared')).toHaveCount(0);
   await expect(page.getByTestId('workspace-hint')).toHaveCount(0);
   await page.getByTestId('new-meeting').click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording', {

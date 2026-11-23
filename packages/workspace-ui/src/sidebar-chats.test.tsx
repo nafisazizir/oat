@@ -110,9 +110,24 @@ describe('sidebar chats', () => {
     if (state === 'error') model.threads.mockRejectedValue(new Error('offline'));
     else model.threads.mockResolvedValue({ threads: [] });
     renderChats();
-    await waitFor(() => expect(screen.getByRole('link', { name: 'View all' })).toBeTruthy());
+    if (state !== 'offline') await waitFor(() => expect(model.threads).toHaveBeenCalled());
+    expect(screen.getByTestId('nav-assistant').getAttribute('href')).toBe('/assistant');
+    expect(screen.getByRole('link', { name: 'New chat' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'View all' })).toBeNull();
     expect(screen.queryByRole('progressbar')).toBeNull();
     if (state === 'offline') expect(model.threads).not.toHaveBeenCalled();
+  });
+  it('hides "View all" when every chat is already listed', async () => {
+    model.threads.mockResolvedValue({
+      threads: Array.from({ length: 5 }, (_, i) => ({
+        id: `t${i}`,
+        title: `Chat ${i}`,
+        updatedAt: `2026-01-0${i + 1}`,
+      })),
+    });
+    renderChats();
+    await screen.findByText('Chat 0');
+    expect(screen.queryByRole('link', { name: 'View all' })).toBeNull();
   });
   it('refreshes recent threads on navigation after a conversation is saved', async () => {
     model.threads

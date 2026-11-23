@@ -86,9 +86,7 @@ describe('MeetingList: Private and Shared (D-36)', () => {
   it('says what goes in a section while it is empty', () => {
     render(list([note('mine-private', 'private')]));
     expect(screen.queryByTestId('meeting-section-empty-private')).toBeNull();
-    expect(screen.getByTestId('meeting-section-empty-shared').textContent).toBe(
-      'Notes everyone here can see.',
-    );
+    expect(screen.queryByTestId('meeting-section-empty-shared')).toBeNull();
     cleanup();
     render(list([]));
     expect(screen.getByTestId('meeting-section-empty-private').textContent).toBe(
