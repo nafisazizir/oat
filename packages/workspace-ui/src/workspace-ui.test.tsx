@@ -2,7 +2,7 @@
 import { createOatClient, type OatRequest, type OatTransport } from '@oat/client';
 import { SidebarProvider } from '@oat/ui/components/sidebar';
 import { ThemeProvider } from '@oat/settings-ui';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
@@ -114,6 +114,16 @@ function setup(
 }
 
 describe('shared workspace shell', () => {
+  it.each(['web', 'desktop'] as const)('opens Settings once per Cmd/Ctrl+, on %s', (platform) => {
+    const { host } = setup(data, false, platform);
+    fireEvent.keyDown(window, { key: ',', metaKey: true });
+    fireEvent.keyDown(window, { key: ',', ctrlKey: true });
+    expect(host.navigate).toHaveBeenCalledTimes(2);
+    expect(host.navigate).toHaveBeenLastCalledWith({ view: 'settings' });
+    fireEvent.keyDown(window, { key: ',' });
+    fireEvent.keyDown(window, { key: ',', metaKey: true, repeat: true });
+    expect(host.navigate).toHaveBeenCalledTimes(2);
+  });
   it('shares aligned navigation and an account menu with reachable settings', async () => {
     setup();
     expect(screen.getByTestId('sidebar-header-trigger')).toBeTruthy();

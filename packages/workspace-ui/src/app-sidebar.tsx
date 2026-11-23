@@ -2,6 +2,7 @@
 
 import { useOptimistic, useState, useTransition, type ReactNode } from 'react';
 import { cn } from '@oat/ui/lib/utils';
+import { useAppShortcut } from '@oat/ui/hooks/use-app-shortcut';
 import { Avatar, AvatarFallback, AvatarImage } from '@oat/ui/components/avatar';
 import {
   DropdownMenu,
@@ -59,6 +60,7 @@ export function WorkspaceSwitcher({
 }) {
   const host = useWorkspaceHost();
   const { Link } = host;
+  useAppShortcut('settings', () => host.navigate({ view: 'settings' }));
   const { workspace: loadedWorkspace, workspaces, canJoin, user, trash } = useShellData();
   const { openTrash } = useTreeActions();
   const [currentWorkspace, showWorkspace] = useOptimistic(loadedWorkspace);
