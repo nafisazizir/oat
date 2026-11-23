@@ -128,3 +128,20 @@ Personally inspected refreshed `/home/ubuntu/sidebar-lab-shots/final-switcher.pn
 `/home/ubuntu/sidebar-lab-shots/avatar-zoom.png` (984×352). Zoom is the actual workspace-list element
 capture enlarged 400% with ImageMagick point filtering; no circular ring over the square fill remains.
 Real sidebar and shared avatar implementation unchanged. Server left on 3000; local commit, no push.
+
+## Simplified switcher menu
+Kept identity header, Settings with right-aligned Kbd ⌘, hint, Workspaces plus Create workspace,
+Library (Tasks/Templates/Trash), and Sign out, with three separators. Removed duplicate Profile,
+workspace settings/invite and Theme entry points; Settings still opens the local mock view.
+Focused tsc/eslint exit 0; external check-menu.mjs verifies exact item order, separators, identity,
+shortcut hint, local actions and workspace switching (exit 0):
+
+```text
+Sidebar lab typecheck and lint: PASS
+PASS: simplified menu exact order, three separators, identity header, Settings shortcut hint, local navigation and workspace switching; no browser errors.
+Dev server port 3000: HTTP 200
+```
+
+Refreshed and personally inspected `/home/ubuntu/sidebar-lab-shots/final-switcher.png` (1280×800).
+Harness text-content assertion includes aria-hidden avatar initials; no product fix was needed.
+Server stays on 3000; shared Settings/production sidebar untouched. Local commit only, no push.

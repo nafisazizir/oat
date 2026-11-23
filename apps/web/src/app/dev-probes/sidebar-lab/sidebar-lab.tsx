@@ -11,11 +11,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
 } from '@oat/ui/components/dropdown-menu';
 import { Kbd } from '@oat/ui/components/kbd';
 import {
@@ -50,16 +45,11 @@ import {
   IconLogout,
   IconMessageCircle,
   IconMessages,
-  IconPalette,
   IconPlus,
   IconSearch,
   IconSettings,
   IconTrash,
-  IconUser,
-  IconUserPlus,
 } from '@tabler/icons-react';
-
-import { useTheme } from '@/components/theme-provider';
 
 type ViewAllIcon = 'none' | 'dots' | 'arrow' | 'list' | 'bubbles';
 type Icon = ComponentType<{ className?: string }>;
@@ -155,7 +145,6 @@ export function SidebarLab({ initialIcon }: { initialIcon: ViewAllIcon }) {
   });
   const toggleGroup = (label: keyof typeof groups) =>
     setGroups((previous) => ({ ...previous, [label]: !previous[label] }));
-  const { theme, setTheme } = useTheme();
   const select = (view: string) => setActive(view);
   const row = (label: string, Icon: Icon, nested = false) => (
     <SidebarMenuItem
@@ -289,10 +278,11 @@ export function SidebarLab({ initialIcon }: { initialIcon: ViewAllIcon }) {
                     <p className="text-label-12 text-gray-900">nafis@example.com</p>
                   </div>
                   <DropdownMenuGroup>
-                    {library([
-                      ['Profile', IconUser],
-                      ['Settings', IconSettings],
-                    ])}
+                    <DropdownMenuItem onClick={() => select('Settings')}>
+                      <IconSettings />
+                      Settings
+                      <Kbd className="ms-auto">⌘,</Kbd>
+                    </DropdownMenuItem>
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
@@ -304,41 +294,17 @@ export function SidebarLab({ initialIcon }: { initialIcon: ViewAllIcon }) {
                         {workspace === name && <IconCheck className="ms-auto" />}
                       </DropdownMenuItem>
                     ))}
+                    <DropdownMenuItem onClick={() => select('Create workspace')}>
+                      <IconPlus />
+                      Create workspace
+                    </DropdownMenuItem>
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    {library([
-                      ['Workspace settings', IconSettings],
-                      ['Invite members', IconUserPlus],
-                      ['Create workspace', IconPlus],
-                    ])}
+                    <DropdownMenuLabel>Library</DropdownMenuLabel>
+                    {library(utilities)}
                   </DropdownMenuGroup>
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      <DropdownMenuLabel>Library</DropdownMenuLabel>
-                      {library(utilities)}
-                    </DropdownMenuGroup>
-                  </>
                   <DropdownMenuSeparator />
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <IconPalette />
-                      Theme
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuRadioGroup
-                        value={theme}
-                        onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}
-                      >
-                        {['light', 'dark', 'system'].map((value) => (
-                          <DropdownMenuRadioItem key={value} value={value}>
-                            {value[0]!.toUpperCase() + value.slice(1)}
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
                   <DropdownMenuItem onClick={() => select('Signed out (prototype)')}>
                     <IconLogout />
                     Sign out
