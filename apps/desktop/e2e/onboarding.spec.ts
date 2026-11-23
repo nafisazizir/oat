@@ -10,7 +10,7 @@
  *    a live transcript line, saves nothing → Finish → the first-meeting guide → "Got it". A relaunch goes
  *    straight to the app; Settings → Setup shows the states and reopens the walkthrough.
  * 2. A denied microphone shows how to fix it in System Settings; "Open System Settings" opens the
- *    `x-apple.systempreferences:` Microphone pane. "Set up later" leaves setup for good.
+ *    `x-apple.systempreferences:` Microphone pane. Closing the dialog (Escape) leaves setup for good.
  */
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -175,13 +175,13 @@ test('fresh profile: setup → permissions → test recording → finish → fir
   const again = page.getByTestId('onboarding');
   await expect(again).toBeVisible();
   await expect(again.getByRole('heading', { level: 1 })).toHaveText('Setup');
-  await page.getByTestId('onboarding-later').click();
+  await page.keyboard.press('Escape');
   await expect(page.getByTestId('signed-in-email')).toHaveText(email);
   // A re-run doesn't bring the guide back.
   await expect(page.getByTestId('first-meeting-guide')).toBeHidden();
 });
 
-test('denied microphone: how to fix it in System Settings; "Set up later" leaves setup', async ({
+test('denied microphone: how to fix it in System Settings; closing the dialog leaves setup', async ({
   browser,
 }) => {
   const electronApp = await launch('denied', 'permissions-denied.json');
@@ -205,9 +205,9 @@ test('denied microphone: how to fix it in System Settings; "Set up later" leaves
   await page.getByTestId('onboarding-next').click();
   await expect(page.getByTestId('permission-status')).toHaveAttribute('data-state', 'done');
 
-  await page.getByTestId('onboarding-later').click();
+  await page.keyboard.press('Escape');
   await expect(page.getByTestId('signed-in-email')).toHaveText(email);
-  // "Set up later" shows no guide and isn't asked again.
+  // Closing shows no guide and isn't asked again.
   await expect(page.getByTestId('first-meeting-guide')).toBeHidden();
   await launch('denied', 'permissions-denied.json');
   await expect(page.getByTestId('signed-in-email')).toHaveText(email);

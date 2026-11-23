@@ -364,26 +364,8 @@ function SignedInShell({
   }, [recording, activeMeetingId, opened, recordingNote, route.view, setSelected]);
 
   if (!onboarding.state) return <main className="app-drag flex-1" data-testid="shell" aria-busy />;
-  if (onboarding.state.needed || setupOpen) {
-    const firstRun = onboarding.state.needed;
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className="app-drag h-12 shrink-0" />
-        <OnboardingView
-          firstRun={firstRun}
-          email={user.email}
-          input={input}
-          onDone={(finished) => {
-            setSetupOpen(false);
-            setSettingsOpen(false);
-            setRoute((current) => (current.view === 'invite' ? current : { view: 'home' }));
-            // The guide card follows a finished first run; "Set up later" and re-runs go straight back.
-            if (firstRun) void onboarding.complete(finished);
-          }}
-        />
-      </div>
-    );
-  }
+  const setupShown = onboarding.state.needed || setupOpen;
+  const firstRun = onboarding.state.needed;
 
   return (
     <DesktopWorkspaceHost
@@ -515,6 +497,21 @@ function SignedInShell({
             />
           )}
           <AutoStopToast notice={autoStop} />
+          {setupShown && (
+            <OnboardingView
+              firstRun={firstRun}
+              input={input}
+              onDone={(finished) => {
+                setSetupOpen(false);
+                // A first run ends on home, where the guide card follows a finished setup; a re-run from
+                // Settings closes back to where it was opened.
+                if (!firstRun) return;
+                setSettingsOpen(false);
+                setRoute((current) => (current.view === 'invite' ? current : { view: 'home' }));
+                void onboarding.complete(finished);
+              }}
+            />
+          )}
         </div>
       </SidebarInset>
     </DesktopWorkspaceHost>

@@ -45,7 +45,7 @@ export class OnboardingStore {
     return { needed: !account?.completedAt, guide: account?.guide ?? false };
   }
 
-  /** Finished (or "Set up later"): never shown by itself again for this account; `guide` shows the card. */
+  /** Finished (or the dialog was closed): never shown by itself again for this account; `guide` shows the card. */
   complete(userId: string, guide: boolean): OnboardingState {
     const now = (this.#o.now ?? Date.now)();
     this.#accounts[userId] = { completedAt: this.#accounts[userId]?.completedAt ?? now, guide };

@@ -1,12 +1,13 @@
 /**
  * First-run setup (9.2): microphone → system audio → calendar → a test recording, each explained, each
  * permission asked for only when the user clicks "Allow". A permission that was turned off can only be changed
- * in System Settings, so the step says where and opens that pane. Every step can be skipped; "Set up later"
+ * in System Settings, so the step says where and opens that pane. Every step can be skipped; closing the dialog
  * leaves at any time (Settings → Setup brings it back).
  *
  */
 import type { PermissionKind, PermissionsSnapshot, TestRecordingSnapshot } from '@oat/core/bridge';
 import { Button } from '@oat/ui/components/button';
+import { Dialog, DialogContent, DialogTitle } from '@oat/ui/components/dialog';
 import { cn } from '@oat/ui/lib/utils';
 import { Spinner } from '@oat/ui/components/spinner';
 import {
@@ -42,21 +43,17 @@ import {
   type Tone,
 } from './onboarding-steps.ts';
 import { usePermissions, useTestRecording } from './onboarding-state.ts';
-import { Wordmark } from '../wordmark.tsx';
 
 export function OnboardingView({
   firstRun,
-  email,
   input,
   onDone,
 }: {
   /** First run of this account on this Mac (else re-opened from Settings). */
   firstRun: boolean;
-  /** The signed-in account (setup is per account). */
-  email: string;
   /** The recording input choice (dev fixtures; `sidecar` = live capture). */
   input: string;
-  /** `finished`: the last step's "Finish setup" (else "Set up later"). */
+  /** `finished`: the last step's "Finish setup" (else the dialog was closed). */
   onDone: (finished: boolean) => void;
 }) {
   const permissions = usePermissions();
@@ -83,27 +80,25 @@ export function OnboardingView({
   const testBusy = test?.status === 'starting' || test?.status === 'running';
 
   return (
-    <main
-      className="flex min-h-0 flex-1 items-start justify-center overflow-y-auto px-6 py-10"
-      data-testid="onboarding"
-      data-step={current}
+    // A dialog over the signed-in app (D-39). There is no button to leave: a click outside or Escape closes
+    // it, which skips setup (not while the test recording runs).
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !testBusy) onDone(false);
+      }}
     >
-      <div className="m-auto flex w-full max-w-[22.5rem] flex-col gap-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <Wordmark />
-            <h1 className="sr-only">{firstRun ? 'Set up Oat' : 'Setup'}</h1>
-          </div>
-          <Button
-            variant="ghost"
-            disabled={testBusy}
-            onClick={() => onDone(false)}
-            data-testid="onboarding-later"
-          >
-            {firstRun ? 'Set up later' : 'Close'}
-          </Button>
-        </div>
-
+      {/* Centred, with a fixed height: the steps and the Back/Continue row never move. A longer state (a
+          permission to fix in System Settings, a test verdict) scrolls inside, above the row. */}
+      <DialogContent
+        showCloseButton={false}
+        className="flex h-[min(33rem,calc(100vh-4rem))] flex-col gap-7 px-8 py-7 sm:max-w-[32.5rem]"
+        data-testid="onboarding"
+        data-step={current}
+      >
+        <DialogTitle render={<h1 />} className="sr-only">
+          {firstRun ? 'Set up Oat' : 'Setup'}
+        </DialogTitle>
         <Stepper
           current={current}
           isDone={(s) => stepDone(s, permissions, test)}
@@ -113,10 +108,10 @@ export function OnboardingView({
 
         <section
           aria-labelledby="onboarding-step-title"
-          className="flex flex-col gap-6 text-gray-1000"
+          className="flex min-h-0 flex-1 flex-col gap-6 text-gray-1000"
           data-testid={`onboarding-step-${current}`}
         >
-          <div className="flex flex-col gap-5">
+          <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-1">
             {!permissions ? (
               <div role="status" aria-busy className="flex h-40 items-center justify-center">
                 <Spinner aria-label="Loading" className="size-5 text-gray-900" />
@@ -154,10 +149,10 @@ export function OnboardingView({
               <TestStep test={test} input={input} headingRef={headingRef} />
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {back && (
-              <Button variant="ghost" disabled={testBusy} onClick={() => go(back)}>
-                Back
+              <Button variant="secondary" disabled={testBusy} onClick={() => go(back)}>
+                Go back
               </Button>
             )}
             <div className="ms-auto flex items-center gap-2">
@@ -183,14 +178,8 @@ export function OnboardingView({
             </div>
           </div>
         </section>
-        <p className="text-center text-label-12 text-gray-900">
-          Signed in as{' '}
-          <span data-selectable data-testid="onboarding-account">
-            {email}
-          </span>
-        </p>
-      </div>
-    </main>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -207,12 +196,14 @@ function Stepper({
 }) {
   return (
     <nav aria-label="Setup steps">
-      <ol className="flex justify-center gap-3">
-        {STEPS.map((s, i) => {
+      <ol className="flex gap-1.5">
+        {STEPS.map((s) => {
           const active = s === current;
           const complete = isDone(s);
           return (
-            <li key={s}>
+            <li key={s} className="flex-1">
+              {/* The bar is thin; the button around it is the (taller) click target. Dark = the step on screen, mid = done,
+                  faint = still to do. */}
               <button
                 type="button"
                 disabled={disabled}
@@ -220,18 +211,20 @@ function Stepper({
                 aria-current={active ? 'step' : undefined}
                 onClick={() => onSelect(s)}
                 data-testid={`onboarding-nav-${s}`}
-                className={cn(
-                  'flex size-8 items-center justify-center rounded-md text-label-12 text-gray-900 outline-none hover:bg-gray-alpha-100 focus-visible:ring-3 focus-visible:ring-gray-600/50 disabled:pointer-events-none',
-                  active && 'bg-gray-alpha-200 text-gray-1000',
-                )}
+                data-complete={complete || undefined}
+                className="group flex h-8 w-full items-center rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-gray-600/50 disabled:pointer-events-none"
               >
-                {complete ? (
-                  <IconCheck aria-hidden className="size-3.5 shrink-0 text-gray-900" />
-                ) : (
-                  <span aria-hidden className="w-3.5 shrink-0 text-center tabular-nums">
-                    {i + 1}
-                  </span>
-                )}
+                <span
+                  aria-hidden
+                  className={cn(
+                    'h-1 w-full rounded-full transition-colors',
+                    active
+                      ? 'bg-gray-1000'
+                      : complete
+                        ? 'bg-gray-alpha-600 group-hover:bg-gray-alpha-800'
+                        : 'bg-gray-alpha-200 group-hover:bg-gray-alpha-500',
+                  )}
+                />
                 <span className="sr-only">{STEP_LABELS[s]}</span>
                 {complete && <span className="sr-only">(done)</span>}
               </button>
@@ -269,9 +262,12 @@ function StepHeader({
   status?: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="shrink-0 text-gray-900">
-        <Icon aria-hidden className="size-4" />
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-1000">
+          <Icon aria-hidden className="size-5" />
+        </div>
+        {status}
       </div>
       <h2
         id="onboarding-step-title"
@@ -281,7 +277,6 @@ function StepHeader({
       >
         {title}
       </h2>
-      {status && <div className="ms-auto">{status}</div>}
     </div>
   );
 }

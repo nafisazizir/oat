@@ -35,7 +35,7 @@ describe('OnboardingStore', () => {
     });
   });
 
-  it('"Set up later" completes without the guide; re-running setup keeps the first date', () => {
+  it('closing setup completes without the guide; re-running setup keeps the first date', () => {
     let now = 1;
     const store = new OnboardingStore({ file, mode: 'auto', log, now: () => now });
     store.complete('u1', false);

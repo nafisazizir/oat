@@ -399,8 +399,9 @@ writes `out/` (`out/main` ESM, `out/preload/index.cjs`, `out/renderer`). Run the
   `OAT_END_GRACE_MS`, and `OAT_DETECTION=file:<apps.json>` (the mic-using apps are that JSON array, re-read on
   change: a test ends a call by emptying it). The agents skip enhance below 60 s of speech
   (`OAT_AUTO_ENHANCE_MIN_SPEECH_MS`; e2e 5 s). Details: `docs/tasks/7.5-auto-stop-enhance.md`.
-- **First-run setup (9.2).** After an account's first sign-in on this Mac the main window shows setup instead of
-  the app: microphone → system audio → calendar → a 10 s test recording (levels for Me / Them + a live transcript
+- **First-run setup (9.2).** After an account's first sign-in on this Mac the main window shows setup as a
+  dialog over the app (D-39; centred, fixed height, four clickable progress bars; a click outside or Escape
+  closes it and skips setup): microphone → system audio → calendar → a 10 s test recording (levels for Me / Them + a live transcript
   line; nothing is saved), then a dismissible first-meeting guide on the home view. Settings → Setup shows the
   permission states and reopens it. Status comes from `oat-audio permissions` (never prompts); "Allow" is the only
   thing that asks macOS (microphone: Electron's `askForMediaAccess`; system audio: a 2 s sidecar system capture;

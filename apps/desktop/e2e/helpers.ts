@@ -157,10 +157,8 @@ export async function signInDesktop(
   const { redirectUrl } = (await (await codeResponse).json()) as { redirectUrl: string };
   await context.close();
   await deliverDeepLink(app, redirectUrl);
-  // The app, or first-run setup (9.2) when a suite turns it on (`OAT_ONBOARDING=auto`).
-  await expect(
-    page.getByTestId('signed-in-email').or(page.getByTestId('onboarding-account')),
-  ).toHaveText(email);
+  // The app; first-run setup (9.2, `OAT_ONBOARDING=auto`) is a dialog over it.
+  await expect(page.getByTestId('signed-in-email')).toHaveText(email);
 }
 
 /**
