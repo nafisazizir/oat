@@ -60,7 +60,6 @@ export function WorkspaceSwitcher({
 }) {
   const host = useWorkspaceHost();
   const { Link } = host;
-  useAppShortcut('settings', () => host.navigate({ view: 'settings' }));
   const { workspace: loadedWorkspace, workspaces, canJoin, user, trash } = useShellData();
   const { openTrash } = useTreeActions();
   const [currentWorkspace, showWorkspace] = useOptimistic(loadedWorkspace);
@@ -229,6 +228,7 @@ export function AppSidebar({
   const { Link } = host;
   const { workspace } = useShellData();
   const { saving } = useOptimisticTree();
+  useAppShortcut('settings', () => host.navigate({ view: 'settings' }));
   return (
     <Sidebar
       collapsible="icon"

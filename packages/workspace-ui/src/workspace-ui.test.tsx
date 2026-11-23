@@ -114,6 +114,23 @@ function setup(
 }
 
 describe('shared workspace shell', () => {
+  it.each(['web', 'desktop'] as const)(
+    'keeps Settings shortcuts mounted with the mobile sheet closed on %s',
+    async (platform) => {
+      const width = window.innerWidth;
+      window.innerWidth = 600;
+      try {
+        const { host } = setup(data, false, platform);
+        expect(screen.queryByTestId('workspace-switcher')).toBeNull();
+        fireEvent.keyDown(window, { key: ',', metaKey: true });
+        expect(host.navigate).toHaveBeenCalledExactlyOnceWith({ view: 'settings' });
+        fireEvent.keyDown(window, { key: ',', ctrlKey: true });
+        expect(host.navigate).toHaveBeenCalledTimes(2);
+      } finally {
+        window.innerWidth = width;
+      }
+    },
+  );
   it('removes invisible group toggles from keyboard navigation in icon mode', async () => {
     const { user } = setup();
     const labels = ['Private', 'Shared', 'Chats'].map((name) =>

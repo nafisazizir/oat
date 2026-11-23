@@ -127,3 +127,27 @@ ci: ok
 Log: ~/sidebar-lab-shots/pr34-review-fast.log. PR checks are monitored on #34 after publication.
 No new visual capture was requested: the new standalone export row and collapsed-label layout are
 visually unverified. Native macOS runtime remains unverified.
+
+## PR #34 second review round
+Both reopened findings at 0db9510 were real:
+- New-chat interception now applies only to the already-current unselected Assistant route.
+  Saved threads use the normal host Link navigation, preserving the thread's history entry;
+  no reset event or replacing history callback runs on that click. Tests cover saved threads,
+  another route, modified clicks and the existing same-URL draft reset (Chats: 11 passed).
+- Settings shortcut registration moved out of WorkspaceSwitcher into AppSidebar itself, above
+  the sheet boundary. At 600px with the sheet closed the switcher is absent, yet Cmd/Ctrl+,
+  each navigate once on both web and desktop host tests (shared shell: 22 passed).
+
+Final `pnpm run ci --fast` after both revisions:
+```text
+step        status     time  note
+format      pass      12.5s
+actionlint  pass       0.3s
+typecheck   pass      13.7s
+lint        pass       4.5s
+test        pass      18.7s
+total                 49.6s
+
+ci: ok
+```
+Log: ~/sidebar-lab-shots/pr34-second-review-fast.log. PR monitoring resumes after publication.
