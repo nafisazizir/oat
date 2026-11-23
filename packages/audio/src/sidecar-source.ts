@@ -204,6 +204,8 @@ interface Child {
   readonly exited: Promise<ExitInfo>;
   hasExited: boolean;
   started: boolean;
+  handshake?: AudioEventOf<'started'>;
+  startupEvents: AudioEvent[];
   startedAt: number;
   stopped?: AudioEventOf<'stopped'>;
   /** First failure we detected ourselves (protocol violation, start timeout); the process gets killed. */
@@ -421,6 +423,7 @@ export class SidecarSource implements AudioSource {
       exited: new Promise((resolve) => (resolveExit = resolve)),
       hasExited: false,
       started: false,
+      startupEvents: [],
       startedAt: performance.now(),
       stopSent: false,
       delivered: { mic: 0, system: 0 },
@@ -504,33 +507,7 @@ export class SidecarSource implements AudioSource {
 
   #onFrame(child: Child, raw: RawFrame): void {
     if (!child.started) {
-      if (raw.kind !== KIND.EVENT || raw.event?.type !== 'started') {
-        throw new ProtocolError('first frame is not a `started` event');
-      }
-      const started = toAudioEvent(raw, child.offsetUs) as AudioEventOf<'started'>;
-      if (started.protocol !== SIDECAR_PROTOCOL) {
-        throw new ProtocolError(`unsupported protocol ${String(started.protocol)}`);
-      }
-      if (started.sampleRate !== this.sampleRate) {
-        throw new ProtocolError(`sample rate ${started.sampleRate}, expected ${this.sampleRate}`);
-      }
-      child.started = true;
-      child.startedAt = performance.now();
-      clearTimeout(child.startTimer);
-      this.#lastUs = Math.max(this.#lastUs, started.tUs);
-      if (!this.#started) {
-        // First process of the session: this is the session's `started`.
-        this.#wallOriginMs = performance.now() - Number(raw.tUs) / 1000;
-        this.#started = started;
-        this.#state = 'running';
-        this.#emitter.emitEvent(started);
-        this.#startWaiter?.resolve(); // stop() during start sends the stop once start() has settled
-      } else if (this.#state === 'paused') {
-        // Re-apply a pause across the restart (its `paused` is already announced) and drop this process's
-        // audio until it confirms: anything before that was captured after the user paused.
-        child.muted = true;
-        this.#send('pause');
-      }
+      this.#onStartupFrame(child, raw);
       return;
     }
 
@@ -569,6 +546,65 @@ export class SidecarSource implements AudioSource {
     }
   }
 
+  #onStartupFrame(child: Child, raw: RawFrame): void {
+    // A stop during a permission dialog can race with the helper becoming ready.
+    if (this.#stopRequested) return;
+    if (!child.handshake) {
+      if (raw.kind !== KIND.EVENT || raw.event?.type !== 'started') {
+        throw new ProtocolError('first frame is not a `started` event');
+      }
+      const started = toAudioEvent(raw, child.offsetUs) as AudioEventOf<'started'>;
+      if (started.protocol !== SIDECAR_PROTOCOL) {
+        throw new ProtocolError(`unsupported protocol ${String(started.protocol)}`);
+      }
+      if (started.sampleRate !== this.sampleRate) {
+        throw new ProtocolError(`sample rate ${started.sampleRate}, expected ${this.sampleRate}`);
+      }
+      child.handshake = started;
+      clearTimeout(child.startTimer); // Device setup can now wait for macOS permission prompts.
+      if (!this.#started) this.#wallOriginMs = performance.now() - Number(raw.tUs) / 1000;
+      if (raw.event.await_capture_ready === true) return;
+    } else if (raw.event?.type !== 'capture_ready') {
+      if (raw.kind !== KIND.EVENT) throw new ProtocolError('audio before `capture_ready`');
+      const event = toAudioEvent(raw, child.offsetUs);
+      if (event?.type === 'stopped') {
+        // On an initial failure, wait for exit so start() rejects with the helper's diagnostics.
+        if (this.#started) {
+          this.#flushStartupEvents(child);
+          this.#finish(event.reason, true, event);
+          void this.#terminate(child, false);
+        }
+      } else if (event?.type === 'error') {
+        child.startupEvents.push(event);
+      }
+      return;
+    }
+
+    const started = child.handshake;
+    child.started = true;
+    child.startedAt = performance.now();
+    this.#lastUs = Math.max(this.#lastUs, started.tUs);
+    if (!this.#started) {
+      this.#started = started;
+      this.#state = 'running';
+      this.#emitter.emitEvent(started);
+      this.#startWaiter?.resolve();
+    } else if (this.#state === 'paused') {
+      // Re-apply pause across a restart, dropping audio until the child confirms it.
+      child.muted = true;
+      this.#send('pause');
+    }
+    this.#flushStartupEvents(child);
+  }
+
+  #flushStartupEvents(child: Child): void {
+    for (const event of child.startupEvents) {
+      this.#lastUs = Math.max(this.#lastUs, event.tUs);
+      this.#emitter.emitEvent(event);
+    }
+    child.startupEvents = [];
+  }
+
   #announcePaused(paused: boolean, tUs: number): void {
     if (this.#announcedPaused === paused) return;
     this.#announcedPaused = paused;
@@ -594,7 +630,10 @@ export class SidecarSource implements AudioSource {
         return;
       }
       // The first process never started: start() rejects (and #finish('error') runs there).
-      this.#startWaiter?.reject(new SidecarError(why));
+      const startupErrors = child.startupEvents
+        .filter((event): event is AudioEventOf<'error'> => event.type === 'error' && event.fatal)
+        .map((event) => `${event.source ?? 'capture'} ${event.code}: ${event.message}`);
+      this.#startWaiter?.reject(new SidecarError([why, ...startupErrors].join('; ')));
       return;
     }
     if (this.#stopRequested) {

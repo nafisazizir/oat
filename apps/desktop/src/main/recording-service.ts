@@ -572,7 +572,10 @@ export class RecordingService {
    * (last finals, closed files), a stop in progress or an ended session's file closing is waited for.
    */
   async shutdown(): Promise<void> {
-    while (this.#starting) await new Promise((r) => setTimeout(r, 20));
+    while (this.#starting) {
+      if (this.#controller.state === 'starting') await this.stop().catch(() => undefined);
+      else await new Promise((r) => setTimeout(r, 20));
+    }
     const pending = this.#stopPromise ?? this.#session?.finalized;
     if (pending) {
       await pending.catch(() => undefined);

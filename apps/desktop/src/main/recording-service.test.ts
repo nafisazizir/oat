@@ -366,8 +366,13 @@ describe('RecordingService', () => {
   });
 
   it('a source that cannot start: visible error, stop acknowledges it', async () => {
+    const createSource = vi
+      .fn(() => new FileSource({ input: { stereo: join(FIXTURES, 'standup-short.wav') } }))
+      .mockImplementationOnce(
+        () => new FileSource({ input: { stereo: join(baseDir, 'missing.wav') } }),
+      );
     const h = setup({
-      source: () => new FileSource({ input: { stereo: join(baseDir, 'missing.wav') } }),
+      source: createSource,
     });
     await expect(h.service.start({ spec: fixture })).rejects.toBeInstanceOf(RecordingServiceError);
     expect(h.service.status).toBe('error');
@@ -378,8 +383,11 @@ describe('RecordingService', () => {
     );
     await h.service.stop();
     expect(h.service.status).toBe('idle');
-    // …and a new start works.
-    expect(h.statuses.at(-1)).toBe('idle');
+    // The same start action can now use a fresh source.
+    await h.service.start({ spec: fixture });
+    expect(h.service.status).toBe('recording');
+    expect(h.service.snapshot().issues).toEqual([]);
+    await h.service.stop();
   });
 
   it('a createSource that throws (no sidecar binary) fails the start the same way', async () => {
@@ -415,6 +423,39 @@ describe('RecordingService', () => {
 });
 
 describe('RecordingService: quit and concurrency (review 2.5 #1)', () => {
+  it('shutdown cancels a start waiting on native capture', async () => {
+    let finishStart!: () => void;
+    let finishStop!: (event: Awaited<ReturnType<AudioSource['whenStopped']>>) => void;
+    const starting = new Promise<void>((resolve) => (finishStart = resolve));
+    const stopped = new Promise<Awaited<ReturnType<AudioSource['whenStopped']>>>(
+      (resolve) => (finishStop = resolve),
+    );
+    const stop = vi.fn(async () => {
+      finishStop({ type: 'stopped', tUs: 0, reason: 'command', samples: { mic: 0, system: 0 } });
+      finishStart();
+    });
+    const h = setup({
+      source: () => ({
+        state: 'idle',
+        sampleRate: 16_000,
+        onEvent: () => () => {},
+        onFrame: () => () => {},
+        whenStopped: () => stopped,
+        start: () => starting,
+        stop,
+        pause: () => {},
+        resume: () => {},
+      }),
+    });
+    const start = h.service.start({ spec: { input: 'sidecar' } });
+    await h.waitFor('starting');
+    await h.service.shutdown();
+    await start;
+    expect(stop).toHaveBeenCalledOnce();
+    expect(h.service.busy).toBe(false);
+    expect(h.statuses).not.toContain('recording');
+  });
+
   it('shutdown() during a Stop resolves only after the archive files are complete', async () => {
     const h = setup({ speed: 'realtime' });
     const { meetingId } = await h.service.start({ spec: fixture });

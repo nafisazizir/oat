@@ -37,6 +37,8 @@ public final class CaptureSession: CaptureSourceDelegate, @unchecked Sendable {
     private var assemblers: [SourceID: FrameAssembler] = [:]
     private var meters: [SourceID: LevelMeter] = [:]
     private var active: Set<SourceID> = []
+    private var openingSources = false
+    private var captureReady = false
     private var durationTimer: DispatchSourceTimer?
     private var finishedCallbacks: [@Sendable (Int32) -> Void] = []
     private var exitCode: Int32?
@@ -82,15 +84,22 @@ public final class CaptureSession: CaptureSourceDelegate, @unchecked Sendable {
         lock.lock()
         guard state == .idle else { lock.unlock(); return }
         state = .running
+        openingSources = true
         emitLocked(.started(sampleRate: options.sampleRate, frameMs: options.frameMs,
                             sources: sources.map(\.id), synthetic: options.synthetic,
                             aec: options.aec && options.mic && !options.synthetic))
         lock.unlock()
 
         for s in sources {
+            lock.lock()
+            guard state == .running || state == .paused else { lock.unlock(); return }
+            active.insert(s.id)
+            lock.unlock()
             do {
-                lock.lock(); active.insert(s.id); lock.unlock()
                 try s.start(delegate: self)
+                lock.lock()
+                if state == .running && active.contains(s.id) { announceCaptureReadyLocked() }
+                lock.unlock()
             } catch {
                 lock.lock()
                 active.remove(s.id)
@@ -102,6 +111,8 @@ public final class CaptureSession: CaptureSourceDelegate, @unchecked Sendable {
         }
 
         lock.lock()
+        openingSources = false
+        guard state == .running || state == .paused else { lock.unlock(); return }
         let anyActive = !active.isEmpty
         lock.unlock()
         if !anyActive {
@@ -187,6 +198,9 @@ public final class CaptureSession: CaptureSourceDelegate, @unchecked Sendable {
         defer { lock.unlock() }
         // Accept audio while running and while sources flush during stop; drop while paused.
         guard state == .running || (state == .stopping && !stopFromPaused), var a = assemblers[source] else { return }
+        // A source can deliver audio before its start() returns.
+        if state == .running && active.contains(source) { announceCaptureReadyLocked() }
+        guard captureReady else { return }
         let frames = a.append(samples, timeUs: timeUs)
         assemblers[source] = a
         writeLocked(frames)
@@ -205,7 +219,7 @@ public final class CaptureSession: CaptureSourceDelegate, @unchecked Sendable {
         var noneLeft = false
         if fatal {
             active.remove(source)
-            noneLeft = active.isEmpty && (state == .running || state == .paused)
+            noneLeft = !openingSources && active.isEmpty && (state == .running || state == .paused)
         }
         lock.unlock()
         Log.info("\(source) error \(code): \(message)\(fatal ? " (fatal for this source)" : "")")
@@ -249,6 +263,12 @@ public final class CaptureSession: CaptureSourceDelegate, @unchecked Sendable {
     }
 
     // MARK: output (lock held)
+
+    private func announceCaptureReadyLocked() {
+        guard !captureReady else { return }
+        captureReady = true
+        emitLocked(.captureReady)
+    }
 
     private func emitLocked(_ event: CaptureEvent) {
         write(event.frame(tUs: clock.nowUs()))
