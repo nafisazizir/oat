@@ -138,6 +138,7 @@ test('folders: create + rename inline, move a shared page into a private folder 
   await evidence33(page, 'trashed-page');
 
   // Restore from the trash dialog: back in its folder.
+  await page.getByTestId('workspace-switcher').click();
   await page.getByTestId('open-trash').click();
   const trash = page.getByTestId('trash-dialog');
   await expect(trash.getByTestId('trash-item')).toHaveCount(1);
@@ -150,6 +151,7 @@ test('folders: create + rename inline, move a shared page into a private folder 
 
   // Trash again and delete forever.
   await rowAction(page, 'Roadmap', 'Move to trash');
+  await page.getByTestId('workspace-switcher').click();
   await page.getByTestId('open-trash').click();
   await trash.getByRole('button', { name: 'Delete Roadmap forever' }).click();
   await trash.getByRole('button', { name: 'Delete forever' }).click();
@@ -180,7 +182,9 @@ test('drag a page onto a folder; delete the folder (its pages go to the trash)',
   await confirm.getByRole('button', { name: 'Delete folder' }).click();
   await expect(page).toHaveURL(/\/home$/);
   await expect(tree.getByRole('link', { name: 'Archive' })).toBeHidden();
+  await page.getByTestId('workspace-switcher').click();
   await expect(page.getByTestId('open-trash')).toHaveAccessibleName('Trash (1)');
+  await page.keyboard.press('Escape');
 });
 
 test('edit the body, then rename from the sidebar: no false conflict, the editor keeps saving', async ({

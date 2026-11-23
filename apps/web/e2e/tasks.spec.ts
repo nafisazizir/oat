@@ -131,6 +131,7 @@ test('assign + date a task, enhance, find it in My tasks, tick it there → the 
   ).toBeVisible();
 
   // My tasks (sidebar): the worker picks the note up from the change log within a moment.
+  await page.getByTestId('workspace-switcher').click();
   await page.getByTestId('nav-tasks').click();
   await expect(page).toHaveURL(/\/tasks/);
   const row = page.getByTestId('task-row').filter({ hasText: 'Send the pilot proposal' });

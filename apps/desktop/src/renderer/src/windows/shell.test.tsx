@@ -310,7 +310,8 @@ describe('desktop shell', () => {
       'integrations',
     );
     expect(screen.getByTestId('recording-bar')).toBeTruthy();
-    await userEvent.click(screen.getByTestId('nav-tasks'));
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    await userEvent.click(await screen.findByTestId('nav-tasks'));
     await screen.findByTestId('tasks-empty');
     view.unmount();
     render(<MainWindow />);
@@ -361,11 +362,12 @@ describe('desktop shell', () => {
   });
   it('uses shared sidebar routes for Tasks, Assistant and the full offline search view', async () => {
     render(<MainWindow />);
-    await userEvent.click(screen.getByRole('link', { name: 'My tasks' }));
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    await userEvent.click(await screen.findByTestId('nav-tasks'));
     expect(await screen.findByRole('heading', { name: 'My tasks' })).toBeTruthy();
     expect(screen.getByText('Action items from meeting notes in Ada’s workspace.')).toBeTruthy();
     expect(await screen.findByTestId('tasks-empty')).toBeTruthy();
-    await userEvent.click(screen.getByRole('link', { name: 'Assistant' }));
+    await userEvent.click(screen.getByTestId('nav-assistant'));
     expect(await screen.findByTestId('chat-empty')).toBeTruthy();
     expect(
       screen.getByTestId('chat-empty').closest('[data-selectable]')?.classList.contains('flex'),
@@ -395,7 +397,7 @@ describe('desktop shell', () => {
         : invoke(channel, ...args),
     );
     render(<MainWindow />);
-    await userEvent.click(screen.getByRole('link', { name: 'Assistant' }));
+    await userEvent.click(screen.getByTestId('nav-assistant'));
     fireEvent.change(await screen.findByRole('textbox', { name: 'Ask the assistant' }), {
       target: { value: 'Hello' },
     });
@@ -406,7 +408,8 @@ describe('desktop shell', () => {
         expect.objectContaining({ path: '/api/chat' }),
       ),
     );
-    await userEvent.click(screen.getByRole('link', { name: 'My tasks' }));
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    await userEvent.click(await screen.findByTestId('nav-tasks'));
     await waitFor(() =>
       expect(model.invoke).toHaveBeenCalledWith('api:stream-cancel', { streamId: 'live' }),
     );
@@ -573,19 +576,8 @@ describe('desktop shell', () => {
     }
     expect(screen.getByTestId('api-me').textContent).toBe('Connected as alex@example.test');
     await userEvent.click(screen.getByTestId('workspace-switcher'));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Settings' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /^Settings/ }));
     expect(screen.getByTestId('settings')).toBeTruthy();
-  });
-
-  it.each([
-    ['Invite members', 'members'],
-    ['Workspace settings', 'workspace'],
-    ['Profile', 'profile'],
-  ])('opens %s in shared desktop settings', async (name, section) => {
-    render(<MainWindow />);
-    await userEvent.click(screen.getByTestId('workspace-switcher'));
-    await userEvent.click(await screen.findByRole('menuitem', { name }));
-    expect(screen.getByTestId('settings').getAttribute('data-settings-section')).toBe(section);
   });
 
   it('surfaces a failed account action', async () => {
@@ -615,8 +607,8 @@ describe('desktop shell', () => {
       'text-gray-900',
     );
     await userEvent.keyboard('{Escape}');
-    await userEvent.click(screen.getByTestId('account-switcher'));
-    await userEvent.click(await screen.findByRole('menuitem', { name: /^Settings$/ }));
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    await userEvent.click(await screen.findByRole('menuitem', { name: /^Settings/ }));
     expect(screen.getByTestId('settings')).toBeTruthy();
   });
 
@@ -686,7 +678,7 @@ describe('desktop shell', () => {
   it('keeps account actions available before workspaces load', async () => {
     model.workspacesReady = false;
     render(<MainWindow />);
-    expect(screen.getByTestId('account-switcher').textContent).toContain('Alex');
+    expect(screen.getByTestId('workspace-switcher')).toBeTruthy();
     await userEvent.click(screen.getByTestId('workspace-switcher'));
     expect((await screen.findByRole('menu')).textContent).toContain('alex@example.test');
     await userEvent.click(screen.getByRole('menuitem', { name: 'Sign out' }));
@@ -772,7 +764,8 @@ describe('desktop shell', () => {
   it('keeps recording controls available while browsing server-only routes', async () => {
     model.recording.status = 'recording';
     render(<MainWindow />);
-    await userEvent.click(screen.getByTestId('nav-tasks'));
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    await userEvent.click(await screen.findByTestId('nav-tasks'));
     expect(await screen.findByTestId('recording-bar')).toBeTruthy();
     expect(await screen.findByTestId('tasks-empty')).toBeTruthy();
   });
@@ -820,11 +813,13 @@ describe('desktop shell', () => {
     ];
     render(<MainWindow />);
     expect(await screen.findByRole('link', { name: 'Offline meeting' })).toBeTruthy();
-    await userEvent.click(screen.getByTestId('nav-tasks'));
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    await userEvent.click(await screen.findByTestId('nav-tasks'));
     expect(screen.getByRole('heading', { name: 'My tasks' })).toBeTruthy();
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
-    await userEvent.click(screen.getByRole('link', { name: 'Templates' }));
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Templates' }));
     expect(await screen.findByRole('heading', { name: 'You’re offline' })).toBeTruthy();
   });
 
@@ -888,7 +883,8 @@ describe('desktop shell', () => {
       await expect(api.workspaces.list()).rejects.toThrow();
     });
     await screen.findByText('Offline', { selector: '[role="status"]' });
-    await userEvent.click(screen.getByTestId('open-trash'));
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    await userEvent.click(await screen.findByTestId('open-trash'));
     expect(await screen.findByRole('heading', { name: 'You’re offline' })).toBeTruthy();
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());

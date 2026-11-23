@@ -2,8 +2,13 @@
 
 import { useEffect } from 'react';
 
-export type AppShortcut = 'palette' | 'sidebar' | 'assistant';
-const KEYS: Record<AppShortcut, string> = { palette: 'k', sidebar: 'b', assistant: 'j' };
+export type AppShortcut = 'palette' | 'sidebar' | 'assistant' | 'settings';
+const KEYS: Record<AppShortcut, string> = {
+  palette: 'k',
+  sidebar: 'b',
+  assistant: 'j',
+  settings: ',',
+};
 
 export function matchesAppShortcut(event: KeyboardEvent, shortcut: AppShortcut): boolean {
   if (

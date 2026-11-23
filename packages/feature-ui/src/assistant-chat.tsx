@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@oat/ui';
+import { NEW_WORKSPACE_CHAT_EVENT } from '@oat/ui/lib/assistant-events';
 import { Button } from '@oat/ui/components/button';
 import {
   DropdownMenu,
@@ -136,7 +137,7 @@ export function AssistantChat({
     return () => listRequest.current?.abort();
   }, [loadThreads]);
 
-  const newChat = () => {
+  const newChat = useCallback(() => {
     onThreadChange?.(null);
     counter.current += 1;
     setActive({
@@ -146,7 +147,17 @@ export function AssistantChat({
       threadId: null,
       messages: [],
     });
-  };
+  }, [onThreadChange, scope]);
+
+  useEffect(() => {
+    if (layout !== 'page') return;
+    const reset = (event: Event) => {
+      if ((event as CustomEvent<{ workspaceId: string }>).detail?.workspaceId === workspaceId)
+        newChat();
+    };
+    window.addEventListener(NEW_WORKSPACE_CHAT_EVENT, reset);
+    return () => window.removeEventListener(NEW_WORKSPACE_CHAT_EVENT, reset);
+  }, [layout, workspaceId, newChat]);
 
   const loadingThreadId = active.state === 'loading' ? active.key : null;
   useEffect(() => {

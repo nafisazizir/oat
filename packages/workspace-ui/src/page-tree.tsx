@@ -18,6 +18,7 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from '@oat/ui/components/sidebar';
 import { Spinner } from '@oat/ui/components/spinner';
 import { SECTION_INFO } from '@oat/core/sections';
@@ -131,6 +132,9 @@ export function TreeSection({ area }: { area: Area }) {
   const { documents, user } = useShellData();
   const actions = useTreeActions();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+  const [open, setOpen] = useState(true);
+  const { state, isMobile } = useSidebar();
+  const iconOnly = state === 'collapsed' && !isMobile;
   const { label, empty } = SECTION_INFO[area];
   // Only this section's items: a shared folder never lists my private page (it is under Private).
   const { items, roots } = sectionOf(documents, area, user.id);
@@ -161,10 +165,22 @@ export function TreeSection({ area }: { area: Area }) {
     <SidebarGroup className="group/tree-section py-1" data-testid={`tree-section-${area}`}>
       <SidebarGroupLabel
         {...rootDrop.handlers}
-        className={cn(rootDrop.over && 'bg-brand-100 text-brand-1000')}
+        render={
+          <button
+            type="button"
+            tabIndex={iconOnly ? -1 : 0}
+            aria-hidden={iconOnly || undefined}
+            aria-expanded={open}
+            onClick={() => setOpen((value) => !value)}
+          />
+        }
+        className={cn(
+          'group-data-[collapsible=icon]:hidden',
+          rootDrop.over && 'bg-brand-100 text-brand-1000',
+        )}
       >
         {label}
-        <IconChevronRight className="ms-1 size-3.5 rotate-90" />
+        <IconChevronRight className={cn('ms-1 size-3.5', open && 'rotate-90')} />
       </SidebarGroupLabel>
       {actions.canCreate && (
         <DropdownMenu>
@@ -180,37 +196,49 @@ export function TreeSection({ area }: { area: Area }) {
             <IconPlus />
           </DropdownMenuTrigger>
           <DropdownMenuContent side="right" align="start">
-            <DropdownMenuItem onClick={() => void actions.newPage({ area })}>
+            <DropdownMenuItem
+              onClick={() => {
+                setOpen(true);
+                void actions.newPage({ area });
+              }}
+            >
               <IconFilePlus />
               New page
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => void actions.newFolder({ area })}>
+            <DropdownMenuItem
+              onClick={() => {
+                setOpen(true);
+                void actions.newFolder({ area });
+              }}
+            >
               <IconFolderPlus />
               New folder
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-      <SidebarGroupContent>
-        <SidebarMenu data-testid={area === 'private' ? 'page-tree' : 'shared-tree'}>
-          {rows.length === 0 && (
-            <li
-              className="px-2 py-1 text-copy-13 text-gray-900 group-data-[collapsible=icon]:hidden"
-              data-testid={`tree-empty-${area}`}
-            >
-              {empty}
-            </li>
-          )}
-          {rows.map((row) => (
-            <TreeRow
-              key={row.node.id}
-              row={row}
-              active={pathname === `/d/${row.node.id}`}
-              onToggle={() => toggle(row.node.id)}
-            />
-          ))}
-        </SidebarMenu>
-      </SidebarGroupContent>
+      {open && (
+        <SidebarGroupContent>
+          <SidebarMenu data-testid={area === 'private' ? 'page-tree' : 'shared-tree'}>
+            {rows.length === 0 && (
+              <li
+                className="px-2 py-1 text-copy-13 text-gray-900 group-data-[collapsible=icon]:hidden"
+                data-testid={`tree-empty-${area}`}
+              >
+                {empty}
+              </li>
+            )}
+            {rows.map((row) => (
+              <TreeRow
+                key={row.node.id}
+                row={row}
+                active={pathname === `/d/${row.node.id}`}
+                onToggle={() => toggle(row.node.id)}
+              />
+            ))}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      )}
     </SidebarGroup>
   );
 }

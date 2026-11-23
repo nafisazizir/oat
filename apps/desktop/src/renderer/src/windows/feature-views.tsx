@@ -94,7 +94,7 @@ function FeatureContent({
         scope={{ kind: 'workspace', workspaceId }}
         workspaceId={workspaceId}
         layout="page"
-        selectedThreadId={route.threadId}
+        selectedThreadId={route.threadId ?? null}
         onThreadChange={(id) => navigate({ kind: 'assistant', ...(id ? { threadId: id } : {}) })}
       />
     );

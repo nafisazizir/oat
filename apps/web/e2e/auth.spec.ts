@@ -106,7 +106,8 @@ test.describe('magic link', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible();
     // No name yet (magic link): the workspace made for them is "My workspace", an ordinary one.
     await expect(page.getByTestId('workspace-switcher')).toContainText('My workspace');
-    await expect(page.getByTestId('workspace-switcher')).toContainText('1 member');
+    const initialWorkspaces = await (await page.request.get('/api/workspaces')).json();
+    expect(initialWorkspaces.workspaces).toEqual([expect.objectContaining({ memberCount: 1 })]);
     await page.getByTestId('workspace-switcher').click();
     await expect(page.getByRole('menu')).toContainText(email);
     await page.keyboard.press('Escape');
@@ -193,7 +194,10 @@ test.describe('signed in', () => {
     await dialog.getByRole('button', { name: 'Create workspace' }).click();
     await expect(dialog).toBeHidden();
     await expect(switcher).toContainText('Acme Design');
-    await expect(switcher).toContainText('1 member');
+    const createdWorkspaces = await (await page.request.get('/api/workspaces')).json();
+    expect(createdWorkspaces.workspaces).toContainEqual(
+      expect.objectContaining({ name: 'Acme Design', memberCount: 1 }),
+    );
 
     await switcher.click();
     await expect(page.getByTestId('workspace-option')).toHaveCount(2);

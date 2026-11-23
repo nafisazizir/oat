@@ -18,7 +18,7 @@ export function AssistantChat(
         const url = new URL(window.location.href);
         if (id) url.searchParams.set('thread', id);
         else url.searchParams.delete('thread');
-        window.history.replaceState(window.history.state, '', url);
+        window.history.replaceState(null, '', url);
       }}
     />
   );

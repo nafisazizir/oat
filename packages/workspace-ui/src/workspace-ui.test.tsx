@@ -2,10 +2,12 @@
 import { createOatClient, type OatRequest, type OatTransport } from '@oat/client';
 import { SidebarProvider } from '@oat/ui/components/sidebar';
 import { ThemeProvider } from '@oat/settings-ui';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
+import { LeaveWorkspaceDialog } from './leave-workspace-dialog';
+import { useState } from 'react';
 import { AppSidebar } from './app-sidebar';
 import { WorkspaceHost } from './host';
 import { hrefOf } from './routes';
@@ -45,8 +47,11 @@ const data: ShellData = {
 
 function Actions() {
   const actions = useTreeActions();
+  const [leaveOpen, setLeaveOpen] = useState(false);
   return (
     <>
+      <button onClick={() => setLeaveOpen(true)}>Test leave dialog</button>
+      <LeaveWorkspaceDialog workspace={workspace} open={leaveOpen} onOpenChange={setLeaveOpen} />
       <button onClick={() => void actions.newPage()}>Create page</button>
       <button onClick={() => void actions.newFolder({})}>Create folder</button>
     </>
@@ -68,9 +73,11 @@ function setup(
     return {
       status: 200,
       json: async () =>
-        request.path === '/api/folders'
-          ? { ...node, id: 'new-folder', name: 'New folder' }
-          : { ...node, id: 'new-page', folderId: null, version: 1 },
+        request.path === '/api/chat/threads'
+          ? { threads: [] }
+          : request.path === '/api/folders'
+            ? { ...node, id: 'new-folder', name: 'New folder' }
+            : { ...node, id: 'new-page', folderId: null, version: 1 },
     };
   });
   const client = createOatClient(transport);
@@ -107,30 +114,74 @@ function setup(
 }
 
 describe('shared workspace shell', () => {
+  it.each(['web', 'desktop'] as const)(
+    'keeps Settings shortcuts mounted with the mobile sheet closed on %s',
+    async (platform) => {
+      const width = window.innerWidth;
+      window.innerWidth = 600;
+      try {
+        const { host } = setup(data, false, platform);
+        expect(screen.queryByTestId('workspace-switcher')).toBeNull();
+        fireEvent.keyDown(window, { key: ',', metaKey: true });
+        expect(host.navigate).toHaveBeenCalledExactlyOnceWith({ view: 'settings' });
+        fireEvent.keyDown(window, { key: ',', ctrlKey: true });
+        expect(host.navigate).toHaveBeenCalledTimes(2);
+      } finally {
+        window.innerWidth = width;
+      }
+    },
+  );
+  it('removes invisible group toggles from keyboard navigation in icon mode', async () => {
+    const { user } = setup();
+    const labels = ['Private', 'Shared', 'Chats'].map((name) =>
+      screen.getByRole('button', { name }),
+    );
+    const toggle = screen.getByTestId('sidebar-header-trigger');
+    await user.click(toggle);
+    for (const label of labels) {
+      expect(label.tabIndex).toBe(-1);
+      expect(label.getAttribute('aria-hidden')).toBe('true');
+      expect(label.classList.contains('group-data-[collapsible=icon]:hidden')).toBe(true);
+    }
+    await user.click(toggle);
+    for (const label of labels) {
+      expect(label.tabIndex).toBe(0);
+      expect(label.getAttribute('aria-hidden')).toBeNull();
+    }
+  });
+  it.each(['web', 'desktop'] as const)('opens Settings once per Cmd/Ctrl+, on %s', (platform) => {
+    const { host } = setup(data, false, platform);
+    fireEvent.keyDown(window, { key: ',', metaKey: true });
+    fireEvent.keyDown(window, { key: ',', ctrlKey: true });
+    expect(host.navigate).toHaveBeenCalledTimes(2);
+    expect(host.navigate).toHaveBeenLastCalledWith({ view: 'settings' });
+    fireEvent.keyDown(window, { key: ',' });
+    fireEvent.keyDown(window, { key: ',', metaKey: true, repeat: true });
+    expect(host.navigate).toHaveBeenCalledTimes(2);
+  });
   it('shares aligned navigation and an account menu with reachable settings', async () => {
     setup();
     expect(screen.getByTestId('sidebar-header-trigger')).toBeTruthy();
     expect(screen.getByTestId('workspace-switcher').textContent).toContain('Workspace');
-    expect(screen.getByTestId('account-switcher').textContent).toContain('User');
-    expect(screen.getByTestId('theme-menu')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Templates' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Workspace' })).toBeTruthy();
+    expect(screen.queryByTestId('theme-menu')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Templates' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
-    expect(screen.getByTestId('open-trash')).toBeTruthy();
-    await userEvent.click(screen.getByTestId('account-switcher'));
-    expect(await screen.findByRole('menuitem', { name: /^Settings$/ })).toBeTruthy();
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
+    expect(await screen.findByRole('menuitem', { name: /^Settings/ })).toBeTruthy();
     const menu = screen.getByRole('menu');
     expect(menu.querySelector('strong')?.textContent).toBe('User');
     expect(menu.textContent?.match(/user@test.com/g)).toHaveLength(1);
     expect(
       Array.from(menu.querySelectorAll('[role="menuitem"]'))
-        .slice(0, 2)
+        .slice(0, 1)
         .map((item) => item.textContent),
-    ).toEqual(['Profile', 'Settings']);
+    ).toEqual(['Settings⌘,']);
   });
 
   it('shows an account name fallback when the profile has no distinct name', async () => {
     setup({ ...data, user: { ...data.user, name: data.user.email } });
-    await userEvent.click(screen.getByTestId('account-switcher'));
+    await userEvent.click(screen.getByTestId('workspace-switcher'));
     const menu = await screen.findByRole('menu');
     expect(menu.querySelector('strong')?.textContent).toBe('user');
     expect(menu.textContent?.match(/user@test.com/g)).toHaveLength(1);
@@ -160,8 +211,7 @@ describe('shared workspace shell', () => {
       { exportNotes },
     );
     const textExport = vi.spyOn(host.client.workspaces, 'export');
-    await user.click(screen.getByTestId('workspace-switcher'));
-    await user.click(await screen.findByRole('menuitem', { name: 'Leave Workspace' }));
+    await user.click(screen.getByRole('button', { name: 'Test leave dialog' }));
     await user.click(screen.getByTestId('export-notes'));
     expect(exportNotes).toHaveBeenCalledWith('w');
     expect(textExport).not.toHaveBeenCalled();
@@ -181,8 +231,7 @@ describe('shared workspace shell', () => {
       },
     );
     const leave = vi.spyOn(host.client.workspaces, 'leave');
-    await user.click(screen.getByTestId('workspace-switcher'));
-    await user.click(await screen.findByRole('menuitem', { name: 'Leave Workspace' }));
+    await user.click(screen.getByRole('button', { name: 'Test leave dialog' }));
     await user.click(screen.getByTestId('export-notes'));
     expect(screen.getByTestId('export-error').textContent).toContain('Couldn’t save the ZIP.');
     expect(leave).not.toHaveBeenCalled();
@@ -194,8 +243,7 @@ describe('shared workspace shell', () => {
       'web',
       { exportNotes: vi.fn().mockResolvedValue(3) },
     );
-    await user.click(screen.getByTestId('workspace-switcher'));
-    await user.click(await screen.findByRole('menuitem', { name: 'Leave Workspace' }));
+    await user.click(screen.getByRole('button', { name: 'Test leave dialog' }));
     await user.click(screen.getByTestId('export-notes'));
     expect(screen.getByRole('status').textContent).toBe(
       'Saved 3 notes to your downloads. Check the file before you leave.',
@@ -210,8 +258,7 @@ describe('shared workspace shell', () => {
         workspaceExitBlockedReason: 'Stop recording before leaving or deleting a workspace.',
       },
     );
-    await user.click(screen.getByTestId('workspace-switcher'));
-    await user.click(await screen.findByRole('menuitem', { name: 'Leave Workspace' }));
+    await user.click(screen.getByRole('button', { name: 'Test leave dialog' }));
     expect(
       (screen.getByRole('button', { name: 'Leave workspace' }) as HTMLButtonElement).disabled,
     ).toBe(true);
@@ -224,6 +271,35 @@ describe('shared workspace shell', () => {
     expect(screen.getByRole('link', { name: 'Private page' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Shared page' })).toBeTruthy();
   });
+  it('collapses Private and Shared independently by click and keyboard', async () => {
+    const { user } = setup();
+    await user.click(screen.getByRole('button', { name: 'Private' }));
+    expect(screen.queryByRole('link', { name: 'Private page' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Shared page' })).toBeTruthy();
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('link', { name: 'Private page' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Shared' }));
+    expect(screen.queryByRole('link', { name: 'Shared page' })).toBeNull();
+  });
+  it.each(['New page', 'New folder'])(
+    'expands a collapsed section when creating %s',
+    async (name) => {
+      const { user, host } = setup();
+      const label = screen.getByRole('button', { name: 'Private' });
+      await user.click(label);
+      expect(label.getAttribute('aria-expanded')).toBe('false');
+      await user.click(screen.getByRole('button', { name: 'Add to Private' }));
+      await user.click(await screen.findByRole('menuitem', { name }));
+      expect(label.getAttribute('aria-expanded')).toBe('true');
+      if (name === 'New folder')
+        expect(await screen.findByRole('textbox', { name: 'Rename New folder' })).toBeTruthy();
+      else
+        await waitFor(() =>
+          expect(host.navigate).toHaveBeenCalledWith({ view: 'document', id: 'new-page' }),
+        );
+    },
+  );
+
   it('creates pages and folders with the host client and navigates to the page', async () => {
     const { user, create, folder, host } = setup();
     await user.click(screen.getByRole('button', { name: 'Create page' }));
@@ -247,7 +323,8 @@ describe('shared workspace shell', () => {
   });
   it('restores trash with client.documents.restore', async () => {
     const { user, restore, host } = setup();
-    await user.click(screen.getByTestId('open-trash'));
+    await user.click(screen.getByTestId('workspace-switcher'));
+    await user.click(await screen.findByTestId('open-trash'));
     await user.click(await screen.findByRole('button', { name: 'Restore' }));
     expect(restore).toHaveBeenCalledWith('t');
     await waitFor(() => expect(host.refresh).toHaveBeenCalled());
@@ -255,7 +332,8 @@ describe('shared workspace shell', () => {
   });
   it('shows an empty trash', async () => {
     const { user } = setup({ ...data, documents: [], trash: [] });
-    await user.click(screen.getByTestId('open-trash'));
+    await user.click(screen.getByTestId('workspace-switcher'));
+    await user.click(await screen.findByTestId('open-trash'));
     expect(await screen.findByText('The trash is empty')).toBeTruthy();
   });
   it('rolls back a failed creation and reports the error', async () => {

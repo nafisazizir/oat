@@ -183,13 +183,12 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   const electronApp = await launch();
   await signInDesktop(electronApp, page, browser, email);
   const switcher = page.getByTestId('workspace-switcher');
-  // The workspace made at sign-up is an ordinary one: its name, and my role in it.
+  // The workspace made at sign-up is an ordinary one, shown by name.
   await expect(switcher).toContainText(OWN);
-  await expect(switcher).toContainText('1 member');
   // One workspace: nothing to switch between, so the menu has no workspace list (D-36).
   await expect(switcher).toHaveAttribute('data-switchable', 'false');
   await switcher.click();
-  await expect(page.getByRole('menu')).toContainText('Workspace settings');
+  await expect(page.getByRole('menu')).toContainText('Settings');
   await expect(page.getByTestId('workspace-list')).toHaveCount(0);
   await expect(page.getByTestId('workspace-option')).toHaveCount(0);
   await page.keyboard.press('Escape');
@@ -213,9 +212,9 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   await switcher.click();
   const options = page.getByTestId('workspace-option');
   await expect(options).toHaveCount(3);
-  await expect(options.filter({ hasText: OWN })).toContainText('1 member');
-  await expect(options.filter({ hasText: BOARD })).toContainText('members');
-  await expect(options.filter({ hasText: DESIGN })).toContainText('members');
+  await expect(options.filter({ hasText: OWN })).toBeVisible();
+  await expect(options.filter({ hasText: BOARD })).toBeVisible();
+  await expect(options.filter({ hasText: DESIGN })).toBeVisible();
   await evidence(page, 'desktop-switcher-open', TASK);
 
   // Design team: its list is empty; a new meeting note records into it.

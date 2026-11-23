@@ -7,6 +7,7 @@ describe('shared host shortcuts', () => {
     ['palette', 'k'],
     ['sidebar', 'b'],
     ['assistant', 'j'],
+    ['settings', ','],
   ] as const)('%s handles Cmd and Ctrl once', (shortcut, key) => {
     for (const modifier of ['metaKey', 'ctrlKey']) {
       expect(
@@ -37,6 +38,7 @@ describe('shared host shortcuts', () => {
     ['palette', 'k'],
     ['sidebar', 'b'],
     ['assistant', 'j'],
+    ['settings', ','],
   ] as const)('binds %s and releases it on unmount', (shortcut, key) => {
     const action = vi.fn();
     function Host() {
