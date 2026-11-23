@@ -13,6 +13,7 @@ import {
   IconSettings,
   IconSparkles,
   IconSun,
+  IconTrash,
   IconUsers,
 } from '@tabler/icons-react';
 import type { SearchCommandGroup } from './search-dialog';
@@ -26,6 +27,8 @@ type Options = {
   newPage?(): void;
   newNote?(): void;
   startRecording?(): void;
+  /** Opens the trash dialog — the palette is the way into it. */
+  openTrash?(): void;
   workspaces?: readonly { id: string; name: string }[];
   activeWorkspaceId?: string;
   switchWorkspace?(id: string): void;
@@ -47,20 +50,25 @@ export function buildHostCommands(o: Options): SearchCommandGroup[] {
   return [
     {
       heading: 'Go to',
-      items: (
-        [
-          ['home', 'Home', IconHome],
-          ['tasks', 'My tasks', IconChecklist],
-          ['assistant', 'Assistant', IconSparkles],
-          ['templates', 'Templates', IconLayoutGrid],
-          ['settings', 'Settings', IconSettings],
-        ] as const
-      ).map(([view, label, Icon]) => ({
-        value: label,
-        text: label,
-        icon: <Icon />,
-        onSelect: () => o.navigate({ view }),
-      })),
+      items: [
+        ...(
+          [
+            ['home', 'Home', IconHome],
+            ['tasks', 'My tasks', IconChecklist],
+            ['assistant', 'Assistant', IconSparkles],
+            ['templates', 'Templates', IconLayoutGrid],
+            ['settings', 'Settings', IconSettings],
+          ] as const
+        ).map(([view, label, Icon]) => ({
+          value: label,
+          text: label,
+          icon: <Icon />,
+          onSelect: () => o.navigate({ view }),
+        })),
+        ...(o.openTrash
+          ? [{ value: 'Trash', text: 'Trash', icon: <IconTrash />, onSelect: o.openTrash }]
+          : []),
+      ],
     },
     {
       heading: 'Pages',

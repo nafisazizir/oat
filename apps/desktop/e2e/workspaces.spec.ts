@@ -14,7 +14,7 @@
  * 5. View-only everywhere (D-36: there is no workspace of last resort any more): the sidebar asks me to
  *    create a workspace, and "New meeting note" is refused with that message before anything is recorded.
  *
- * Step C of unified-workspaces (D-36), woven in: with one workspace the menu has no workspace list; the
+ * Step C of unified-workspaces (D-36), woven in: with one workspace the menu lists just that one (D-40); the
  * sidebar splits the notes into Private and Shared — a new recording and a note started from a calendar
  * event land in Private, a teammate's shared note shows under Shared, their private one never arrives, and
  * a note changes section when its visibility changes on the server, without a relaunch. The sidebar is
@@ -185,12 +185,12 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   const switcher = page.getByTestId('workspace-switcher');
   // The workspace made at sign-up is an ordinary one, shown by name.
   await expect(switcher).toContainText(OWN);
-  // One workspace: nothing to switch between, so the menu has no workspace list (D-36).
+  // One workspace: nothing to switch between, but the menu still lists it (D-40).
   await expect(switcher).toHaveAttribute('data-switchable', 'false');
   await switcher.click();
   await expect(page.getByRole('menu')).toContainText('Settings');
-  await expect(page.getByTestId('workspace-list')).toHaveCount(0);
-  await expect(page.getByTestId('workspace-option')).toHaveCount(0);
+  await expect(page.getByTestId('workspace-list')).toBeVisible();
+  await expect(page.getByTestId('workspace-option')).toHaveCount(1);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu')).toBeHidden();
 

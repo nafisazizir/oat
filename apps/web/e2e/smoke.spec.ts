@@ -39,7 +39,7 @@ test.describe('app shell', () => {
     await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
     // Collapsed to icons: labels hidden, icon buttons still there.
     await page.getByTestId('workspace-switcher').click();
-    await expect(page.getByTestId('open-trash')).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Sign out' })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('theme-menu')).toHaveCount(0);
 

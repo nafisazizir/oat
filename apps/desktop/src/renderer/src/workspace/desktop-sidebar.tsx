@@ -12,12 +12,16 @@ export function DesktopSidebar({
   lastSyncedAt,
   newMeeting,
   syncLine,
+  syncNotice,
   workspaces,
 }: {
   user: DesktopUser;
   lastSyncedAt: number | null;
   newMeeting: React.ComponentProps<typeof NewMeetingButton>;
+  /** The sync status, always there for assistive tech; not shown. */
   syncLine: ReactNode;
+  /** The line the menu shows when sync is not simply caught up. */
+  syncNotice: ReactNode;
   workspaces: WorkspacesView;
 }) {
   const host = useWorkspaceHost();
@@ -67,12 +71,13 @@ export function DesktopSidebar({
             )}
           </div>
         }
-        footerExtra={syncLine}
+        footerExtra={syncNotice}
         accountItems={account.items}
       />
       <span className="sr-only" data-testid="signed-in-email">
         {user.email}
       </span>
+      <div className="sr-only">{syncLine}</div>
       <div className="sr-only">{account.feedback}</div>
       <DesktopSearch
         open={searchOpen}

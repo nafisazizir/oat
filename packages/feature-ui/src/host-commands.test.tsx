@@ -10,6 +10,7 @@ function setup(native = false) {
     newPage: vi.fn(),
     newNote: native ? undefined : vi.fn(),
     startRecording: native ? vi.fn() : undefined,
+    openTrash: vi.fn(),
     documents: [
       { id: 'doc', title: 'Plan', kind: 'page' },
       { id: 'folder', title: '', kind: 'folder' },
@@ -43,6 +44,8 @@ describe('host commands', () => {
         view: 'settings',
         section: 'integrations',
       });
+      find('Trash').onSelect();
+      expect(options.openTrash).toHaveBeenCalledOnce();
       find('Toggle sidebar').onSelect();
       expect(options.toggleSidebar).toHaveBeenCalledOnce();
       expect(find('Dark theme').checked).toBe(true);

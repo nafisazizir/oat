@@ -53,7 +53,7 @@ test('invite_only: a matching stranger is never shown the workspace; an invitati
   );
   await stranger.page.getByTestId('workspace-switcher').click();
   await expect(stranger.page.getByRole('menu')).toBeVisible();
-  await expect(stranger.page.getByTestId('workspace-option')).toHaveCount(0);
+  await expect(stranger.page.getByTestId('workspace-option')).toHaveCount(1);
   await expect(stranger.page.getByRole('menu')).not.toContainText(name);
   await stranger.context.close();
 
@@ -190,7 +190,7 @@ for (const theme of ['light', 'dark'] as const) {
     );
     await other.page.getByTestId('workspace-switcher').click();
     await expect(other.page.getByRole('menu')).toBeVisible();
-    await expect(other.page.getByTestId('workspace-option')).toHaveCount(0);
+    await expect(other.page.getByTestId('workspace-option')).toHaveCount(1);
     await shot(other.page, `join-no-match-home-${theme}`);
 
     expect(found, 'axe violations on the join screens').toEqual([]);

@@ -35,6 +35,7 @@ export function FeatureSearch({
       ? () => void tree.newPage({ kind: 'page', area: 'private' })
       : undefined,
     startRecording: canStart ? onNewMeeting : undefined,
+    openTrash: tree.openTrash,
     switchWorkspace: (workspaceId) => {
       void host.client.workspaces
         .switchActive(workspaceId)

@@ -1,5 +1,6 @@
 'use client';
 
+import { DropdownMenuSeparator } from '@oat/ui/components/dropdown-menu';
 import { SidebarInset, SidebarMenuItem, SidebarMenuButton } from '@oat/ui/components/sidebar';
 import { IconEdit } from '@tabler/icons-react';
 import { useEffect, useMemo } from 'react';
@@ -55,10 +56,13 @@ function WebSidebar() {
         )
       }
       footerExtra={
-        <p role="status" className="text-label-12 text-gray-900">
-          <span className="hidden in-data-[sync-live]:inline">Live sync connected</span>
-          <span className="in-data-[sync-live]:hidden">Reconnecting live sync…</span>
-        </p>
+        // Only while live sync is down; a working connection needs no line.
+        <div className="in-data-[sync-live]:hidden">
+          <DropdownMenuSeparator />
+          <p role="status" className="px-2 py-1.5 text-label-12 text-gray-900">
+            Reconnecting live sync…
+          </p>
+        </div>
       }
       accountItems={<AccountMenuItems />}
     />

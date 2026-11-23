@@ -281,14 +281,14 @@ test('the workspace list is absent with one workspace and present with two; crea
   const { page } = solo;
   const menuButton = page.getByTestId('workspace-switcher');
 
-  // One workspace: the button says where I am, without the selector; the menu has no list.
+  // One workspace: the button says where I am, and the menu lists just that one (D-40).
   await expect(menuButton).toContainText('My workspace');
   await expect(menuButton).toHaveAttribute('data-switchable', 'false');
   await menuButton.click();
   const menu = page.getByRole('menu');
   await expect(menu).toBeVisible();
-  await expect(page.getByTestId('workspace-list')).toHaveCount(0);
-  await expect(page.getByTestId('workspace-option')).toHaveCount(0);
+  await expect(page.getByTestId('workspace-list')).toBeVisible();
+  await expect(page.getByTestId('workspace-option')).toHaveCount(1);
   // Workspace management lives in Settings; account actions and creation remain here.
   await expect(menu.getByRole('menuitem', { name: /^Settings/ })).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'Invite members' })).toHaveCount(0);
@@ -304,7 +304,7 @@ test('the workspace list is absent with one workspace and present with two; crea
   await create.getByRole('button', { name: 'Create workspace' }).click();
   await expect(create).toBeHidden();
 
-  // Two: the list is there (switching itself is covered by auth.spec).
+  // Two: both are listed (switching itself is covered by auth.spec).
   await expect(menuButton).toContainText('Second home');
   await expect(menuButton).toHaveAttribute('data-switchable', 'true');
   await menuButton.click();
@@ -313,7 +313,7 @@ test('the workspace list is absent with one workspace and present with two; crea
   await shot(page, 'workspace-menu-two-workspaces-light');
   await page.keyboard.press('Escape');
 
-  // Back to one (delete the second, which is the active one): the list goes away again.
+  // Back to one (delete the second, which is the active one): the list is back to one.
   await page.goto('/settings/workspace');
   await page.getByRole('button', { name: 'Delete workspace' }).click();
   const del = page.getByTestId('delete-workspace-dialog');
@@ -324,7 +324,7 @@ test('the workspace list is absent with one workspace and present with two; crea
   await expect(menuButton).toHaveAttribute('data-switchable', 'false');
   await menuButton.click();
   await expect(page.getByRole('menu')).toBeVisible();
-  await expect(page.getByTestId('workspace-list')).toHaveCount(0);
+  await expect(page.getByTestId('workspace-list')).toBeVisible();
   await solo.context.close();
 });
 
