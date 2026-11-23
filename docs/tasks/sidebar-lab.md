@@ -130,6 +130,14 @@ capture enlarged 400% with ImageMagick point filtering; no circular ring over th
 Real sidebar and shared avatar implementation unchanged. Server left on 3000; local commit, no push.
 
 ## Simplified switcher menu
+Alignment follow-up: shared Avatar sm matches WorkspaceAvatar computed 24px size (the sm data
+variant overrides size-5), bg-gray-200/text-gray-1000, text-label-12 and shared round border ring.
+Menu action icons centered in 24px slots; identity and workspace initials use the same left x.
+Checks: `Sidebar lab typecheck and lint: PASS`; existing menu checks pass without browser errors.
+`PASS: identical 24px leading slots and avatar fill/text/typography; round user avatar. { slotX: 21, slotWidth: 24 }`
+Refreshed/visually inspected final-switcher.png and whole-dropdown 4× menu-zoom.png under
+/home/ubuntu/sidebar-lab-shots/. Visual review confirms aligned text and icon centers.
+
 Follow-up: identity header now has shared round 32px Avatar/Image/Fallback (mock initial N),
 vertically centered beside a min-w-0 name/email column with truncation. Focused tsc/eslint:
 `Sidebar lab typecheck and lint: PASS`. Existing menu harness passes without browser errors;

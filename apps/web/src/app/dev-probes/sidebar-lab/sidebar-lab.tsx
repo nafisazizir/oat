@@ -166,7 +166,9 @@ export function SidebarLab({ initialIcon }: { initialIcon: ViewAllIcon }) {
   const library = (items: [string, Icon][]) =>
     items.map(([label, Icon]) => (
       <DropdownMenuItem key={label} onClick={() => select(label)}>
-        <Icon />
+        <span className="flex size-6 shrink-0 items-center justify-center">
+          <Icon />
+        </span>
         {label}
       </DropdownMenuItem>
     ));
@@ -275,9 +277,9 @@ export function SidebarLab({ initialIcon }: { initialIcon: ViewAllIcon }) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="top" align="start" className="w-64">
                   <div className="flex items-center gap-2 px-2 py-2">
-                    <Avatar>
+                    <Avatar size="sm" className="size-5">
                       <AvatarImage src={undefined} alt="" />
-                      <AvatarFallback className="text-label-12">N</AvatarFallback>
+                      <AvatarFallback className="bg-gray-200 text-label-12 text-gray-1000">N</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-copy-14 font-medium text-gray-1000">Nafis Riza</p>
@@ -286,7 +288,9 @@ export function SidebarLab({ initialIcon }: { initialIcon: ViewAllIcon }) {
                   </div>
                   <DropdownMenuGroup>
                     <DropdownMenuItem onClick={() => select('Settings')}>
-                      <IconSettings />
+                      <span className="flex size-6 shrink-0 items-center justify-center">
+                        <IconSettings />
+                      </span>
                       Settings
                       <Kbd className="ms-auto">⌘,</Kbd>
                     </DropdownMenuItem>
@@ -302,7 +306,9 @@ export function SidebarLab({ initialIcon }: { initialIcon: ViewAllIcon }) {
                       </DropdownMenuItem>
                     ))}
                     <DropdownMenuItem onClick={() => select('Create workspace')}>
-                      <IconPlus />
+                      <span className="flex size-6 shrink-0 items-center justify-center">
+                        <IconPlus />
+                      </span>
                       Create workspace
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
@@ -313,7 +319,9 @@ export function SidebarLab({ initialIcon }: { initialIcon: ViewAllIcon }) {
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => select('Signed out (prototype)')}>
-                    <IconLogout />
+                    <span className="flex size-6 shrink-0 items-center justify-center">
+                      <IconLogout />
+                    </span>
                     Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>

@@ -1,5 +1,9 @@
 # Oat — Plan & Task Board
 
+Sidebar lab alignment follow-up: user avatar matches workspace tiles (24px computed size,
+fill/ring/initial typography, round shape retained); all leading slots aligned. Focused checks pass;
+final-switcher.png and 4× menu-zoom.png refreshed and visually inspected.
+
 Sidebar lab identity follow-up: shared round 32px user avatar beside centered, truncating name/email;
 focused tsc/eslint and menu harness pass; refreshed final-switcher.png visually inspected.
 
