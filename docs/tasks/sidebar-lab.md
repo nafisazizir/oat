@@ -130,6 +130,12 @@ capture enlarged 400% with ImageMagick point filtering; no circular ring over th
 Real sidebar and shared avatar implementation unchanged. Server left on 3000; local commit, no push.
 
 ## Simplified switcher menu
+Header alignment follow-up: switched identity row from items-center to items-start so avatar top
+aligns with the name line box rather than centering across name/email. Everything else unchanged.
+`Sidebar lab typecheck and lint: PASS`; existing computed avatar/slot checks pass.
+Retaken and visually inspected `/home/ubuntu/sidebar-lab-shots/menu-zoom.png` (4× whole dropdown):
+avatar now top-aligned with name line box.
+
 Shape correction: user Avatar root uses rounded-md/after:rounded-md and fallback rounded-md,
 matching workspace tiles instead of the previously requested circle. Everything else unchanged.
 `Sidebar lab typecheck and lint: PASS`; menu interaction harness passes without browser errors.

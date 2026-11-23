@@ -276,7 +276,7 @@ export function SidebarLab({ initialIcon }: { initialIcon: ViewAllIcon }) {
                   <IconChevronDown className="ms-auto group-data-[collapsible=icon]:hidden" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="top" align="start" className="w-64">
-                  <div className="flex items-center gap-2 px-2 py-2">
+                  <div className="flex items-start gap-2 px-2 py-2">
                     <Avatar size="sm" className="size-5 rounded-md after:rounded-md">
                       <AvatarImage src={undefined} alt="" />
                       <AvatarFallback className="rounded-md bg-gray-200 text-label-12 text-gray-1000">N</AvatarFallback>

@@ -1,5 +1,8 @@
 # Oat — Plan & Task Board
 
+Sidebar lab header follow-up: items-start aligns avatar top with name line box; focused checks pass,
+menu-zoom.png retaken and visually inspected.
+
 Sidebar lab shape correction: user avatar now uses rounded-md fill and after ring, matching
 workspace tiles exactly. Focused typecheck/lint and browser checks pass; refreshed both screenshots.
 
