@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ComponentType, type ReactNode } from 'react';
-import { Avatar, AvatarFallback } from '@oat/ui/components/avatar';
+import { WorkspaceAvatar } from '@oat/settings-ui';
 import { Button } from '@oat/ui/components/button';
 import {
   DropdownMenu,
@@ -279,11 +279,7 @@ export function SidebarLab({ initialIcon }: { initialIcon: ViewAllIcon }) {
                     />
                   }
                 >
-                  <Avatar className="size-4 rounded-sm">
-                    <AvatarFallback className="rounded-sm text-label-12">
-                      {workspace[0]}
-                    </AvatarFallback>
-                  </Avatar>
+                  <WorkspaceAvatar workspace={{ name: workspace }} className="size-4" />
                   <span className="flex-1 group-data-[collapsible=icon]:hidden">{workspace}</span>
                   <IconChevronDown className="ms-auto group-data-[collapsible=icon]:hidden" />
                 </DropdownMenuTrigger>
@@ -303,11 +299,7 @@ export function SidebarLab({ initialIcon }: { initialIcon: ViewAllIcon }) {
                     <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
                     {['Acme', 'Personal'].map((name) => (
                       <DropdownMenuItem key={name} onClick={() => setWorkspace(name)}>
-                        <Avatar className="size-5 rounded-sm">
-                          <AvatarFallback className="rounded-sm text-label-12">
-                            {name[0]}
-                          </AvatarFallback>
-                        </Avatar>
+                        <WorkspaceAvatar workspace={{ name }} className="size-5" />
                         {name}
                         {workspace === name && <IconCheck className="ms-auto" />}
                       </DropdownMenuItem>

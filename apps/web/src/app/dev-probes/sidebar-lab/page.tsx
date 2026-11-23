@@ -12,7 +12,7 @@ export default async function SidebarLabPage({
   return (
     <SidebarLab
       initialIcon={
-        icon === 'dots' || icon === 'arrow' || icon === 'list' || icon === 'bubbles' ? icon : 'none'
+        icon === 'none' || icon === 'arrow' || icon === 'list' || icon === 'bubbles' ? icon : 'dots'
       }
     />
   );

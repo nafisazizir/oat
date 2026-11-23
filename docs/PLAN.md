@@ -1,6 +1,6 @@
 # Oat — Plan & Task Board
 
-- [x] Human-requested dev-only sidebar lab · Refined B1 only; Tasks/Templates/Trash in switcher Library, fixed-slot five-option View all icon exploration. Focused typecheck/lint and Chromium interactions/alignment assertions pass; inspected final.png, final-switcher.png and viewall-strip.png at /home/ubuntu/sidebar-lab-shots/. Dev server port 3000; real navigation untouched. Earlier comparison evidence retained. [task](tasks/sidebar-lab.md)
+- [x] Human-requested dev-only sidebar lab · Refined B1 only; switcher Library, five-option View all icon exploration (dots default), shared WorkspaceAvatar fill/ring fix. Focused typecheck/lint and Chromium checks pass; inspected refreshed final-switcher.png and 4× avatar-zoom.png at /home/ubuntu/sidebar-lab-shots/. Dev server port 3000; real navigation untouched. Earlier comparison evidence retained. [task](tasks/sidebar-lab.md)
 
 - [x] Human-requested PR #31 Graphite visual round 3c · Implemented; 62 AFTER app PNGs/19 comparison sheets reviewed, conflict axe AA and link/greeting checks pass. Full E2E gate passes: web 91 passed/17 skipped, editor 16 passed/2 skipped. Final fast gate passes all five steps without scaling (24 cached test tasks). User accepted/authorized commit/push; publication follows closeout. Baseline/native limits retained. Evidence /home/ubuntu/oat-shots/ · [task](tasks/visual-hillclimb-3c-baseline.md)
 

@@ -111,3 +111,20 @@ all five options, with option captions, in a simple HTML image grid; no syntheti
 Bounding-box assertions verify every View all text position matches the chat titles and stays identical
 across options. Dev server remains on 3000; no production sidebar/auth/data changes. Prior full-CI,
 production-runtime, mobile and dark-visual limitations remain.
+
+## Avatar fix and dots default
+Replaced both hand-rolled workspace avatar sites with settings-ui WorkspaceAvatar, preserving sizes
+while sharing matching rounded-md fill/ring geometry. Default and invalid icon queries now use dots;
+explicit none remains supported. Focused tsc/eslint exit 0; external check-avatar.mjs exit 0:
+
+```text
+Sidebar lab typecheck and lint: PASS
+PASS: dots default/invalid-query fallback, explicit none; all three workspace avatar ring/fill radii match; Personal switch works; final-switcher and workspace-list crop captured.
+Avatar zoom: 4x crop saved
+Dev server port 3000: HTTP 200
+```
+
+Personally inspected refreshed `/home/ubuntu/sidebar-lab-shots/final-switcher.png` (1280×800) and
+`/home/ubuntu/sidebar-lab-shots/avatar-zoom.png` (984×352). Zoom is the actual workspace-list element
+capture enlarged 400% with ImageMagick point filtering; no circular ring over the square fill remains.
+Real sidebar and shared avatar implementation unchanged. Server left on 3000; local commit, no push.
