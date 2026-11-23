@@ -57,17 +57,38 @@ describe('MeetingEndGrace (7.5)', () => {
   it('"Continue recording" within the grace period: the end is never written', async () => {
     const g = grace();
     g.endMeeting('m1', T0);
-    await vi.advanceTimersByTimeAsync(30_000);
-    const resume = await g.prepareMeeting('m1', T0 + 30_000);
+    await vi.advanceTimersByTimeAsync(59_000);
+    const resume = await g.prepareMeeting('m1', T0 + 59_000);
     expect(g.pending?.meetingId).toBe('m1');
-    resume(T0 + 30_000);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(g.flush('m1')).toBe(false); // A stale "Finish now" click cannot end the resuming meeting.
+    expect(calls).toEqual([]);
+    resume(T0 + 61_000);
     await vi.advanceTimersByTimeAsync(120_000);
-    expect(calls).toEqual(['begin m1 30000']);
+    expect(calls).toEqual(['begin m1 61000']);
     // Stopped again: a fresh grace period from the new stop.
-    g.endMeeting('m1', T0 + 150_000);
+    g.endMeeting('m1', T0 + 181_000);
     await vi.advanceTimersByTimeAsync(60_000);
-    expect(calls).toEqual(['begin m1 30000', 'end m1 150000']);
+    expect(calls).toEqual(['begin m1 61000', 'end m1 181000']);
   });
+
+  it.each([500, 2000])(
+    'a canceled restart keeps the original end after waiting %i ms',
+    async (wait) => {
+      const g = grace();
+      g.endMeeting('m1', T0);
+      await vi.advanceTimersByTimeAsync(59_000);
+      await g.prepareMeeting('m1', T0 + 59_000);
+      await vi.advanceTimersByTimeAsync(wait);
+      expect(calls).toEqual([]);
+      g.cancelMeetingStart('m1');
+      if (wait < 1000) {
+        expect(calls).toEqual([]);
+        await vi.advanceTimersByTimeAsync(1000 - wait);
+      }
+      expect(calls).toEqual(['end m1 0']);
+    },
+  );
 
   it('another meeting starting, "Finish now" and quit end it at once', async () => {
     const g = grace();
@@ -121,6 +142,7 @@ describe('MeetingEndGrace — durable (7.5 review)', () => {
     const first = durable();
     first.endMeeting('m1', T0 + 1000);
     expect(existsSync(join(dir, 'g.json'))).toBe(true);
+    await first.prepareMeeting('m1', T0 + 2000);
     first.dispose(); // the process dies: nothing written
     await vi.advanceTimersByTimeAsync(5 * 60_000);
     expect(calls).toEqual([]);

@@ -68,6 +68,8 @@ export class MeetingEndGrace implements TranscriptPersistence {
   readonly #graceMs: number;
   readonly #now: () => number;
   #pending: PendingEnd | null = null;
+  /** The pending end stays on disk while its recording is opening. */
+  #resuming = false;
   /** Held ends waiting for their account's database (from the file at launch, or parked when due). */
   #parked: PendingEnd[];
   #timer: ReturnType<typeof setTimeout> | undefined;
@@ -89,11 +91,23 @@ export class MeetingEndGrace implements TranscriptPersistence {
   }
 
   async prepareMeeting(meetingId: string, requestedAt: number): Promise<BeginMeeting> {
+    if (this.#pending?.meetingId === meetingId) {
+      this.#resuming = true;
+      this.dispose();
+    }
     const beginMeeting = await this.#o.inner.prepareMeeting(meetingId, requestedAt);
     return (startedAt) => {
       this.#clearPreviousEnd(meetingId);
       beginMeeting(startedAt);
     };
+  }
+
+  cancelMeetingStart(meetingId: string): void {
+    const pending = this.#pending;
+    if (!this.#resuming || pending?.meetingId !== meetingId) return;
+    this.#resuming = false;
+    if (pending.dueAt <= this.#now()) this.flush(meetingId);
+    else this.#armTimer(pending);
   }
 
   #clearPreviousEnd(meetingId: string): void {
@@ -139,10 +153,15 @@ export class MeetingEndGrace implements TranscriptPersistence {
    */
   flush(meetingId?: string): boolean {
     const pending = this.#pending;
-    if (!pending || (meetingId !== undefined && pending.meetingId !== meetingId)) return false;
+    if (
+      !pending ||
+      (meetingId !== undefined && (this.#resuming || pending.meetingId !== meetingId))
+    ) {
+      return false;
+    }
     this.#pending = null;
-    clearTimeout(this.#timer);
-    this.#timer = undefined;
+    this.#resuming = false;
+    this.dispose();
     let written = false;
     if (pending.userId !== this.#o.userId()) {
       this.#o.log?.warn(
@@ -193,18 +212,20 @@ export class MeetingEndGrace implements TranscriptPersistence {
   }
 
   #set(pending: PendingEnd | null): void {
-    clearTimeout(this.#timer);
-    this.#timer = undefined;
+    this.dispose();
     this.#pending = pending;
-    if (pending) {
-      this.#timer = setTimeout(
-        () => this.flush(pending.meetingId),
-        Math.max(0, pending.dueAt - this.#now()),
-      );
-      this.#timer.unref?.();
-    }
+    this.#resuming = false;
+    if (pending) this.#armTimer(pending);
     this.#save();
     this.#o.onChange?.(pending);
+  }
+
+  #armTimer(pending: PendingEnd): void {
+    this.#timer = setTimeout(
+      () => this.flush(pending.meetingId),
+      Math.max(0, pending.dueAt - this.#now()),
+    );
+    this.#timer.unref?.();
   }
 
   #load(): PendingEnd[] {

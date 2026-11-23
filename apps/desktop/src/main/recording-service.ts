@@ -68,6 +68,8 @@ export type BeginMeeting = (startedAt: number) => void;
 export interface TranscriptPersistence {
   /** Check local storage and workspace before opening audio. Commit the note when capture starts. */
   prepareMeeting(meetingId: string, requestedAt: number): Promise<BeginMeeting>;
+  /** Release any existing meeting end held while opening capture. */
+  cancelMeetingStart?(meetingId: string): void;
   saveSegment(meetingId: string, segment: LiveSegment): void;
   /** Latest stored segment end of a meeting (ms, meeting clock), for resuming it after a relaunch. */
   meetingEndMs?(meetingId: string): number;
@@ -358,6 +360,13 @@ export class RecordingService {
     try {
       return await this.#start(requested, spec);
     } finally {
+      if (this.#startingMeetingId) {
+        try {
+          this.#o.persistence?.cancelMeetingStart?.(this.#startingMeetingId);
+        } catch (error) {
+          this.#o.log.error('recording: could not restore the pending meeting end', error);
+        }
+      }
       this.#starting = false;
       this.#startingMeetingId = undefined;
     }
