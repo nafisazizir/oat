@@ -2,6 +2,10 @@
 
 Append-only. Newest at the bottom. Orchestrator writes one entry per state change.
 
+Sidebar lab avatar follow-up: added shared round 32px Avatar/Image/Fallback with mock initial N,
+centered alongside truncating identity text. Focused typecheck/lint and existing Chromium menu
+checks pass; final-switcher.png refreshed and visually inspected. Local commit only; no push.
+
 ## Waiting on human
 - [ ] Hopper (used by REA) is stuck on a dialog since 13:32; REA `close_binary` returns cleanup_incomplete.
       Please dismiss/quit Hopper. Not blocking product work.

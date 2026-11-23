@@ -2,6 +2,7 @@
 
 import { useState, type ComponentType, type ReactNode } from 'react';
 import { WorkspaceAvatar } from '@oat/settings-ui';
+import { Avatar, AvatarFallback, AvatarImage } from '@oat/ui/components/avatar';
 import { Button } from '@oat/ui/components/button';
 import {
   DropdownMenu,
@@ -273,9 +274,15 @@ export function SidebarLab({ initialIcon }: { initialIcon: ViewAllIcon }) {
                   <IconChevronDown className="ms-auto group-data-[collapsible=icon]:hidden" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="top" align="start" className="w-64">
-                  <div className="px-2 py-2">
-                    <p className="text-copy-14 font-medium text-gray-1000">Nafis Riza</p>
-                    <p className="text-label-12 text-gray-900">nafis@example.com</p>
+                  <div className="flex items-center gap-2 px-2 py-2">
+                    <Avatar>
+                      <AvatarImage src={undefined} alt="" />
+                      <AvatarFallback className="text-label-12">N</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-copy-14 font-medium text-gray-1000">Nafis Riza</p>
+                      <p className="truncate text-label-12 text-gray-900">nafis@example.com</p>
+                    </div>
                   </div>
                   <DropdownMenuGroup>
                     <DropdownMenuItem onClick={() => select('Settings')}>

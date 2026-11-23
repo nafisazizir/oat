@@ -130,6 +130,11 @@ capture enlarged 400% with ImageMagick point filtering; no circular ring over th
 Real sidebar and shared avatar implementation unchanged. Server left on 3000; local commit, no push.
 
 ## Simplified switcher menu
+Follow-up: identity header now has shared round 32px Avatar/Image/Fallback (mock initial N),
+vertically centered beside a min-w-0 name/email column with truncation. Focused tsc/eslint:
+`Sidebar lab typecheck and lint: PASS`. Existing menu harness passes without browser errors;
+refreshed and visually inspected final-switcher.png at 1280×800, including round avatar and alignment.
+
 Kept identity header, Settings with right-aligned Kbd ⌘, hint, Workspaces plus Create workspace,
 Library (Tasks/Templates/Trash), and Sign out, with three separators. Removed duplicate Profile,
 workspace settings/invite and Theme entry points; Settings still opens the local mock view.

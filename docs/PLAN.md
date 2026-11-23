@@ -1,5 +1,8 @@
 # Oat — Plan & Task Board
 
+Sidebar lab identity follow-up: shared round 32px user avatar beside centered, truncating name/email;
+focused tsc/eslint and menu harness pass; refreshed final-switcher.png visually inspected.
+
 - [x] Human-requested dev-only sidebar lab · Refined B1 only; simplified switcher with single Settings entry/shortcut, Workspaces/Create workspace, Library and Sign out; five-option View all icon exploration (dots default). Focused typecheck/lint and Chromium checks pass; inspected refreshed final-switcher.png at /home/ubuntu/sidebar-lab-shots/. Dev server port 3000; real navigation untouched. Earlier comparison evidence retained. [task](tasks/sidebar-lab.md)
 
 - [x] Human-requested PR #31 Graphite visual round 3c · Implemented; 62 AFTER app PNGs/19 comparison sheets reviewed, conflict axe AA and link/greeting checks pass. Full E2E gate passes: web 91 passed/17 skipped, editor 16 passed/2 skipped. Final fast gate passes all five steps without scaling (24 cached test tasks). User accepted/authorized commit/push; publication follows closeout. Baseline/native limits retained. Evidence /home/ubuntu/oat-shots/ · [task](tasks/visual-hillclimb-3c-baseline.md)
