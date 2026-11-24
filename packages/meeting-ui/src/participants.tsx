@@ -53,7 +53,7 @@ export function ParticipantSummary(props: ParticipantChipsProps) {
           </>
         ) : (
           <>
-            <AvatarGroup className="-space-x-1">
+            <AvatarGroup className="-space-x-1 group-data-[look=pill]/meta:-ms-1 group-data-[look=pill]/meta:*:data-[slot=avatar]:ring-gray-100">
               {shown.map((p) => (
                 <Avatar key={p.id} size="sm" className="size-5">
                   <AvatarFallback className="bg-gray-200 text-[8px] font-medium text-gray-1000">

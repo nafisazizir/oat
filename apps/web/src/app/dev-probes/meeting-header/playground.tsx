@@ -3,6 +3,7 @@
 import {
   MeetingAccess,
   MeetingMetaRow,
+  type MeetingMetaLook,
   MeetingPrivate,
   MeetingTime,
   NoteColumn,
@@ -45,6 +46,7 @@ type Event = 'none' | 'join' | 'no-link';
 type Viewer = 'edit' | 'view' | 'trash';
 
 interface State {
+  look?: MeetingMetaLook;
   people: number;
   access: Access;
   timing: Timing;
@@ -93,7 +95,7 @@ function Header({
   const editable = canEdit && state.viewer === 'edit';
   const eventOver = t.slot[1]! < new Date(now).toISOString();
   return (
-    <MeetingMetaRow>
+    <MeetingMetaRow look={state.look ?? 'plain'}>
       <MeetingPrivate visibility={state.access} />
       <MeetingTime startedAt={t.startedAt} endedAt={t.endedAt} />
       {state.event !== 'none' && (
@@ -219,6 +221,7 @@ export function MeetingHeaderPlayground() {
   const hydrated = useHydrated();
   const [now] = useState(() => Date.now());
   const [state, setState] = useState<State>(PRESETS[3]!.state);
+  const [look, setLook] = useState<MeetingMetaLook>('plain');
   const [title, setTitle] = useState('Weekly product sync');
   const [darkChoice, setDark] = useState<boolean | null>(null);
   const dark = darkChoice ?? (hydrated && document.documentElement.classList.contains('dark'));
@@ -289,6 +292,15 @@ export function MeetingHeaderPlayground() {
             ]}
           />
           <Choice
+            label="Style"
+            value={look}
+            onChange={setLook}
+            options={[
+              ['plain', 'Plain'],
+              ['pill', 'Pill'],
+            ]}
+          />
+          <Choice
             label="Theme"
             value={dark ? 'dark' : 'light'}
             onChange={(v) => {
@@ -314,7 +326,7 @@ export function MeetingHeaderPlayground() {
           onChange={(e) => setTitle(e.target.value)}
           className="w-full resize-none bg-transparent text-heading-32 text-gray-1000 [field-sizing:content] outline-none"
         />
-        <Header key={JSON.stringify(state)} state={state} now={now} />
+        <Header key={JSON.stringify(state)} state={{ ...state, look }} now={now} />
         <div className="mt-4 space-y-2 text-copy-16 text-gray-900">
           <p>Notes start here…</p>
         </div>
@@ -342,7 +354,7 @@ export function MeetingHeaderPlayground() {
                 </Button>
               </div>
               <span className="text-heading-20 text-gray-1000">Weekly product sync</span>
-              <Header state={preset.state} now={now} editable={false} />
+              <Header state={{ ...preset.state, look }} now={now} editable={false} />
             </div>
           ))}
         </div>

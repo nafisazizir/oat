@@ -9,21 +9,32 @@ import { cn } from '@oat/ui/lib/utils';
 import { IconCalendar, IconEye, IconLock, IconTrash, IconVideo } from '@tabler/icons-react';
 import type { ComponentProps, ReactNode } from 'react';
 
-/** One fact in the meeting header. */
+/** One fact in the meeting header (in a `pill` row, each in the same gray pill). */
 export const metaItemClass =
-  'inline-flex h-6 shrink-0 items-center gap-1.5 text-label-13 whitespace-nowrap text-gray-900 [&_svg]:size-3.5 [&_svg]:shrink-0';
+  'inline-flex h-6 shrink-0 items-center gap-1.5 text-label-13 whitespace-nowrap text-gray-900 [&_svg]:size-3.5 [&_svg]:shrink-0 group-data-[look=pill]/meta:rounded-md group-data-[look=pill]/meta:bg-gray-100 group-data-[look=pill]/meta:px-2';
 
 /** A fact that opens or does something: same look, darker on hover/open, focus ring. */
 export const metaActionClass = cn(
   metaItemClass,
-  'cursor-pointer rounded-md outline-none transition-colors hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 aria-expanded:text-gray-1000',
+  'cursor-pointer rounded-md outline-none transition-colors hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 aria-expanded:text-gray-1000 group-data-[look=pill]/meta:hover:bg-gray-200 group-data-[look=pill]/meta:aria-expanded:bg-gray-200',
 );
 
-export function MeetingMetaRow({ className, ...props }: ComponentProps<'div'>) {
+/** `plain`: bare text + icon facts; `pill`: the same facts, each in a gray pill. */
+export type MeetingMetaLook = 'plain' | 'pill';
+
+export function MeetingMetaRow({
+  look = 'plain',
+  className,
+  ...props
+}: ComponentProps<'div'> & { look?: MeetingMetaLook }) {
   return (
     <div
-      className={cn('group/meta flex min-h-6 flex-wrap items-center gap-x-4 gap-y-1', className)}
+      className={cn(
+        'group/meta flex min-h-6 flex-wrap items-center gap-x-4 gap-y-1 data-[look=pill]:gap-x-1.5 data-[look=pill]:gap-y-1.5',
+        className,
+      )}
       data-testid="meeting-header"
+      data-look={look}
       {...props}
     />
   );

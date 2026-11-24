@@ -31,6 +31,7 @@ export {
   MeetingMetaRow,
   MeetingPrivate,
   MetaItem,
+  type MeetingMetaLook,
   metaActionClass,
   metaItemClass,
 } from './meeting-meta.tsx';
