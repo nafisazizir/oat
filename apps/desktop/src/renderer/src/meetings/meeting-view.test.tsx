@@ -52,6 +52,7 @@ vi.mock('../recording-state.ts', () => ({
   useTranscript: () => ({ meetingId: null, segments: [], loaded: true, failed: false }),
 }));
 vi.mock('../auto-stop/auto-stop-state.ts', () => ({ useMeetingGrace: () => null }));
+vi.mock('./post-meeting.tsx', () => ({ PipelineWatcher: () => null }));
 vi.mock('../recording/transcript-panel.tsx', () => ({
   TranscriptPanel: ({ focusId, onSelect }: { focusId?: string; onSelect?(s: unknown): void }) => (
     <>

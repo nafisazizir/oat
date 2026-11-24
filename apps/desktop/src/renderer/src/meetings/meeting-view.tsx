@@ -71,6 +71,7 @@ import {
   useStoredTranscript,
   useTranscriptStatus,
 } from './meetings-state.ts';
+import { PipelineWatcher } from './post-meeting.tsx';
 import { type AutosaveState, NoteAutosave } from './note-autosave.ts';
 import { meetingAssistantHandle } from './meeting-assistant';
 import { MeetingActions } from '../workspace/meeting-actions';
@@ -176,6 +177,9 @@ export function MeetingView({
         <h1 className="sr-only">
           {documentId === null ? 'Meeting notes' : note?.title || 'Untitled meeting'}
         </h1>
+      )}
+      {note && meetingId && !recordingThis && !graceHere && note.endedAt && (
+        <PipelineWatcher documentId={note.documentId} endedAt={note.endedAt} />
       )}
       <IssueBanner snapshot={snapshot} />
       <div className="flex min-h-0 flex-1">
