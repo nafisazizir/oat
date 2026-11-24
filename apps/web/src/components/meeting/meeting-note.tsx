@@ -13,6 +13,7 @@
 import {
   MeetingAccess,
   MeetingMetaRow,
+  MeetingLive,
   MeetingPrivate,
   MeetingTime,
   ParticipantSummary,
@@ -209,13 +210,17 @@ export function MeetingNote({
     // workspace (the sidebar says it), no shared audience (the default), no duration.
     <MeetingMetaRow>
       <MeetingPrivate visibility={doc.visibility} />
-      <MeetingTime
-        startedAt={info.startedAt}
-        endedAt={info.endedAt}
-        live={browserLive}
-        // Server render + hydration in UTC (they must agree), then the viewer's zone.
-        {...(hydrated ? {} : { timeZone: 'UTC' })}
-      />
+      {browserLive ? (
+        // Recording here now: the cached times may be a previous take's until this one syncs.
+        <MeetingLive />
+      ) : (
+        <MeetingTime
+          startedAt={info.startedAt}
+          endedAt={info.endedAt}
+          // Server render + hydration in UTC (they must agree), then the viewer's zone.
+          {...(hydrated ? {} : { timeZone: 'UTC' })}
+        />
+      )}
       {eventLine}
       <ParticipantSummary
         participants={info.participants}
