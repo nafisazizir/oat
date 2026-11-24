@@ -1,5 +1,6 @@
 'use client';
 
+import { settingsCacheKeys, useSettingsCacheWrite } from './resource';
 import { errorMessage, useSettings } from './services';
 import { cn } from '@oat/ui';
 import { Alert, AlertDescription } from '@oat/ui/components/alert';
@@ -84,6 +85,7 @@ const toForm = (p: ProfileDto) => ({
 /** "About me" (4.6): name, role, team, what I care about, names and terms to spell right. */
 export function ProfileForm({ profile }: { profile: ProfileDto }) {
   const { client, onProfileChanged } = useSettings();
+  const remember = useSettingsCacheWrite();
   const [saved, setSaved] = useState(profile);
   const [form, setForm] = useState(() => toForm(profile));
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +115,7 @@ export function ProfileForm({ profile }: { profile: ProfileDto }) {
               vocabulary: terms,
             } satisfies ProfileInput);
             setSaved(next);
+            remember(settingsCacheKeys.profile, next);
             setForm(toForm(next));
             setError(null);
             toast.success('Profile saved', {

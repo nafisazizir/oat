@@ -12,11 +12,12 @@ export function SettingsLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto grid w-full max-w-6xl items-start gap-6 px-6 py-4 md:grid-cols-[13.25rem_minmax(0,1fr)] md:gap-10">
+    // pt-1: the first row (32px) starts 4px under the shell header, on the sidebar's first menu row.
+    <div className="mx-auto grid w-full max-w-6xl items-start gap-6 px-6 pt-1 pb-10 md:grid-cols-[13.25rem_minmax(0,1fr)] md:gap-10">
       <nav
         aria-label="Settings sections"
         className={cn(
-          'flex flex-col gap-4 border-b border-gray-alpha-400 pb-4 md:sticky md:top-16 md:border-b-0 md:pe-3 md:pb-0',
+          'flex flex-col gap-4 border-b border-gray-alpha-400 pb-4 md:sticky md:top-13 md:border-b-0 md:pe-3 md:pb-0',
           navigationClassName,
         )}
       >
@@ -43,7 +44,7 @@ export function SettingsNavGroup({ label, children }: { label: string; children:
 
 export function settingsNavClass(active: boolean) {
   return cn(
-    'flex min-h-8 items-center gap-2 rounded-md border border-transparent px-2 py-1 text-start text-label-14 outline-none focus-visible:border-gray-600 focus-visible:ring-3 focus-visible:ring-gray-600/50',
+    'flex h-8 items-center gap-2 rounded-md px-2 text-start text-label-14 outline-none focus-visible:ring-3 focus-visible:ring-gray-600/50',
     active ? 'bg-gray-alpha-200 text-gray-1000' : 'text-gray-1000 hover:bg-gray-alpha-100',
   );
 }

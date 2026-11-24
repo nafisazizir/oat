@@ -43,9 +43,11 @@ export function SettingsView({
 
   return (
     <section className="flex min-w-0 flex-1 flex-col" aria-label="Settings" data-testid="settings">
-      <div className="min-h-0 flex-1 overflow-auto">
+      {/* A stable gutter: a page long enough to scroll doesn't nudge the others sideways. */}
+      <div className="min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]">
         <SettingsShell
           active={section}
+          navigationClassName="md:top-1"
           workspaceName={workspace?.name ?? ''}
           renderLink={(id, props) => (
             <button type="button" key={id} onClick={() => setSection(id)} {...props} />
@@ -54,7 +56,8 @@ export function SettingsView({
             <Button
               variant="ghost"
               size="sm"
-              className="justify-start"
+              // Arrow and label on the same columns as the section icons and names below.
+              className="justify-start gap-2 pe-[7px] has-data-[icon=inline-start]:ps-[7px]"
               onClick={onClose}
               data-testid="settings-close"
             >
@@ -101,14 +104,5 @@ export function SettingsView({
         </SettingsShell>
       </div>
     </section>
-  );
-}
-
-export function SettingsHeader({ title, description }: { title: string; description?: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <h1 className="text-heading-24 text-gray-1000">{title}</h1>
-      {description && <p className="text-copy-14 text-gray-900">{description}</p>}
-    </div>
   );
 }

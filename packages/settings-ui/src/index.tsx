@@ -26,13 +26,19 @@ import { WorkspaceJoinSettings } from './join-settings';
 import { MembersPanel } from './members-panel';
 import { AppearancePanel } from './preferences';
 import { ProfileForm } from './profile-form';
-import { SettingsLoadState, useSettingsResource } from './resource';
+import {
+  settingsCacheKeys,
+  SettingsLoadState,
+  SettingsResourceCache,
+  useSettingsPrefetch,
+  useSettingsResource,
+} from './resource';
 import { SettingsHeading, SettingsSection } from './section';
 import { SettingsProvider, type SettingsServices } from './services';
 import type { ThemePreference } from './theme';
 
 export { LeaveWorkspaceDialog } from './leave-workspace-dialog';
-export { SettingsHeading } from './section';
+export { SettingsHeading, SettingsList, SettingsSection } from './section';
 export { type SettingsServices } from './services';
 export { ThemeProvider, useTheme } from './theme-provider';
 export { ThemeMenu } from './theme-menu';
@@ -79,6 +85,8 @@ type ShellProps = {
   ) => ReactNode;
   devicePanels?: Partial<Record<DeviceSection, ReactNode>>;
   back?: ReactNode;
+  /** Where the navigation sticks, for a host whose scroll container isn't the page (desktop). */
+  navigationClassName?: string;
   children: ReactNode;
 };
 
@@ -88,6 +96,7 @@ export function SettingsShell({
   renderLink,
   devicePanels,
   back,
+  navigationClassName,
   children,
 }: ShellProps) {
   const [query, setQuery] = useState('');
@@ -103,11 +112,16 @@ export function SettingsShell({
   }));
   return (
     <SettingsLayout
-      navigationClassName="md:top-8"
+      navigationClassName={navigationClassName}
       navigation={
         <>
           {back}
-          <InputGroup size="sm" variant="secondary">
+          {/* Glyph and text on the columns of the section icons and names below. */}
+          <InputGroup
+            size="sm"
+            variant="secondary"
+            className="[--input-group-inset:7px] has-[>[data-align=inline-start]]:[&>input]:ps-2"
+          >
             <InputGroupAddon>
               <IconSearch />
             </InputGroupAddon>
@@ -151,13 +165,15 @@ export function SettingsShell({
         </>
       }
     >
-      {active in settingsPaths ? children : null}
-      {devicePanels &&
-        Object.entries(devicePanels).map(([id, panel]) => (
-          <div key={id} hidden={id !== active}>
-            {panel}
-          </div>
-        ))}
+      <SettingsResourceCache>
+        {active in settingsPaths ? children : null}
+        {devicePanels &&
+          Object.entries(devicePanels).map(([id, panel]) => (
+            <div key={id} hidden={id !== active}>
+              {panel}
+            </div>
+          ))}
+      </SettingsResourceCache>
     </SettingsLayout>
   );
 }
@@ -178,6 +194,18 @@ export function SettingsPanel({
   notice?: IntegrationNotice;
 }) {
   const key = `${services.workspaceId}:${active}`;
+  const { client, workspaceId } = services;
+  // The cheap reads behind the other pages, so switching to one doesn't start from "Loading".
+  useSettingsPrefetch({
+    [settingsCacheKeys.profile]: (signal) => client.profile.get({ signal }),
+    [settingsCacheKeys.environment]: (signal) => client.settings.environment({ signal }),
+    ...(workspaceId && {
+      [settingsCacheKeys.workspace(workspaceId)]: (signal) =>
+        client.workspaces.get(workspaceId, { signal }),
+      [settingsCacheKeys.pipeline(workspaceId)]: (signal) =>
+        client.pipeline.settings(workspaceId, { signal }),
+    }),
+  });
   switch (active) {
     case 'preferences':
       return <AppearancePanel client={services.client} theme={theme} setTheme={setTheme} />;
@@ -203,13 +231,14 @@ export function SettingsPanel({
 function ProfilePanel({ services }: { services: SettingsServices }) {
   const { client } = services;
   const load = useCallback((signal: AbortSignal) => client.profile.get({ signal }), [client]);
-  const { value, refresh } = useSettingsResource(load);
+  const { value, refresh } = useSettingsResource(load, settingsCacheKeys.profile);
   return (
     <>
       <SettingsHeading>Profile</SettingsHeading>
       {value && 'data' in value ? (
         <SettingsProvider value={{ ...services, refresh }}>
-          <ProfileForm profile={value.data} />
+          {/* Keyed by its save time: a newer profile than the one shown starts the form over. */}
+          <ProfileForm key={String(value.data.updatedAt)} profile={value.data} />
         </SettingsProvider>
       ) : (
         <SettingsLoadState error={value?.error} retry={refresh} />
@@ -230,7 +259,7 @@ function WorkspacePanel({
     (signal: AbortSignal) => client.workspaces.get(workspaceId, { signal }),
     [client, workspaceId],
   );
-  const { value, refresh } = useSettingsResource(load);
+  const { value, refresh } = useSettingsResource(load, settingsCacheKeys.workspace(workspaceId));
   if (!value || 'error' in value)
     return (
       <>
@@ -247,7 +276,12 @@ function WorkspacePanel({
       ) : (
         <>
           <SettingsHeading>General</SettingsHeading>
-          <WorkspaceGeneralForm workspace={workspace} canEdit={settings.canManage} />
+          {/* Keyed by what it edits: a name or icon changed elsewhere starts the form over. */}
+          <WorkspaceGeneralForm
+            key={`${workspace.name}:${workspace.icon}`}
+            workspace={workspace}
+            canEdit={settings.canManage}
+          />
           {settings.joining && (
             <WorkspaceJoinSettings workspaceId={workspace.id} joining={settings.joining} />
           )}

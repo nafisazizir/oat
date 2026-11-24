@@ -6,6 +6,7 @@ import { Switch } from '@oat/ui/components/switch';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
 
+import { settingsCacheKeys, useSettingsCacheWrite } from './resource';
 import { useSettings } from './services';
 import type { PipelineSettingsDto, UpdatePipelineSettingsInput } from '@oat/services/dto/pipeline';
 
@@ -30,8 +31,15 @@ export function PipelineSwitch({
 }) {
   const id = useId();
   const { client } = useSettings();
+  const remember = useSettingsCacheWrite();
   const [checked, setChecked] = useState(initial);
   const [pending, setPending] = useState(false);
+  // The setting as last loaded: a newer value than the one this switch started from takes over.
+  const [loaded, setLoaded] = useState(initial);
+  if (loaded !== initial) {
+    setLoaded(initial);
+    if (!pending) setChecked(initial);
+  }
 
   async function change(next: boolean) {
     setChecked(next);
@@ -39,6 +47,7 @@ export function PipelineSwitch({
     try {
       const input: UpdatePipelineSettingsInput = { workspaceId, [setting]: next };
       const saved: PipelineSettingsDto = await client.pipeline.updateSettings(input);
+      remember(settingsCacheKeys.pipeline(workspaceId), saved);
       setChecked(saved[setting] === true);
     } catch (error) {
       setChecked(!next);

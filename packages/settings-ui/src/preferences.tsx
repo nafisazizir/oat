@@ -9,7 +9,7 @@ import {
 } from '@oat/ui/components/item';
 import { useCallback } from 'react';
 
-import { useSettingsResource } from './resource';
+import { settingsCacheKeys, useSettingsResource } from './resource';
 import { SettingsHeading, SettingsList, SettingsSection } from './section';
 import { ThemeMenu } from './theme-menu';
 import type { ThemePreference } from './theme';
@@ -34,7 +34,7 @@ export function AppearancePanel({
     (signal: AbortSignal) => client.settings.environment({ signal }),
     [client],
   );
-  const { value } = useSettingsResource(load);
+  const { value } = useSettingsResource(load, settingsCacheKeys.environment);
   const mocked =
     value && 'data' in value
       ? (Object.keys(integrationLabels) as (keyof typeof integrationLabels)[]).filter(

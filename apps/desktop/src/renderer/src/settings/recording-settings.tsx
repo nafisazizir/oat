@@ -10,12 +10,12 @@ import {
   FieldGroup,
   FieldLabel,
 } from '@oat/ui/components/field';
+import { SettingsHeading } from '@oat/settings-ui';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import { Switch } from '@oat/ui/components/switch';
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { BridgeCallError, call } from '../bridge.ts';
-import { SettingsHeader } from './settings-view.tsx';
 
 const SWITCHES = [
   {
@@ -69,8 +69,8 @@ export function RecordingSettings() {
   };
 
   return (
-    <div className="flex flex-col gap-4" data-testid="recording-settings">
-      <SettingsHeader title="Recording" />
+    <div className="flex flex-col gap-6" data-testid="recording-settings">
+      <SettingsHeading>Recording</SettingsHeading>
       <p role="alert" className="text-copy-14 text-red-900 empty:hidden">
         {error}
       </p>
@@ -122,7 +122,7 @@ function SettingSwitch({
   return (
     <Field
       orientation="horizontal"
-      className={divided ? 'border-t border-gray-alpha-300 py-5' : 'pb-5 pt-2'}
+      className={divided ? 'border-t border-gray-alpha-400 py-3' : 'py-3'}
       data-disabled={disabled || undefined}
     >
       <FieldContent>

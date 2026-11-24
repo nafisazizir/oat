@@ -4,6 +4,7 @@ import type {
   StorageMeeting,
   StorageSummary,
 } from '@oat/core/bridge';
+import { SettingsHeading } from '@oat/settings-ui';
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import {
@@ -84,14 +85,10 @@ export function StorageSettings() {
   }, [version]);
 
   return (
-    <div className="flex flex-col gap-5" data-testid="storage-settings">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-heading-24 text-gray-1000">Storage</h1>
-        <p className="text-copy-14 text-gray-900">
-          Meeting audio is saved only on this Mac and never uploaded. Deleting audio keeps the
-          transcript and your notes.
-        </p>
-      </div>
+    <div className="flex flex-col gap-6" data-testid="storage-settings">
+      <SettingsHeading description="Meeting audio is saved only on this Mac and never uploaded. Deleting audio keeps the transcript and your notes.">
+        Storage
+      </SettingsHeading>
       <p role="alert" className="text-copy-14 text-red-900 empty:hidden">
         {error}
       </p>
@@ -212,10 +209,10 @@ function RetentionCard({
 
   const unit = kind === 'age' ? 'days' : 'GB';
   return (
-    <section className="flex flex-col gap-4 py-4" data-testid="retention">
+    <section className="flex flex-col gap-3" data-testid="retention">
       <div className="flex flex-col gap-1">
-        <h2 className="text-label-14 text-gray-1000">Keep audio</h2>
-        <p className="text-copy-13 text-gray-900">
+        <h2 className="text-heading-16 text-gray-1000">Keep audio</h2>
+        <p className="text-copy-14 text-gray-900">
           Checked when Oat starts, after each recording and every 6 hours. The meeting being
           recorded and audio from the last hour are never deleted.
         </p>
@@ -355,9 +352,9 @@ function RecordingsList({
   }
 
   return (
-    <section className="flex flex-col gap-2" aria-labelledby="recordings-heading">
-      <div className="flex items-center justify-between gap-2">
-        <h3 id="recordings-heading" className="text-label-14 text-gray-1000">
+    <section className="flex flex-col gap-3" aria-labelledby="recordings-heading">
+      <div className="flex min-h-8 items-center justify-between gap-4">
+        <h3 id="recordings-heading" className="text-heading-16 text-gray-1000">
           Recordings
         </h3>
         {meetings.length > 1 && (
@@ -395,7 +392,7 @@ function RecordingsList({
           </EmptyHeader>
         </Empty>
       ) : (
-        <ul className="flex flex-col divide-y divide-gray-alpha-300" data-testid="storage-list">
+        <ul className="flex flex-col divide-y divide-gray-alpha-400" data-testid="storage-list">
           {sorted.map((m) => (
             <li
               key={m.meetingId}
@@ -460,7 +457,7 @@ function RecordingsList({
       )}
       {others.meetings > 0 && (
         <div
-          className="flex items-center gap-3 border-t border-gray-alpha-300 py-3 text-gray-900"
+          className="flex items-center gap-3 border-t border-gray-alpha-400 py-3 text-gray-900"
           data-testid="storage-other-accounts"
         >
           <IconUsers className="size-4 shrink-0" />
