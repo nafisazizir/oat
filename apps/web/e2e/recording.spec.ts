@@ -218,6 +218,25 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
       await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'playing');
     }
   }
+  await page.getByTestId('panel-close').click();
+  await page.getByTestId('assistant-toggle').click();
+  await page.getByTestId('assistant-panel').evaluate((panel) => {
+    const link = document.createElement('a');
+    link.href = '#';
+    link.textContent = 'Answer link';
+    panel.append(link);
+    window.addEventListener('keydown', (event) => {
+      if (event.key === ' ' && event.target === link) {
+        link.dataset.spacePrevented = String(event.defaultPrevented);
+      }
+    });
+  });
+  const answerLink = page.getByRole('link', { name: 'Answer link' });
+  await answerLink.press('Space');
+  await expect(answerLink).toHaveAttribute('data-space-prevented', 'false', { timeout: 2_000 });
+  await expect(page.getByTestId('playback-audio')).toHaveJSProperty('paused', true);
+  await page.getByRole('button', { name: 'Close assistant' }).click();
+  await page.getByTestId('transcript-toggle').click();
   const meeting = await (
     await page.request.get(`/api/documents/${doc.id}/meeting?transcript=1`)
   ).json();

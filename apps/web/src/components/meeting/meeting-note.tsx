@@ -229,7 +229,7 @@ export function MeetingNote({
   );
 
   const transcript = (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col" onKeyDown={(event) => playerKey(event, player)}>
       {deleteError && (
         <p role="alert" className="text-copy-13 text-red-900">
           {deleteError}
@@ -244,11 +244,11 @@ export function MeetingNote({
         activeId={activeId}
         playheadKey={local ? player.seekCount : undefined}
       />
-    </>
+    </div>
   );
 
   return (
-    <div className="flex min-w-0 flex-1" onKeyDown={(event) => playerKey(event, player)}>
+    <div className="flex min-w-0 flex-1">
       <audio ref={audioRef} hidden preload="metadata" data-testid="playback-audio" />
       <audio ref={secondaryRef} hidden preload="metadata" />
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
