@@ -12,7 +12,7 @@ Try a layout that brings meeting recording, transcript and Ask together over the
 
 Web and desktop meeting notes. Recording, playback, chat, citations and proposal handling keep their current data paths. No new audio device picker, language settings or assistant backend.
 
-The desktop sidecar follows the system-default input, and the recording bridge only selects between the sidecar and dev fixtures. Web capture uses the browser-default mic. An in-app picker would need device enumeration and device selection wired through the capture paths; switching during a recording would also need a supported input handoff.
+**Follow-up: microphone picker.** The desktop sidecar follows the system-default input, and the recording bridge only selects between the sidecar and dev fixtures. Web capture uses the browser-default mic. An in-app picker would need device enumeration and selection wired through the capture paths; switching during a recording would also need a supported input handoff.
 
 ## Design
 
@@ -59,3 +59,4 @@ The floating controls use pill corners, with square inside seams on the capture 
 - Stationary controls follow-up: focused Chromium printed `14 passed (2.0m)` with exact bounding-box checks for the waveform, live recording group and Ask composer. The refreshed mock desktop preview matched both trigger positions; Stop fit at a 390 px viewport. Fast CI passed format, actionlint, typecheck and lint, and timed out in one main-process audio fixture. The unit-test rerun printed `24 successful, 24 total`.
 - Minimal transcript follow-up: fast CI printed `ci: ok`. Focused Chromium printed `14 passed (1.8m)`, covering unchanged waveform background and bounds, keyboard focus, header actions, and timestamp deep links without visible captions. The mock renderer preview on port 4174 verified exact trigger geometry and recording and Ask interactions. Refreshed and inspected the light and dark transcript captures.
 - Minimal live transcript follow-up: fast CI printed `ci: ok`; focused Chromium meeting and recording suites printed `6 passed (1.2m)`. The rebuilt mock preview on port 4174 checked the reduced footer and unchanged panel bounds as lines arrived. Refreshed and inspected `/home/ubuntu/oat-dock-shots/after-{light,dark}-listening.png`.
+- Builds after rebasing on `53440a8`: the web production build compiled and typechecked, and the desktop renderer built and refreshed the mock screenshots. On a detached worktree at `53440a8`, both auth cases still expected email text in the workspace menu, and both calm-shell cases timed out clicking the Templates command. Baseline browser log: `/home/ubuntu/oat-dock-shots/ship-main-browser.log`.
