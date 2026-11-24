@@ -104,6 +104,8 @@ export function ParticipantSummary({
               data-testid="participant-chip"
               data-source={p.source}
               title={p.email && p.email !== p.name ? `${p.name} <${p.email}>` : p.name}
+              // The trash button is for the mouse; the keyboard removes with Delete (announced here).
+              aria-keyshortcuts={canRemove ? 'Delete' : undefined}
               onKeyDown={(event) => {
                 if (canRemove && (event.key === 'Delete' || event.key === 'Backspace')) {
                   event.preventDefault();
