@@ -91,10 +91,16 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   const connectionsBeforeStart = syncConnections;
   const group = page.getByRole('group', { name: 'Transcript and recording controls' });
   await expect(group.getByTestId('transcript-toggle')).toHaveCSS('border-end-end-radius', '0px');
-  await expect(group.getByRole('button', { name: 'Record', exact: true })).toHaveCSS(
-    'border-inline-start-width',
-    '0px',
-  );
+  const record = group.getByRole('button', { name: 'Record', exact: true });
+  await expect(record).toHaveCSS('border-inline-start-width', '0px');
+  expect(
+    await group
+      .getByTestId('transcript-toggle')
+      .evaluate((node) => parseFloat(getComputedStyle(node).borderStartStartRadius)),
+  ).toBeGreaterThanOrEqual(20);
+  expect(
+    await record.evaluate((node) => parseFloat(getComputedStyle(node).borderStartEndRadius)),
+  ).toBeGreaterThanOrEqual(20);
   await page.getByRole('button', { name: 'Record', exact: true }).click();
   const pushed = page.waitForResponse(
     (response) => response.url().endsWith('/api/sync/push') && response.ok(),

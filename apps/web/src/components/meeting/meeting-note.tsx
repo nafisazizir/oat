@@ -316,6 +316,7 @@ export function MeetingNote({
                         )}
                         {recording.status === 'paused' && <span>Paused</span>}
                         <RecordingStopButton
+                          shape="rounded"
                           disabled={
                             recording.changing ||
                             (recording.status !== 'recording' && recording.status !== 'paused')

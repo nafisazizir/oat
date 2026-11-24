@@ -296,6 +296,7 @@ export function ChatSession({
                 key={s}
                 size="sm"
                 variant={layout === 'dock' ? 'ghost' : 'secondary'}
+                shape={layout === 'dock' ? 'rounded' : undefined}
                 className={
                   layout === 'dock'
                     ? 'shrink-0'
@@ -446,7 +447,11 @@ function Composer({
         send();
       }}
     >
-      <InputGroup variant="secondary" size={compact ? 'lg' : undefined}>
+      <InputGroup
+        variant="secondary"
+        size={compact ? 'lg' : undefined}
+        className={compact ? 'min-h-10 rounded-full' : undefined}
+      >
         <InputGroupTextarea
           aria-label="Ask the assistant"
           data-testid="chat-input"
@@ -462,9 +467,15 @@ function Composer({
               send();
             }
           }}
-          className={cn('max-h-60 [field-sizing:content]', compact ? 'min-h-10' : 'min-h-16')}
+          className={cn(
+            'max-h-60 [field-sizing:content]',
+            compact ? 'min-h-0 data-[size=lg]:py-1.5' : 'min-h-16',
+          )}
         />
-        <InputGroupAddon align={compact ? 'inline-end' : 'block-end'}>
+        <InputGroupAddon
+          align={compact ? 'inline-end' : 'block-end'}
+          className={compact ? 'py-0' : undefined}
+        >
           {!compact && (
             <>
               <Button
@@ -487,6 +498,7 @@ function Composer({
             <Button
               type="button"
               size="icon-sm"
+              shape={compact ? 'rounded' : undefined}
               variant="secondary"
               aria-label="Stop"
               data-testid="chat-stop"
@@ -495,7 +507,13 @@ function Composer({
               <IconPlayerStopFilled />
             </Button>
           ) : (
-            <Button type="submit" size="icon-sm" aria-label="Send" disabled={!value.trim()}>
+            <Button
+              type="submit"
+              size="icon-sm"
+              shape={compact ? 'rounded' : undefined}
+              aria-label="Send"
+              disabled={!value.trim()}
+            >
               <IconArrowUp />
             </Button>
           )}

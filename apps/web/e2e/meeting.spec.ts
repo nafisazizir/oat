@@ -128,6 +128,9 @@ test('meeting header, attendees, transcript sheet (search, collapse, click → d
   await page.getByTestId('transcript-toggle').click();
   // Transcript replaces the dock row without moving its bottom edge.
   await expect(panel(page)).toBeVisible();
+  expect(
+    await panel(page).evaluate((node) => parseFloat(getComputedStyle(node).borderTopLeftRadius)),
+  ).toBeGreaterThanOrEqual(24);
   await expect(dockRow).toBeHidden();
   await expect(panel(page).locator('footer').getByTestId('transcript-toggle')).toBeFocused();
   const expanded = (await panel(page).boundingBox())!;

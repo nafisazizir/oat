@@ -169,7 +169,7 @@ Exit: Notion sync works; a post-meeting pipeline runs durably after each meeting
 
 - [x] Human-requested UI redesign PR 4: calm home and note surfaces · [task](tasks/ui-calm-note-surfaces.md)
 
-- [ ] Human-requested design iteration: floating meeting note dock with two segmented controls and full-width expanded panels · [task](tasks/ui-note-dock.md)
+- [ ] Human-requested design iteration: rounded floating meeting note dock with two segmented controls and full-width expanded panels · [task](tasks/ui-note-dock.md)
 
 - [x] Human-requested UI redesign PR 3: calm Account / Workspace settings · [task](tasks/ui-calm-settings.md)
 

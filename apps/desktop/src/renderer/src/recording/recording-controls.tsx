@@ -190,7 +190,9 @@ function RecordingButton({
   return (
     <Tooltip>
       <TooltipTrigger
-        render={<Button variant="outline" size="icon-lg" {...props} aria-label={label} />}
+        render={
+          <Button variant="outline" size="icon-lg" shape="rounded" {...props} aria-label={label} />
+        }
       >
         {children}
       </TooltipTrigger>
@@ -307,7 +309,7 @@ export function RecordingBar({
       )}
       {(status === 'starting' || status === 'stopping') &&
         (compact ? (
-          <ButtonGroupText className="w-10 justify-center px-0" role="status">
+          <ButtonGroupText shape="rounded" className="w-10 justify-center px-0" role="status">
             <Spinner aria-hidden role={undefined} />
             <span className="sr-only">{pendingLabel}</span>
           </ButtonGroupText>
@@ -358,7 +360,10 @@ export function RecordingBar({
   );
   const controls = compact ? (
     <div className="flex flex-wrap items-center gap-2">
-      <ButtonGroup aria-label="Transcript and recording controls" className="rounded-md shadow-sm">
+      <ButtonGroup
+        aria-label="Transcript and recording controls"
+        className="rounded-full shadow-sm"
+      >
         {transcriptToggle}
         {buttons}
       </ButtonGroup>

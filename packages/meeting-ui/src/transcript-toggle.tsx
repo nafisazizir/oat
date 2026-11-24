@@ -26,6 +26,7 @@ export function TranscriptToggle({
             ref={ref}
             variant="outline"
             size="icon-lg"
+            shape="rounded"
             onClick={onClick}
             aria-expanded={open}
             aria-controls="transcript-panel"

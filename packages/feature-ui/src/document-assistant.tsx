@@ -313,6 +313,7 @@ export function DocumentAssistant({
         ref={toggleRef}
         variant="outline"
         size="lg"
+        shape="rounded"
         data-testid="assistant-toggle"
         aria-keyshortcuts="Meta+J"
         aria-expanded={open}
@@ -330,7 +331,7 @@ export function DocumentAssistant({
       aria-label="Assistant"
       data-testid="assistant-panel"
       data-note-dock-panel="assistant"
-      className="pointer-events-auto flex max-h-[min(28rem,60dvh)] min-h-0 flex-col overflow-hidden rounded-lg border border-gray-alpha-400 bg-background-100 shadow-lg has-[[data-empty=false]]:h-[min(27rem,57dvh)]"
+      className="pointer-events-auto flex max-h-[min(28rem,60dvh)] min-h-0 flex-col overflow-hidden rounded-3xl border border-gray-alpha-400 bg-background-100 shadow-lg has-[[data-empty=false]]:h-[min(27rem,57dvh)]"
     >
       {chat}
     </section>

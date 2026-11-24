@@ -40,7 +40,7 @@ export function TranscriptSheet({
       aria-labelledby="transcript-heading"
       data-testid="transcript-panel"
       data-note-dock-panel="transcript"
-      className="flex h-[min(25rem,55dvh)] min-h-0 flex-col overflow-hidden rounded-lg border border-gray-alpha-400 bg-background-100 shadow-lg"
+      className="flex h-[min(25rem,55dvh)] min-h-0 flex-col overflow-hidden rounded-3xl border border-gray-alpha-400 bg-background-100 shadow-lg"
     >
       <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-gray-alpha-400 p-2">
         <IconWaveSine aria-hidden className="ms-1 size-4 text-gray-900" />

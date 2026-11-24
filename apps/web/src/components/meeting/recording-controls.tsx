@@ -52,7 +52,7 @@ export function RecordingControls({
   const group = (
     <ButtonGroup
       aria-label="Transcript and recording controls"
-      className="rounded-md shadow-sm"
+      className="rounded-full shadow-sm"
       data-testid={active ? 'web-recording' : undefined}
       data-status={active ? state.status : undefined}
     >
@@ -88,7 +88,13 @@ function RecordMenu({
           render={
             <PopoverTrigger
               render={
-                <Button variant="outline" size="icon-lg" aria-label="Record" disabled={disabled} />
+                <Button
+                  variant="outline"
+                  size="icon-lg"
+                  shape="rounded"
+                  aria-label="Record"
+                  disabled={disabled}
+                />
               }
             />
           }
@@ -137,6 +143,7 @@ function LiveControls({
           <Button
             variant={grouped ? 'outline' : 'ghost'}
             size={grouped ? 'icon-lg' : 'icon-sm'}
+            shape={grouped ? 'rounded' : undefined}
             aria-label={paused ? 'Resume' : 'Pause'}
             disabled={busy}
             onClick={() => void browserRecording.pause()}
@@ -175,7 +182,7 @@ function LiveControls({
   );
 }
 
-export function RecordingStopButton({ disabled }: { disabled: boolean }) {
+export function RecordingStopButton({ disabled, shape }: { disabled: boolean; shape?: 'rounded' }) {
   return (
     <Tooltip>
       <TooltipTrigger
@@ -183,6 +190,7 @@ export function RecordingStopButton({ disabled }: { disabled: boolean }) {
           <Button
             variant="secondary"
             size="icon-sm"
+            shape={shape}
             aria-label="Stop recording"
             disabled={disabled}
             onClick={() => void browserRecording.stop()}

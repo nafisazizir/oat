@@ -425,3 +425,5 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
 - 2026-11-24 · Two-control note dock · Web and desktop show record or pause/resume next to the waveform. Stop moves to the transcript footer, and the timer is gone from the dock. The waveform animates while recording unless reduced motion is requested. The buttons and Ask use Oat’s large sizes.
 
 - 2026-11-24 · Expanded note dock · Transcript and Ask now replace the full dock row and keep the same bottom edge. The capture controls move into the active panel footer.
+
+- 2026-11-24 · Rounded note dock · Floating capture and Ask controls use pill shapes, and expanded panels use Oat’s large radius. The expanded Ask composer now matches the collapsed 40 px height for a single line.

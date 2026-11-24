@@ -161,11 +161,32 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   await page.goto(`/d/${doc.id}`);
 
   // ⌘J opens the panel; the toggle button does too.
-  await expect(page.getByTestId('assistant-toggle')).toBeVisible();
+  const launcher = page.getByTestId('assistant-toggle');
+  await expect(launcher).toBeVisible();
+  await expect(launcher).toHaveCSS('height', '40px');
+  expect(
+    await launcher.evaluate((node) => parseFloat(getComputedStyle(node).borderTopLeftRadius)),
+  ).toBeGreaterThanOrEqual(20);
   await page.keyboard.press('ControlOrMeta+j');
   await expect(panel(page)).toBeVisible();
+  expect(
+    await panel(page).evaluate((node) => parseFloat(getComputedStyle(node).borderTopLeftRadius)),
+  ).toBeGreaterThanOrEqual(24);
   await expect(page.getByTestId('note-dock-row')).toBeHidden();
-  await expect(panel(page).getByTestId('chat-suggestions')).toBeVisible();
+  const composer = panel(page).locator('[data-slot="input-group"]');
+  await expect(composer).toHaveAttribute('data-size', 'lg');
+  await expect(composer).toHaveCSS('height', '40px');
+  expect(
+    await composer.evaluate((node) => parseFloat(getComputedStyle(node).borderTopLeftRadius)),
+  ).toBeGreaterThanOrEqual(20);
+  const recipes = panel(page).getByTestId('chat-suggestions');
+  await expect(recipes).toBeVisible();
+  expect(
+    await recipes
+      .getByRole('button')
+      .first()
+      .evaluate((node) => parseFloat(getComputedStyle(node).borderTopLeftRadius)),
+  ).toBeGreaterThanOrEqual(16);
 
   await ask(page, 'When does the Lakeside pilot start and who sends the onboarding checklist?');
   // Tool activity while it searches, then the answer streams in.
