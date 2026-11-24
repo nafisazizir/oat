@@ -37,6 +37,9 @@ export interface ParticipantChipsProps {
 
 export const MAX_PARTICIPANT_NAME = 200;
 
+// Sized to the small menu rows it opens from.
+const compactInput = 'data-[size=sm]:h-7 px-2 text-label-13 md:text-label-13';
+
 export function ParticipantSummary({
   participants,
   editable,
@@ -128,19 +131,23 @@ export function ParticipantSummary({
               {shown.map((p) => (
                 <div
                   key={p.id}
-                  className="flex min-w-0 items-center gap-2 rounded-sm py-1 ps-2 pe-1 text-label-14"
+                  className="flex min-w-0 items-center gap-1"
                   data-testid="participant-chip"
                   data-source={p.source}
-                  title={p.email && p.email !== p.name ? `${p.name} <${p.email}>` : p.name}
                 >
-                  <PersonRow participant={p} />
+                  <DropdownMenuItem
+                    className="min-w-0 flex-1"
+                    title={p.email && p.email !== p.name ? `${p.name} <${p.email}>` : p.name}
+                  >
+                    <PersonRow participant={p} />
+                  </DropdownMenuItem>
                   {canRemove && (
                     <DropdownMenuItem
                       aria-label={`Remove ${p.name || p.email}`}
                       title="Remove"
                       closeOnClick={false}
                       onClick={() => void remove(p)}
-                      className="ms-auto size-6 shrink-0 justify-center p-0 text-gray-900 focus:bg-red-100 not-data-[variant=destructive]:focus:**:text-red-800"
+                      className="size-6 shrink-0 justify-center p-0 text-gray-900"
                     >
                       <IconTrash className="size-3.5" />
                     </DropdownMenuItem>
@@ -231,6 +238,7 @@ function AddParticipantForm({
     <form noValidate className="flex flex-col gap-1.5" onSubmit={(event) => void submit(event)}>
       <Input
         size="sm"
+        className={compactInput}
         aria-label="Name"
         placeholder="Name"
         value={name}
@@ -241,6 +249,7 @@ function AddParticipantForm({
       />
       <Input
         size="sm"
+        className={compactInput}
         type="email"
         aria-label="Email (optional)"
         placeholder="Email (optional)"
