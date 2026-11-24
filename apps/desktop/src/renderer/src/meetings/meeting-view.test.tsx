@@ -169,7 +169,13 @@ describe('calm meeting surface', () => {
       meetingId: 'meeting',
     });
     view.rerender(<MeetingView {...props} snapshot={{ ...snapshot, status: 'starting' }} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Stop recording' }));
+    expect(group.querySelectorAll(':scope > [data-slot]')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Stop recording' })).toBeNull();
+    expect(screen.queryByTestId('recording-elapsed')).toBeNull();
+    await userEvent.click(screen.getByTestId('transcript-toggle'));
+    const stop = screen.getByRole('button', { name: 'Stop recording' });
+    expect(stop.closest('footer')).not.toBeNull();
+    await userEvent.click(stop);
     expect(model.call).toHaveBeenCalledWith('recording:stop');
     await act(async () => finishStart());
   });

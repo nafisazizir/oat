@@ -28,7 +28,7 @@ it('names the icon-only transcript toggle and describes it on keyboard focus', a
   const onClick = vi.fn();
   render(
     <TooltipProvider>
-      <TranscriptToggle open={false} count={3} live onClick={onClick} />
+      <TranscriptToggle open={false} count={3} recording onClick={onClick} />
     </TooltipProvider>,
   );
   const toggle = screen.getByRole('button', { name: 'Transcript, 3 lines', expanded: false });

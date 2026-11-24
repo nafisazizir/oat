@@ -284,6 +284,7 @@ export function DocumentAssistant({
       <Button
         ref={toggleRef}
         variant="outline"
+        size="lg"
         data-testid="assistant-toggle"
         aria-keyshortcuts="Meta+J"
         aria-expanded={open}
@@ -291,7 +292,7 @@ export function DocumentAssistant({
         tabIndex={open ? -1 : undefined}
         aria-hidden={open || undefined}
         className={cn(
-          'h-10 w-full justify-start gap-2 bg-background-100 px-3 text-gray-900 shadow-sm',
+          'w-full justify-start gap-2 bg-background-100 text-gray-900 shadow-sm',
           open ? 'invisible' : 'pointer-events-auto',
         )}
       >

@@ -18,7 +18,7 @@ The compact capture controls sit left of Ask near the bottom of the note. A tran
 
 The capture buttons are icon-only on web and desktop. The transcript uses a waveform with a live dot and exposes its expanded state. Recording and transcript buttons retain accessible names and show Oat tooltips. The elapsed timer is a separate readout.
 
-The buttons and elapsed readout share one attached control using Oat’s existing `ButtonGroup` and `ButtonGroupText`. Ask stays separate.
+Oat’s existing `ButtonGroup` holds at most two controls: waveform and record when idle, waveform and pause or resume during capture. The note dock has no elapsed timer; Stop is in the transcript footer. The waveform animates only during recording and respects reduced motion. The dock buttons and Ask use Oat’s large size variants.
 
 ## Acceptance criteria
 
@@ -47,3 +47,4 @@ The buttons and elapsed readout share one attached control using Oat’s existin
 - Icon-only follow-up: fast CI printed `ci: ok`; the focused web meeting, assistant, calm-notes and recording suites printed `14 passed (1.8m)`. Refreshed the light and dark captures and added `/home/ubuntu/oat-dock-shots/after-dark-tooltip.png` (waveform hover).
 - ButtonGroup follow-up: inspected the attached controls in the light and dark desktop renderer captures for idle, recording, listening, transcript and chat. Both waveform tooltip captures are at `/home/ubuntu/oat-dock-shots/after-{light,dark}-tooltip.png`.
   Fast CI printed `ci: ok`; the Chromium recording suite printed `3 passed (49.9s)` after preserving the off-note recording banner. The focused meeting, assistant and calm-notes specs passed in the preceding combined run.
+- Two-control follow-up: fast CI printed `ci: ok`; focused Chromium suites printed `14 passed (1.7m)`, including reduced motion, pause/resume, and stopping from the footer. Refreshed the light and dark mock desktop screenshots. The paused state is at `/home/ubuntu/oat-dock-shots/after-dark-recording-paused.png`; Stop is visible in the listening screenshots.

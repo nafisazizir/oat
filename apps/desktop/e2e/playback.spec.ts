@@ -23,6 +23,7 @@ import {
   evidence,
   launchApp,
   openTranscript,
+  stopRecording,
   scaled,
   signInDesktop,
   writeEvidence,
@@ -99,7 +100,7 @@ async function recordUntil(p: Page, button: string, total: number) {
   await p.getByRole('button', { name: button }).click();
   await expect(p.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
   await expect.poll(() => finals(p), { timeout: scaled(45_000) }).toBeGreaterThanOrEqual(total);
-  await p.getByRole('button', { name: 'Stop recording' }).click();
+  await stopRecording(p);
   await expect(p.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
     timeout: scaled(30_000),
   });
@@ -158,7 +159,7 @@ test('listen back: click-to-seek across two parts, playhead highlight, sources, 
     .first()
     .getAttribute('data-document-id'))!;
   await expect.poll(() => finals(page), { timeout: scaled(45_000) }).toBeGreaterThanOrEqual(3);
-  await page.getByRole('button', { name: 'Stop recording' }).click();
+  await stopRecording(page);
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
     timeout: scaled(30_000),
   });

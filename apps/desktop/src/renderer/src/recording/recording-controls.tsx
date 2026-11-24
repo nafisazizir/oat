@@ -190,7 +190,7 @@ function RecordingButton({
   return (
     <Tooltip>
       <TooltipTrigger
-        render={<Button {...props} variant="outline" size="icon-lg" aria-label={label} />}
+        render={<Button variant="outline" size="icon-lg" {...props} aria-label={label} />}
       >
         {children}
       </TooltipTrigger>
@@ -213,6 +213,7 @@ export function RecordingBar({
   hint = null,
   controlsContainer,
   transcriptToggle,
+  stopContainer,
   hideTranscriptionStatus = false,
 }: {
   snapshot: RecordingSnapshot | null;
@@ -228,6 +229,7 @@ export function RecordingBar({
   hint?: string | null;
   controlsContainer?: HTMLElement | null;
   transcriptToggle?: ReactNode;
+  stopContainer?: HTMLElement | null;
   hideTranscriptionStatus?: boolean;
 }) {
   const action = useRecordingAction();
@@ -244,13 +246,28 @@ export function RecordingBar({
     return action.run(() => call('recording:start', startRequest(input, meetingId)));
   }
 
+  const stop = (active || status === 'error') && (
+    <RecordingButton
+      compact={compact}
+      label={status === 'error' ? 'Dismiss' : 'Stop recording'}
+      variant={compact ? 'outline' : 'secondary'}
+      size={compact ? 'icon-sm' : 'sm'}
+      disabled={cancelStart.pending || (status !== 'starting' && action.pending)}
+      onClick={() => void stopAction.run(() => call('recording:stop'))}
+      title={compact ? undefined : status === 'error' ? 'Dismiss' : 'Stop recording'}
+    >
+      <IconPlayerStopFilled aria-hidden data-icon="inline-start" />
+      {!compact && (status === 'error' ? 'Dismiss' : 'Stop')}
+    </RecordingButton>
+  );
+
   const buttons = (
     <>
       {status === 'recording' && (
         <RecordingButton
           compact={compact}
           label="Pause"
-          variant="secondary"
+          variant={compact ? 'outline' : 'secondary'}
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:pause'))}
         >
@@ -262,7 +279,7 @@ export function RecordingBar({
         <RecordingButton
           compact={compact}
           label="Resume"
-          variant="secondary"
+          variant={compact ? 'outline' : 'secondary'}
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:resume'))}
         >
@@ -274,7 +291,7 @@ export function RecordingBar({
         <RecordingButton
           compact={compact}
           label={startLabel}
-          variant="secondary"
+          variant={compact ? 'outline' : 'secondary'}
           disabled={action.pending || cancelStart.pending || !snapshot}
           onClick={() => void start()}
         >
@@ -298,23 +315,7 @@ export function RecordingBar({
             {pendingLabel}
           </Button>
         ))}
-      {(active || status === 'error') && (
-        <RecordingButton
-          compact={compact}
-          label={status === 'error' ? 'Dismiss' : 'Stop recording'}
-          variant="secondary"
-          disabled={
-            cancelStart.pending ||
-            status === 'stopping' ||
-            (status !== 'starting' && action.pending)
-          }
-          onClick={() => void stopAction.run(() => call('recording:stop'))}
-          title={compact ? undefined : status === 'error' ? 'Dismiss' : 'Stop recording'}
-        >
-          <IconPlayerStopFilled aria-hidden data-icon="inline-start" />
-          {!compact && (status === 'error' ? 'Dismiss' : 'Stop')}
-        </RecordingButton>
-      )}
+      {!compact && stop}
     </>
   );
   const extras = (
@@ -358,11 +359,6 @@ export function RecordingBar({
       <ButtonGroup aria-label="Transcript and recording controls" className="rounded-md shadow-sm">
         {transcriptToggle}
         {buttons}
-        {active && (
-          <ButtonGroupText className="px-2.5">
-            <Elapsed snapshot={snapshot} />
-          </ButtonGroupText>
-        )}
       </ButtonGroup>
       {extras}
     </div>
@@ -392,6 +388,7 @@ export function RecordingBar({
       data-status={status}
     >
       {controlsContainer ? createPortal(controls, controlsContainer) : controls}
+      {compact && stopContainer && createPortal(stop, stopContainer)}
       {error && (
         <p role="status" className="text-copy-13 text-red-900">
           {error}

@@ -22,6 +22,7 @@ import {
   launchApp,
   openAttendees,
   openTranscript,
+  stopRecording,
   scaled,
   signInDesktop,
   signInOnWeb,
@@ -173,7 +174,7 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
       { timeout: scaled(40_000) },
     )
     .toBeGreaterThanOrEqual(6);
-  await page.getByRole('button', { name: 'Stop recording' }).click();
+  await stopRecording(page);
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
     timeout: scaled(30_000),
   });

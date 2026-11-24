@@ -47,7 +47,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 
 import { AssistantToggleAnchor } from '@/components/assistant/document-assistant';
 import { useShellData } from '@oat/workspace-ui/shell-data';
-import { RecordingControls, RecordingFeedback, useBrowserRecording } from './recording-controls';
+import {
+  RecordingControls,
+  RecordingFeedback,
+  RecordingStopButton,
+  useBrowserRecording,
+} from './recording-controls';
 import { DocumentEditor } from '@/components/document/document-editor';
 import type { DocumentDetail } from '@/lib/api-types';
 import { appendLines, type MeetingInfo, meetingApi, participantError } from '@/lib/meeting';
@@ -303,6 +308,14 @@ export function MeetingNote({
                     <>
                       <IconMicrophone aria-hidden className="size-4" />
                       Browser microphone
+                      <div className="ms-auto">
+                        <RecordingStopButton
+                          disabled={
+                            recording.changing ||
+                            (recording.status !== 'recording' && recording.status !== 'paused')
+                          }
+                        />
+                      </div>
                     </>
                   )
                 }
@@ -320,7 +333,7 @@ export function MeetingNote({
                 ref={toggleRef}
                 open={open}
                 count={items.length}
-                live={polling || (recordingHere && recording.status === 'recording')}
+                recording={recordingHere && recording.status === 'recording'}
                 onClick={() => (open ? closePanel() : setOpen(true))}
               />
             }

@@ -10,13 +10,13 @@ export function TranscriptToggle({
   count,
   onClick,
   ref,
-  live,
+  recording,
 }: {
   open: boolean;
   count: number;
   onClick: () => void;
   ref?: Ref<HTMLButtonElement>;
-  live?: boolean;
+  recording?: boolean;
 }) {
   return (
     <Tooltip>
@@ -26,7 +26,6 @@ export function TranscriptToggle({
             ref={ref}
             variant="outline"
             size="icon-lg"
-            className="relative"
             onClick={onClick}
             aria-expanded={open}
             aria-controls="transcript-panel"
@@ -35,10 +34,7 @@ export function TranscriptToggle({
           />
         }
       >
-        <IconWaveform aria-hidden />
-        {live && (
-          <span aria-hidden className="absolute end-1 top-1 size-1.5 rounded-full bg-red-700" />
-        )}
+        <IconWaveform aria-hidden className={recording ? 'transcript-waveform-live' : undefined} />
       </TooltipTrigger>
       <TooltipContent>{open ? 'Hide transcript' : 'Show transcript'}</TooltipContent>
     </Tooltip>

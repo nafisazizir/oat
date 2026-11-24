@@ -183,6 +183,14 @@ export async function openTranscript(page: Page) {
   return panel;
 }
 
+export async function stopRecording(page: Page) {
+  const toggle = page.getByTestId('transcript-toggle');
+  const controls = (await toggle.isVisible())
+    ? (await openTranscript(page)).locator('footer')
+    : page;
+  await controls.getByRole('button', { name: 'Stop recording', exact: true }).click();
+}
+
 /**
  * The open note's attendees (desktop and web): the chips, "Add attendee" and the remove buttons are in a
  * popover behind the "N attendees" chip. Opens it when it is closed; `closeAttendees` puts it away again.

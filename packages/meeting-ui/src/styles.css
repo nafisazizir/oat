@@ -1,5 +1,25 @@
 /*
- * @oat/meeting-ui/styles.css — import after `@oat/ui/styles.css` in the app's Tailwind entry. No styles of
- * its own: it only makes Tailwind scan this package's components for class names.
+ * @oat/meeting-ui/styles.css — import after `@oat/ui/styles.css` in the app's Tailwind entry.
  */
 @source './';
+
+@media (prefers-reduced-motion: no-preference) {
+  .transcript-waveform-live > path {
+    transform-box: view-box;
+    transform-origin: center;
+    animation: transcript-waveform 1s ease-in-out infinite alternate;
+  }
+
+  .transcript-waveform-live > path:nth-child(even) {
+    animation-delay: -500ms;
+  }
+}
+
+@keyframes transcript-waveform {
+  from {
+    transform: scaleY(0.55);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}

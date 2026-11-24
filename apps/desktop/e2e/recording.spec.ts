@@ -267,9 +267,9 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   // Pause: the clock stops, the bar says so; resume carries on.
   await page.getByRole('button', { name: 'Pause' }).click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'paused');
-  const pausedAt = await page.getByTestId('recording-elapsed').textContent();
+  const pausedAt = (await recordingState(page)).elapsedMs;
   await page.waitForTimeout(1_500);
-  await expect(page.getByTestId('recording-elapsed')).toHaveText(pausedAt!);
+  expect((await recordingState(page)).elapsedMs).toBe(pausedAt);
   await evidence(page, 'paused', '2.5');
   await page.getByRole('button', { name: 'Resume' }).click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');

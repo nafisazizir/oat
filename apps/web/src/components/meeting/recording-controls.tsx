@@ -2,7 +2,7 @@
 
 import { Alert, AlertTitle, AlertDescription } from '@oat/ui/components/alert';
 import { Button } from '@oat/ui/components/button';
-import { ButtonGroup, ButtonGroupText } from '@oat/ui/components/button-group';
+import { ButtonGroup } from '@oat/ui/components/button-group';
 import { Popover, PopoverTrigger, PopoverContent } from '@oat/ui/components/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import {
@@ -126,52 +126,31 @@ function LiveControls({
   const paused = state.status === 'paused';
   const activity = busy ? state.status : paused ? 'Paused' : 'Recording';
   const elapsed = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-  const buttons = (
-    <>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant={grouped ? 'outline' : 'ghost'}
-              size={grouped ? 'icon-lg' : 'icon-sm'}
-              aria-label={paused ? 'Resume' : 'Pause'}
-              disabled={busy}
-              onClick={() => void browserRecording.pause()}
-            />
-          }
-        >
-          {paused ? <IconPlayerPlay aria-hidden /> : <IconPlayerPause aria-hidden />}
-        </TooltipTrigger>
-        <TooltipContent>{paused ? 'Resume recording' : 'Pause recording'}</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant={grouped ? 'outline' : 'secondary'}
-              size={grouped ? 'icon-lg' : 'icon-sm'}
-              aria-label="Stop recording"
-              disabled={busy}
-              onClick={() => void browserRecording.stop()}
-            />
-          }
-        >
-          <IconPlayerStop aria-hidden />
-        </TooltipTrigger>
-        <TooltipContent>Stop recording</TooltipContent>
-      </Tooltip>
-    </>
+  const pauseButton = (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant={grouped ? 'outline' : 'ghost'}
+            size={grouped ? 'icon-lg' : 'icon-sm'}
+            aria-label={paused ? 'Resume' : 'Pause'}
+            disabled={busy}
+            onClick={() => void browserRecording.pause()}
+          />
+        }
+      >
+        {paused ? <IconPlayerPlay aria-hidden /> : <IconPlayerPause aria-hidden />}
+      </TooltipTrigger>
+      <TooltipContent>{paused ? 'Resume recording' : 'Pause recording'}</TooltipContent>
+    </Tooltip>
   );
   if (grouped) {
     return (
       <>
-        {buttons}
-        <ButtonGroupText className="px-2.5 text-label-14-mono text-gray-1000 tabular-nums">
-          <span className="sr-only" role="status">
-            {activity}
-          </span>
-          <span aria-label="Recorded time">{elapsed}</span>
-        </ButtonGroupText>
+        {pauseButton}
+        <span className="sr-only" role="status">
+          {activity}
+        </span>
       </>
     );
   }
@@ -186,8 +165,30 @@ function LiveControls({
         <span className="sr-only">{activity}</span>
       </span>
       <span className="text-label-13 text-gray-900 tabular-nums">{elapsed}</span>
-      {buttons}
+      {pauseButton}
+      <RecordingStopButton disabled={busy} />
     </div>
+  );
+}
+
+export function RecordingStopButton({ disabled }: { disabled: boolean }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="secondary"
+            size="icon-sm"
+            aria-label="Stop recording"
+            disabled={disabled}
+            onClick={() => void browserRecording.stop()}
+          />
+        }
+      >
+        <IconPlayerStop aria-hidden />
+      </TooltipTrigger>
+      <TooltipContent>Stop recording</TooltipContent>
+    </Tooltip>
   );
 }
 

@@ -421,3 +421,5 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
 - 2026-11-24 · Dock icon follow-up · The recording and transcript buttons now use icons and Oat tooltips; the transcript uses a waveform with a live dot. The elapsed timer remains visible. Light, dark and tooltip captures are recorded in docs/tasks/ui-note-dock.md.
 
 - 2026-11-24 · Dock button group follow-up · Web and desktop now attach the transcript, recording buttons and elapsed time using Oat’s existing ButtonGroup. Ask remains separate.
+
+- 2026-11-24 · Two-control note dock · Web and desktop show record or pause/resume next to the waveform. Stop moves to the transcript footer, and the timer is gone from the dock. The waveform animates while recording unless reduced motion is requested. The buttons and Ask use Oat’s large sizes.

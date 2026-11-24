@@ -442,7 +442,7 @@ function Composer({
         send();
       }}
     >
-      <InputGroup variant="secondary">
+      <InputGroup variant="secondary" size={compact ? 'lg' : undefined}>
         <InputGroupTextarea
           aria-label="Ask the assistant"
           data-testid="chat-input"
@@ -458,7 +458,7 @@ function Composer({
               send();
             }
           }}
-          className={cn('max-h-60 [field-sizing:content]', compact ? 'min-h-9' : 'min-h-16')}
+          className={cn('max-h-60 [field-sizing:content]', compact ? 'min-h-10' : 'min-h-16')}
         />
         <InputGroupAddon align={compact ? 'inline-end' : 'block-end'}>
           {!compact && (

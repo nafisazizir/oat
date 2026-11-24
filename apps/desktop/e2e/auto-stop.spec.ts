@@ -28,6 +28,7 @@ import {
   evidence,
   launchApp,
   openTranscript,
+  stopRecording,
   scaled,
   signInDesktop,
   writeEvidence,
@@ -278,7 +279,7 @@ test('undo keeps recording; Continue recording within the grace period starts no
   expect((await invoke<{ status: string }>(page, 'recording:get')).status).toBe('recording');
 
   // Stopped by hand → grace → "Continue recording": the meeting goes on, it never ended.
-  await page.getByRole('button', { name: 'Stop recording' }).click();
+  await stopRecording(page);
   await expect(bar()).toHaveAttribute('data-status', 'idle', { timeout: scaled(30_000) });
   const graceLine = page.getByTestId('meeting-grace');
   await expect(graceLine).toBeVisible();
@@ -297,7 +298,7 @@ test('undo keeps recording; Continue recording within the grace period starts no
   expect(await sql`select id from pipeline_run where meeting_id = ${meetingId}`).toHaveLength(0);
 
   // Stopped again → "Start now": the end is written at once and the run is created.
-  await page.getByRole('button', { name: 'Stop recording' }).click();
+  await stopRecording(page);
   await expect(bar()).toHaveAttribute('data-status', 'idle', { timeout: scaled(30_000) });
   await graceLine.getByRole('button', { name: 'Start now' }).click();
   await expect(graceLine).toHaveCount(0);
@@ -325,7 +326,7 @@ test('in-person silence → "Meeting over?" → Keep going; the Recording settin
   await question.getByRole('button', { name: 'Keep going' }).click();
   await expect(question).toHaveCount(0);
   await expect(bar()).toHaveAttribute('data-status', 'recording');
-  await page.getByRole('button', { name: 'Stop recording' }).click();
+  await stopRecording(page);
   await expect(bar()).toHaveAttribute('data-status', 'idle', { timeout: scaled(30_000) });
 
   // Settings → Recording: on by default; switching it off is kept (per Mac).
@@ -353,7 +354,7 @@ test('a crash inside the grace period: the relaunch ends the meeting and the pip
   await expect(bar()).toHaveAttribute('data-status', 'recording', { timeout: scaled(20_000) });
   const { meetingId } = await invoke<{ meetingId: string }>(page, 'recording:get');
   await expect((await segments()).nth(2)).toBeVisible({ timeout: scaled(30_000) });
-  await page.getByRole('button', { name: 'Stop recording' }).click();
+  await stopRecording(page);
   await expect(bar()).toHaveAttribute('data-status', 'idle', { timeout: scaled(30_000) });
   await expect(page.getByTestId('meeting-grace')).toBeVisible();
   await synced();

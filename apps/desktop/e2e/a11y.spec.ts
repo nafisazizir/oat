@@ -18,7 +18,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { uniqueAddress } from '@oat/testkit';
 import { type ElectronApplication, expect, type Page, test } from '@playwright/test';
 
-import { home, launchApp, openTranscript, scaled, signInDesktop } from './helpers';
+import { home, launchApp, openTranscript, scaled, signInDesktop, stopRecording } from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
 
@@ -237,7 +237,7 @@ test('every desktop screen: axe clean in light and dark (+ sweep screenshots)', 
   await expect(widget.getByTestId('widget-recording')).toHaveText('Recording');
   await sweep(widget, '10-widget-recording');
   await widget.getByRole('button', { name: 'Close widget' }).click();
-  await page.getByRole('button', { name: 'Stop recording' }).click();
+  await stopRecording(page);
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
     timeout: scaled(30_000),
   });

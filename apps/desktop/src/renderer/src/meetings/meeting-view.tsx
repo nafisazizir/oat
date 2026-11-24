@@ -124,6 +124,8 @@ export function MeetingView({
     false,
   );
   const toggleRef = useRef<HTMLButtonElement>(null);
+  const [stopContainer, setStopContainer] = useState<HTMLDivElement | null>(null);
+  const canStop = isActive(snapshot?.status) || snapshot?.status === 'error';
   const focus = useMemo(() => parseDeepLink(focusQuery ?? {}), [focusQuery]);
   const [picked, setPicked] = useState<{
     id: string;
@@ -274,30 +276,38 @@ export function MeetingView({
         <AssistantToggleAnchor
           className="absolute inset-x-0"
           transcript={
-            documentId && panelOpen && (note || !loaded) ? (
+            documentId && panelOpen && (note || !loaded || canStop) ? (
               <TranscriptSheet
                 items={segments}
                 onClose={closePanel}
                 footer={
-                  recordingThis && (
+                  canStop && (
                     <>
-                      <IconMicrophone aria-hidden className="size-4" />
-                      {input === 'sidecar' ? 'Mic + system audio' : 'Audio fixture'}
-                      <div className="ms-auto flex items-center gap-2">
-                        <LevelMeter
-                          compact
-                          label="Me"
-                          source="mic"
-                          db={snapshot?.levels.mic?.rmsDb}
-                        />
-                        <LevelMeter
-                          compact
-                          label="Them"
-                          source="system"
-                          db={snapshot?.levels.system?.rmsDb}
-                        />
-                        <SttStatusPill snapshot={snapshot} />
-                      </div>
+                      {recordingThis && (
+                        <>
+                          <IconMicrophone aria-hidden className="size-4" />
+                          {input === 'sidecar' ? 'Mic + system audio' : 'Audio fixture'}
+                          <div className="ms-auto flex items-center gap-2">
+                            <LevelMeter
+                              compact
+                              label="Me"
+                              source="mic"
+                              db={snapshot?.levels.mic?.rmsDb}
+                            />
+                            <LevelMeter
+                              compact
+                              label="Them"
+                              source="system"
+                              db={snapshot?.levels.system?.rmsDb}
+                            />
+                            <SttStatusPill snapshot={snapshot} />
+                          </div>
+                        </>
+                      )}
+                      <div
+                        ref={setStopContainer}
+                        className={recordingThis ? undefined : 'ms-auto'}
+                      />
                     </>
                   )
                 }
@@ -359,11 +369,12 @@ export function MeetingView({
                     ref={toggleRef}
                     open={panelOpen}
                     count={segments.length}
-                    live={recordingThis && snapshot?.status === 'recording'}
+                    recording={recordingThis && snapshot?.status === 'recording'}
                     onClick={() => (panelOpen ? closePanel() : setPanelOpen(true))}
                   />
                 )
               }
+              stopContainer={stopContainer}
               hideTranscriptionStatus={!!documentId && panelOpen && recordingThis}
               // D-24: continue only an editable note whose audio is on this Mac; else a new note.
               meetingId={note?.editable && note.recordedHere ? meetingId : null}
