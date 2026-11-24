@@ -25,7 +25,8 @@ vi.mock('@oat/feature-ui/document', () => ({
   useDocumentEnhancement: () => ({
     streaming: false,
     beforeEditor: null,
-    secondary: (_workspace: string, render: (node: ReactNode) => ReactNode) => render(null),
+    enhance: () => <button data-testid="enhance-button">Enhance</button>,
+    historyAction: null,
   }),
 }));
 
@@ -51,7 +52,6 @@ vi.mock('../recording-state.ts', () => ({
   useTranscript: () => ({ meetingId: null, segments: [], loaded: true, failed: false }),
 }));
 vi.mock('../auto-stop/auto-stop-state.ts', () => ({ useMeetingGrace: () => null }));
-vi.mock('./post-meeting.tsx', () => ({ GraceLine: () => null, PipelineLine: () => null }));
 vi.mock('../recording/transcript-panel.tsx', () => ({
   TranscriptPanel: ({ focusId, onSelect }: { focusId?: string; onSelect?(s: unknown): void }) => (
     <>
@@ -257,5 +257,12 @@ describe('calm meeting surface', () => {
     expect(audioInput.getAttribute('data-size')).toBe('lg');
     expect(audioInput.className).toContain('rounded-full');
     expect(audioInput.parentElement?.className).toContain('ms-auto');
+  });
+  it('renders Enhance inline in the metadata header and omits post-meeting header controls', () => {
+    render(<MeetingView {...props} />);
+    const header = screen.getByTestId('meeting-header');
+    expect(header.contains(screen.getByTestId('enhance-button'))).toBe(true);
+    expect(screen.queryByTestId('meeting-grace')).toBeNull();
+    expect(screen.queryByTestId('pipeline-status')).toBeNull();
   });
 });

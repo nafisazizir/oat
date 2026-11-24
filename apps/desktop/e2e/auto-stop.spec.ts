@@ -31,7 +31,6 @@ import {
   stopRecording,
   scaled,
   signInDesktop,
-  writeEvidence,
 } from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
@@ -216,35 +215,32 @@ test('the call ends near its event’s end → toast → stopped → grace → P
   await expect(bar()).toHaveAttribute('data-status', 'idle', { timeout: scaled(UNDO_MS + 30_000) });
   await expect(toast).toHaveCount(0);
 
-  // The grace period: the meeting's end isn't written yet.
-  const graceLine = page.getByTestId('meeting-grace');
-  await expect(graceLine).toContainText('Post-meeting steps in');
-  await expect(graceLine.getByRole('button', { name: 'Start now' })).toBeVisible();
+  // The grace period runs silently in the background (no header countdown): the meeting's end isn't written yet.
+  await expect(page.getByTestId('meeting-grace')).toHaveCount(0);
+  await expect(page.getByTestId('pipeline-status')).toHaveCount(0);
+  await expect
+    .poll(() => invoke<{ meetingId: string } | null>(page, 'grace:get'), {
+      timeout: scaled(10_000),
+    })
+    .toMatchObject({ meetingId });
   // One "Continue recording": the recording bar's.
   await expect(page.getByRole('button', { name: 'Continue recording' })).toHaveCount(1);
   await shots(page, 'desktop-grace');
 
-  // Then the pipeline: the header follows it to "done".
-  const status = page.getByTestId('pipeline-status');
-  const seen: string[] = [];
+  // Then the pipeline completes in the background (no header status badge).
   await expect
     .poll(
       async () => {
-        const s = await status.getAttribute('data-status', { timeout: 500 }).catch(() => null);
-        const step = await status.getAttribute('data-step', { timeout: 500 }).catch(() => null);
-        const label = s ? `${s}${step ? `:${step}` : ''}` : null;
-        if (label && seen.at(-1) !== label) seen.push(label);
-        return s;
+        const [r] = await sql<{ status: string }[]>`
+          select status from pipeline_run where meeting_id = ${meetingId}`;
+        return r?.status ?? null;
       },
-      { timeout: scaled(120_000), intervals: [200] },
+      { timeout: scaled(120_000), intervals: [500] },
     )
     .toBe('completed');
-  await expect(status).toContainText('Post-meeting: done');
-  await expect(graceLine).toHaveCount(0);
+  await expect(page.getByTestId('meeting-grace')).toHaveCount(0);
+  await expect(page.getByTestId('pipeline-status')).toHaveCount(0);
   await shots(page, 'desktop-post-meeting-done');
-  writeEvidence('pipeline-statuses.json', { meetingId, seen }, '7.5');
-  // The header showed it on its way (not only the end state).
-  expect(seen.length).toBeGreaterThan(1);
 
   const [run] = await sql<{ status: string; steps: { step: string; outcome: string }[] }[]>`
     select status, steps from pipeline_run where meeting_id = ${meetingId}`;
@@ -281,11 +277,18 @@ test('undo keeps recording; Continue recording within the grace period starts no
   // Stopped by hand → grace → "Continue recording": the meeting goes on, it never ended.
   await stopRecording(page);
   await expect(bar()).toHaveAttribute('data-status', 'idle', { timeout: scaled(30_000) });
-  const graceLine = page.getByTestId('meeting-grace');
-  await expect(graceLine).toBeVisible();
+  await expect
+    .poll(() => invoke<{ meetingId: string } | null>(page, 'grace:get'), {
+      timeout: scaled(10_000),
+    })
+    .toMatchObject({ meetingId });
   await bar().getByRole('button', { name: 'Continue recording' }).click();
   await expect(bar()).toHaveAttribute('data-status', 'recording', { timeout: scaled(20_000) });
-  await expect(graceLine).toHaveCount(0);
+  await expect
+    .poll(() => invoke<{ meetingId: string } | null>(page, 'grace:get'), {
+      timeout: scaled(10_000),
+    })
+    .toBeNull();
   expect((await invoke<{ meetingId: string }>(page, 'recording:get')).meetingId).toBe(meetingId);
   await synced();
   // Past when the grace period would have ended (nothing happens: let the time pass), still no end and no
@@ -297,11 +300,15 @@ test('undo keeps recording; Continue recording within the grace period starts no
   expect(m).toMatchObject({ started_at: expect.any(Date), ended_at: null });
   expect(await sql`select id from pipeline_run where meeting_id = ${meetingId}`).toHaveLength(0);
 
-  // Stopped again → "Start now": the end is written at once and the run is created.
+  // Stopped again → finishing the grace period writes the end at once and creates the run.
   await stopRecording(page);
   await expect(bar()).toHaveAttribute('data-status', 'idle', { timeout: scaled(30_000) });
-  await graceLine.getByRole('button', { name: 'Start now' }).click();
-  await expect(graceLine).toHaveCount(0);
+  await invoke(page, 'grace:finish-now', { meetingId });
+  await expect
+    .poll(() => invoke<{ meetingId: string } | null>(page, 'grace:get'), {
+      timeout: scaled(10_000),
+    })
+    .toBeNull();
   await synced();
   await expect
     .poll(
@@ -356,7 +363,11 @@ test('a crash inside the grace period: the relaunch ends the meeting and the pip
   await expect((await segments()).nth(2)).toBeVisible({ timeout: scaled(30_000) });
   await stopRecording(page);
   await expect(bar()).toHaveAttribute('data-status', 'idle', { timeout: scaled(30_000) });
-  await expect(page.getByTestId('meeting-grace')).toBeVisible();
+  await expect
+    .poll(() => invoke<{ meetingId: string } | null>(page, 'grace:get'), {
+      timeout: scaled(10_000),
+    })
+    .toMatchObject({ meetingId });
   await synced();
 
   // The process dies inside the grace period: nothing gets to write the end.

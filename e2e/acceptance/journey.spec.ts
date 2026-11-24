@@ -391,10 +391,10 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
       runMs: Date.parse(run.finishedAt!) - Date.parse(run.createdAt),
     });
 
-    // The note on the web: enhanced (AI blocks), my line kept, the header says so.
+    // The note on the web: enhanced (AI blocks), my line kept.
     await web.goto(`${webUrl}/d/${documentId}`);
     await expect(web.getByTestId('document-title')).toHaveValue(TITLE);
-    await expect(web.getByTestId('pipeline-status')).toHaveText('Post-meeting: done');
+    await expect(web.getByTestId('pipeline-status')).toHaveCount(0);
     const detail = (await (
       await web.request.get(`${webUrl}/api/documents/${documentId}`)
     ).json()) as {

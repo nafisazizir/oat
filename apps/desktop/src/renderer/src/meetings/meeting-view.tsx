@@ -71,7 +71,6 @@ import {
   useStoredTranscript,
   useTranscriptStatus,
 } from './meetings-state.ts';
-import { GraceLine, PipelineLine } from './post-meeting.tsx';
 import { type AutosaveState, NoteAutosave } from './note-autosave.ts';
 import { meetingAssistantHandle } from './meeting-assistant';
 import { MeetingActions } from '../workspace/meeting-actions';
@@ -159,23 +158,10 @@ export function MeetingView({
     }
   }, [documentId, focus, focusRevision, setPanelOpen]);
 
-  // 7.5: just stopped → the grace period (the end isn't written yet); ended → the post-meeting pipeline.
+  // 7.5: just stopped → the grace period holds `endedAt` before it is written.
   const grace = useMeetingGrace();
   const graceHere =
     grace && meetingId && grace.meetingId === meetingId && !recordingThis ? grace : null;
-  let postMeeting: ReactNode = null;
-  if (note && meetingId && !recordingThis) {
-    if (graceHere) {
-      postMeeting = (
-        <GraceLine
-          dueAt={graceHere.dueAt}
-          onFinishNow={() => call('grace:finish-now', { meetingId })}
-        />
-      );
-    } else if (note.endedAt) {
-      postMeeting = <PipelineLine documentId={note.documentId} endedAt={note.endedAt} />;
-    }
-  }
 
   // Home (no note open) shows the recording's state; a note shows it only while it is the one recorded.
   const showsRecording = documentId === null || recordingThis;
@@ -230,7 +216,6 @@ export function MeetingView({
                   endedAt={
                     note.endedAt ?? (graceHere ? new Date(graceHere.endedAt).toISOString() : null)
                   }
-                  postMeeting={postMeeting}
                   controlsContainer={controlsContainer}
                 />
                 <BlockFocus
@@ -403,15 +388,12 @@ function NoteBody({
   note,
   live,
   endedAt,
-  postMeeting,
   controlsContainer,
 }: {
   note: MeetingNote;
   live: boolean;
   /** The meeting's end, also while it waits out the grace period (not written yet). */
   endedAt: string | null;
-  /** The post-meeting line (7.5): grace countdown or pipeline status. */
-  postMeeting: ReactNode;
   controlsContainer?: HTMLElement | null;
 }) {
   const [title, setTitle] = useState(note.title);
@@ -537,7 +519,10 @@ function NoteBody({
             autosave.queue({ title: next });
           }}
         />
-        <div className="flex min-h-7 flex-wrap items-center gap-2 text-label-12 text-gray-900">
+        <div
+          className="flex min-h-7 flex-wrap items-center gap-2 text-label-12 text-gray-900"
+          data-testid="meeting-header"
+        >
           {note.workspaceName && (
             // 3.9: which workspace the note lives in (it never moves, D-18).
             <Badge
@@ -573,19 +558,18 @@ function NoteBody({
               )
             }
           />
+          {editable ? capabilities.enhance(note.workspaceId) : null}
         </div>
         {controlsContainer ? (
           createPortal(
             <div className="flex items-center gap-2 text-label-12 text-gray-900 empty:hidden">
               <SaveStatus state={save.state} error={save.error} />
-              {postMeeting}
             </div>,
             controlsContainer,
           )
         ) : (
           <div className="flex items-center gap-2 text-label-12 text-gray-900 empty:hidden">
             <SaveStatus state={save.state} error={save.error} />
-            {postMeeting}
           </div>
         )}
         <MeetingActions
@@ -594,9 +578,7 @@ function NoteBody({
           beforeRemove={editable ? assistant.settle : undefined}
           removeDisabled={live}
           renderSecondaryActions={(lifecycle) =>
-            editable
-              ? capabilities.secondary(note.workspaceId, (history) => notion(history, lifecycle))
-              : notion(null, lifecycle)
+            notion(editable ? capabilities.historyAction : null, lifecycle)
           }
         />
 

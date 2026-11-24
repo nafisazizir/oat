@@ -21,6 +21,7 @@ export function EnhanceButton({
   enhancement,
   workspaceId,
   regenerate = false,
+  size = 'xs',
   onStart,
   children,
 }: {
@@ -28,6 +29,8 @@ export function EnhanceButton({
   workspaceId: string;
   /** The note was enhanced before: label the action "Regenerate". */
   regenerate?: boolean;
+  /** Button size: `xs` (h-6) matches the metadata pill row under the title. */
+  size?: 'xs' | 'sm';
   /** Starts a run (default: `enhancement.start`). `undefined` input = the default template. */
   onStart?: (input?: StartInput) => void;
   /** Extra menu items, after the templates. */
@@ -40,7 +43,7 @@ export function EnhanceButton({
   return (
     <ButtonGroup>
       <Button
-        size="sm"
+        size={size}
         variant="secondary"
         data-testid="enhance-button"
         disabled={busy}
@@ -62,7 +65,7 @@ export function EnhanceButton({
         onSelect={(templateId) => start({ templateId })}
         trigger={
           <Button
-            size="icon-sm"
+            size={size === 'xs' ? 'icon-xs' : 'icon-sm'}
             variant="secondary"
             disabled={busy}
             aria-label={regenerate ? 'Regenerate with a template' : 'Enhance with a template'}
