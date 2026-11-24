@@ -236,7 +236,7 @@ export function MeetingNote({
   );
 
   const transcript = (
-    <div className="flex min-h-0 flex-1 flex-col" onKeyDown={(event) => playerKey(event, player)}>
+    <div className="flex min-h-0 flex-1 flex-col">
       {deleteError && (
         <p role="alert" className="text-copy-13 text-red-900">
           {deleteError}
@@ -255,7 +255,17 @@ export function MeetingNote({
   );
 
   return (
-    <div className="flex min-w-0 flex-1">
+    <div
+      className="flex min-w-0 flex-1"
+      onKeyDown={(event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest('[data-note-dock-panel="transcript"]')
+        ) {
+          playerKey(event, player);
+        }
+      }}
+    >
       <audio ref={audioRef} hidden preload="metadata" data-testid="playback-audio" />
       <audio ref={secondaryRef} hidden preload="metadata" />
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>

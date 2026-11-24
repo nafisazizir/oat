@@ -218,6 +218,19 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
       await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'playing');
     }
   }
+  await page.getByTestId('playback-scrubber').press('Home');
+  await page.getByTestId('panel-close').click();
+  const toggleTranscript = page.getByTestId('transcript-toggle');
+  const playbackAudio = page.getByTestId('playback-audio');
+  await toggleTranscript.press('Enter');
+  await expect(
+    page.getByTestId('transcript-panel').locator('footer').getByTestId('transcript-toggle'),
+  ).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  const playbackTime = () => playbackAudio.evaluate((audio: HTMLAudioElement) => audio.currentTime);
+  await expect.poll(playbackTime, { timeout: 2_000 }).toBeGreaterThan(0);
+  await page.getByRole('button', { name: 'Copy transcript' }).press('ArrowLeft');
+  await expect.poll(playbackTime, { timeout: 2_000 }).toBe(0);
   await page.getByTestId('panel-close').click();
   await page.getByTestId('assistant-toggle').click();
   await page.getByTestId('assistant-panel').evaluate((panel) => {
