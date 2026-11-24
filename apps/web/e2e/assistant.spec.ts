@@ -221,6 +221,11 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   await evidence(page, 'transcript-moment');
   await reader.getByRole('button', { name: 'Hide transcript' }).click();
   await expect(panel(page)).toBeVisible();
+  await seg.click();
+  await expect(reader).toBeVisible({ timeout: 2_000 });
+  await expect(focused).toHaveCount(1);
+  await reader.getByRole('button', { name: 'Hide transcript' }).click();
+  await expect(panel(page)).toBeVisible();
 
   // A block chip scrolls the note to that block and highlights it.
   await answer.locator('[data-testid="citation-chip"][data-kind="block"]').first().click();

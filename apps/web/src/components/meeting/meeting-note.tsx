@@ -44,7 +44,10 @@ import {
 import { IconWaveSine } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
-import { AssistantToggleAnchor } from '@/components/assistant/document-assistant';
+import {
+  AssistantToggleAnchor,
+  useTranscriptCitationRevision,
+} from '@/components/assistant/document-assistant';
 import { DockControlsOutlet } from '@oat/feature-ui/assistant';
 import { useShellData } from '@oat/workspace-ui/shell-data';
 import {
@@ -135,6 +138,10 @@ export function MeetingNote({
   useEffect(() => {
     if (linkKey) setOpen(true);
   }, [linkKey, setOpen]);
+  const citationRevision = useTranscriptCitationRevision();
+  useEffect(() => {
+    if (citationRevision) setOpen(true);
+  }, [citationRevision, setOpen]);
 
   // The highlighted line: from the deep link, then whatever the user clicks.
   const linked = useMemo(() => focusedLine(lines, focus), [lines, focus]);
