@@ -52,7 +52,6 @@ import {
   IconCheck,
   IconEye,
   IconLock,
-  IconMicrophone,
   IconNotes,
   IconStack2,
   IconUsers,
@@ -64,12 +63,7 @@ import { createPortal } from 'react-dom';
 import { useMeetingGrace } from '../auto-stop/auto-stop-state.ts';
 import { bridge, BridgeCallError, call } from '../bridge.ts';
 import { NoteEventLine } from '../calendar/note-event-line.tsx';
-import {
-  IssueBanner,
-  LevelMeter,
-  RecordingBar,
-  SttStatusPill,
-} from '../recording/recording-controls.tsx';
+import { IssueBanner, RecordingBar } from '../recording/recording-controls.tsx';
 import { TranscriptPanel } from '../recording/transcript-panel.tsx';
 import { useTranscript } from '../recording-state.ts';
 import { isActive } from '../recording-view.ts';
@@ -284,32 +278,7 @@ export function MeetingView({
                 footer={
                   <>
                     <DockControlsOutlet panel="transcript" />
-                    {canStop && (
-                      <div className="ms-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
-                        {recordingThis && (
-                          <>
-                            <IconMicrophone aria-hidden className="size-4" />
-                            {input === 'sidecar' ? 'Mic + system audio' : 'Audio fixture'}
-                            <div className="flex items-center gap-2">
-                              <LevelMeter
-                                compact
-                                label="Me"
-                                source="mic"
-                                db={snapshot?.levels.mic?.rmsDb}
-                              />
-                              <LevelMeter
-                                compact
-                                label="Them"
-                                source="system"
-                                db={snapshot?.levels.system?.rmsDb}
-                              />
-                              <SttStatusPill snapshot={snapshot} />
-                            </div>
-                          </>
-                        )}
-                        <div ref={setStopContainer} />
-                      </div>
-                    )}
+                    {canStop && <div className="ms-auto" ref={setStopContainer} />}
                   </>
                 }
               >

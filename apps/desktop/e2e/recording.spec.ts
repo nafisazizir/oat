@@ -239,12 +239,13 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   ).toBeVisible({
     timeout: scaled(15_000),
   });
-  await expect(page.getByTestId('stt-status')).toHaveText('Live');
   await expect(
     page.locator('[data-testid=transcript-segment][data-source=system]').first(),
   ).toBeVisible({ timeout: scaled(15_000) });
   await expect(page.locator('[data-testid=transcript-segment] time')).toHaveCount(0);
-  await expect(page.getByTestId('level-mic').getByRole('meter')).toBeVisible();
+  const footer = page.getByTestId('transcript-panel').locator('footer');
+  await expect(footer.getByTestId('stt-status')).toHaveCount(0);
+  await expect(footer.getByRole('meter')).toHaveCount(0);
 
   // Latency: speech onset in the audio → first visible segment of that voice (SPEC §8: < 1.5 s).
   const seen = await page.evaluate(
@@ -408,10 +409,6 @@ test('transcription down: the error is shown and recording + archive carry on', 
   await expect(banner).toBeVisible({ timeout: scaled(15_000) });
   await expect(banner).toContainText('Transcription is offline — still recording');
   await expect(banner).toContainText(/recording continues/i);
-  await expect(page.getByTestId('stt-status')).toHaveAttribute(
-    'data-health',
-    /reconnecting|offline/,
-  );
 
   // Still recording: the clock runs, audio levels move.
   const before = await recordingState(page);

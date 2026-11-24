@@ -431,3 +431,5 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
 - 2026-11-24 · Stationary dock controls · Transcript and Ask expand around the existing dock positions instead of shifting the controls inward.
 
 - 2026-11-24 · Minimal transcript panel · The waveform no longer looks selected when open. The header keeps only Copy and Minimise; missing audio no longer has a placeholder row. Bubbles align by speaker without visible speaker or timestamp captions.
+
+- 2026-11-24 · Minimal live transcript · The footer drops source labels, level meters and recording badges. The live body is blank until speech arrives, and still surfaces transcription failures.

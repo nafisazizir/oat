@@ -12,6 +12,8 @@ Try a layout that brings meeting recording, transcript and Ask together over the
 
 Web and desktop meeting notes. Recording, playback, chat, citations and proposal handling keep their current data paths. No new audio device picker, language settings or assistant backend.
 
+The desktop sidecar follows the system-default input, and the recording bridge only selects between the sidecar and dev fixtures. Web capture uses the browser-default mic. An in-app picker would need device enumeration and device selection wired through the capture paths; switching during a recording would also need a supported input handoff.
+
 ## Design
 
 The compact capture controls sit left of Ask near the bottom of the note. The transcript header only offers copy and collapse, with no placeholder row for missing audio. Transcript bubbles align by speaker without visible speaker or timestamp captions. Ask expands to suggested prompts and the note’s chat; existing threads can also open in the full Assistant. Both use Oat components and tokenized surfaces.
@@ -20,7 +22,7 @@ The capture buttons are icon-only on web and desktop. The waveform toggle expose
 
 Oat’s existing `ButtonGroup` holds at most two controls: waveform and record when idle, waveform and pause or resume during capture. The note dock has no elapsed timer; Stop is in the transcript footer. The waveform animates only during recording and respects reduced motion. The dock buttons and Ask use Oat’s large size variants.
 
-The expanded transcript and Ask panels replace the dock row. Their surfaces extend around the existing dock bounds so the capture group and the single-line Ask composer align exactly with their collapsed positions. The Ask launcher hides while Transcript is open, leaving room for recording status and Stop.
+The expanded transcript and Ask panels replace the dock row. Their surfaces extend around the existing dock bounds so the capture group and the single-line Ask composer align exactly with their collapsed positions. The Ask launcher hides while Transcript is open. The transcript footer omits the source label, meters and live status; the live body is blank until lines arrive, except when it needs to show a warning.
 
 The floating controls use pill corners, with square inside seams on the capture group and large corners on the expanded panels. Ask is 40 px in the collapsed row and for a single line in the expanded composer, which can grow with the draft.
 
@@ -56,3 +58,4 @@ The floating controls use pill corners, with square inside seams on the capture 
 - Rounded follow-up: fast CI printed `ci: ok`. The focused Chromium run passed 12 checks and exposed two assertions that assumed a 24 px radius; the Oat token resolves to 43.12 px at the default setting. The corrected targeted run printed `3 passed (40.2s)`. The rebuilt mock preview at `http://localhost:4174/` verified both Ask heights at 40 px, growth for multiline drafts, and recording and chat interactions. Refreshed and visually checked the light and dark dock captures.
 - Stationary controls follow-up: focused Chromium printed `14 passed (2.0m)` with exact bounding-box checks for the waveform, live recording group and Ask composer. The refreshed mock desktop preview matched both trigger positions; Stop fit at a 390 px viewport. Fast CI passed format, actionlint, typecheck and lint, and timed out in one main-process audio fixture. The unit-test rerun printed `24 successful, 24 total`.
 - Minimal transcript follow-up: fast CI printed `ci: ok`. Focused Chromium printed `14 passed (1.8m)`, covering unchanged waveform background and bounds, keyboard focus, header actions, and timestamp deep links without visible captions. The mock renderer preview on port 4174 verified exact trigger geometry and recording and Ask interactions. Refreshed and inspected the light and dark transcript captures.
+- Minimal live transcript follow-up: fast CI printed `ci: ok`; focused Chromium meeting and recording suites printed `6 passed (1.2m)`. The rebuilt mock preview on port 4174 checked the reduced footer and unchanged panel bounds as lines arrived. Refreshed and inspected `/home/ubuntu/oat-dock-shots/after-{light,dark}-listening.png`.

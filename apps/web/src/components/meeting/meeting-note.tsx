@@ -24,7 +24,6 @@ import {
   playerKey,
 } from '@oat/meeting-ui';
 import { IN_PROGRESS_MAX_MS } from '@oat/meeting-ui/format';
-import { cn } from '@oat/ui';
 import { Button } from '@oat/ui/components/button';
 import {
   AlertDialog,
@@ -42,7 +41,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@oat/ui/components/empty';
-import { IconMicrophone, IconWaveSine } from '@tabler/icons-react';
+import { IconWaveSine } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { AssistantToggleAnchor } from '@/components/assistant/document-assistant';
@@ -304,13 +303,7 @@ export function MeetingNote({
                   <>
                     <DockControlsOutlet panel="transcript" />
                     {browserLive && (
-                      <div className="ms-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
-                        <IconMicrophone aria-hidden className="size-4" />
-                        Browser microphone
-                        {recording.status === 'recording' && (
-                          <span className="text-green-900">Live</span>
-                        )}
-                        {recording.status === 'paused' && <span>Paused</span>}
+                      <div className="ms-auto">
                         <RecordingStopButton
                           shape="rounded"
                           disabled={
@@ -375,19 +368,16 @@ function TranscriptBody({
   playheadKey?: number | undefined;
 }) {
   if (items.length === 0) {
+    if (live) return null;
     return (
       <Empty className="px-8 py-10" data-testid="transcript-empty">
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <IconWaveSine aria-hidden className={cn('text-gray-900', live && 'animate-pulse')} />
+            <IconWaveSine aria-hidden className="text-gray-900" />
           </EmptyMedia>
-          <EmptyTitle className="text-heading-16">
-            {live ? 'Waiting for the transcript…' : 'No transcript'}
-          </EmptyTitle>
+          <EmptyTitle className="text-heading-16">No transcript</EmptyTitle>
           <EmptyDescription className="max-w-xs">
-            {live
-              ? 'Listening for speech. Transcript lines appear here as they arrive.'
-              : 'Record in this browser or the Oat desktop app to get a transcript here.'}
+            Record in this browser or the Oat desktop app to get a transcript here.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>

@@ -147,12 +147,12 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   await page.getByTestId('transcript-toggle').click();
   await expect(page.getByTestId('note-dock-row')).toBeHidden();
   await expect.poll(() => group.boundingBox()).toEqual(collapsed);
-  await expect(
-    page
-      .getByTestId('transcript-panel')
-      .locator('footer')
-      .getByRole('button', { name: 'Pause', exact: true }),
-  ).toBeVisible();
+  const transcriptPanel = page.getByTestId('transcript-panel');
+  const footer = transcriptPanel.locator('footer');
+  await expect(footer.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+  await expect(footer.getByRole('button')).toHaveCount(3);
+  await expect(footer).not.toContainText(/Browser microphone|Live|Paused/);
+  await expect(transcriptPanel.getByTestId('transcript-empty')).toHaveCount(0);
   await expect(page.getByTestId('transcript-segment').first()).toBeVisible({ timeout: 30000 });
   await expect(page.getByTestId('recording-sync')).toHaveCount(0);
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
