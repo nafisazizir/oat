@@ -1,7 +1,7 @@
 /**
  * Task 3.5 e2e: the built app against `next dev` on the throwaway database.
  * - An edit made on the web reaches the desktop within seconds through the SSE invalidation channel (the
- *   pull backstop is 60 s, so seconds means SSE), and the local FTS search box finds it.
+ *   pull backstop is 60 s, so seconds means SSE), and both local FTS and the command palette find it.
  * - A conflicted copy that arrives by sync is listed in the sidebar; the compare dialog resolves it
  *   ("Keep other version"), which syncs as a delete: the server moves the copy to the trash.
  */
@@ -83,9 +83,10 @@ test('edit on the web → the desktop has it within seconds (SSE) and finds it l
   const doc = (await created.json()) as { id: string; version: number };
   // Let the desktop settle on the creation first (its own SSE-triggered pull).
   await page.getByRole('button', { name: 'Search', exact: true }).click();
-  const search = page.getByLabel('Search notes and transcripts on this Mac');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  const search = palette.getByRole('combobox');
   await search.fill('checklist');
-  await expect(page.getByTestId('local-search-results')).toContainText('Launch checklist', {
+  await expect(palette.getByRole('option', { name: /Launch checklist/ }).first()).toBeVisible({
     timeout: scaled(15_000),
   });
 
@@ -97,13 +98,25 @@ test('edit on the web → the desktop has it within seconds (SSE) and finds it l
   });
   expect(edited.status()).toBe(200);
   await search.fill(word);
-  await expect(page.getByTestId('local-search-results')).toContainText('Launch checklist', {
-    timeout: scaled(15_000),
-  });
+  const match = palette.getByTestId('search-result-note').filter({ hasText: 'Launch checklist' });
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          async ({ query, documentId }) => {
+            const result = await window.oat.invoke('search:query', { query });
+            return result.ok && result.value.hits.some((hit) => hit.documentId === documentId);
+          },
+          { query: word, documentId: doc.id },
+        ),
+      { timeout: scaled(15_000) },
+    )
+    .toBe(true);
   const latencyMs = Date.now() - started;
   // Well under the 60 s pull backstop: the SSE channel carried it.
   expect(latencyMs).toBeLessThan(scaled(15_000));
-  await expect(page.getByTestId('search-snippet').first()).toContainText(word);
+  await expect(match).toBeVisible({ timeout: scaled(15_000) });
+  await expect(match.locator('mark')).toHaveText(word);
   writeEvidence('sse-latency.json', { latencyMs, measuredAt: new Date().toISOString() }, '3.5');
   await evidence(page, 'desktop-search', '3.5');
   await page.keyboard.press('Escape');

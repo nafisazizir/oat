@@ -70,6 +70,8 @@ orchestrator moves on to other unblocked work.
 - No calls to external services in dev or tests (D-11): new integrations get a mock in `tools/mocks` and an
   env-selected base URL; real-provider smoke tests are skipped unless the key is set.
 - New logic has tests; bug fixes have a regression test.
+- Update affected unit, integration, web E2E and desktop E2E tests with the change. Run the relevant checks
+  locally rather than relying on the hosted fast tier, and correct stale tests or docs you find.
 - Permission-sensitive code goes through `packages/core/permissions.ts` and has tests for deny cases.
 - AI prompt/behaviour changes: `pnpm --filter @oat/ai eval` does not regress vs `main`.
 - No secrets committed; env vars documented in `.env.example`.

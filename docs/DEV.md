@@ -671,7 +671,7 @@ makes `next dev` compile and hydrate pages several times slower. The e2e suites 
   clicks never land on menus or buttons that aren't wired up yet; pages from extra browser contexts get the
   same with `hydrationAware(page)`. Sign-in controls are also disabled until hydrated (`useHydrated`).
 - Web e2e runs 4 workers (`E2E_WORKERS` overrides): one `next dev` serves them all.
-- No blanket retries: `retries` stays 0 locally and in `pnpm run ci`, 1 only under `CI=true` (GitHub Actions).
+- No blanket retries: Playwright uses 0 retries by default and 1 when explicitly run with `CI=true`.
 
 **Adding e2e to a package**: add an `e2e` script (e.g. `playwright test`) whose server binds to
 `process.env.E2E_PORT` (fallback to a fixed port for manual runs). Chromium is installed once per machine with

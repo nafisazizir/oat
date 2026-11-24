@@ -192,11 +192,17 @@ test('invite → accept → change role → remove, with two users', async ({ br
   const remove = owner.page.getByTestId('remove-member-dialog');
   await expect(remove).toContainText(inviteeEmail);
   await shot(owner.page, 'remove-member-dialog');
+  const removed = owner.page.waitForResponse(
+    (response) =>
+      response.request().method() === 'DELETE' &&
+      /^\/api\/workspaces\/[^/]+\/members\/[^/]+$/.test(new URL(response.url()).pathname),
+  );
   await remove.getByRole('button', { name: 'Remove' }).click();
+  expect((await removed).ok()).toBe(true);
+  await expect(owner.page.getByText(/^Removed /)).toBeVisible();
   await expect(remove).toBeHidden();
   await expect(memberRow(owner.page, inviteeEmail)).toHaveCount(0);
   await expect(owner.page.getByTestId('member-row').filter({ visible: true })).toHaveCount(1);
-  await expect(owner.page.getByText(/^Removed /)).toBeVisible();
 
   // Removed from their only workspace: they can't see the team any more, and are not left without a
   // workspace — one of their own is made on the next visit.

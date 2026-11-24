@@ -437,3 +437,7 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
 - 2026-11-24 · CI fast only (D-42) · Remove the repeatedly timed-out hosted Linux full job and the
   capacity-constrained hosted macOS Swift job. Keep the parallel fast matrix and the local gates. Job evidence:
   [ci-fast-only](tasks/ci-fast-only.md).
+
+- 2026-11-24 · Stale-test maintenance · Updated local test expectations and added the rule to update
+  affected tests and run relevant local gates with every change. The full Linux gate passed in 621.5 s;
+  desktop E2E, acceptance and Swift were skipped on Linux. [Evidence](tasks/update-stale-tests.md).

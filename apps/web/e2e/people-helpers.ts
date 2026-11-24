@@ -47,7 +47,12 @@ export async function violations(page: Page, label: string, within?: string): Pr
   // Toasts are transient, and a colour mid-transition isn't a colour anyone reads: scan the settled page.
   await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
   await page.evaluate(() =>
-    Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => {}))),
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime))
+        .map((animation) => animation.finished.catch(() => {})),
+    ),
   );
   const builder = new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
