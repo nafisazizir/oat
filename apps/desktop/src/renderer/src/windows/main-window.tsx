@@ -407,7 +407,10 @@ function SignedInShell({
           )}
         >
           <div className="ms-auto flex min-w-0 items-center gap-2">
-            <div ref={setToolbar} className="app-no-drag min-w-0 overflow-x-auto" />
+            <div
+              ref={setToolbar}
+              className="app-no-drag flex min-w-0 items-center gap-2 overflow-x-auto"
+            />
           </div>
         </ShellHeader>
         {starting.error && (
