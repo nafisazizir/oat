@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+import { ComingUpDay, startOfDay } from '@oat/workspace-ui/coming-up';
 import { useShellData } from '@oat/workspace-ui/shell-data';
 import { ApiRequestError, request } from '@/lib/api-client';
 import { useHydrated } from '@/lib/use-hydrated';
@@ -27,12 +28,7 @@ export interface UpcomingMeetingView {
   inProgress: boolean;
 }
 
-const dayFormat = new Intl.DateTimeFormat(undefined, {
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-});
-const timeFormat = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
+const timeFormat = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
 
 /**
  * "Start notes" (7.3): the meeting note for this event — made from it (title, attendees) or the one already
@@ -79,31 +75,16 @@ export function UpcomingMeetingRow({ meeting }: { meeting: UpcomingMeetingView }
 
   return (
     <div
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:flex-nowrap"
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md px-2.5 py-1.5 sm:flex-nowrap"
       data-testid="upcoming-meeting"
     >
-      <time
-        dateTime={meeting.start}
-        className="flex h-8 w-32 shrink-0 flex-col text-label-13 whitespace-nowrap text-gray-900 tabular-nums"
-      >
-        {isClient ? (
-          <>
-            <span className="text-gray-1000">{dayFormat.format(start)}</span>
-            <span>
-              {timeFormat.format(start)} – {timeFormat.format(end)}
-            </span>
-          </>
-        ) : null}
-      </time>
+      <span
+        aria-hidden
+        className="w-0.5 shrink-0 self-stretch rounded-full bg-gray-500"
+        style={meeting.calendarColor ? { backgroundColor: meeting.calendarColor } : undefined}
+      />
       <div className="flex min-w-0 flex-1 basis-40 flex-col gap-0.5">
         <div className="flex min-w-0 items-center gap-2">
-          {meeting.calendarColor && (
-            <span
-              aria-hidden
-              className="size-2 shrink-0 rounded-full"
-              style={{ backgroundColor: meeting.calendarColor }}
-            />
-          )}
           <span
             className="truncate text-label-14 text-gray-1000"
             data-testid="upcoming-meeting-title"
@@ -112,7 +93,13 @@ export function UpcomingMeetingRow({ meeting }: { meeting: UpcomingMeetingView }
           </span>
           {meeting.inProgress && <Badge variant="secondary">Now</Badge>}
         </div>
-        <span className="truncate text-copy-13 text-gray-900">{meta.join(' · ')}</span>
+        <span className="flex min-w-0 items-center gap-1 text-copy-13 text-gray-900">
+          <time dateTime={meeting.start} className="shrink-0 whitespace-nowrap tabular-nums">
+            {isClient ? `${timeFormat.format(start)} – ${timeFormat.format(end)}` : null}
+          </time>
+          {isClient && meta.length > 0 && <span aria-hidden>·</span>}
+          <span className="truncate">{meta.join(' · ')}</span>
+        </span>
       </div>
       <div className="ms-auto flex shrink-0 items-center gap-1">
         {meeting.conferenceUrl && (
@@ -152,5 +139,52 @@ export function UpcomingMeetingRow({ meeting }: { meeting: UpcomingMeetingView }
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * The meetings as a row per day. Days are the viewer's own (local dates), so they're only known on the
+ * client: until hydration everything sits in one row with the date column left blank.
+ */
+export function UpcomingMeetingDays({ meetings }: { meetings: UpcomingMeetingView[] }) {
+  const isClient = useHydrated();
+  const list = (items: UpcomingMeetingView[]) => (
+    <ul className="flex flex-col gap-px" data-testid="upcoming-meetings">
+      {items.map((meeting) => (
+        <li key={meeting.id}>
+          <UpcomingMeetingRow meeting={meeting} />
+        </li>
+      ))}
+    </ul>
+  );
+  if (!isClient) return <ComingUpDay date={null}>{list(meetings)}</ComingUpDay>;
+
+  const today = startOfDay(new Date()).getTime();
+  const days = new Map<number, UpcomingMeetingView[]>();
+  for (const meeting of meetings) {
+    // In progress since yesterday still belongs to today.
+    const day = Math.max(today, startOfDay(new Date(meeting.start)).getTime());
+    days.set(day, [...(days.get(day) ?? []), meeting]);
+  }
+  const tomorrow = startOfDay(new Date(today + 36 * 3_600_000)).getTime();
+  return [...days].map(([day, items]) => (
+    <ComingUpDay
+      key={day}
+      date={new Date(day)}
+      today={day === today}
+      relative={day === today ? 'Today' : day === tomorrow ? 'Tomorrow' : undefined}
+    >
+      {list(items)}
+    </ComingUpDay>
+  ));
+}
+
+/** Today's row (the viewer's today, so dated on the client) around a notice. */
+export function UpcomingToday({ children }: { children: React.ReactNode }) {
+  const isClient = useHydrated();
+  return (
+    <ComingUpDay date={isClient ? startOfDay(new Date()) : null} today relative="Today">
+      {children}
+    </ComingUpDay>
   );
 }

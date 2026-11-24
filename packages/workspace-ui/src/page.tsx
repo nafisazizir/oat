@@ -18,8 +18,11 @@ export function PageContainer({ className, ...props }: React.ComponentProps<'div
 
 export function HomeLayout({ children, ...props }: React.ComponentProps<'div'>) {
   return (
-    <PageContainer className="max-w-[744px] gap-8 py-8 sm:py-8" {...props}>
-      <h1 className="text-heading-24 text-gray-1000">Home</h1>
+    // pt-1: like settings, the first row (32px) starts 4px under the shell header, on the sidebar's first
+    // menu row.
+    <PageContainer className="max-w-[744px] gap-8 pt-1 pb-8 sm:pt-1 sm:pb-8" {...props}>
+      {/* The page's name for assistive tech only: "Coming up" is the visible lead. */}
+      <h1 className="sr-only text-heading-24">Home</h1>
       {children}
     </PageContainer>
   );
