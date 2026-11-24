@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  allowsRendererPermission,
   APP_ORIGIN,
   contentSecurityPolicy,
   isSafeExternalUrl,
@@ -9,6 +10,30 @@ import {
   originOf,
   trustedOrigins,
 } from './security.ts';
+
+describe('renderer permissions', () => {
+  it('allows sanitized clipboard writes only in the trusted main frame', () => {
+    const origins = trustedOrigins(undefined);
+    const top = { isMainFrame: true, requestingUrl: 'app://oat/index.html' };
+    expect(allowsRendererPermission('clipboard-sanitized-write', top, origins)).toBe(true);
+    expect(allowsRendererPermission('clipboard-read', top, origins)).toBe(false);
+    expect(allowsRendererPermission('media', top, origins)).toBe(false);
+    expect(
+      allowsRendererPermission(
+        'clipboard-sanitized-write',
+        { ...top, isMainFrame: false },
+        origins,
+      ),
+    ).toBe(false);
+    expect(
+      allowsRendererPermission(
+        'clipboard-sanitized-write',
+        { ...top, requestingUrl: 'https://example.com' },
+        origins,
+      ),
+    ).toBe(false);
+  });
+});
 
 describe('origins', () => {
   it('builds origins for app: URLs by hand (Node says "null")', () => {

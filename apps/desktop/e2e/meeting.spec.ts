@@ -155,6 +155,9 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
   await expect(
     panel.locator('[data-testid=transcript-segment][data-source=system]').first(),
   ).toBeVisible({ timeout: scaled(20_000) });
+  await panel.getByRole('button', { name: 'Copy transcript' }).click();
+  await expect(panel.getByRole('status')).toHaveText('Transcript copied');
+  expect(await electronApp.evaluate(({ clipboard }) => clipboard.readText())).not.toBe('');
   await shots(page, 'desktop-live');
 
   // Collapse the transcript sheet and reopen it from the dock.
