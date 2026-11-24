@@ -92,6 +92,7 @@ export function AssistantChat({
   const [threadError, setThreadError] = useState<string | null>(null);
   const documentId = scope.kind === 'document' ? scope.documentId : undefined;
   const [threads, setThreads] = useState<ChatThreadSummary[] | null>(null);
+  const [busy, setBusy] = useState(false);
   const counter = useRef(0);
   const [active, setActive] = useState<Active>(() =>
     selectedThreadId
@@ -274,6 +275,7 @@ export function AssistantChat({
           initialMessages={active.messages}
           {...(active.sources ? { initialSources: active.sources } : {})}
           onThreadSaved={onThreadSaved}
+          onBusyChange={layout === 'dock' ? setBusy : undefined}
           placeholder={
             layout === 'dock'
               ? 'Ask anything'
@@ -305,7 +307,7 @@ export function AssistantChat({
               size="icon-sm"
               aria-label="Open conversation in Assistant"
               title="Open conversation in Assistant"
-              disabled={!activeThreadId}
+              disabled={!activeThreadId || busy}
               onClick={() =>
                 activeThreadId && navigate({ kind: 'assistant', threadId: activeThreadId })
               }

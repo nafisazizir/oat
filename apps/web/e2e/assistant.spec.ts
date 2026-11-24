@@ -439,6 +439,38 @@ test.describe('with expected HTTP errors', () => {
   });
 });
 
+test('an active follow-up cannot be interrupted by opening it in Assistant', async ({ page }) => {
+  const { doc } = await seedNote(page);
+  await page.goto(`/d/${doc.id}`);
+  await page.getByTestId('assistant-toggle').click();
+  const expand = page.getByRole('button', { name: 'Open conversation in Assistant' });
+  await ask(page, 'Summarize the pilot');
+  await expect(expand).toBeEnabled();
+
+  let release!: () => void;
+  const hold = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/api/chat', async (route) => {
+    await hold;
+    await route.continue();
+  });
+  try {
+    await ask(page, 'Who owns the checklist?');
+    await expect(page.getByTestId('chat-stop')).toBeVisible();
+    await expect(expand).toBeDisabled({ timeout: 2_000 });
+  } finally {
+    release();
+  }
+  await expect(page.getByTestId('chat-session')).toHaveAttribute('data-status', 'ready');
+  await expect(lastAnswer(page).getByTestId('citation-chip').first()).toHaveAttribute(
+    'data-state',
+    'ready',
+  );
+  await expect(expand).toBeEnabled();
+  await expand.click();
+  await expect(page).toHaveURL(/\/assistant/);
+  await expect(page.getByText('Who owns the checklist?', { exact: true })).toBeVisible();
+});
+
 test('stop aborts a streaming answer', async ({ page }) => {
   const { doc } = await seedNote(page);
   await page.goto(`/d/${doc.id}`);

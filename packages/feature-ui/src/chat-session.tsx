@@ -94,6 +94,7 @@ export type ChatSessionProps = {
   initialSources?: ChatSources;
   /** A new thread was created by the first question, or a turn was saved (refresh thread lists). */
   onThreadSaved?: (threadId: string) => void;
+  onBusyChange?: (busy: boolean) => void;
   placeholder: string;
   suggestions: readonly string[];
   emptyTitle: string;
@@ -114,6 +115,7 @@ export function ChatSession({
   initialMessages = [],
   initialSources = EMPTY_SOURCES,
   onThreadSaved,
+  onBusyChange,
   placeholder,
   suggestions,
   emptyTitle,
@@ -198,6 +200,9 @@ export function ChatSession({
   });
 
   const busy = status === 'submitted' || status === 'streaming';
+  useEffect(() => {
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
   useEffect(() => {
     if (busy || !finishedMessage.current) return;
     const id = finishedMessage.current;
