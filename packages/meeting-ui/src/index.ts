@@ -50,7 +50,6 @@ export {
 export { NoteColumn, TRANSCRIPT_PANEL_SIZE } from './note-column.tsx';
 export {
   MAX_PARTICIPANT_NAME,
-  ParticipantChips,
   ParticipantSummary,
   type ParticipantChipsProps,
 } from './participants.tsx';

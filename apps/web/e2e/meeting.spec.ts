@@ -116,9 +116,7 @@ test('meeting header, attendees, transcript sheet (collapse, click → deep link
   const header = page.getByTestId('meeting-header').filter({ visible: true });
   await expect(header.getByTestId('meeting-time')).toContainText('Nov 12');
   await expect(header.getByTestId('meeting-duration')).toHaveCount(0);
-  await expect(header.getByTestId('attendees-toggle')).toHaveAccessibleName(
-    'Attendees: Riley Chen',
-  );
+  await expect(header.getByTestId('attendees-toggle')).toHaveAccessibleName('Attendee: Riley Chen');
   await page.getByTestId('attendees-toggle').click();
   await expect(chips(page)).toHaveCount(1);
   await expect(chips(page).first()).toHaveAttribute('data-source', 'calendar');
@@ -177,7 +175,8 @@ test('meeting header, attendees, transcript sheet (collapse, click → deep link
   const removed = page.waitForResponse(
     (r) => r.request().method() === 'DELETE' && /\/participants\//.test(r.url()) && r.ok(),
   );
-  await page.getByRole('button', { name: 'Remove Dana Scully' }).click();
+  await chips(page).filter({ hasText: 'Dana Scully' }).click();
+  await page.getByRole('menuitem', { name: 'Remove Dana Scully' }).click();
   await expect(chips(page)).toHaveCount(1);
   await removed;
   await page.reload();
@@ -251,5 +250,5 @@ test('a trashed meeting note is read-only: no attendee changes', async ({ page }
   await page.getByTestId('attendees-toggle').click();
   await expect(chips(page)).toHaveCount(1);
   await expect(page.getByTestId('add-participant')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Remove Riley Chen' })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: 'Remove Riley Chen' })).toHaveCount(0);
 });
