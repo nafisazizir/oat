@@ -19,10 +19,15 @@ function DocumentListSkeleton({ count }: { count: number }) {
 
 export default function HomeLoading() {
   return (
-    <PageContainer role="status" aria-busy="true" aria-label="Loading home">
-      <div className="flex flex-col gap-2">
-        <Skeleton className="h-10 w-32" />
-        <Skeleton className="h-5 w-64" />
+    // Same frame as `HomeLayout`: the 32px title row starts 4px under the shell header.
+    <PageContainer
+      role="status"
+      aria-busy="true"
+      aria-label="Loading home"
+      className="max-w-[744px] gap-8 pt-1 pb-8 sm:pt-1 sm:pb-8"
+    >
+      <div className="flex h-8 items-center px-2">
+        <Skeleton className="h-5 w-28" />
       </div>
       <UpcomingMeetingsSkeleton />
       <div className="flex flex-col gap-3">

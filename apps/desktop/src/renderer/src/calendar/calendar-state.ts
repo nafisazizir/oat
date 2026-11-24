@@ -49,6 +49,8 @@ export function useMeetingPrompt(enabled: boolean): MeetingPrompt | null {
 
 export interface DayGroup {
   label: string;
+  /** Midnight (local) of the day the group stands for. */
+  date: Date;
   events: UpcomingEvent[];
 }
 
@@ -69,7 +71,11 @@ export function groupByDay(events: readonly UpcomingEvent[], now: Date): DayGrou
         : offset === 1
           ? 'Tomorrow'
           : day.toLocaleDateString('en-US', { weekday: 'long' });
-    const group = groups.get(label) ?? { label, events: [] };
+    const group = groups.get(label) ?? {
+      label,
+      date: new Date(today.getTime() + offset * 86_400_000),
+      events: [],
+    };
     group.events.push(event);
     groups.set(label, group);
   }

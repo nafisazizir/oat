@@ -1,29 +1,30 @@
 /**
- * Sidebar "Upcoming" (7.3): today's and tomorrow's meetings from the Mac's calendars and Google Calendar.
- * Clicking one makes its meeting note (title, attendees, the event) — or reopens the one already made — and
- * opens it; recording starts from the note (or from the "Start notes?" prompt). When no calendar can be read,
- * a "Connect" call to action; nothing ever asks for access on its own. A note made in another workspace than
- * the one the sidebar shows says which (3.9); new notes go to the active workspace (or, as a viewer there, the first one I can add notes to).
+ * Home → "Coming up" (7.3): today's and tomorrow's meetings from the Mac's calendars and Google Calendar, a
+ * row per day with the date beside it. Clicking a meeting makes its note (title, attendees, the event) — or
+ * reopens the one already made — and opens it; recording starts from the note (or from the "Start notes?"
+ * prompt). When no calendar can be read, a "Connect" call to action; nothing ever asks for access on its
+ * own. With a readable calendar and nothing scheduled, today's row says so. A note made in another
+ * workspace than the active one says which (3.9); new notes go to the active workspace (or, as a viewer
+ * there, the first one I can add notes to).
  */
 import type { CalendarSnapshot, UpcomingEvent } from '@oat/core/bridge';
 import { useWorkspaceHost } from '@oat/workspace-ui';
+import { ComingUp, ComingUpDay, ComingUpNotice, startOfDay } from '@oat/workspace-ui/coming-up';
 import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import { cn } from '@oat/ui/lib/utils';
 import { Spinner } from '@oat/ui/components/spinner';
-import { IconCalendarPlus, IconNotes, IconVideo } from '@tabler/icons-react';
+import { IconCalendarOff, IconCalendarPlus, IconNotes, IconVideo } from '@tabler/icons-react';
 import { useState } from 'react';
 
 import { BridgeCallError, call } from '../bridge.ts';
-import { CONFERENCE_LABELS, formatTime, groupByDay } from './calendar-state.ts';
+import { CONFERENCE_LABELS, formatRange, groupByDay } from './calendar-state.ts';
 
 export function UpcomingList({
   snapshot,
   onOpen,
   otherWorkspace,
-  compact = false,
 }: {
-  compact?: boolean;
   snapshot: CalendarSnapshot | null;
   onOpen: (documentId: string) => void;
   /** 3.9: the name of the workspace a note lives in when it isn't the one the sidebar shows. */
@@ -37,7 +38,9 @@ export function UpcomingList({
   const now = new Date();
   const groups = groupByDay(snapshot.events, now);
   const cta = connectAction(snapshot);
-  if (compact && snapshot.events.length === 0 && !cta) return null;
+  const readable = snapshot.eventkit === 'full_access' || snapshot.google === 'ok';
+  // Nothing to show and nothing to offer (signed out, still loading, calendars off).
+  if (groups.length === 0 && !cta && !readable) return null;
 
   async function start(event: UpcomingEvent) {
     if (pending) return;
@@ -69,86 +72,84 @@ export function UpcomingList({
     }
   }
 
-  return (
-    <section
-      aria-labelledby="upcoming-heading"
-      className={
-        compact
-          ? 'flex flex-col gap-2 rounded-lg border border-gray-alpha-400 bg-background-200 p-3'
-          : 'flex flex-col gap-1'
+  const notice = cta ? (
+    <ComingUpNotice
+      icon={IconCalendarPlus}
+      title={cta.title}
+      description={cta.text}
+      data-testid="calendar-connect"
+      action={
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={connecting}
+          onClick={() => void connect(cta.provider)}
+        >
+          {connecting && <Spinner data-icon="inline-start" />}
+          {cta.label}
+        </Button>
       }
-      data-testid="upcoming"
-    >
-      <h2
-        id="upcoming-heading"
-        className="flex h-8 items-center px-2.5 text-label-12 text-gray-900"
-      >
-        {compact ? 'Coming up' : 'Upcoming'}
-      </h2>
-      {groups.length === 0 ? (
-        !cta && (
-          <p className="px-2.5 text-copy-13 text-gray-900" data-testid="upcoming-empty">
-            No more meetings today or tomorrow.
-          </p>
-        )
-      ) : (
-        <div
-          className={
-            compact
-              ? 'flex max-h-72 flex-col gap-1 overflow-y-auto'
-              : '-mx-1 flex max-h-56 flex-col gap-1 overflow-y-auto px-1'
+    />
+  ) : (
+    <ComingUpNotice
+      icon={IconCalendarOff}
+      title="Nothing coming up"
+      description="No more meetings today or tomorrow."
+      data-testid="upcoming-empty"
+      action={
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() =>
+            host.navigate({
+              view: 'settings',
+              section: snapshot.eventkit === 'full_access' ? 'setup' : 'integrations',
+            })
           }
         >
-          {groups.map((group) => (
-            <div key={group.label} className="flex flex-col">
-              <h3 className="px-2.5 pt-1 pb-0.5 text-label-12 text-gray-900">{group.label}</h3>
-              <ul className="flex flex-col gap-px">
-                {group.events.map((event) => (
-                  <li key={event.id}>
-                    <UpcomingRow
-                      event={event}
-                      workspace={
-                        event.documentId ? (otherWorkspace?.(event.documentId) ?? null) : null
-                      }
-                      now={now}
-                      pending={pending === event.id}
-                      onStart={() => void start(event)}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      )}
-      {cta && (
-        <div
-          className="mx-1 flex flex-col gap-2 rounded-lg border border-dashed border-gray-alpha-400 p-3"
-          data-testid="calendar-connect"
+          Calendar settings
+        </Button>
+      }
+    />
+  );
+
+  return (
+    <ComingUp headingId="upcoming-heading" data-testid="upcoming">
+      {groups.map((group, index) => (
+        <ComingUpDay
+          key={group.label}
+          date={group.date}
+          today={group.label === 'Today'}
+          relative={group.label}
         >
-          <p className="text-copy-13 text-gray-900">{cta.text}</p>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="justify-start"
-            disabled={connecting}
-            onClick={() => void connect(cta.provider)}
-          >
-            {connecting ? (
-              <Spinner data-icon="inline-start" />
-            ) : (
-              <IconCalendarPlus data-icon="inline-start" />
-            )}
-            {cta.label}
-          </Button>
-        </div>
+          <ul className="flex flex-col gap-px">
+            {group.events.map((event) => (
+              <li key={event.id}>
+                <UpcomingRow
+                  event={event}
+                  workspace={event.documentId ? (otherWorkspace?.(event.documentId) ?? null) : null}
+                  now={now}
+                  pending={pending === event.id}
+                  onStart={() => void start(event)}
+                />
+              </li>
+            ))}
+          </ul>
+          {/* A calendar that still needs connecting, under the meetings the other one has. */}
+          {cta && index === groups.length - 1 && <div className="mt-2 flex">{notice}</div>}
+        </ComingUpDay>
+      ))}
+      {groups.length === 0 && (
+        <ComingUpDay date={startOfDay(now)} today relative="Today">
+          {notice}
+        </ComingUpDay>
       )}
       {error && (
-        <p role="status" className="px-2.5 text-copy-13 text-red-900">
+        <p role="status" className="px-5 py-3 text-copy-13 text-red-900">
           {error}
         </p>
       )}
-    </section>
+    </ComingUp>
   );
 }
 
@@ -182,7 +183,7 @@ function UpcomingRow({
     >
       <span
         aria-hidden
-        className="size-2 shrink-0 self-start mt-1.5 rounded-full bg-gray-500"
+        className="w-0.5 shrink-0 self-stretch rounded-full bg-gray-500"
         style={event.calendarColor ? { backgroundColor: event.calendarColor } : undefined}
       />
       <span className="flex min-w-0 flex-1 flex-col">
@@ -192,7 +193,7 @@ function UpcomingRow({
           {title}
         </span>
         <span className="flex items-center gap-1 text-label-12 text-gray-900 tabular-nums">
-          {formatTime(event.start)}
+          {formatRange(event.start, event.end)}
           {event.conferenceProvider && (
             <>
               <span aria-hidden>·</span>
@@ -237,11 +238,12 @@ function UpcomingRow({
 /** What to offer when a calendar can't be read (never prompts by itself: the user clicks). */
 function connectAction(
   s: CalendarSnapshot,
-): { provider: 'eventkit' | 'google'; label: string; text: string } | null {
+): { provider: 'eventkit' | 'google'; label: string; title: string; text: string } | null {
   if (s.eventkit === 'not_determined') {
     return {
       provider: 'eventkit',
       label: 'Connect calendar',
+      title: 'No calendar connected',
       text: 'See your meetings here and start notes from them in one click.',
     };
   }
@@ -249,6 +251,7 @@ function connectAction(
     return {
       provider: 'eventkit',
       label: 'Open System Settings',
+      title: 'Calendar access is off',
       text: 'Oat can’t read your calendars. Allow it under Privacy & Security → Calendars.',
     };
   }
@@ -256,6 +259,7 @@ function connectAction(
     return {
       provider: 'google',
       label: 'Connect Google Calendar',
+      title: 'No calendar connected',
       text: 'Connect a calendar to see upcoming meetings and start notes from them.',
     };
   }
@@ -263,6 +267,7 @@ function connectAction(
     return {
       provider: 'google',
       label: 'Reconnect Google Calendar',
+      title: 'Google Calendar needs reconnecting',
       text: 'Oat can’t read your Google Calendar any more.',
     };
   }

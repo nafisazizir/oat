@@ -1,12 +1,17 @@
 import { Button } from '@oat/ui/components/button';
 import type { CalendarEvent, ConferenceProvider } from '@oat/core';
-import { IconAlertCircle, type Icon as TablerIcon } from '@tabler/icons-react';
+import { ComingUp, ComingUpNotice } from '@oat/workspace-ui/coming-up';
+import { IconAlertCircle, IconCalendarOff } from '@tabler/icons-react';
 import Link from 'next/link';
 
 import { listUpcomingMeetings } from '@/server/calendar';
 import { requireSession } from '@/server/session';
 
-import { UpcomingMeetingRow, type UpcomingMeetingView } from './upcoming-meeting-row';
+import {
+  UpcomingMeetingDays,
+  UpcomingToday,
+  type UpcomingMeetingView,
+} from './upcoming-meeting-row';
 
 export const CONFERENCE_LABELS: Record<ConferenceProvider, string> = {
   google_meet: 'Google Meet',
@@ -29,46 +34,8 @@ function toView(event: CalendarEvent, now: Date): UpcomingMeetingView {
   };
 }
 
-const listClass = 'flex flex-col overflow-hidden';
-
 function Section({ children }: { children: React.ReactNode }) {
-  return (
-    <section
-      aria-labelledby="upcoming"
-      className="flex flex-col gap-2 rounded-lg border border-gray-alpha-400 bg-background-200 p-3"
-    >
-      <h2 id="upcoming" className="flex h-8 items-center px-2.5 text-label-12 text-gray-900">
-        Coming up
-      </h2>
-      {children}
-    </section>
-  );
-}
-
-/** One-line panel for the not-connected / needs-attention states. */
-function Notice({
-  icon: Icon,
-  children,
-  action,
-  testId,
-}: {
-  icon: TablerIcon;
-  children: React.ReactNode;
-  action?: React.ReactNode;
-  testId: string;
-}) {
-  return (
-    <div
-      className="flex flex-col gap-3 px-0 py-2 sm:min-h-14 sm:flex-row sm:items-center"
-      data-testid={testId}
-    >
-      <div className="flex min-w-0 flex-1 items-center gap-3 text-copy-14 text-gray-900">
-        <Icon aria-hidden className="size-4 shrink-0" />
-        <span>{children}</span>
-      </div>
-      {action}
-    </div>
-  );
+  return <ComingUp headingId="upcoming">{children}</ComingUp>;
 }
 
 const settingsLink = (label: string) => (
@@ -78,7 +45,6 @@ const settingsLink = (label: string) => (
     role="link"
     nativeButton={false}
     render={<Link href="/settings/integrations" />}
-    className="shrink-0 self-start sm:self-auto"
   >
     {label}
   </Button>
@@ -95,37 +61,50 @@ export async function UpcomingMeetings() {
   if (state === 'reconnect') {
     return (
       <Section>
-        <Notice
-          icon={IconAlertCircle}
-          testId="upcoming-reconnect"
-          action={settingsLink('Reconnect')}
-        >
-          Oat can’t read your Google Calendar any more. Connect it again to see your meetings.
-        </Notice>
+        <UpcomingToday>
+          <ComingUpNotice
+            icon={IconAlertCircle}
+            title="Google Calendar needs reconnecting"
+            description="Oat can’t read your Google Calendar any more. Connect it again to see your meetings."
+            action={settingsLink('Reconnect')}
+            data-testid="upcoming-reconnect"
+          />
+        </UpcomingToday>
       </Section>
     );
   }
   if (state === 'error') {
     return (
       <Section>
-        <Notice icon={IconAlertCircle} testId="upcoming-error">
-          Your calendar couldn’t be loaded right now. It will try again next time you open Home.
-        </Notice>
+        <UpcomingToday>
+          <ComingUpNotice
+            icon={IconAlertCircle}
+            title="Your calendar couldn’t be loaded"
+            description="It will try again next time you open Home."
+            data-testid="upcoming-error"
+          />
+        </UpcomingToday>
       </Section>
     );
   }
-  if (events.length === 0) return null;
+  if (events.length === 0) {
+    return (
+      <Section>
+        <UpcomingToday>
+          <ComingUpNotice
+            icon={IconCalendarOff}
+            title="Nothing coming up"
+            description="No meetings on your calendar in the next two weeks."
+            action={settingsLink('Calendar settings')}
+            data-testid="upcoming-empty"
+          />
+        </UpcomingToday>
+      </Section>
+    );
+  }
   return (
     <Section>
-      {events.length > 0 && (
-        <ul className={listClass} data-testid="upcoming-meetings">
-          {events.map((event) => (
-            <li key={event.id}>
-              <UpcomingMeetingRow meeting={toView(event, now)} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <UpcomingMeetingDays meetings={events.map((event) => toView(event, now))} />
     </Section>
   );
 }

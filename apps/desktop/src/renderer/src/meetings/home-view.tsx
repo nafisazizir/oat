@@ -22,7 +22,7 @@ export function HomeView({
   const host = useWorkspaceHost();
   return (
     <HomeLayout data-testid="desktop-home">
-      <UpcomingList snapshot={calendar} onOpen={onOpen} otherWorkspace={otherWorkspace} compact />
+      <UpcomingList snapshot={calendar} onOpen={onOpen} otherWorkspace={otherWorkspace} />
       {home.loading && (
         <div role="status" aria-label="Loading notes" className="flex flex-col gap-2">
           <Skeleton className="h-4 w-12" />
