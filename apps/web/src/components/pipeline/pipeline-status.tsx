@@ -28,7 +28,7 @@ export function PipelineStatus({
 }) {
   const [state, setState] = useState<PipelineRunResponse | null>(null);
   const enhancing = useRef(onEnhancing);
-  const failedRunId = useRef<string | null>(null);
+  const failedAttempt = useRef<string | null>(null);
   useEffect(() => {
     enhancing.current = onEnhancing;
   });
@@ -80,16 +80,22 @@ export function PipelineStatus({
   const mayRun = editable && state?.canRun === true;
 
   useEffect(() => {
-    if (!run || run.status !== 'failed' || failedRunId.current === run.id) return;
-    failedRunId.current = run.id;
+    if (!run || run.status !== 'failed') {
+      failedAttempt.current = null;
+      return;
+    }
+    const key = `${run.id}:${run.attempt}`;
+    if (failedAttempt.current === key) return;
+    failedAttempt.current = key;
     toast.error(run.retryable ? 'Post-meeting steps failed' : 'Post-meeting steps couldn’t run', {
-      id: `pipeline-failed-${run.id}`,
+      id: `pipeline-failed-${key}`,
       description: run.error ?? undefined,
       ...(run.retryable && mayRun
         ? {
             action: {
               label: 'Retry',
               onClick: () => {
+                failedAttempt.current = null;
                 void pipelineApi.start(documentId).then(apply, (error: unknown) => {
                   toast.error('Couldn’t retry', {
                     description: error instanceof Error ? error.message : 'Please try again.',
