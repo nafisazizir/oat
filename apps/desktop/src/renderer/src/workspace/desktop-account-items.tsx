@@ -23,7 +23,7 @@ export function useDesktopAccountItems() {
             disabled={action.pending}
             onClick={() => void action.run(() => call('window:open-widget'))}
           >
-            <span className="flex size-6 shrink-0 items-center justify-center">
+            <span className="flex size-4 shrink-0 items-center justify-center">
               <IconAppWindow />
             </span>
             Show meeting widget
@@ -35,7 +35,7 @@ export function useDesktopAccountItems() {
             disabled={action.pending}
             onClick={() => void action.run(() => call('auth:sign-out'))}
           >
-            <span className="flex size-6 shrink-0 items-center justify-center">
+            <span className="flex size-4 shrink-0 items-center justify-center">
               <IconLogout />
             </span>
             Sign out

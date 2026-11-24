@@ -43,7 +43,7 @@ import { ChatsSection } from './sidebar-chats';
 import { useOptimisticTree, useShellData } from './shell-data';
 
 function MenuIcon({ children }: { children: ReactNode }) {
-  return <span className="flex size-6 shrink-0 items-center justify-center">{children}</span>;
+  return <span className="flex size-4 shrink-0 items-center justify-center">{children}</span>;
 }
 
 export function WorkspaceSwitcher({
@@ -93,8 +93,8 @@ export function WorkspaceSwitcher({
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" align="start" className="w-64">
           {/* Who is signed in: the name, or the email when there is no name — one line. */}
-          <div className="flex items-center gap-2 px-2 py-2">
-            <Avatar size="sm" className="rounded-md after:rounded-md">
+          <div className="flex items-center gap-2 px-2 py-1">
+            <Avatar size="sm" className="size-4! rounded-md after:rounded-md">
               <AvatarImage src={user.image ?? undefined} alt="" className="rounded-md" />
               <AvatarFallback className="rounded-md bg-gray-200 text-label-12 text-gray-1000">
                 {(user.name || user.email).slice(0, 1).toUpperCase()}
@@ -125,7 +125,7 @@ export function WorkspaceSwitcher({
                   if (workspace.id !== currentWorkspace.id) switchTo(workspace);
                 }}
               >
-                <WorkspaceAvatar workspace={workspace} />
+                <WorkspaceAvatar workspace={workspace} className="size-4!" />
                 <span className="min-w-0 truncate">{workspace.name}</span>
                 {workspace.id === currentWorkspace.id && <IconCheck className="ms-auto" />}
               </DropdownMenuItem>

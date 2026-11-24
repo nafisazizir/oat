@@ -303,6 +303,7 @@ export function RecordingBar({
         <SttStatusPill snapshot={snapshot} />
         {options && options.fixtures.length > 0 && (status === 'idle' || status === 'error') && (
           <Select
+            size="sm"
             items={[
               { value: 'sidecar', label: 'Mic + system audio' },
               ...options.fixtures.map((f) => ({
@@ -315,7 +316,7 @@ export function RecordingBar({
               if (value !== null) onInputChange(value);
             }}
           >
-            <SelectTrigger size="sm" aria-label="Audio input (dev)" data-testid="audio-input">
+            <SelectTrigger aria-label="Audio input (dev)" data-testid="audio-input">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

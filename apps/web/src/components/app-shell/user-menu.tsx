@@ -33,7 +33,7 @@ export function AccountMenuItems() {
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
         <DropdownMenuItem disabled={pending} onClick={signOut}>
-          <span className="flex size-6 shrink-0 items-center justify-center">
+          <span className="flex size-4 shrink-0 items-center justify-center">
             <IconLogout />
           </span>
           Sign out

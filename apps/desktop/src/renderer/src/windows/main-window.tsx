@@ -554,7 +554,7 @@ function SyncLine({
         <DropdownMenuSeparator />
         <p
           data-testid="sync-notice"
-          className="flex items-center gap-2 px-2 py-1.5 text-label-12 text-gray-900"
+          className="flex items-center gap-2 px-2 py-1 text-label-12 text-gray-900"
         >
           <Icon aria-hidden className={`size-4 shrink-0 ${className}`} />
           {status.error ?? label.text}

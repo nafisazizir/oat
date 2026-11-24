@@ -59,7 +59,7 @@ function WebSidebar() {
         // Only while live sync is down; a working connection needs no line.
         <div className="in-data-[sync-live]:hidden">
           <DropdownMenuSeparator />
-          <p role="status" className="px-2 py-1.5 text-label-12 text-gray-900">
+          <p role="status" className="px-2 py-1 text-label-12 text-gray-900">
             Reconnecting live sync…
           </p>
         </div>

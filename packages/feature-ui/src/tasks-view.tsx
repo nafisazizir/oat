@@ -395,6 +395,7 @@ function TaskToolbar({
       </TabsList>
       <div className="flex items-center gap-2">
         <Select
+          size="sm"
           disabled={disabled}
           variant="ghost"
           items={TASK_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))}
@@ -403,12 +404,7 @@ function TaskToolbar({
             onChange({ ...valueFilters, status: value as TaskStatus });
           }}
         >
-          <SelectTrigger
-            size="sm"
-            aria-label="Status"
-            data-testid="tasks-status"
-            className="min-w-24"
-          >
+          <SelectTrigger aria-label="Status" data-testid="tasks-status" className="min-w-24">
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="end">
@@ -420,6 +416,7 @@ function TaskToolbar({
           </SelectContent>
         </Select>
         <Select
+          size="sm"
           disabled={disabled}
           variant="ghost"
           items={TASK_DUE_FILTERS.map((value) => ({ value, label: DUE_LABELS[value] }))}
@@ -428,12 +425,7 @@ function TaskToolbar({
             onChange({ ...valueFilters, due: value as TaskDueFilter });
           }}
         >
-          <SelectTrigger
-            size="sm"
-            aria-label="Due date"
-            data-testid="tasks-due"
-            className="min-w-36"
-          >
+          <SelectTrigger aria-label="Due date" data-testid="tasks-due" className="min-w-36">
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="end">
