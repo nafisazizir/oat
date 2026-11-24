@@ -205,7 +205,7 @@ describe('ParticipantSummary menu', () => {
   ];
   const open = () => userEvent.click(screen.getByTestId('attendees-toggle'));
   const removeGrace = async () => {
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove Grace Hopper' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove Grace Hopper' }));
   };
 
   it('shows rows; read-only has no controls', async () => {
@@ -216,7 +216,7 @@ describe('ParticipantSummary menu', () => {
       'ALAda Lovelaceada@example.com',
       'GHGrace Hopper',
     ]);
-    expect(screen.queryByRole('menuitem', { name: /^Remove/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Remove/ })).toBeNull();
   });
 
   it('removes', async () => {

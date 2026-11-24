@@ -174,7 +174,7 @@ test('meeting header, attendees, transcript sheet (collapse, click → deep link
   const removed = page.waitForResponse(
     (r) => r.request().method() === 'DELETE' && /\/participants\//.test(r.url()) && r.ok(),
   );
-  await page.getByRole('menuitem', { name: 'Remove Dana Scully' }).click();
+  await page.getByRole('button', { name: 'Remove Dana Scully' }).click();
   await expect(chips(page)).toHaveCount(1);
   await removed;
   await page.reload();
@@ -247,5 +247,5 @@ test('a trashed meeting note is read-only: no attendee changes', async ({ page }
   await expect(page.getByTestId('trash-banner')).toBeVisible();
   await page.getByTestId('attendees-toggle').click();
   await expect(chips(page)).toHaveCount(1);
-  await expect(page.getByRole('menuitem', { name: 'Remove Riley Chen' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Remove Riley Chen' })).toHaveCount(0);
 });

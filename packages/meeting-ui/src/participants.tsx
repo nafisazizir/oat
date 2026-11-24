@@ -3,9 +3,10 @@
 /**
  * Who was in the meeting: "N people" in the header, a small row menu behind it with one row per person
  * (from the calendar event's attendees, 7.3, or added by hand). Editors remove someone with their row's
- * trash button; the caller persists (web API / desktop local store).
+ * trash button (or Delete on the focused row); the caller persists (web API / desktop local store).
  */
 import { Avatar, AvatarFallback } from '@oat/ui/components/avatar';
+import { Button } from '@oat/ui/components/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,30 +97,38 @@ export function ParticipantSummary({
       >
         <DropdownMenuGroup data-testid="participants" data-count={count}>
           {shown.map((p) => (
-            <div
+            <DropdownMenuItem
               key={p.id}
-              className="flex min-w-0 items-center gap-1"
+              closeOnClick={false}
+              className="pe-1"
               data-testid="participant-chip"
               data-source={p.source}
+              title={p.email && p.email !== p.name ? `${p.name} <${p.email}>` : p.name}
+              onKeyDown={(event) => {
+                if (canRemove && (event.key === 'Delete' || event.key === 'Backspace')) {
+                  event.preventDefault();
+                  void remove(p);
+                }
+              }}
             >
-              <DropdownMenuItem
-                className="min-w-0 flex-1"
-                title={p.email && p.email !== p.name ? `${p.name} <${p.email}>` : p.name}
-              >
-                <PersonRow participant={p} />
-              </DropdownMenuItem>
+              <PersonRow participant={p} />
               {canRemove && (
-                <DropdownMenuItem
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="ms-auto shrink-0 text-gray-900"
                   aria-label={`Remove ${p.name || p.email}`}
                   title="Remove"
-                  closeOnClick={false}
-                  onClick={() => void remove(p)}
-                  className="size-6 shrink-0 justify-center p-0 text-gray-900"
+                  tabIndex={-1}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void remove(p);
+                  }}
                 >
-                  <IconTrash className="size-3.5" />
-                </DropdownMenuItem>
+                  <IconTrash />
+                </Button>
               )}
-            </div>
+            </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>
         {error && (

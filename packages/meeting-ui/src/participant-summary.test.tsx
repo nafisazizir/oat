@@ -44,7 +44,7 @@ describe('participant summary', () => {
       />,
     );
     await userEvent.click(screen.getByRole('button', { name: 'Attendee: Riley' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove Riley' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove Riley' }));
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Try again');
   });
 });
