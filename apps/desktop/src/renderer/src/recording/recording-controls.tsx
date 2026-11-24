@@ -19,6 +19,7 @@ import {
 } from '@oat/ui/components/select';
 import { cn } from '@oat/ui/lib/utils';
 import { Spinner } from '@oat/ui/components/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import {
   IconAlertTriangle,
   IconMicrophone,
@@ -27,7 +28,7 @@ import {
   IconPlayerStopFilled,
   IconWifiOff,
 } from '@tabler/icons-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentProps } from 'react';
 import { createPortal } from 'react-dom';
 
 import { formatClock } from '../../../shared/transcript.ts';
@@ -172,6 +173,29 @@ export function startRequest(
   return meetingId ? { ...input, meetingId } : input;
 }
 
+function RecordingButton({
+  compact,
+  label,
+  children,
+  ...props
+}: ComponentProps<typeof Button> & { compact: boolean; label: string }) {
+  if (!compact) {
+    return (
+      <Button size="sm" aria-label={label} {...props}>
+        {children}
+      </Button>
+    );
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<Button size="icon-sm" aria-label={label} {...props} />}>
+        {children}
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 /**
  * The main window's recording bar. Idle on a recorded note, it continues that note's recording (a new
  * part, D-24); anywhere else it starts a new meeting note.
@@ -209,6 +233,8 @@ export function RecordingBar({
   const active = isActive(status);
   const stopAction = status === 'starting' ? cancelStart : action;
   const error = status === 'starting' ? cancelStart.error : action.error;
+  const startLabel = meetingId && recorded ? 'Continue recording' : 'Start recording';
+  const pendingLabel = status === 'starting' ? 'Starting…' : 'Saving…';
 
   function start() {
     return action.run(() => call('recording:start', startRequest(input, meetingId)));
@@ -223,71 +249,61 @@ export function RecordingBar({
       )}
     >
       {status === 'recording' && (
-        <Button
-          size={compact ? 'icon-sm' : 'sm'}
+        <RecordingButton
+          compact={compact}
+          label="Pause"
           variant={compact ? 'ghost' : 'secondary'}
-          aria-label="Pause"
-          title={compact ? 'Pause recording' : undefined}
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:pause'))}
         >
-          <IconPlayerPause data-icon="inline-start" />
+          <IconPlayerPause aria-hidden data-icon="inline-start" />
           {!compact && 'Pause'}
-        </Button>
+        </RecordingButton>
       )}
       {status === 'paused' && (
-        <Button
-          size={compact ? 'icon-sm' : 'sm'}
+        <RecordingButton
+          compact={compact}
+          label="Resume"
           variant={compact ? 'ghost' : 'secondary'}
-          aria-label="Resume"
-          title={compact ? 'Resume recording' : undefined}
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:resume'))}
         >
-          <IconPlayerPlay data-icon="inline-start" />
+          <IconPlayerPlay aria-hidden data-icon="inline-start" />
           {!compact && 'Resume'}
-        </Button>
+        </RecordingButton>
       )}
       {(status === 'idle' || status === 'error') && (
-        <Button
-          size="sm"
+        <RecordingButton
+          compact={compact}
+          label={startLabel}
           variant="secondary"
           disabled={action.pending || cancelStart.pending || !snapshot}
-          aria-label={meetingId && recorded ? 'Continue recording' : 'Start recording'}
-          title={
-            compact ? (meetingId && recorded ? 'Continue recording' : 'Start recording') : undefined
-          }
           onClick={() => void start()}
         >
           {action.pending ? (
             <Spinner data-icon="inline-start" />
           ) : (
-            <IconMicrophone data-icon="inline-start" />
+            <IconMicrophone aria-hidden data-icon="inline-start" />
           )}
-          {compact
-            ? meetingId && recorded
-              ? 'Record more'
-              : 'Record'
-            : meetingId && recorded
-              ? 'Continue recording'
-              : 'Start recording'}
-        </Button>
+          {!compact && startLabel}
+        </RecordingButton>
       )}
-      {status === 'starting' && (
-        <Button disabled size="sm" variant="secondary">
-          <Spinner data-icon="inline-start" />
-          Starting…
-        </Button>
-      )}
-      {status === 'stopping' && (
-        <Button disabled size="sm" variant="secondary">
-          <Spinner data-icon="inline-start" />
-          Saving…
-        </Button>
-      )}
+      {(status === 'starting' || status === 'stopping') &&
+        (compact ? (
+          <span className="inline-flex size-8 items-center justify-center" role="status">
+            <Spinner aria-hidden role={undefined} />
+            <span className="sr-only">{pendingLabel}</span>
+          </span>
+        ) : (
+          <Button disabled size="sm" variant="secondary">
+            <Spinner data-icon="inline-start" />
+            {pendingLabel}
+          </Button>
+        ))}
       {(active || status === 'error') && (
-        <Button
-          size={compact ? 'icon-sm' : 'sm'}
+        <RecordingButton
+          compact={compact}
+          label={status === 'error' ? 'Dismiss' : 'Stop recording'}
           variant="secondary"
           disabled={
             cancelStart.pending ||
@@ -295,12 +311,11 @@ export function RecordingBar({
             (status !== 'starting' && action.pending)
           }
           onClick={() => void stopAction.run(() => call('recording:stop'))}
-          aria-label={status === 'error' ? 'Dismiss' : 'Stop recording'}
-          title={status === 'error' ? 'Dismiss' : 'Stop recording'}
+          title={compact ? undefined : status === 'error' ? 'Dismiss' : 'Stop recording'}
         >
-          <IconPlayerStopFilled data-icon="inline-start" />
+          <IconPlayerStopFilled aria-hidden data-icon="inline-start" />
           {!compact && (status === 'error' ? 'Dismiss' : 'Stop')}
-        </Button>
+        </RecordingButton>
       )}
 
       {active && (

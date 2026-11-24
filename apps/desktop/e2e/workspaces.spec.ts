@@ -234,7 +234,7 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   await expect(inSection('private')).toHaveCount(1);
   await expect(inSection('shared')).toHaveCount(0);
   // The transcript sits behind its toggle (ui-calm): the toggle counts the lines as they arrive.
-  await expect(page.getByRole('button', { name: /^Transcript [1-9]/ })).toBeVisible({
+  await expect(page.getByRole('button', { name: /^Transcript, [1-9]/ })).toBeVisible({
     timeout: scaled(20_000),
   });
   const { meetingId } = await invoke<{ meetingId: string }>(page, 'recording:get');

@@ -3,6 +3,7 @@
 import { Alert, AlertTitle, AlertDescription } from '@oat/ui/components/alert';
 import { Button } from '@oat/ui/components/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@oat/ui/components/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import {
   IconMicrophone,
   IconPlayerPause,
@@ -52,12 +53,25 @@ export function RecordingControls({
   };
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={<Button variant="secondary" size="sm" disabled={state.pending > 0} />}
-      >
-        <IconMicrophone aria-hidden />
-        Record
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="secondary"
+                  size="icon-sm"
+                  aria-label="Record"
+                  disabled={state.pending > 0}
+                />
+              }
+            />
+          }
+        >
+          <IconMicrophone aria-hidden />
+        </TooltipTrigger>
+        <TooltipContent>Record</TooltipContent>
+      </Tooltip>
       <PopoverContent align="end" className="w-64">
         <p className="text-label-14 text-gray-1000">Record a browser meeting</p>
         <p className="text-copy-13 text-gray-900">
@@ -83,6 +97,7 @@ function LiveControls() {
   const state = useBrowserRecording();
   const busy = state.changing || state.status === 'starting' || state.status === 'stopping';
   const seconds = Math.floor(state.elapsed);
+  const paused = state.status === 'paused';
   return (
     <div
       className="flex items-center gap-1.5"
@@ -98,30 +113,38 @@ function LiveControls() {
       <span className="text-label-13 text-gray-900 tabular-nums">
         {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}
       </span>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={state.status === 'paused' ? 'Resume' : 'Pause'}
-        title={state.status === 'paused' ? 'Resume recording' : 'Pause recording'}
-        disabled={busy}
-        onClick={() => void browserRecording.pause()}
-      >
-        {state.status === 'paused' ? (
-          <IconPlayerPlay aria-hidden />
-        ) : (
-          <IconPlayerPause aria-hidden />
-        )}
-      </Button>
-      <Button
-        variant="secondary"
-        size="icon-sm"
-        aria-label="Stop recording"
-        title="Stop recording"
-        disabled={busy}
-        onClick={() => void browserRecording.stop()}
-      >
-        <IconPlayerStop aria-hidden />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={paused ? 'Resume' : 'Pause'}
+              disabled={busy}
+              onClick={() => void browserRecording.pause()}
+            />
+          }
+        >
+          {paused ? <IconPlayerPlay aria-hidden /> : <IconPlayerPause aria-hidden />}
+        </TooltipTrigger>
+        <TooltipContent>{paused ? 'Resume recording' : 'Pause recording'}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="secondary"
+              size="icon-sm"
+              aria-label="Stop recording"
+              disabled={busy}
+              onClick={() => void browserRecording.stop()}
+            />
+          }
+        >
+          <IconPlayerStop aria-hidden />
+        </TooltipTrigger>
+        <TooltipContent>Stop recording</TooltipContent>
+      </Tooltip>
     </div>
   );
 }

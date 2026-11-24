@@ -16,6 +16,8 @@ Web and desktop meeting notes. Recording, playback, chat, citations and proposal
 
 The compact capture controls sit left of Ask near the bottom of the note. A transcript sheet opens above them, with search, copy and collapse. Ask expands to suggested prompts and the note’s chat; existing threads can also open in the full Assistant. Use Oat components, tokenized surfaces, default control radii and a small live dot.
 
+The capture buttons are icon-only on web and desktop. The transcript uses a waveform with a live dot and exposes its expanded state. Recording and transcript buttons retain accessible names and show Oat tooltips. The elapsed timer is a separate readout.
+
 ## Acceptance criteria
 
 - Capture baseline and dock states in the built desktop renderer with a mock bridge.
@@ -40,3 +42,4 @@ The compact capture controls sit left of Ask near the bottom of the note. A tran
   The fixture does not verify native capture or hardware devices.
 - Slow CI: stack, migration and integration tests passed. Desktop Electron e2e (29 tests), acceptance and Swift checks skipped on Linux.
 - The full Chromium run found a missing transcript close selector, now preserved by `TranscriptSheet`. It also failed two auth checks that expect email text in the unchanged workspace menu and two home shell checks that timed out clicking the detached Templates command. See `/home/ubuntu/oat-dock-shots/ci-integration.log`.
+- Icon-only follow-up: fast CI printed `ci: ok`; the focused web meeting, assistant, calm-notes and recording suites printed `14 passed (1.8m)`. Refreshed the light and dark captures and added `/home/ubuntu/oat-dock-shots/after-dark-tooltip.png` (waveform hover).

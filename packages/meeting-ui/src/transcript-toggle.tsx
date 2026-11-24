@@ -1,7 +1,8 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
-import { IconChevronDown, IconChevronUp, IconWaveSine } from '@tabler/icons-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
+import { IconWaveform } from '@tabler/icons-react';
 import type { Ref } from 'react';
 
 export function TranscriptToggle({
@@ -18,24 +19,28 @@ export function TranscriptToggle({
   live?: boolean;
 }) {
   return (
-    <Button
-      ref={ref}
-      variant="ghost"
-      size="sm"
-      onClick={onClick}
-      aria-expanded={open}
-      aria-controls="transcript-panel"
-      aria-label={count ? `Transcript, ${count} lines` : 'Transcript'}
-      title="Transcript"
-      data-testid="transcript-toggle"
-    >
-      {live ? (
-        <span aria-hidden className="size-2 rounded-full bg-red-700" />
-      ) : (
-        <IconWaveSine aria-hidden />
-      )}
-      <span className="hidden sm:inline">Transcript</span>
-      {open ? <IconChevronDown aria-hidden /> : <IconChevronUp aria-hidden />}
-    </Button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            ref={ref}
+            variant="ghost"
+            size="icon-sm"
+            className="relative"
+            onClick={onClick}
+            aria-expanded={open}
+            aria-controls="transcript-panel"
+            aria-label={count ? `Transcript, ${count} lines` : 'Transcript'}
+            data-testid="transcript-toggle"
+          />
+        }
+      >
+        <IconWaveform aria-hidden />
+        {live && (
+          <span aria-hidden className="absolute end-1 top-1 size-1.5 rounded-full bg-red-700" />
+        )}
+      </TooltipTrigger>
+      <TooltipContent>{open ? 'Hide transcript' : 'Show transcript'}</TooltipContent>
+    </Tooltip>
   );
 }

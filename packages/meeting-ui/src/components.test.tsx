@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { TooltipProvider } from '@oat/ui/components/tooltip';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
@@ -9,6 +10,7 @@ import { ParticipantChips } from './participants.tsx';
 import { SidePanel } from './side-panel.tsx';
 import { TranscriptList } from './transcript-list.tsx';
 import { TranscriptSheet } from './transcript-sheet.tsx';
+import { TranscriptToggle } from './transcript-toggle.tsx';
 import { NoteColumn, TRANSCRIPT_PANEL_SIZE } from './note-column.tsx';
 
 // jsdom has no layout: give the scroller a size so the virtualizer renders rows.
@@ -20,6 +22,24 @@ const lines: TranscriptItem[] = [
   { id: 's2', source: 'mic', startMs: 2000, endMs: 3000, text: 'Hi, me here' },
   { id: 's3', source: 'mic', startMs: 3500, endMs: 4000, text: 'still typing', isFinal: false },
 ];
+
+it('names the icon-only transcript toggle and describes it on keyboard focus', async () => {
+  const user = userEvent.setup();
+  const onClick = vi.fn();
+  render(
+    <TooltipProvider>
+      <TranscriptToggle open={false} count={3} live onClick={onClick} />
+    </TooltipProvider>,
+  );
+  const toggle = screen.getByRole('button', { name: 'Transcript, 3 lines', expanded: false });
+  expect(toggle.textContent).toBe('');
+  expect(toggle.getAttribute('aria-controls')).toBe('transcript-panel');
+  await user.tab();
+  expect(document.activeElement).toBe(toggle);
+  expect((await screen.findByRole('tooltip')).textContent).toBe('Show transcript');
+  await user.keyboard('{Enter}');
+  expect(onClick).toHaveBeenCalledOnce();
+});
 
 it('filters transcript lines without changing what Copy transcript copies', async () => {
   const clipboard = userEvent.setup();
