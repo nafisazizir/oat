@@ -212,6 +212,7 @@ export function RecordingBar({
   recorded = true,
   hint = null,
   controlsContainer,
+  dockContainer,
   transcriptToggle,
   stopContainer,
   hideTranscriptionStatus = false,
@@ -228,6 +229,7 @@ export function RecordingBar({
   /** Why the open note can't be continued. */
   hint?: string | null;
   controlsContainer?: HTMLElement | null;
+  dockContainer?: HTMLElement | null;
   transcriptToggle?: ReactNode;
   stopContainer?: HTMLElement | null;
   hideTranscriptionStatus?: boolean;
@@ -380,7 +382,7 @@ export function RecordingBar({
       {extras}
     </div>
   );
-  return (
+  const bar = (
     <div
       className="flex flex-col gap-2"
       title={hint ?? undefined}
@@ -401,6 +403,7 @@ export function RecordingBar({
       )}
     </div>
   );
+  return dockContainer ? createPortal(bar, dockContainer) : bar;
 }
 
 export function RecordingDot({ status }: { status: RecordingSnapshot['status'] }) {

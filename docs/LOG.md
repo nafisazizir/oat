@@ -423,3 +423,5 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
 - 2026-11-24 · Dock button group follow-up · Web and desktop now attach the transcript, recording buttons and elapsed time using Oat’s existing ButtonGroup. Ask remains separate.
 
 - 2026-11-24 · Two-control note dock · Web and desktop show record or pause/resume next to the waveform. Stop moves to the transcript footer, and the timer is gone from the dock. The waveform animates while recording unless reduced motion is requested. The buttons and Ask use Oat’s large sizes.
+
+- 2026-11-24 · Expanded note dock · Transcript and Ask now replace the full dock row and keep the same bottom edge. The capture controls move into the active panel footer.

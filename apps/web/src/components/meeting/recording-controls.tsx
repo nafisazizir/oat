@@ -14,6 +14,7 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 import { browserRecording, supportsRecording } from '@/lib/browser-recording';
 import { useHydrated } from '@/lib/use-hydrated';
@@ -31,10 +32,12 @@ export function RecordingControls({
   documentId,
   eligible,
   transcriptToggle,
+  dockContainer,
 }: {
   documentId: string;
   eligible: boolean;
   transcriptToggle: ReactNode;
+  dockContainer: HTMLElement | null;
 }) {
   const { user } = useShellData();
   const state = useBrowserRecording();
@@ -46,7 +49,7 @@ export function RecordingControls({
     hydrated &&
     supportsRecording() &&
     (state.documentId === null || here || ['idle', 'ended'].includes(state.status));
-  return (
+  const group = (
     <ButtonGroup
       aria-label="Transcript and recording controls"
       className="rounded-md shadow-sm"
@@ -61,6 +64,7 @@ export function RecordingControls({
       ) : null}
     </ButtonGroup>
   );
+  return dockContainer ? createPortal(group, dockContainer) : group;
 }
 
 function RecordMenu({

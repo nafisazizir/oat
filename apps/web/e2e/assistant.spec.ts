@@ -164,6 +164,7 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   await expect(page.getByTestId('assistant-toggle')).toBeVisible();
   await page.keyboard.press('ControlOrMeta+j');
   await expect(panel(page)).toBeVisible();
+  await expect(page.getByTestId('note-dock-row')).toBeHidden();
   await expect(panel(page).getByTestId('chat-suggestions')).toBeVisible();
 
   await ask(page, 'When does the Lakeside pilot start and who sends the onboarding checklist?');
@@ -193,6 +194,7 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   expect(segments).toContain(await focused.getAttribute('data-segment-id'));
   await expect(focused).toBeInViewport();
   await expect(panel(page)).toBeHidden();
+  await expect(reader.locator('footer').getByTestId('transcript-toggle')).toBeVisible();
   await evidence(page, 'transcript-moment');
   await reader.getByRole('button', { name: 'Hide transcript' }).click();
   await expect(panel(page)).toBeVisible();

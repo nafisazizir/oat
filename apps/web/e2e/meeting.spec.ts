@@ -123,9 +123,17 @@ test('meeting header, attendees, transcript sheet (search, collapse, click → d
 
   await page.keyboard.press('Escape');
   await expect(panel(page)).toHaveCount(0);
+  const dockRow = page.getByTestId('note-dock-row');
+  const collapsed = (await dockRow.boundingBox())!;
   await page.getByTestId('transcript-toggle').click();
-  // Transcript sheet above the dock, me/them lines.
+  // Transcript replaces the dock row without moving its bottom edge.
   await expect(panel(page)).toBeVisible();
+  await expect(dockRow).toBeHidden();
+  await expect(panel(page).locator('footer').getByTestId('transcript-toggle')).toBeFocused();
+  const expanded = (await panel(page).boundingBox())!;
+  expect(expanded.x).toBeCloseTo(collapsed.x);
+  expect(expanded.width).toBeCloseTo(collapsed.width);
+  expect(expanded.y + expanded.height).toBeCloseTo(collapsed.y + collapsed.height);
   await expect(panel(page)).toContainText('40');
   // No player on the web (3.7, D-10): the panel says where the audio is.
   await expect(panel(page).getByTestId('audio-hint')).toHaveText(

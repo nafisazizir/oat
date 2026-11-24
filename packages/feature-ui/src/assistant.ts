@@ -1,3 +1,4 @@
+export { DockControlsOutlet } from './note-dock-controls';
 export { AssistantChat, type AssistantChatProps } from './assistant-chat';
 export { ChatSession, type ChatSessionProps } from './chat-session';
 export { AssistantMessage, UserMessage } from './chat-message';

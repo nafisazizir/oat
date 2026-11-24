@@ -20,6 +20,7 @@ import type { ResolvedCitation } from '@oat/services/dto/chat';
 import { useAppShortcut } from '@oat/ui/hooks/use-app-shortcut';
 
 import { AssistantChat } from './assistant-chat';
+import { DockControlsContext } from './note-dock-controls';
 import { TranscriptReader } from './transcript-reader';
 import {
   type OpenDocumentBridge,
@@ -31,7 +32,12 @@ import {
 /**
  * Pages can place the assistant launcher themselves instead of floating it at the window corner.
  */
-type ToggleSlot = { node: React.ReactNode; claim: () => () => void };
+type ToggleSlot = {
+  node: React.ReactNode;
+  panel?: React.ReactNode;
+  onPanelKeyDown?: React.KeyboardEventHandler;
+  claim: () => () => void;
+};
 const AssistantToggleContext = createContext<ToggleSlot | null>(null);
 export function AssistantToggleButton() {
   const slot = useContext(AssistantToggleContext);
@@ -47,35 +53,57 @@ export function AssistantToggleAnchor({
   transcript,
 }: {
   className?: string;
-  children?: React.ReactNode;
+  children?: (controlsContainer: HTMLElement | null) => React.ReactNode;
   feedback?: React.ReactNode;
   transcript?: React.ReactNode;
 }) {
   const slot = useContext(AssistantToggleContext);
   const claim = slot?.claim;
   useEffect(() => claim?.(), [claim]);
-  if (!slot?.node && !children && !feedback) return null;
+  const [transcriptControls, setTranscriptControls] = useState<HTMLDivElement | null>(null);
+  const [assistantControls, setAssistantControls] = useState<HTMLDivElement | null>(null);
+  const expanded = !!(transcript || slot?.panel);
+  const controlsContainer = transcript
+    ? transcriptControls
+    : slot?.panel
+      ? assistantControls
+      : null;
+  if (!expanded && !slot?.node && !children && !feedback) return null;
   return (
-    <div
-      data-testid="note-bottom-bar"
-      className={cn(
-        'pointer-events-none sticky bottom-0 z-20 mx-auto flex w-full max-w-content flex-col gap-2 px-3 pt-2 pb-4 sm:px-6',
-        className,
-      )}
+    <DockControlsContext.Provider
+      value={{ transcript: setTranscriptControls, assistant: setAssistantControls }}
     >
-      <div className="absolute inset-x-3 bottom-full flex flex-col gap-2 sm:inset-x-6">
-        {transcript && <div className="pointer-events-auto">{transcript}</div>}
-        {feedback && <div className="pointer-events-auto empty:hidden">{feedback}</div>}
-      </div>
-      <div className="flex flex-wrap items-end justify-center gap-2">
-        {children && <div className="pointer-events-auto min-w-0">{children}</div>}
-        {slot?.node && (
-          <div className="min-w-32 flex-1" hidden={!!transcript}>
-            {slot.node}
-          </div>
+      <div
+        data-testid="note-bottom-bar"
+        className={cn(
+          'pointer-events-none sticky bottom-0 z-20 mx-auto flex w-full max-w-content flex-col gap-2 px-3 pt-2 pb-4 sm:px-6',
+          className,
         )}
+        onKeyDownCapture={!transcript && slot?.panel ? slot.onPanelKeyDown : undefined}
+      >
+        <div className="absolute inset-x-3 bottom-4 flex flex-col gap-2 sm:inset-x-6">
+          {feedback && (
+            <div className={cn('pointer-events-auto empty:hidden', !expanded && 'mb-12')}>
+              {feedback}
+            </div>
+          )}
+          {transcript && <div className="pointer-events-auto">{transcript}</div>}
+          {slot?.panel && <div hidden={!!transcript}>{slot.panel}</div>}
+        </div>
+        <div className="min-h-10">
+          <div
+            data-testid="note-dock-row"
+            hidden={expanded}
+            className={cn('flex-wrap items-end justify-center gap-2', expanded ? 'hidden' : 'flex')}
+          >
+            {children && (
+              <div className="pointer-events-auto min-w-0">{children(controlsContainer)}</div>
+            )}
+            {slot?.node && <div className="min-w-32 flex-1">{slot.node}</div>}
+          </div>
+        </div>
       </div>
-    </div>
+    </DockControlsContext.Provider>
   );
 }
 
@@ -279,8 +307,8 @@ export function DocumentAssistant({
       onClose={() => toggle(false)}
     />
   );
-  const dockNode = available ? (
-    <>
+  const dockNode =
+    available && !open ? (
       <Button
         ref={toggleRef}
         variant="outline"
@@ -289,32 +317,27 @@ export function DocumentAssistant({
         aria-keyshortcuts="Meta+J"
         aria-expanded={open}
         onClick={() => toggle(true)}
-        tabIndex={open ? -1 : undefined}
-        aria-hidden={open || undefined}
-        className={cn(
-          'w-full justify-start gap-2 bg-background-100 text-gray-900 shadow-sm',
-          open ? 'invisible' : 'pointer-events-auto',
-        )}
+        className="pointer-events-auto w-full justify-start gap-2 bg-background-100 text-gray-900 shadow-sm"
       >
         <IconSparkles className="text-brand-800" />
         Ask anything
         <IconArrowUp className="ms-auto" />
       </Button>
-      {open && (
-        <section
-          ref={panelRef}
-          aria-label="Assistant"
-          data-testid="assistant-panel"
-          data-note-dock-panel="assistant"
-          onKeyDownCapture={closeOnEscape}
-          className="pointer-events-auto absolute inset-x-3 bottom-full z-10 flex max-h-[min(28rem,60dvh)] min-h-0 flex-col overflow-hidden rounded-lg border border-gray-alpha-400 bg-background-100 shadow-lg sm:inset-x-6 has-[[data-empty=false]]:h-[min(27rem,57dvh)]"
-        >
-          {chat}
-        </section>
-      )}
-    </>
+    ) : null;
+  const dockPanel = open ? (
+    <section
+      ref={panelRef}
+      aria-label="Assistant"
+      data-testid="assistant-panel"
+      data-note-dock-panel="assistant"
+      className="pointer-events-auto flex max-h-[min(28rem,60dvh)] min-h-0 flex-col overflow-hidden rounded-lg border border-gray-alpha-400 bg-background-100 shadow-lg has-[[data-empty=false]]:h-[min(27rem,57dvh)]"
+    >
+      {chat}
+    </section>
   ) : null;
-  const toggleSlot: ToggleSlot = { node: dock ? dockNode : anchored ? toggleButton : null, claim };
+  const toggleSlot: ToggleSlot = dock
+    ? { node: dockNode, panel: dockPanel, onPanelKeyDown: closeOnEscape, claim }
+    : { node: anchored ? toggleButton : null, claim };
 
   return (
     <OpenDocumentContext.Provider value={bridge}>

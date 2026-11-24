@@ -17,6 +17,7 @@ import { useShellData } from '@oat/workspace-ui/shell-data';
 import {
   DocumentAssistant,
   AssistantToggleAnchor,
+  DockControlsOutlet,
   useRegisterOpenDocument,
   type NoteEditor,
   focusedLine,
@@ -281,35 +282,35 @@ export function MeetingView({
                 items={segments}
                 onClose={closePanel}
                 footer={
-                  canStop && (
-                    <>
-                      {recordingThis && (
-                        <>
-                          <IconMicrophone aria-hidden className="size-4" />
-                          {input === 'sidecar' ? 'Mic + system audio' : 'Audio fixture'}
-                          <div className="ms-auto flex items-center gap-2">
-                            <LevelMeter
-                              compact
-                              label="Me"
-                              source="mic"
-                              db={snapshot?.levels.mic?.rmsDb}
-                            />
-                            <LevelMeter
-                              compact
-                              label="Them"
-                              source="system"
-                              db={snapshot?.levels.system?.rmsDb}
-                            />
-                            <SttStatusPill snapshot={snapshot} />
-                          </div>
-                        </>
-                      )}
-                      <div
-                        ref={setStopContainer}
-                        className={recordingThis ? undefined : 'ms-auto'}
-                      />
-                    </>
-                  )
+                  <>
+                    <DockControlsOutlet panel="transcript" />
+                    {canStop && (
+                      <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
+                        {recordingThis && (
+                          <>
+                            <IconMicrophone aria-hidden className="size-4" />
+                            {input === 'sidecar' ? 'Mic + system audio' : 'Audio fixture'}
+                            <div className="flex items-center gap-2">
+                              <LevelMeter
+                                compact
+                                label="Me"
+                                source="mic"
+                                db={snapshot?.levels.mic?.rmsDb}
+                              />
+                              <LevelMeter
+                                compact
+                                label="Them"
+                                source="system"
+                                db={snapshot?.levels.system?.rmsDb}
+                              />
+                              <SttStatusPill snapshot={snapshot} />
+                            </div>
+                          </>
+                        )}
+                        <div ref={setStopContainer} />
+                      </div>
+                    )}
+                  </>
                 }
               >
                 {(filtered) => (
@@ -351,43 +352,54 @@ export function MeetingView({
             ) : undefined
           }
         >
-          <div
-            className={
-              documentId === null
-                ? 'flex min-h-10 max-w-full flex-wrap items-center justify-center gap-1 rounded-lg border border-gray-alpha-400 bg-background-100 p-1 shadow-sm'
-                : undefined
-            }
-          >
-            <RecordingBar
-              snapshot={snapshot}
-              options={options}
-              input={input}
-              onInputChange={onInputChange}
-              transcriptToggle={
-                documentId && (
-                  <TranscriptToggle
-                    ref={toggleRef}
-                    open={panelOpen}
-                    count={segments.length}
-                    recording={recordingThis && snapshot?.status === 'recording'}
-                    onClick={() => (panelOpen ? closePanel() : setPanelOpen(true))}
-                  />
-                )
+          {(dockContainer) => (
+            <div
+              className={
+                documentId === null
+                  ? 'flex min-h-10 max-w-full flex-wrap items-center justify-center gap-1 rounded-lg border border-gray-alpha-400 bg-background-100 p-1 shadow-sm'
+                  : undefined
               }
-              stopContainer={stopContainer}
-              hideTranscriptionStatus={!!documentId && panelOpen && recordingThis}
-              // D-24: continue only an editable note whose audio is on this Mac; else a new note.
-              meetingId={note?.editable && note.recordedHere ? meetingId : null}
-              recorded={note?.startedAt !== null}
-              hint={
-                note && meetingId && !(note.editable && note.recordedHere)
-                  ? note.editable
-                    ? 'Recorded on another device — recording starts a new note.'
-                    : 'You can’t add to this note — recording starts a new note.'
-                  : null
-              }
-            />
-          </div>
+            >
+              <RecordingBar
+                snapshot={snapshot}
+                options={options}
+                input={input}
+                onInputChange={onInputChange}
+                transcriptToggle={
+                  documentId && (
+                    <TranscriptToggle
+                      ref={toggleRef}
+                      open={panelOpen}
+                      count={segments.length}
+                      recording={recordingThis && snapshot?.status === 'recording'}
+                      onClick={() => {
+                        if (panelOpen) closePanel();
+                        else {
+                          setPanelOpen(true);
+                          requestAnimationFrame(() =>
+                            toggleRef.current?.focus({ preventScroll: true }),
+                          );
+                        }
+                      }}
+                    />
+                  )
+                }
+                stopContainer={stopContainer}
+                dockContainer={dockContainer}
+                hideTranscriptionStatus={!!documentId && panelOpen && recordingThis}
+                // D-24: continue only an editable note whose audio is on this Mac; else a new note.
+                meetingId={note?.editable && note.recordedHere ? meetingId : null}
+                recorded={note?.startedAt !== null}
+                hint={
+                  note && meetingId && !(note.editable && note.recordedHere)
+                    ? note.editable
+                      ? 'Recorded on another device — recording starts a new note.'
+                      : 'You can’t add to this note — recording starts a new note.'
+                    : null
+                }
+              />
+            </div>
+          )}
         </AssistantToggleAnchor>
       )}
     </section>

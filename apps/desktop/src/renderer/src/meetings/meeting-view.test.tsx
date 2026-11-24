@@ -173,8 +173,11 @@ describe('calm meeting surface', () => {
     expect(screen.queryByRole('button', { name: 'Stop recording' })).toBeNull();
     expect(screen.queryByTestId('recording-elapsed')).toBeNull();
     await userEvent.click(screen.getByTestId('transcript-toggle'));
+    expect(screen.getByTestId('note-dock-row').hidden).toBe(true);
+    const footer = screen.getByTestId('transcript-panel').querySelector('footer');
+    expect(footer?.contains(screen.getByTestId('transcript-toggle'))).toBe(true);
     const stop = screen.getByRole('button', { name: 'Stop recording' });
-    expect(stop.closest('footer')).not.toBeNull();
+    expect(stop.closest('footer')).toBe(footer);
     await userEvent.click(stop);
     expect(model.call).toHaveBeenCalledWith('recording:stop');
     await act(async () => finishStart());

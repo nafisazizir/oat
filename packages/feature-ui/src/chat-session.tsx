@@ -26,6 +26,7 @@ import { DefaultChatTransport } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { describeChatError } from './chat-client';
+import { DockControlsOutlet } from './note-dock-controls';
 import { useFeatureUi } from './provider';
 import type { ChatScope, ChatSources, ChatUIMessage } from '@oat/services/dto/chat';
 
@@ -309,14 +310,17 @@ export function ChatSession({
           </div>
         )}
         {layout === 'dock' && (
-          <Composer
-            compact
-            busy={busy}
-            placeholder={placeholder}
-            autoFocus={autoFocus}
-            onSend={ask}
-            onStop={() => void stop()}
-          />
+          <div className="flex shrink-0 items-end gap-2 px-2 pb-2">
+            <DockControlsOutlet panel="assistant" />
+            <Composer
+              compact
+              busy={busy}
+              placeholder={placeholder}
+              autoFocus={autoFocus}
+              onSend={ask}
+              onStop={() => void stop()}
+            />
+          </div>
         )}
       </div>
     </ChatSessionContext.Provider>
@@ -436,7 +440,7 @@ function Composer({
   };
   return (
     <form
-      className={compact ? 'shrink-0 px-2 pb-2' : 'p-3 pt-0'}
+      className={compact ? 'min-w-0 flex-1' : 'p-3 pt-0'}
       onSubmit={(event) => {
         event.preventDefault();
         send();

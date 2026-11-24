@@ -46,6 +46,7 @@ import { IconDeviceLaptop, IconMicrophone, IconWaveSine } from '@tabler/icons-re
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { AssistantToggleAnchor } from '@/components/assistant/document-assistant';
+import { DockControlsOutlet } from '@oat/feature-ui/assistant';
 import { useShellData } from '@oat/workspace-ui/shell-data';
 import {
   RecordingControls,
@@ -304,11 +305,16 @@ export function MeetingNote({
                 items={items}
                 onClose={closePanel}
                 footer={
-                  browserLive && (
-                    <>
-                      <IconMicrophone aria-hidden className="size-4" />
-                      Browser microphone
-                      <div className="ms-auto">
+                  <>
+                    <DockControlsOutlet panel="transcript" />
+                    {browserLive && (
+                      <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
+                        <IconMicrophone aria-hidden className="size-4" />
+                        Browser microphone
+                        {recording.status === 'recording' && (
+                          <span className="text-green-900">Live</span>
+                        )}
+                        {recording.status === 'paused' && <span>Paused</span>}
                         <RecordingStopButton
                           disabled={
                             recording.changing ||
@@ -316,8 +322,8 @@ export function MeetingNote({
                           }
                         />
                       </div>
-                    </>
-                  )
+                    )}
+                  </>
                 }
               >
                 {transcript}
@@ -325,19 +331,30 @@ export function MeetingNote({
             ) : undefined
           }
         >
-          <RecordingControls
-            documentId={doc.id}
-            eligible={editable && !(info.endedAt && lines.length > 0)}
-            transcriptToggle={
-              <TranscriptToggle
-                ref={toggleRef}
-                open={open}
-                count={items.length}
-                recording={recordingHere && recording.status === 'recording'}
-                onClick={() => (open ? closePanel() : setOpen(true))}
-              />
-            }
-          />
+          {(dockContainer) => (
+            <RecordingControls
+              documentId={doc.id}
+              eligible={editable && !(info.endedAt && lines.length > 0)}
+              dockContainer={dockContainer}
+              transcriptToggle={
+                <TranscriptToggle
+                  ref={toggleRef}
+                  open={open}
+                  count={items.length}
+                  recording={recordingHere && recording.status === 'recording'}
+                  onClick={() => {
+                    if (open) closePanel();
+                    else {
+                      setOpen(true);
+                      requestAnimationFrame(() =>
+                        toggleRef.current?.focus({ preventScroll: true }),
+                      );
+                    }
+                  }}
+                />
+              }
+            />
+          )}
         </AssistantToggleAnchor>
       </div>
     </div>
