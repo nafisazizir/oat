@@ -18,7 +18,7 @@ export function SettingsSection({
     <section className={cn('flex flex-col gap-3', className)} {...props}>
       <div className="flex flex-col gap-1">
         <div className="flex min-h-6 items-center justify-between gap-4">
-          <h2 className="text-heading-16">{title}</h2>
+          <h2 className="text-heading-16 text-gray-1000">{title}</h2>
           {action}
         </div>
         {description && <p className="text-copy-14 text-gray-900">{description}</p>}
@@ -43,6 +43,26 @@ export function SettingsList({ className, ...props }: React.ComponentProps<typeo
   );
 }
 
-export function SettingsHeading({ children }: { children: React.ReactNode }) {
-  return <h1 className="text-heading-16 text-gray-1000">{children}</h1>;
+/**
+ * The page title, the same on every settings page: a 32px row that sits level with the first row of the
+ * settings navigation, with an optional trailing action and a one-line description under it.
+ */
+export function SettingsHeading({
+  children,
+  description,
+  action,
+}: {
+  children: React.ReactNode;
+  description?: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <header className="flex flex-col gap-1">
+      <div className="flex h-8 items-center justify-between gap-4">
+        <h1 className="truncate text-heading-20 text-gray-1000">{children}</h1>
+        {action}
+      </div>
+      {description && <p className="text-copy-14 text-gray-900">{description}</p>}
+    </header>
+  );
 }

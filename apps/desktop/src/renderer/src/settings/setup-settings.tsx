@@ -2,6 +2,7 @@
  * Settings → Setup (9.2): what Oat may use on this Mac (microphone, system audio, calendars) at a glance, and
  * "Open setup" to run the walkthrough again (permissions + a test recording).
  */
+import { SettingsHeading } from '@oat/settings-ui';
 import { Button } from '@oat/ui/components/button';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import { cn } from '@oat/ui/lib/utils';
@@ -9,7 +10,6 @@ import { IconChevronRight } from '@tabler/icons-react';
 
 import { usePermissions } from '../onboarding/onboarding-state.ts';
 import { type PermissionView, stepView } from '../onboarding/onboarding-steps.ts';
-import { SettingsHeader } from './settings-view.tsx';
 
 const LABEL: Record<PermissionView, string> = {
   done: 'Allowed',
@@ -34,8 +34,8 @@ export function SetupSettings({
 }) {
   const permissions = usePermissions();
   return (
-    <div className="flex flex-col gap-4" data-testid="setup-settings">
-      <SettingsHeader title={title} />
+    <div className="flex flex-col gap-6" data-testid="setup-settings">
+      <SettingsHeading>{title}</SettingsHeading>
       <div className="flex flex-col">
         <dl className="flex flex-col" aria-busy={permissions ? undefined : true}>
           {ROWS.map(([label, step]) => {

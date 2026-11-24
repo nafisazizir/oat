@@ -21,7 +21,7 @@ import { useCallback, useEffect, useState, useTransition, type ReactNode } from 
 
 import { NotionTargetPicker } from './notion-target-picker';
 import { PipelineSwitch, PipelineSwitchSkeleton } from './pipeline-settings';
-import { SettingsLoadState, useSettingsResource } from './resource';
+import { settingsCacheKeys, SettingsLoadState, useSettingsResource } from './resource';
 import { SettingsHeading, SettingsList, SettingsSection } from './section';
 import { errorMessage, SettingsProvider, type SettingsServices } from './services';
 
@@ -120,12 +120,14 @@ export function IntegrationsPanel({
   const { client, workspaceId } = services;
   const environment = useSettingsResource(
     useCallback((signal: AbortSignal) => client.settings.environment({ signal }), [client]),
+    settingsCacheKeys.environment,
   );
   const pipeline = useSettingsResource(
     useCallback(
       (signal: AbortSignal) => client.pipeline.settings(workspaceId, { signal }),
       [client, workspaceId],
     ),
+    settingsCacheKeys.pipeline(workspaceId),
   );
   const modes = environment.value && 'data' in environment.value ? environment.value.data : null;
   return (
@@ -189,6 +191,7 @@ function CalendarPanel({ services, notice, mock }: IntegrationProps) {
   const { client, workspaceId, connect } = services;
   const { value, refresh } = useSettingsResource(
     useCallback((signal: AbortSignal) => client.calendar.google.status({ signal }), [client]),
+    settingsCacheKeys.calendar,
   );
   useReturnRefresh(refresh);
   const [error, setError] = useState('');
@@ -298,6 +301,7 @@ function NotionPanel({
       (signal: AbortSignal) => client.notion.status(workspaceId, { signal }),
       [client, workspaceId],
     ),
+    settingsCacheKeys.notion(workspaceId),
   );
   useReturnRefresh(refresh);
   const [error, setError] = useState('');

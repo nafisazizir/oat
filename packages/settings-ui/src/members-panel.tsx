@@ -47,6 +47,7 @@ import type {
 } from '@oat/services/dto/workspaces';
 
 import { InviteDialog } from './invite-dialog';
+import { SettingsHeading, SettingsSection } from './section';
 
 type Apply = (action: MembersAction) => void;
 
@@ -54,7 +55,7 @@ type Apply = (action: MembersAction) => void;
  * Rows share one column grid so roles and actions line up down the list. Only the bottom edge is drawn
  * (`Item` has a border on all four sides, transparent by default).
  */
-const ROW = 'px-0 py-3 not-last:border-b not-last:border-b-gray-alpha-300 rounded-none';
+const ROW = 'px-0 py-3 not-last:border-b not-last:border-b-gray-alpha-400 rounded-none';
 
 function RoleControl({
   workspaceId,
@@ -367,34 +368,6 @@ function JoinRequestRow({ request, roles }: { request: JoinRequestView; roles: R
   );
 }
 
-function Section({
-  title,
-  action,
-  children,
-  primary = false,
-  testId,
-}: {
-  primary?: boolean;
-  title: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-  testId?: string;
-}) {
-  return (
-    <section className="flex flex-col gap-3" data-testid={testId}>
-      <div className="flex min-h-9 items-center justify-between gap-4">
-        {primary ? (
-          <h1 className="text-heading-24 text-gray-1000">{title}</h1>
-        ) : (
-          <h2 className="text-heading-16">{title}</h2>
-        )}
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
-
 /**
  * The members page: who's in, their roles, requests to join and pending invitations. Member and invite
  * mutations apply optimistically; a decision on a request shows once the server has made it.
@@ -409,43 +382,42 @@ export function MembersPanel({ settings }: { settings: WorkspaceSettings }) {
 
   return (
     <>
-      <Section
-        title="Members"
-        primary
+      <SettingsHeading
         action={
           inviteRoles.length > 0 && (
-            <Button onClick={() => setInviteOpen(true)}>
+            <Button size="sm" onClick={() => setInviteOpen(true)}>
               <IconUserPlus data-icon="inline-start" />
               Invite people
             </Button>
           )
         }
       >
-        <ItemGroup className="gap-0" data-testid="member-list">
-          {members.map((member) => (
-            <MemberRow key={member.userId} workspace={workspace} member={member} apply={apply} />
-          ))}
-        </ItemGroup>
-      </Section>
+        Members
+      </SettingsHeading>
+      <ItemGroup className="gap-0" data-testid="member-list">
+        {members.map((member) => (
+          <MemberRow key={member.userId} workspace={workspace} member={member} apply={apply} />
+        ))}
+      </ItemGroup>
 
       {settings.joinRequests.length > 0 && (
-        <Section title="Requests to join" testId="join-requests">
+        <SettingsSection title="Requests to join" data-testid="join-requests">
           <ItemGroup className="gap-0" data-testid="join-request-list">
             {settings.joinRequests.map((request) => (
               <JoinRequestRow key={request.id} request={request} roles={settings.approveRoles} />
             ))}
           </ItemGroup>
-        </Section>
+        </SettingsSection>
       )}
 
       {settings.canManage && invites.length > 0 && (
-        <Section title="Pending invites">
+        <SettingsSection title="Pending invites">
           <ItemGroup className="gap-0" data-testid="invite-list">
             {invites.map((invite) => (
               <InviteRow key={invite.id} invite={invite} apply={apply} />
             ))}
           </ItemGroup>
-        </Section>
+        </SettingsSection>
       )}
 
       {inviteRoles.length > 0 && (
