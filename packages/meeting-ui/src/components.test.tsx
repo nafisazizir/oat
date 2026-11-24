@@ -205,7 +205,6 @@ describe('ParticipantSummary menu', () => {
   ];
   const open = () => userEvent.click(screen.getByTestId('attendees-toggle'));
   const removeGrace = async () => {
-    await userEvent.click(await screen.findByText('Grace Hopper'));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove Grace Hopper' }));
   };
 

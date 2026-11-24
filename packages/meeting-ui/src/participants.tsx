@@ -2,9 +2,10 @@
 
 /**
  * Who was in the meeting: "N people" in the header, a small row menu behind it with one row per person
- * (from the calendar event's attendees, 7.3, or added by hand). Editors remove someone from their row's
- * submenu and add people from "Add attendee"; the caller persists (web API / desktop local store).
+ * (from the calendar event's attendees, 7.3, or added by hand). Editors remove someone with their row's
+ * trash button and add people from "Add attendee"; the caller persists (web API / desktop local store).
  */
+import { Avatar, AvatarFallback } from '@oat/ui/components/avatar';
 import { Button } from '@oat/ui/components/button';
 import {
   DropdownMenu,
@@ -13,18 +14,14 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@oat/ui/components/dropdown-menu';
 import { Input } from '@oat/ui/components/input';
-import { Label } from '@oat/ui/components/label';
 import { Popover, PopoverContent } from '@oat/ui/components/popover';
 import { cn } from '@oat/ui/lib/utils';
 import { Spinner } from '@oat/ui/components/spinner';
 import { IconPlus, IconTrash, IconUser, IconUserPlus, IconUsers } from '@tabler/icons-react';
-import { type FormEvent, useId, useRef, useState } from 'react';
+import { type FormEvent, useRef, useState } from 'react';
 
 import { attendeesLabel, initials, isPlausibleEmail, type Participant } from './format.ts';
 import { metaActionClass } from './meeting-meta.tsx';
@@ -128,34 +125,28 @@ export function ParticipantSummary({
         >
           {count > 0 && (
             <DropdownMenuGroup data-testid="participants" data-count={count}>
-              {shown.map((p) =>
-                canRemove ? (
-                  <DropdownMenuSub key={p.id}>
-                    <DropdownMenuSubTrigger data-testid="participant-chip" data-source={p.source}>
-                      <PersonRow participant={p} />
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuItem
-                        variant="destructive"
-                        aria-label={`Remove ${p.name || p.email}`}
-                        closeOnClick={false}
-                        onClick={() => void remove(p)}
-                      >
-                        <IconTrash />
-                        Remove
-                      </DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                ) : (
-                  <DropdownMenuItem
-                    key={p.id}
-                    data-testid="participant-chip"
-                    data-source={p.source}
-                  >
-                    <PersonRow participant={p} />
-                  </DropdownMenuItem>
-                ),
-              )}
+              {shown.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex min-w-0 items-center gap-2 rounded-sm py-1 ps-2 pe-1 text-label-14"
+                  data-testid="participant-chip"
+                  data-source={p.source}
+                  title={p.email && p.email !== p.name ? `${p.name} <${p.email}>` : p.name}
+                >
+                  <PersonRow participant={p} />
+                  {canRemove && (
+                    <DropdownMenuItem
+                      aria-label={`Remove ${p.name || p.email}`}
+                      title="Remove"
+                      closeOnClick={false}
+                      onClick={() => void remove(p)}
+                      className="ms-auto size-6 shrink-0 justify-center p-0 text-gray-900 focus:bg-red-100 not-data-[variant=destructive]:focus:**:text-red-800"
+                    >
+                      <IconTrash className="size-3.5" />
+                    </DropdownMenuItem>
+                  )}
+                </div>
+              ))}
             </DropdownMenuGroup>
           )}
           {count === 0 && !canAdd && <DropdownMenuLabel>No attendees</DropdownMenuLabel>}
@@ -177,7 +168,13 @@ export function ParticipantSummary({
       </DropdownMenu>
       {canAdd && onAdd && (
         <Popover open={adding} onOpenChange={setAdding}>
-          <PopoverContent anchor={trigger} align="start" aria-label="Add attendee">
+          <PopoverContent
+            anchor={trigger}
+            align="start"
+            sideOffset={4}
+            aria-label="Add attendee"
+            className="w-64 gap-0 p-1.5"
+          >
             {adding && <AddParticipantForm onAdd={onAdd} onDone={() => setAdding(false)} />}
           </PopoverContent>
         </Popover>
@@ -189,13 +186,10 @@ export function ParticipantSummary({
 function PersonRow({ participant: p }: { participant: Participant }) {
   return (
     <>
-      <span
-        aria-hidden
-        className="flex size-5 shrink-0 items-center justify-center rounded-full bg-gray-200 text-[9px] font-medium text-gray-1000"
-      >
-        {initials(p.name || p.email || '?')}
-      </span>
-      <span className="truncate">{p.name || p.email}</span>
+      <Avatar size="sm" aria-hidden>
+        <AvatarFallback>{initials(p.name || p.email || '?')}</AvatarFallback>
+      </Avatar>
+      <span className="min-w-0 truncate">{p.name || p.email}</span>
       {p.email && p.name && p.email !== p.name && (
         <span className="min-w-0 truncate text-label-12 text-gray-900">{p.email}</span>
       )}
@@ -214,7 +208,6 @@ function AddParticipantForm({
   const [email, setEmail] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const id = useId();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -235,41 +228,37 @@ function AddParticipantForm({
   }
 
   return (
-    <form noValidate className="flex flex-col gap-2.5" onSubmit={(event) => void submit(event)}>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor={`${id}-name`}>Name</Label>
-        <Input
-          id={`${id}-name`}
-          value={name}
-          autoFocus
-          maxLength={MAX_PARTICIPANT_NAME}
-          autoComplete="off"
-          onChange={(event) => setName(event.target.value)}
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor={`${id}-email`}>
-          Email <span className="text-gray-900">(optional)</span>
-        </Label>
-        <Input
-          id={`${id}-email`}
-          type="email"
-          value={email}
-          maxLength={320}
-          autoComplete="off"
-          onChange={(event) => setEmail(event.target.value)}
-        />
-      </div>
+    <form noValidate className="flex flex-col gap-1.5" onSubmit={(event) => void submit(event)}>
+      <Input
+        size="sm"
+        aria-label="Name"
+        placeholder="Name"
+        value={name}
+        autoFocus
+        maxLength={MAX_PARTICIPANT_NAME}
+        autoComplete="off"
+        onChange={(event) => setName(event.target.value)}
+      />
+      <Input
+        size="sm"
+        type="email"
+        aria-label="Email (optional)"
+        placeholder="Email (optional)"
+        value={email}
+        maxLength={320}
+        autoComplete="off"
+        onChange={(event) => setEmail(event.target.value)}
+      />
       {error && (
-        <p role="alert" className="text-label-13 text-red-900">
+        <p role="alert" className="px-1 text-label-13 text-red-900">
           {error}
         </p>
       )}
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+      <div className="flex justify-end gap-1.5">
+        <Button type="button" variant="ghost" size="xs" onClick={onDone}>
           Cancel
         </Button>
-        <Button type="submit" size="sm" disabled={pending}>
+        <Button type="submit" size="xs" disabled={pending}>
           {pending && <Spinner data-icon="inline-start" />}
           Add
         </Button>

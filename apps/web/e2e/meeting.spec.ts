@@ -175,7 +175,6 @@ test('meeting header, attendees, transcript sheet (collapse, click → deep link
   const removed = page.waitForResponse(
     (r) => r.request().method() === 'DELETE' && /\/participants\//.test(r.url()) && r.ok(),
   );
-  await chips(page).filter({ hasText: 'Dana Scully' }).click();
   await page.getByRole('menuitem', { name: 'Remove Dana Scully' }).click();
   await expect(chips(page)).toHaveCount(1);
   await removed;
