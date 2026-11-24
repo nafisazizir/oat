@@ -27,6 +27,7 @@ import {
   MeetingAccess,
   MeetingMetaRow,
   MeetingPrivate,
+  MeetingWorkspace,
   MeetingTime,
   mergeTranscripts,
   ParticipantSummary,
@@ -69,6 +70,7 @@ import { PipelineWatcher } from './post-meeting.tsx';
 import { type AutosaveState, NoteAutosave } from './note-autosave.ts';
 import { meetingAssistantHandle } from './meeting-assistant';
 import { MeetingActions } from '../workspace/meeting-actions';
+import { useWorkspaces } from '../workspaces/workspaces-state.ts';
 import { meetingDocumentAdapter } from './meeting-document';
 import { api } from '../lib/api';
 
@@ -466,6 +468,7 @@ function NoteBody({
     }),
   );
   const workspaceHost = useWorkspaceHost();
+  const activeWorkspaceId = useWorkspaces().active?.id;
   const capabilities = useDocumentEnhancement({
     documentId,
     loadedVersion: note.version ?? 0,
@@ -517,9 +520,12 @@ function NoteBody({
             autosave.queue({ title: next });
           }}
         />
-        {/* The facts under the title, one style (B): no workspace (the sidebar says it, D-18), no shared
-            audience (the default), no duration; Private only when it is. */}
+        {/* The facts under the title, one style (B): the workspace only when it isn't the one shown (D-18),
+            no shared audience (the default), no duration; Private only when it is. */}
         <MeetingMetaRow>
+          {note.workspaceName && note.workspaceId !== activeWorkspaceId && (
+            <MeetingWorkspace name={note.workspaceName} />
+          )}
           <MeetingPrivate visibility={note.visibility} />
           <MeetingTime startedAt={note.startedAt} endedAt={endedAt} live={live} />
           <NoteEventLine event={note.calendarEvent} recorded={note.startedAt !== null} />

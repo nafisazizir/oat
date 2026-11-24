@@ -340,7 +340,7 @@ test('as a viewer, new notes go to the first workspace I can add to (and the sid
   await home();
   await upcoming.getByTestId('upcoming-event').filter({ hasText: EVENT }).click();
   await expect(page.getByTestId('note-title')).toHaveValue(EVENT);
-  await expect(page.getByTestId('workspace-switcher')).toContainText(DESIGN);
+  await expect(page.getByTestId('note-workspace')).toHaveText(DESIGN);
   await home();
   await expect(upcoming.getByTestId('upcoming-event-workspace')).toHaveText(`in ${DESIGN}`);
   await evidence(page, 'desktop-viewer-hint', TASK);
@@ -428,7 +428,7 @@ test('view-only everywhere: the sidebar asks for a workspace and a recording is 
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording', {
     timeout: scaled(20_000),
   });
-  await expect(page.getByTestId('workspace-switcher')).toContainText(OWN);
+  await expect(page.getByTestId('note-workspace')).toHaveText(OWN);
   await stopRecording(page);
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
     timeout: scaled(30_000),

@@ -31,6 +31,7 @@ export {
   MeetingMetaRow,
   MeetingPrivate,
   MetaItem,
+  MeetingWorkspace,
   type MeetingMetaLook,
   metaActionClass,
   metaItemClass,

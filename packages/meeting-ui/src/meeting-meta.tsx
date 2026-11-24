@@ -6,7 +6,14 @@
  * a shared note's audience and the duration are left out on purpose.
  */
 import { cn } from '@oat/ui/lib/utils';
-import { IconCalendar, IconEye, IconLock, IconTrash, IconVideo } from '@tabler/icons-react';
+import {
+  IconCalendar,
+  IconEye,
+  IconLock,
+  IconStack2,
+  IconTrash,
+  IconVideo,
+} from '@tabler/icons-react';
 import type { ComponentProps, ReactNode } from 'react';
 
 /** One fact in the meeting header (in a `pill` row, each in the same gray pill). */
@@ -42,6 +49,16 @@ export function MeetingMetaRow({
 
 export function MetaItem({ className, ...props }: ComponentProps<'span'>) {
   return <span className={cn(metaItemClass, className)} {...props} />;
+}
+
+/** Only for a note saved in another workspace than the one being shown; otherwise the sidebar says it. */
+export function MeetingWorkspace({ name }: { name: string }) {
+  return (
+    <MetaItem data-testid="note-workspace">
+      <IconStack2 aria-hidden />
+      {name}
+    </MetaItem>
+  );
 }
 
 /** Only a private note says so; a shared one shows nothing (it is the default in a workspace). */
