@@ -427,3 +427,5 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
 - 2026-11-24 · Expanded note dock · Transcript and Ask now replace the full dock row and keep the same bottom edge. The capture controls move into the active panel footer.
 
 - 2026-11-24 · Rounded note dock · Floating capture and Ask controls use pill shapes, and expanded panels use Oat’s large radius. The expanded Ask composer now matches the collapsed 40 px height for a single line.
+
+- 2026-11-24 · Stationary dock controls · Transcript and Ask expand around the existing dock positions instead of shifting the controls inward.

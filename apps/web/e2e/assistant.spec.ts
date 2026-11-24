@@ -163,6 +163,7 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   // ⌘J opens the panel; the toggle button does too.
   const launcher = page.getByTestId('assistant-toggle');
   await expect(launcher).toBeVisible();
+  const collapsed = (await launcher.boundingBox())!;
   await expect(launcher).toHaveCSS('height', '40px');
   expect(
     await launcher.evaluate((node) => parseFloat(getComputedStyle(node).borderTopLeftRadius)),
@@ -176,6 +177,7 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   const composer = panel(page).locator('[data-slot="input-group"]');
   await expect(composer).toHaveAttribute('data-size', 'lg');
   await expect(composer).toHaveCSS('height', '40px');
+  await expect.poll(() => composer.boundingBox()).toEqual(collapsed);
   expect(
     await composer.evaluate((node) => parseFloat(getComputedStyle(node).borderTopLeftRadius)),
   ).toBeGreaterThanOrEqual(20);
@@ -235,6 +237,7 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   await expect(page.getByTestId('assistant-toggle')).toBeFocused();
   await page.getByTestId('assistant-toggle').click();
   await expect(page.getByTestId('chat-input')).toBeFocused();
+  await expect.poll(() => composer.boundingBox()).toEqual(collapsed);
   await page.keyboard.press('Escape');
   await expect(panel(page)).toBeHidden();
   await expect(page.getByTestId('assistant-toggle')).toBeFocused();

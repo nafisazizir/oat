@@ -308,7 +308,7 @@ export function MeetingNote({
                   <>
                     <DockControlsOutlet panel="transcript" />
                     {browserLive && (
-                      <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
+                      <div className="ms-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
                         <IconMicrophone aria-hidden className="size-4" />
                         Browser microphone
                         {recording.status === 'recording' && (

@@ -143,8 +143,10 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   const connectionsAfterTabSwitch = syncConnections;
   await expect(page.getByTestId('web-recording')).toHaveAttribute('data-status', 'recording');
   await expect(page.getByTestId('transcript-panel')).toHaveCount(0);
+  const collapsed = (await group.boundingBox())!;
   await page.getByTestId('transcript-toggle').click();
   await expect(page.getByTestId('note-dock-row')).toBeHidden();
+  await expect.poll(() => group.boundingBox()).toEqual(collapsed);
   await expect(
     page
       .getByTestId('transcript-panel')

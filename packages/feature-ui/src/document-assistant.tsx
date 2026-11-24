@@ -87,8 +87,12 @@ export function AssistantToggleAnchor({
               {feedback}
             </div>
           )}
-          {transcript && <div className="pointer-events-auto">{transcript}</div>}
-          {slot?.panel && <div hidden={!!transcript}>{slot.panel}</div>}
+          {expanded && (
+            <div className="-mx-[calc(--spacing(2)+1px)] -mb-[calc(--spacing(2)+1px)]">
+              {transcript && <div className="pointer-events-auto">{transcript}</div>}
+              {slot?.panel && <div hidden={!!transcript}>{slot.panel}</div>}
+            </div>
+          )}
         </div>
         <div className="min-h-10">
           <div

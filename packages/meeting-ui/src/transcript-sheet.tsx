@@ -94,7 +94,7 @@ export function TranscriptSheet({
         children(filtered)
       )}
       {footer && (
-        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-gray-alpha-400 px-3 py-2 text-label-12 text-gray-900">
+        <footer className="flex shrink-0 items-end justify-between gap-2 border-t border-gray-alpha-400 p-2 text-label-12 text-gray-900">
           {footer}
         </footer>
       )}

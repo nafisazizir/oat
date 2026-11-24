@@ -285,7 +285,7 @@ export function MeetingView({
                   <>
                     <DockControlsOutlet panel="transcript" />
                     {canStop && (
-                      <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
+                      <div className="ms-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
                         {recordingThis && (
                           <>
                             <IconMicrophone aria-hidden className="size-4" />
