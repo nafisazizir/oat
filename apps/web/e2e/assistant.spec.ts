@@ -444,6 +444,23 @@ test.describe('with expected HTTP errors', () => {
   });
 });
 
+test('a multiline Ask draft keeps the dock controls visible in a short window', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 380 });
+  const { doc } = await seedNote(page);
+  await page.goto(`/d/${doc.id}`);
+  await page.getByTestId('assistant-toggle').click();
+  await page
+    .getByTestId('chat-input')
+    .fill(Array.from({ length: 20 }, (_, i) => `Line ${i}`).join('\n'));
+  await expect(panel(page).getByRole('button', { name: 'Send', exact: true })).toBeInViewport({
+    ratio: 1,
+    timeout: 2_000,
+  });
+  await expect(panel(page).getByTestId('transcript-toggle')).toBeInViewport({ ratio: 1 });
+});
+
 test('an active follow-up cannot be interrupted by opening it in Assistant', async ({ page }) => {
   const { doc } = await seedNote(page);
   await page.goto(`/d/${doc.id}`);

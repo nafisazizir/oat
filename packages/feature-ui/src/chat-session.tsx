@@ -473,8 +473,10 @@ function Composer({
             }
           }}
           className={cn(
-            'max-h-60 [field-sizing:content]',
-            compact ? 'min-h-0 data-[size=lg]:py-1.5' : 'min-h-16',
+            '[field-sizing:content]',
+            compact
+              ? 'max-h-[clamp(2rem,calc(57dvh-9rem),15rem)] min-h-0 overflow-y-auto data-[size=lg]:py-1.5'
+              : 'max-h-60 min-h-16',
           )}
         />
         <InputGroupAddon
