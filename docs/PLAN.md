@@ -1,5 +1,8 @@
 # Oat — Plan & Task Board
 
+- [x] Human-requested fast-only hosted CI (D-42); static checks and all 17 tasks tests pass locally.
+  [task](tasks/ci-fast-only.md)
+
 - [ ] Human-requested macOS recording startup fix and hardware verification. Both real audio sources
   passed on the Mac. PR review fixes cover startup cancellation and storage failures while starting
   or ending a recording. Hosted Mac verification covers the compiled helper with synthetic audio

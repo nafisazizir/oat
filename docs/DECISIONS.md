@@ -388,3 +388,15 @@ Settings · Workspaces · the host's own actions (desktop: Show meeting widget) 
   only shows a line when sync is syncing, waiting, offline or failing. The desktop status stays in the page
   for assistive tech.
 - **Check connection** (desktop): removed.
+
+## D-42 · 2026-11-24 · accepted · human
+
+GitHub Actions runs only the three parallel `--fast` checks (format, actionlint, lint; typecheck; unit
+tests) on PRs, pushes to `main` and manual dispatch. This supersedes the hosted full-tier policy in D-34
+and the local/hosted equivalence in D-12; the local gates are unchanged.
+
+Remove the hosted Linux full job because it repeatedly hit its 30-minute cap while running web Playwright,
+with stale assertions (including auth expecting email alongside the display name) and browser test timeouts.
+Remove the hosted Swift job because arm64 runner availability made it unreliable: some jobs were cancelled
+without acquiring a runner, even though the checks passed when runners were available. Keep `pnpm run ci`
+as the full local gate and `pnpm run ci --only swift` for the sidecar on macOS.

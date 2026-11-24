@@ -93,7 +93,7 @@ describe('TasksView', () => {
       expect.objectContaining({ query: expect.objectContaining({ view: 'created' }) }),
     );
     await userEvent.click(screen.getByRole('combobox', { name: 'Status' }));
-    await userEvent.click(screen.getByRole('option', { name: 'Done' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Done' }));
     expect(onChange).toHaveBeenLastCalledWith({ ...filters, view: 'created', status: 'done' });
     await waitFor(() =>
       expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Status' })),

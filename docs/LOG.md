@@ -433,3 +433,7 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
 - 2026-11-24 · Minimal transcript panel · The waveform no longer looks selected when open. The header keeps only Copy and Minimise; missing audio no longer has a placeholder row. Bubbles align by speaker without visible speaker or timestamp captions.
 
 - 2026-11-24 · Minimal live transcript · The footer drops source labels, level meters and recording badges but keeps Stop. The live body is blank until speech arrives, and still surfaces transcription failures. A microphone picker is a follow-up; recording still uses the default input.
+
+- 2026-11-24 · CI fast only (D-42) · Remove the repeatedly timed-out hosted Linux full job and the
+  capacity-constrained hosted macOS Swift job. Keep the parallel fast matrix and the local gates. Job evidence:
+  [ci-fast-only](tasks/ci-fast-only.md).
