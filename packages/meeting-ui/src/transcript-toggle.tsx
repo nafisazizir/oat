@@ -3,7 +3,7 @@
 import { Button } from '@oat/ui/components/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import { IconWaveform } from '@tabler/icons-react';
-import type { Ref } from 'react';
+import type { MouseEventHandler, Ref } from 'react';
 
 export function TranscriptToggle({
   open,
@@ -14,7 +14,7 @@ export function TranscriptToggle({
 }: {
   open: boolean;
   count: number;
-  onClick: () => void;
+  onClick: MouseEventHandler<HTMLButtonElement>;
   ref?: Ref<HTMLButtonElement>;
   recording?: boolean;
 }) {
@@ -27,6 +27,7 @@ export function TranscriptToggle({
             variant="outline"
             size="icon-lg"
             shape="rounded"
+            className="aria-expanded:not-hover:not-active:bg-background-100 aria-expanded:not-hover:text-inherit"
             onClick={onClick}
             aria-expanded={open}
             aria-controls="transcript-panel"

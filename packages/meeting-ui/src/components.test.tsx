@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { TooltipProvider } from '@oat/ui/components/tooltip';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -41,22 +41,32 @@ it('names the icon-only transcript toggle and describes it on keyboard focus', a
   expect(onClick).toHaveBeenCalledOnce();
 });
 
-it('filters transcript lines without changing what Copy transcript copies', async () => {
-  const clipboard = userEvent.setup();
+it('shows only copy and minimise in the transcript header and copies all lines', async () => {
+  const user = userEvent.setup();
   const copy = vi.spyOn(navigator.clipboard, 'writeText');
+  const onClose = vi.fn();
   render(
-    <TranscriptSheet items={lines} onClose={() => {}}>
-      {(items) => items.map((item) => <p key={item.id}>{item.text}</p>)}
-    </TranscriptSheet>,
+    <TooltipProvider>
+      <TranscriptSheet items={lines} onClose={onClose}>
+        {lines.map((item) => (
+          <p key={item.id}>{item.text}</p>
+        ))}
+      </TranscriptSheet>
+    </TooltipProvider>,
   );
-  const search = screen.getByRole('searchbox', { name: 'Search transcript' });
-  await clipboard.type(search, 'HELLO');
+  const panel = screen.getByRole('region', { name: 'Transcript' });
+  const header = within(panel.querySelector('header')!);
+  expect(header.getAllByRole('button')).toHaveLength(2);
+  expect(header.queryByRole('heading')).toBeNull();
+  expect(header.queryByRole('searchbox')).toBeNull();
   expect(screen.getByText('Hello from them')).toBeTruthy();
-  expect(screen.queryByText('Hi, me here')).toBeNull();
-  await clipboard.click(screen.getByRole('button', { name: 'Copy transcript' }));
+  expect(screen.getByText('Hi, me here')).toBeTruthy();
+  await user.tab();
+  expect((await screen.findByRole('tooltip')).textContent).toBe('Copy transcript');
+  await user.click(header.getByRole('button', { name: 'Copy transcript' }));
   expect(copy).toHaveBeenCalledWith(expect.stringContaining('0:02 · Me: Hi, me here'));
-  await clipboard.type(search, ' missing');
-  expect(screen.getByText('No matching transcript lines.')).toBeTruthy();
+  await user.click(header.getByRole('button', { name: 'Hide transcript' }));
+  expect(onClose).toHaveBeenCalledOnce();
   copy.mockRestore();
 });
 
@@ -77,14 +87,19 @@ describe('shared note geometry', () => {
 });
 
 describe('TranscriptList', () => {
-  it('renders me/them lines with speaker headers, interims marked', () => {
+  it('aligns bubbles by speaker without visible captions and marks interims', () => {
     render(<TranscriptList segments={lines} />);
     const rows = screen.getAllByTestId('transcript-segment');
     expect(rows.map((r) => r.dataset.source)).toEqual(['system', 'mic', 'mic']);
     expect(rows.map((r) => r.dataset.final)).toEqual(['true', 'true', 'false']);
-    expect(screen.getByText('Them')).toBeTruthy();
-    // One "Me" header for two consecutive mic lines.
-    expect(screen.getAllByText('Me')).toHaveLength(1);
+    expect(rows.map((r) => r.classList.contains('items-end'))).toEqual([false, true, true]);
+    expect(rows[0]!.classList.contains('items-start')).toBe(true);
+    expect(rows.flatMap((r) => Array.from(r.querySelectorAll('time')))).toHaveLength(0);
+    expect(rows.map((r) => r.querySelector('.sr-only')?.textContent)).toEqual([
+      'Them: ',
+      'Me: ',
+      'Me: ',
+    ]);
     for (const text of ['Hello from them', 'Hi, me here', 'still typing']) {
       const bubble = screen.getByText(text);
       expect(bubble.className).toContain('rounded-lg');

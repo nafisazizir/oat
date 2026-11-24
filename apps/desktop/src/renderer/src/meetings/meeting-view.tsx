@@ -313,41 +313,39 @@ export function MeetingView({
                   </>
                 }
               >
-                {(filtered) => (
-                  <div
-                    className="flex min-h-0 flex-1 flex-col"
-                    onKeyDown={(event) => playerKey(event, player)}
-                  >
-                    {documentId && meetingId && !recordingThis && <PlaybackBar player={player} />}
-                    <TranscriptPanel
-                      key={`${documentId}:${focusRevision}:${focus.seg ?? ''}:${focus.t ?? ''}`}
-                      segments={filtered}
-                      // A just-recorded note that can be played back follows the playhead, not the live end.
-                      live={showsRecording || (followLive && !playable)}
-                      snapshot={showsRecording ? snapshot : null}
-                      loaded={documentId === null ? live.loaded : loaded && stored.loaded}
-                      failed={documentId === null ? live.failed : stored.failed}
-                      meetingKey={documentId}
-                      focusId={selected}
-                      onSelect={
-                        playable
-                          ? (s) => player.seek(s.startMs)
-                          : documentId
-                            ? (s) =>
-                                setPicked({
-                                  id: s.id,
-                                  query: focusQuery,
-                                  revision: focusRevision,
-                                  documentId,
-                                })
-                            : undefined
-                      }
-                      activeId={activeId}
-                      playheadKey={playable ? player.seekCount : undefined}
-                      status={transcriptStatus}
-                    />
-                  </div>
-                )}
+                <div
+                  className="flex min-h-0 flex-1 flex-col"
+                  onKeyDown={(event) => playerKey(event, player)}
+                >
+                  {documentId && meetingId && !recordingThis && <PlaybackBar player={player} />}
+                  <TranscriptPanel
+                    key={`${documentId}:${focusRevision}:${focus.seg ?? ''}:${focus.t ?? ''}`}
+                    segments={segments}
+                    // A just-recorded note that can be played back follows the playhead, not the live end.
+                    live={showsRecording || (followLive && !playable)}
+                    snapshot={showsRecording ? snapshot : null}
+                    loaded={documentId === null ? live.loaded : loaded && stored.loaded}
+                    failed={documentId === null ? live.failed : stored.failed}
+                    meetingKey={documentId}
+                    focusId={selected}
+                    onSelect={
+                      playable
+                        ? (s) => player.seek(s.startMs)
+                        : documentId
+                          ? (s) =>
+                              setPicked({
+                                id: s.id,
+                                query: focusQuery,
+                                revision: focusRevision,
+                                documentId,
+                              })
+                          : undefined
+                    }
+                    activeId={activeId}
+                    playheadKey={playable ? player.seekCount : undefined}
+                    status={transcriptStatus}
+                  />
+                </div>
               </TranscriptSheet>
             ) : undefined
           }
@@ -372,13 +370,14 @@ export function MeetingView({
                       open={panelOpen}
                       count={segments.length}
                       recording={recordingThis && snapshot?.status === 'recording'}
-                      onClick={() => {
+                      onClick={(event) => {
                         if (panelOpen) closePanel();
                         else {
                           setPanelOpen(true);
-                          requestAnimationFrame(() =>
-                            toggleRef.current?.focus({ preventScroll: true }),
-                          );
+                          if (event.detail === 0)
+                            requestAnimationFrame(() =>
+                              toggleRef.current?.focus({ preventScroll: true }),
+                            );
                         }
                       }}
                     />

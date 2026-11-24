@@ -14,7 +14,7 @@ Web and desktop meeting notes. Recording, playback, chat, citations and proposal
 
 ## Design
 
-The compact capture controls sit left of Ask near the bottom of the note. The transcript offers search, copy and collapse. Ask expands to suggested prompts and the note’s chat; existing threads can also open in the full Assistant. Both use Oat components and tokenized surfaces.
+The compact capture controls sit left of Ask near the bottom of the note. The transcript header only offers copy and collapse, with no placeholder row for missing audio. Transcript bubbles align by speaker without visible speaker or timestamp captions. Ask expands to suggested prompts and the note’s chat; existing threads can also open in the full Assistant. Both use Oat components and tokenized surfaces.
 
 The capture buttons are icon-only on web and desktop. The waveform toggle exposes the transcript’s expanded state. Recording and transcript buttons retain accessible names and show Oat tooltips.
 
@@ -27,7 +27,7 @@ The floating controls use pill corners, with square inside seams on the capture 
 ## Acceptance criteria
 
 - Capture baseline and dock states in the built desktop renderer with a mock bridge.
-- In both apps, the transcript collapses, searches and copies without changing stored lines or citation handling.
+- In both apps, the transcript collapses and copies without changing stored lines or citation handling.
 - Opening the dock assistant shows note-scoped suggestions and history without persisting side-panel state.
 - The dock leaves room to scroll the end of the note above its open sheet.
 
@@ -55,3 +55,4 @@ The floating controls use pill corners, with square inside seams on the capture 
 - Full-width follow-up: fast CI printed `ci: ok`; focused Chromium suites printed `14 passed (1.9m)`, including matching transcript and dock widths and bottom edges, footer focus, and recording controls. The desktop renderer built in 1.01 seconds. Refreshed the light and dark mock desktop captures and visually checked the dock and expanded panels. Native capture was not tested.
 - Rounded follow-up: fast CI printed `ci: ok`. The focused Chromium run passed 12 checks and exposed two assertions that assumed a 24 px radius; the Oat token resolves to 43.12 px at the default setting. The corrected targeted run printed `3 passed (40.2s)`. The rebuilt mock preview at `http://localhost:4174/` verified both Ask heights at 40 px, growth for multiline drafts, and recording and chat interactions. Refreshed and visually checked the light and dark dock captures.
 - Stationary controls follow-up: focused Chromium printed `14 passed (2.0m)` with exact bounding-box checks for the waveform, live recording group and Ask composer. The refreshed mock desktop preview matched both trigger positions; Stop fit at a 390 px viewport. Fast CI passed format, actionlint, typecheck and lint, and timed out in one main-process audio fixture. The unit-test rerun printed `24 successful, 24 total`.
+- Minimal transcript follow-up: fast CI printed `ci: ok`. Focused Chromium printed `14 passed (1.8m)`, covering unchanged waveform background and bounds, keyboard focus, header actions, and timestamp deep links without visible captions. The mock renderer preview on port 4174 verified exact trigger geometry and recording and Ask interactions. Refreshed and inspected the light and dark transcript captures.

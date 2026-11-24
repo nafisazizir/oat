@@ -162,7 +162,7 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
   await expect(panel).toHaveCount(0);
   await page.getByTestId('transcript-toggle').click();
   await expect(panel).toBeVisible();
-  await expect(panel.getByRole('searchbox', { name: 'Search transcript' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Copy transcript' })).toBeEnabled();
 
   // Let a few finals arrive, then stop.
   await expect

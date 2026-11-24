@@ -42,7 +42,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@oat/ui/components/empty';
-import { IconDeviceLaptop, IconMicrophone, IconWaveSine } from '@tabler/icons-react';
+import { IconMicrophone, IconWaveSine } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { AssistantToggleAnchor } from '@/components/assistant/document-assistant';
@@ -229,20 +229,16 @@ export function MeetingNote({
     </>
   );
 
-  const transcript = (filtered: readonly TranscriptItem[]) => (
+  const transcript = (
     <>
       {deleteError && (
         <p role="alert" className="text-copy-13 text-red-900">
           {deleteError}
         </p>
       )}
-      {local && !browserLive ? (
-        <PlaybackBar player={player} />
-      ) : info.startedAt && !browserLive ? (
-        <AudioHint />
-      ) : null}
+      {local && !browserLive && <PlaybackBar player={player} />}
       <TranscriptBody
-        items={filtered}
+        items={items}
         focusId={focusId}
         onSelect={select}
         live={polling || browserLive}
@@ -343,13 +339,14 @@ export function MeetingNote({
                   open={open}
                   count={items.length}
                   recording={recordingHere && recording.status === 'recording'}
-                  onClick={() => {
+                  onClick={(event) => {
                     if (open) closePanel();
                     else {
                       setOpen(true);
-                      requestAnimationFrame(() =>
-                        toggleRef.current?.focus({ preventScroll: true }),
-                      );
+                      if (event.detail === 0)
+                        requestAnimationFrame(() =>
+                          toggleRef.current?.focus({ preventScroll: true }),
+                        );
                     }
                   }}
                 />
@@ -408,18 +405,5 @@ function TranscriptBody({
         className="min-h-0"
       />
     </>
-  );
-}
-
-function AudioHint() {
-  return (
-    <p
-      className="flex shrink-0 items-center gap-1.5 border-b border-gray-alpha-400 px-4 py-1.5 text-label-12 text-gray-900"
-      data-testid="audio-hint"
-      title="Only transcripts sync. Audio stays on the recording device."
-    >
-      <IconDeviceLaptop aria-hidden className="size-3.5 shrink-0" />
-      Audio stays on the recording device
-    </p>
   );
 }

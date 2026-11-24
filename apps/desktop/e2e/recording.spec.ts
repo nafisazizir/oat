@@ -233,7 +233,7 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   const meetingId = started.meetingId!;
   const t0 = started.startedAt!;
 
-  // Both voices appear, labelled and coloured, interims first.
+  // Both voices appear in aligned bubbles, interims first.
   await expect(
     page.locator('[data-testid=transcript-segment][data-source=mic]').first(),
   ).toBeVisible({
@@ -243,8 +243,7 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   await expect(
     page.locator('[data-testid=transcript-segment][data-source=system]').first(),
   ).toBeVisible({ timeout: scaled(15_000) });
-  await expect(page.getByText('Them', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Me', { exact: true }).first()).toBeVisible();
+  await expect(page.locator('[data-testid=transcript-segment] time')).toHaveCount(0);
   await expect(page.getByTestId('level-mic').getByRole('meter')).toBeVisible();
 
   // Latency: speech onset in the audio → first visible segment of that voice (SPEC §8: < 1.5 s).

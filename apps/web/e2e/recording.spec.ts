@@ -327,7 +327,9 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
     .getByRole('button', { name: 'Delete audio', exact: true })
     .click();
   await expect(page.getByTestId('playback')).toHaveCount(0);
-  await expect(page.getByTestId('audio-hint')).toBeVisible();
+  await expect(page.getByTestId('transcript-panel')).not.toContainText(
+    /Audio stays on the recording device|No audio was saved/,
+  );
   await page.reload();
   await expect(page.getByTestId('playback')).toHaveCount(0);
   await expect(page.getByTestId('transcript-segment')).toHaveCount(persisted);

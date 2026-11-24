@@ -104,7 +104,7 @@ async function settled(page: Page) {
 const panel = (page: Page) => page.getByTestId('transcript-panel').filter({ visible: true });
 const chips = (page: Page) => page.getByTestId('participant-chip').filter({ visible: true });
 
-test('meeting header, attendees, transcript sheet (search, collapse, click → deep link)', async ({
+test('meeting header, attendees, transcript sheet (collapse, click → deep link)', async ({
   page,
 }) => {
   await page.goto('/home');
@@ -126,22 +126,27 @@ test('meeting header, attendees, transcript sheet (search, collapse, click → d
   const dockRow = page.getByTestId('note-dock-row');
   const toggle = page.getByTestId('transcript-toggle');
   const collapsed = (await toggle.boundingBox())!;
+  const background = await toggle.evaluate((node) => getComputedStyle(node).backgroundColor);
   await toggle.click();
+  await page.mouse.move(0, 0);
   // Transcript opens around the toggle, without moving it.
   await expect(panel(page)).toBeVisible();
   expect(
     await panel(page).evaluate((node) => parseFloat(getComputedStyle(node).borderTopLeftRadius)),
   ).toBeGreaterThanOrEqual(24);
   await expect(dockRow).toBeHidden();
-  await expect(panel(page).locator('footer').getByTestId('transcript-toggle')).toBeFocused();
+  await expect(panel(page).locator('footer').getByTestId('transcript-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  await expect(toggle).toHaveCSS('background-color', background);
   await expect.poll(() => toggle.boundingBox()).toEqual(collapsed);
   const expanded = (await panel(page).boundingBox())!;
   expect(expanded.x).toBeLessThan(collapsed.x);
   expect(expanded.y + expanded.height).toBeGreaterThan(collapsed.y + collapsed.height);
-  await expect(panel(page)).toContainText('40');
-  // No player on the web (3.7, D-10): the panel says where the audio is.
-  await expect(panel(page).getByTestId('audio-hint')).toHaveText(
-    'Audio stays on the recording device',
+  await expect(panel(page).locator('[data-testid=transcript-segment] time')).toHaveCount(0);
+  await expect(panel(page)).not.toContainText(
+    /Audio stays on the recording device|No audio was saved/,
   );
   await expect(page.getByTestId('playback')).toHaveCount(0);
   await expect(
@@ -178,10 +183,10 @@ test('meeting header, attendees, transcript sheet (search, collapse, click → d
   await expect(chips(page)).toHaveCount(1);
   await page.keyboard.press('Escape');
 
-  const search = panel(page).getByRole('searchbox', { name: 'Search transcript' });
-  await search.fill('not in this transcript');
-  await expect(panel(page)).toContainText('No matching transcript lines.');
-  await search.clear();
+  const actions = panel(page).locator('header');
+  await expect(actions.getByRole('button')).toHaveCount(2);
+  await expect(actions.getByRole('button', { name: 'Copy transcript' })).toBeEnabled();
+  await expect(actions.getByRole('button', { name: 'Hide transcript' })).toBeVisible();
   await expect(panel(page).getByTestId('transcript-segment').first()).toBeVisible();
 
   // Collapse: hidden (remembered), reopened from the header.
@@ -192,8 +197,9 @@ test('meeting header, attendees, transcript sheet (search, collapse, click → d
   await expect(page.getByTestId('meeting-header').filter({ visible: true })).toBeVisible();
   await expect(panel(page)).toHaveCount(0);
   await evidence(page, 'web-collapsed');
-  await page.getByTestId('transcript-toggle').click();
+  await toggle.press('Enter');
   await expect(panel(page)).toBeVisible();
+  await expect(panel(page).locator('footer').getByTestId('transcript-toggle')).toBeFocused();
 
   // Clicking a line picks it: highlighted, and the URL is now its deep link.
   await panel(page)

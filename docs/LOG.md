@@ -429,3 +429,5 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
 - 2026-11-24 · Rounded note dock · Floating capture and Ask controls use pill shapes, and expanded panels use Oat’s large radius. The expanded Ask composer now matches the collapsed 40 px height for a single line.
 
 - 2026-11-24 · Stationary dock controls · Transcript and Ask expand around the existing dock positions instead of shifting the controls inward.
+
+- 2026-11-24 · Minimal transcript panel · The waveform no longer looks selected when open. The header keeps only Copy and Minimise; missing audio no longer has a placeholder row. Bubbles align by speaker without visible speaker or timestamp captions.

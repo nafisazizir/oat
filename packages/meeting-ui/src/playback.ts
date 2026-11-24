@@ -140,6 +140,7 @@ export interface PlaybackNotice {
 export function playbackNotice(status: PlaybackInfo['status']): PlaybackNotice | null {
   switch (status) {
     case 'available':
+    case 'none':
       return null;
     case 'recording':
       return {
@@ -155,11 +156,6 @@ export function playbackNotice(status: PlaybackInfo['status']): PlaybackNotice |
       return {
         title: 'Audio is on another device',
         detail: 'Audio stays on the Mac that recorded it. Open this note there to listen back.',
-      };
-    case 'none':
-      return {
-        title: 'No audio',
-        detail: 'No audio was saved for this note.',
       };
   }
 }
