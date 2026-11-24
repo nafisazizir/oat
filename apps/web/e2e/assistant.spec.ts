@@ -164,7 +164,7 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   await expect(page.getByTestId('assistant-toggle')).toBeVisible();
   await page.keyboard.press('ControlOrMeta+j');
   await expect(panel(page)).toBeVisible();
-  await expect(panel(page).getByTestId('chat-empty')).toBeVisible();
+  await expect(panel(page).getByTestId('chat-suggestions')).toBeVisible();
 
   await ask(page, 'When does the Lakeside pilot start and who sends the onboarding checklist?');
   // Tool activity while it searches, then the answer streams in.
@@ -182,7 +182,7 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   ).toBeVisible();
   await evidence(page, 'note-panel-answer');
 
-  // A transcript chip opens the transcript at that moment, without leaving the page or closing the panel.
+  // A transcript chip opens the transcript at that moment, temporarily hiding the chat in the dock.
   const seg = answer.locator('[data-testid="citation-chip"][data-kind="seg"]').first();
   await seg.click();
   await expect(page).toHaveURL(new RegExp(`/d/${doc.id}\\?t=\\d+&seg=`));
@@ -192,8 +192,10 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   await expect(focused).toHaveCount(1);
   expect(segments).toContain(await focused.getAttribute('data-segment-id'));
   await expect(focused).toBeInViewport();
-  await expect(panel(page)).toBeVisible();
+  await expect(panel(page)).toBeHidden();
   await evidence(page, 'transcript-moment');
+  await reader.getByRole('button', { name: 'Hide transcript' }).click();
+  await expect(panel(page)).toBeVisible();
 
   // A block chip scrolls the note to that block and highlights it.
   await answer.locator('[data-testid="citation-chip"][data-kind="block"]').first().click();
@@ -252,9 +254,11 @@ test('a ?block= link opened directly scrolls to and highlights the block (server
   await expect(editor(page).locator('[data-id="b-owner"]')).toBeInViewport();
 });
 
-test('below lg the panel is a modal sheet: focus stays inside, Escape closes', async ({ page }) => {
+test('below lg the page assistant is a modal sheet: focus stays inside, Escape closes', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 900, height: 800 });
-  const { doc } = await seedNote(page);
+  const doc = await apiCreateDocument(page, { title: 'Assistant sheet fixture', kind: 'page' });
   await page.goto(`/d/${doc.id}`);
   await page.getByTestId('assistant-toggle').click();
   const dialog = page.getByRole('dialog', { name: 'Assistant' });

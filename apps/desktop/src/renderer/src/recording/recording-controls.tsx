@@ -185,6 +185,8 @@ export function RecordingBar({
   recorded = true,
   hint = null,
   controlsContainer,
+  compact = false,
+  hideTranscriptionStatus = false,
 }: {
   snapshot: RecordingSnapshot | null;
   options: InvokeResponse<'recording:options'> | null;
@@ -198,6 +200,8 @@ export function RecordingBar({
   /** Why the open note can't be continued. */
   hint?: string | null;
   controlsContainer?: HTMLElement | null;
+  compact?: boolean;
+  hideTranscriptionStatus?: boolean;
 }) {
   const action = useRecordingAction();
   const cancelStart = useRecordingAction();
@@ -212,28 +216,36 @@ export function RecordingBar({
 
   const controls = (
     <div
-      className={cn('flex items-center gap-2', !controlsContainer && 'flex-wrap justify-center')}
+      className={cn(
+        'flex items-center',
+        compact ? 'flex-wrap justify-center gap-1' : 'gap-2',
+        !compact && !controlsContainer && 'flex-wrap justify-center',
+      )}
     >
       {status === 'recording' && (
         <Button
-          size="sm"
-          variant="secondary"
+          size={compact ? 'icon-sm' : 'sm'}
+          variant={compact ? 'ghost' : 'secondary'}
+          aria-label="Pause"
+          title={compact ? 'Pause recording' : undefined}
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:pause'))}
         >
           <IconPlayerPause data-icon="inline-start" />
-          Pause
+          {!compact && 'Pause'}
         </Button>
       )}
       {status === 'paused' && (
         <Button
-          size="sm"
-          variant="secondary"
+          size={compact ? 'icon-sm' : 'sm'}
+          variant={compact ? 'ghost' : 'secondary'}
+          aria-label="Resume"
+          title={compact ? 'Resume recording' : undefined}
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:resume'))}
         >
           <IconPlayerPlay data-icon="inline-start" />
-          Resume
+          {!compact && 'Resume'}
         </Button>
       )}
       {(status === 'idle' || status === 'error') && (
@@ -241,6 +253,10 @@ export function RecordingBar({
           size="sm"
           variant="secondary"
           disabled={action.pending || cancelStart.pending || !snapshot}
+          aria-label={meetingId && recorded ? 'Continue recording' : 'Start recording'}
+          title={
+            compact ? (meetingId && recorded ? 'Continue recording' : 'Start recording') : undefined
+          }
           onClick={() => void start()}
         >
           {action.pending ? (
@@ -248,7 +264,13 @@ export function RecordingBar({
           ) : (
             <IconMicrophone data-icon="inline-start" />
           )}
-          {meetingId && recorded ? 'Continue recording' : 'Start recording'}
+          {compact
+            ? meetingId && recorded
+              ? 'Record more'
+              : 'Record'
+            : meetingId && recorded
+              ? 'Continue recording'
+              : 'Start recording'}
         </Button>
       )}
       {status === 'starting' && (
@@ -265,7 +287,7 @@ export function RecordingBar({
       )}
       {(active || status === 'error') && (
         <Button
-          size="sm"
+          size={compact ? 'icon-sm' : 'sm'}
           variant="secondary"
           disabled={
             cancelStart.pending ||
@@ -274,19 +296,20 @@ export function RecordingBar({
           }
           onClick={() => void stopAction.run(() => call('recording:stop'))}
           aria-label={status === 'error' ? 'Dismiss' : 'Stop recording'}
+          title={status === 'error' ? 'Dismiss' : 'Stop recording'}
         >
           <IconPlayerStopFilled data-icon="inline-start" />
-          {status === 'error' ? 'Dismiss' : 'Stop'}
+          {!compact && (status === 'error' ? 'Dismiss' : 'Stop')}
         </Button>
       )}
 
       {active && (
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-2">
-            <RecordingDot status={status} />
+            {!compact && <RecordingDot status={status} />}
             <Elapsed snapshot={snapshot} />
           </span>
-          {active && (
+          {!compact && (
             <>
               <LevelMeter compact label="Me" source="mic" db={snapshot?.levels.mic?.rmsDb} />
               <LevelMeter
@@ -300,7 +323,10 @@ export function RecordingBar({
         </div>
       )}
       <div className="flex items-center gap-2">
-        <SttStatusPill snapshot={snapshot} />
+        {!hideTranscriptionStatus &&
+          (!compact || (active && snapshot && transcriptionHealth(snapshot.stt) !== 'live')) && (
+            <SttStatusPill snapshot={snapshot} />
+          )}
         {options && options.fixtures.length > 0 && (status === 'idle' || status === 'error') && (
           <Select
             size="sm"

@@ -182,9 +182,9 @@ describe('calm meeting surface', () => {
     expect(screen.getByTestId('note-bottom-bar').parentElement).toBe(
       screen.getByRole('region', { name: 'Meeting' }),
     );
-    expect(screen.getByTestId('transcript-panel').parentElement).not.toBe(
-      screen.getByTestId('note-bottom-bar').parentElement,
-    );
+    expect(
+      screen.getByTestId('note-bottom-bar').contains(screen.getByTestId('transcript-panel')),
+    ).toBe(true);
     expect(localStorage.getItem('oat.desktop.transcript.open:alice')).toBe('true');
     first.unmount();
     render(<MeetingView {...props} />);

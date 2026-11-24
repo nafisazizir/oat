@@ -104,7 +104,7 @@ async function settled(page: Page) {
 const panel = (page: Page) => page.getByTestId('transcript-panel').filter({ visible: true });
 const chips = (page: Page) => page.getByTestId('participant-chip').filter({ visible: true });
 
-test('meeting header, attendees, transcript panel (collapse, resize, click → deep link)', async ({
+test('meeting header, attendees, transcript sheet (search, collapse, click → deep link)', async ({
   page,
 }) => {
   await page.goto('/home');
@@ -124,7 +124,7 @@ test('meeting header, attendees, transcript panel (collapse, resize, click → d
   await page.keyboard.press('Escape');
   await expect(panel(page)).toHaveCount(0);
   await page.getByTestId('transcript-toggle').click();
-  // Transcript panel beside the note, me/them lines.
+  // Transcript sheet above the dock, me/them lines.
   await expect(panel(page)).toBeVisible();
   await expect(panel(page)).toContainText('40');
   // No player on the web (3.7, D-10): the panel says where the audio is.
@@ -166,30 +166,11 @@ test('meeting header, attendees, transcript panel (collapse, resize, click → d
   await expect(chips(page)).toHaveCount(1);
   await page.keyboard.press('Escape');
 
-  // Resize with the keyboard on the handle; the width is remembered.
-  const width = Number(await panel(page).getAttribute('data-width'));
-  const handle = panel(page).getByRole('separator', { name: 'Resize panel' });
-  await handle.focus();
-  await page.keyboard.press('ArrowLeft');
-  await page.keyboard.press('ArrowLeft');
-  await expect(panel(page)).toHaveAttribute('data-width', String(width + 32));
-  // And by dragging it (measured afresh on each attempt: the panel may still be settling).
-  await expect(async () => {
-    const before = Number(await panel(page).getAttribute('data-width'));
-    const box = (await handle.boundingBox())!;
-    const x = box.x + box.width / 2;
-    const y = box.y + box.height / 2;
-    await page.mouse.move(x, y);
-    await page.mouse.down();
-    await page.mouse.move(x - 60, y, { steps: 4 });
-    await page.mouse.up();
-    expect(Number(await panel(page).getAttribute('data-width'))).toBe(before + 60);
-  }).toPass({ timeout: 20_000 });
-  const dragged = Number(await panel(page).getAttribute('data-width'));
-  expect(dragged).toBeGreaterThanOrEqual(width + 92);
-  await page.reload();
-  await settled(page);
-  await expect(panel(page)).toHaveAttribute('data-width', String(dragged));
+  const search = panel(page).getByRole('searchbox', { name: 'Search transcript' });
+  await search.fill('not in this transcript');
+  await expect(panel(page)).toContainText('No matching transcript lines.');
+  await search.clear();
+  await expect(panel(page).getByTestId('transcript-segment').first()).toBeVisible();
 
   // Collapse: hidden (remembered), reopened from the header.
   await page.getByRole('button', { name: 'Hide transcript' }).click();
@@ -229,7 +210,7 @@ test('a ?t= deep link opens the (collapsed) panel at that moment', async ({ page
   await expect(focused).toBeInViewport();
   await evidence(page, 'web-deep-link');
 
-  // Narrow window: the transcript is a section under the note.
+  // Narrow window: the same transcript sheet stays visible.
   await page.setViewportSize({ width: 820, height: 900 });
   await expect(panel(page)).toBeVisible();
   await expect(panel(page)).not.toHaveAttribute('data-width');

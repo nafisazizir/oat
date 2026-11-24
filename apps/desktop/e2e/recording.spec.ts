@@ -226,8 +226,7 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   await page.getByTestId('new-meeting').click();
   // The note it records into opens; its transcript is closed until asked for, so open it at once (the
   // latency below is measured to the first *visible* segment).
-  const panel = await openTranscript(page);
-  await panel.getByRole('separator', { name: 'Resize panel' }).press('End');
+  await openTranscript(page);
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
   const started = await recordingState(page);
   expect(started).toMatchObject({ status: 'recording', input: 'file', fixture: FIXTURE });

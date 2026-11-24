@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@oat/ui/components/button';
-import { IconWaveSine } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronUp, IconWaveSine } from '@tabler/icons-react';
 import type { Ref } from 'react';
 
 export function TranscriptToggle({
@@ -9,24 +9,33 @@ export function TranscriptToggle({
   count,
   onClick,
   ref,
+  live,
 }: {
   open: boolean;
   count: number;
   onClick: () => void;
   ref?: Ref<HTMLButtonElement>;
+  live?: boolean;
 }) {
   return (
     <Button
       ref={ref}
-      variant="secondary"
+      variant="ghost"
       size="sm"
       onClick={onClick}
       aria-expanded={open}
       aria-controls="transcript-panel"
+      aria-label={count ? `Transcript, ${count} lines` : 'Transcript'}
+      title="Transcript"
       data-testid="transcript-toggle"
     >
-      <IconWaveSine aria-hidden />
-      Transcript{count > 0 && <span className="text-gray-900 tabular-nums">{count}</span>}
+      {live ? (
+        <span aria-hidden className="size-2 rounded-full bg-red-700" />
+      ) : (
+        <IconWaveSine aria-hidden />
+      )}
+      <span className="hidden sm:inline">Transcript</span>
+      {open ? <IconChevronDown aria-hidden /> : <IconChevronUp aria-hidden />}
     </Button>
   );
 }

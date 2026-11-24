@@ -8,6 +8,7 @@ import type { Participant, TranscriptItem } from './format.ts';
 import { ParticipantChips } from './participants.tsx';
 import { SidePanel } from './side-panel.tsx';
 import { TranscriptList } from './transcript-list.tsx';
+import { TranscriptSheet } from './transcript-sheet.tsx';
 import { NoteColumn, TRANSCRIPT_PANEL_SIZE } from './note-column.tsx';
 
 // jsdom has no layout: give the scroller a size so the virtualizer renders rows.
@@ -19,6 +20,25 @@ const lines: TranscriptItem[] = [
   { id: 's2', source: 'mic', startMs: 2000, endMs: 3000, text: 'Hi, me here' },
   { id: 's3', source: 'mic', startMs: 3500, endMs: 4000, text: 'still typing', isFinal: false },
 ];
+
+it('filters transcript lines without changing what Copy transcript copies', async () => {
+  const clipboard = userEvent.setup();
+  const copy = vi.spyOn(navigator.clipboard, 'writeText');
+  render(
+    <TranscriptSheet items={lines} onClose={() => {}}>
+      {(items) => items.map((item) => <p key={item.id}>{item.text}</p>)}
+    </TranscriptSheet>,
+  );
+  const search = screen.getByRole('searchbox', { name: 'Search transcript' });
+  await clipboard.type(search, 'HELLO');
+  expect(screen.getByText('Hello from them')).toBeTruthy();
+  expect(screen.queryByText('Hi, me here')).toBeNull();
+  await clipboard.click(screen.getByRole('button', { name: 'Copy transcript' }));
+  expect(copy).toHaveBeenCalledWith(expect.stringContaining('0:02 · Me: Hi, me here'));
+  await clipboard.type(search, ' missing');
+  expect(screen.getByText('No matching transcript lines.')).toBeTruthy();
+  copy.mockRestore();
+});
 
 describe('shared note geometry', () => {
   it('keeps the web measure and permits caller spacing and attributes', () => {

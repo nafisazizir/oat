@@ -407,6 +407,7 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
       (await openTranscript(web)).getByTestId('transcript-segment').first(),
     ).toBeVisible();
     await evidence(web, 'web-enhanced', TASK);
+    await web.getByRole('button', { name: 'Hide transcript' }).click();
 
     // …and on the desktop, through sync.
     await expect

@@ -2,8 +2,7 @@
 
 /**
  * A meeting note on the web (3.4): the document editor with the meeting header under its title (when it was
- * recorded, attendees — editable by editors) and the transcript beside it in a collapsible, resizable panel
- * (a section under the note on narrow screens). Same pieces as the desktop (`@oat/meeting-ui`).
+ * recorded, attendees — editable by editors) and a collapsible transcript sheet in the note dock.
  *
  * - `?t=<s>&seg=<id>` (citations, transcript search hits, 6.4) opens the panel at that line, highlighted.
  * - Clicking a line picks it: the URL becomes that line's deep link (shareable; the jump target for audio
@@ -14,10 +13,9 @@
 import {
   MeetingTime,
   ParticipantSummary,
-  SidePanel,
+  TranscriptSheet,
   TranscriptToggle,
   usePanelEscape,
-  TRANSCRIPT_PANEL_SIZE,
   type TranscriptItem,
   TranscriptList,
   useStoredState,
@@ -44,7 +42,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@oat/ui/components/empty';
-import { IconDeviceLaptop, IconX, IconWaveSine } from '@tabler/icons-react';
+import { IconDeviceLaptop, IconMicrophone, IconWaveSine } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { AssistantToggleAnchor } from '@/components/assistant/document-assistant';
@@ -59,22 +57,7 @@ import { useOpfsPlayback } from '@/lib/use-opfs-playback';
 import type { WorkspaceAudience } from '@/lib/workspace';
 
 const OPEN_KEY = 'oat.transcript.open';
-const WIDTH_KEY = 'oat.transcript.width';
 const POLL_MS = 5_000;
-/** `lg`: from here on the transcript is a column beside the note; below, a section under it. */
-const WIDE = '(min-width: 64rem)';
-
-function useWide(): boolean {
-  return useSyncExternalStore(
-    (onChange) => {
-      const query = window.matchMedia(WIDE);
-      query.addEventListener('change', onChange);
-      return () => query.removeEventListener('change', onChange);
-    },
-    () => window.matchMedia(WIDE).matches,
-    () => true,
-  );
-}
 
 /** Recorded but not ended, recently: a desktop may still be recording it. */
 function maybeLive(info: MeetingInfo, now: number): boolean {
@@ -99,7 +82,6 @@ export function MeetingNote({
 }) {
   const hydrated = useHydrated();
   const { user } = useShellData();
-  const wide = useWide();
   const [info, setInfo] = useState(initial);
   const lines = useMemo(() => info.transcript ?? [], [info.transcript]);
   const editable = doc.access.edit && doc.deletedAt === null;
@@ -143,7 +125,7 @@ export function MeetingNote({
     setOpen(false);
     requestAnimationFrame(() => toggleRef.current?.focus({ preventScroll: true }));
   };
-  usePanelEscape(open && !wide, closePanel);
+  usePanelEscape(open, closePanel);
   const linkKey = wantsTranscript(focus) ? `${focus.seg ?? ''}|${focus.t ?? ''}` : null;
   useEffect(() => {
     if (linkKey) setOpen(true);
@@ -241,7 +223,7 @@ export function MeetingNote({
     </>
   );
 
-  const transcript = (
+  const transcript = (filtered: readonly TranscriptItem[]) => (
     <>
       {deleteError && (
         <p role="alert" className="text-copy-13 text-red-900">
@@ -254,7 +236,7 @@ export function MeetingNote({
         <AudioHint />
       ) : null}
       <TranscriptBody
-        items={items}
+        items={filtered}
         focusId={focusId}
         onSelect={select}
         live={polling || browserLive}
@@ -293,94 +275,57 @@ export function MeetingNote({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {/* At least the window's height, so "Ask about this note" sits at its bottom (9.3b). */}
-      <div className="flex min-h-[calc(100svh-3rem)] min-w-0 flex-1 flex-col">
-        <DocumentEditor
-          document={doc}
-          workspace={workspace}
-          meta={header}
-          overflowActions={
-            local && !browserLive ? (
-              <Button variant="ghost" onClick={() => setDeleteOpen(true)}>
-                Delete audio from this browser
-              </Button>
-            ) : null
-          }
-        />
-        {open && !wide && (
-          <section
-            id="transcript-panel"
-            aria-label="Transcript"
-            data-testid="transcript-panel"
-            className="mx-auto mb-14 flex h-96 w-full max-w-content flex-col overflow-hidden rounded-lg border border-gray-alpha-400 bg-background-100"
-          >
-            <PanelTitle count={items.length} onClose={closePanel} />
-            {transcript}
-          </section>
-        )}
-        {/* "Ask about this note" floats over the note column, never over the transcript panel. */}
+      <div className="group/meeting flex min-h-[calc(100svh-3rem)] min-w-0 flex-1 flex-col">
+        <div className="pb-16 group-has-[[data-note-dock-panel=transcript]]/meeting:pb-[min(25rem,55dvh)] group-has-[[data-note-dock-panel=assistant]:not([hidden]_*)]/meeting:pb-[min(28rem,60dvh)]">
+          <DocumentEditor
+            document={doc}
+            workspace={workspace}
+            meta={header}
+            overflowActions={
+              local && !browserLive ? (
+                <Button variant="ghost" onClick={() => setDeleteOpen(true)}>
+                  Delete audio from this browser
+                </Button>
+              ) : null
+            }
+          />
+        </div>
         <AssistantToggleAnchor
           className="mt-auto"
           feedback={<RecordingFeedback documentId={doc.id} />}
+          transcript={
+            open ? (
+              <TranscriptSheet
+                items={items}
+                onClose={closePanel}
+                footer={
+                  browserLive && (
+                    <>
+                      <IconMicrophone aria-hidden className="size-4" />
+                      Browser microphone
+                    </>
+                  )
+                }
+              >
+                {transcript}
+              </TranscriptSheet>
+            ) : undefined
+          }
         >
-          <RecordingControls
-            documentId={doc.id}
-            eligible={editable && !(info.endedAt && lines.length > 0)}
-          />
           <TranscriptToggle
             ref={toggleRef}
             open={open}
             count={items.length}
+            live={polling || (recordingHere && recording.status === 'recording')}
             onClick={() => (open ? closePanel() : setOpen(true))}
+          />
+          <RecordingControls
+            documentId={doc.id}
+            eligible={editable && !(info.endedAt && lines.length > 0)}
           />
         </AssistantToggleAnchor>
       </div>
-      {open && wide && (
-        <SidePanel
-          id="transcript-panel"
-          title={
-            <>
-              <IconWaveSine aria-hidden className="size-4 text-gray-900" />
-              Transcript
-            </>
-          }
-          meta={
-            items.length > 0 && (
-              <span className="text-label-13 text-gray-900 tabular-nums">{items.length}</span>
-            )
-          }
-          closeLabel="Hide transcript"
-          onClose={closePanel}
-          storageKey={WIDTH_KEY}
-          defaultWidth={TRANSCRIPT_PANEL_SIZE.default}
-          minWidth={TRANSCRIPT_PANEL_SIZE.min}
-          maxWidth={TRANSCRIPT_PANEL_SIZE.max}
-          className="sticky top-12 h-[calc(100svh-3rem)] self-start"
-          data-testid="transcript-panel"
-        >
-          {transcript}
-        </SidePanel>
-      )}
     </div>
-  );
-}
-
-function PanelTitle({ count, onClose }: { count: number; onClose: () => void }) {
-  return (
-    <header className="flex h-11 shrink-0 items-center gap-2 border-b border-gray-alpha-400 ps-4 pe-2">
-      <IconWaveSine aria-hidden className="size-4 text-gray-900" />
-      <h2 className="text-label-14 text-gray-1000">Transcript</h2>
-      {count > 0 && <span className="text-label-13 text-gray-900 tabular-nums">{count}</span>}
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="ms-auto"
-        aria-label="Hide transcript"
-        onClick={onClose}
-      >
-        <IconX />
-      </Button>
-    </header>
   );
 }
 
@@ -392,7 +337,7 @@ function TranscriptBody({
   activeId,
   playheadKey,
 }: {
-  items: TranscriptItem[];
+  items: readonly TranscriptItem[];
   focusId: string | undefined;
   onSelect: (segment: TranscriptItem) => void;
   live: boolean;
