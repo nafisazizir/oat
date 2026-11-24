@@ -209,14 +209,13 @@ export function MeetingNote({
     // workspace (the sidebar says it), no shared audience (the default), no duration.
     <MeetingMetaRow>
       <MeetingPrivate visibility={doc.visibility} />
-      {!browserLive && (
-        <MeetingTime
-          startedAt={info.startedAt}
-          endedAt={info.endedAt}
-          // Server render + hydration in UTC (they must agree), then the viewer's zone.
-          {...(hydrated ? {} : { timeZone: 'UTC' })}
-        />
-      )}
+      <MeetingTime
+        startedAt={info.startedAt}
+        endedAt={info.endedAt}
+        live={browserLive}
+        // Server render + hydration in UTC (they must agree), then the viewer's zone.
+        {...(hydrated ? {} : { timeZone: 'UTC' })}
+      />
       {eventLine}
       <ParticipantSummary
         participants={info.participants}
