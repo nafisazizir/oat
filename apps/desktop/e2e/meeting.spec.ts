@@ -133,8 +133,8 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
   await expect(page.getByTestId('meeting-list-item')).toContainText('Beta launch sync');
   await expect(page.getByText('Saved on this Mac')).toHaveCount(0);
 
-  // An attendee, added by hand (attendees are behind the "N attendees" chip).
-  await expect(page.getByTestId('attendees-toggle')).toHaveText('0 attendees');
+  // An attendee, added by hand (attendees are behind the facepile; "Add attendees" while there are none).
+  await expect(page.getByTestId('attendees-toggle')).toHaveAccessibleName('Add attendees');
   await openAttendees(page);
   await page.getByTestId('add-participant').click();
   await page.getByLabel('Name').fill('Dana Scully');
@@ -142,7 +142,7 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.getByTestId('participant-chip')).toHaveCount(1);
   await closeAttendees(page);
-  await expect(page.getByTestId('attendees-toggle')).toHaveText('1 attendee');
+  await expect(page.getByTestId('attendees-toggle')).toHaveText('DSDana Scully');
 
   // The transcript is closed until asked for; opened, the live transcript fills the panel beside the note.
   await expect(page.getByTestId('transcript-panel')).toHaveCount(0);
@@ -262,7 +262,7 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
     .toBe(2);
   await expect(page.getByTestId('participant-chip').nth(1)).toContainText('Fox Mulder');
   await closeAttendees(page);
-  await expect(page.getByTestId('attendees-toggle')).toHaveText('2 attendees');
+  await expect(page.getByTestId('attendees-toggle')).toHaveAttribute('data-count', '2');
 
   // Quit right after typing (within the autosave debounce): the app writes it before quitting.
   await page.getByRole('textbox', { name: 'My notes' }).click();

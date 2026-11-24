@@ -228,7 +228,7 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording', {
     timeout: scaled(20_000),
   });
-  await expect(page.getByTestId('note-workspace')).toHaveText(DESIGN);
+  await expect(page.getByTestId('workspace-switcher')).toContainText(DESIGN);
   await expect(page.getByTestId('meeting-list-item')).toHaveCount(1);
   // A new recording starts in Private.
   await expect(inSection('private')).toHaveCount(1);
@@ -340,7 +340,7 @@ test('as a viewer, new notes go to the first workspace I can add to (and the sid
   await home();
   await upcoming.getByTestId('upcoming-event').filter({ hasText: EVENT }).click();
   await expect(page.getByTestId('note-title')).toHaveValue(EVENT);
-  await expect(page.getByTestId('note-workspace')).toHaveText(DESIGN);
+  await expect(page.getByTestId('workspace-switcher')).toContainText(DESIGN);
   await home();
   await expect(upcoming.getByTestId('upcoming-event-workspace')).toHaveText(`in ${DESIGN}`);
   await evidence(page, 'desktop-viewer-hint', TASK);
@@ -379,7 +379,7 @@ test('a role change follows by sync; the active workspace survives a relaunch', 
   );
   // Its note is view-only here now.
   await page.getByTestId('meeting-list-item').first().click();
-  await expect(page.getByTestId('note-workspace')).toHaveText(DESIGN);
+  await expect(page.getByTestId('workspace-switcher')).toContainText(DESIGN);
   await expect(page.getByText('View only', { exact: true }).last()).toBeVisible();
   await expect(page.getByTestId('note-title')).toHaveAttribute('readonly');
 
@@ -428,7 +428,7 @@ test('view-only everywhere: the sidebar asks for a workspace and a recording is 
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording', {
     timeout: scaled(20_000),
   });
-  await expect(page.getByTestId('note-workspace')).toHaveText(OWN);
+  await expect(page.getByTestId('workspace-switcher')).toContainText(OWN);
   await stopRecording(page);
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
     timeout: scaled(30_000),

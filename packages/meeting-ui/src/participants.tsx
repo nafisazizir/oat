@@ -1,19 +1,21 @@
 'use client';
 
 /**
- * Who was in the meeting, as chips: from the calendar event's attendees (7.3) or added by hand. Editors add
+ * Who was in the meeting: a facepile + names in the header (`ParticipantSummary`), chips in its popover: from the calendar event's attendees (7.3) or added by hand. Editors add
  * (name + optional email, in a popover) and remove them; the caller persists (web API / desktop local store).
  */
+import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount } from '@oat/ui/components/avatar';
 import { Button } from '@oat/ui/components/button';
 import { Input } from '@oat/ui/components/input';
 import { Label } from '@oat/ui/components/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@oat/ui/components/popover';
 import { cn } from '@oat/ui/lib/utils';
 import { Spinner } from '@oat/ui/components/spinner';
-import { IconCalendar, IconPlus, IconUsers, IconX } from '@tabler/icons-react';
+import { IconCalendar, IconPlus, IconUserPlus, IconX } from '@tabler/icons-react';
 import { type FormEvent, useId, useState } from 'react';
 
-import { initials, isPlausibleEmail, type Participant } from './format.ts';
+import { attendeesLabel, initials, isPlausibleEmail, type Participant } from './format.ts';
+import { metaActionClass } from './meeting-meta.tsx';
 
 export interface ParticipantChipsProps {
   participants: readonly Participant[];
@@ -27,21 +29,47 @@ export interface ParticipantChipsProps {
 export const MAX_PARTICIPANT_NAME = 200;
 
 export function ParticipantSummary(props: ParticipantChipsProps) {
-  const count = props.participants.length;
+  const { participants, editable } = props;
+  const count = participants.length;
+  // Only me: nothing to show. Editors can still add people (revealed on hover, always on touch screens).
+  if (count === 0 && !(editable && props.onAdd)) return null;
+  const shown = participants.slice(0, count > MAX_FACES ? MAX_FACES - 1 : MAX_FACES);
   return (
     <Popover>
       <PopoverTrigger
-        render={
-          <Button
-            variant="secondary"
-            size="xs"
-            className="text-gray-900"
-            data-testid="attendees-toggle"
-          />
-        }
+        className={cn(
+          metaActionClass,
+          count === 0 &&
+            'pointer-fine:opacity-0 pointer-fine:group-hover/meta:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100',
+        )}
+        aria-label={count === 0 ? 'Add attendees' : `Attendees: ${attendeesLabel(participants)}`}
+        data-testid="attendees-toggle"
+        data-count={count}
       >
-        <IconUsers aria-hidden />
-        {count} {count === 1 ? 'attendee' : 'attendees'}
+        {count === 0 ? (
+          <>
+            <IconUserPlus aria-hidden />
+            Add attendees
+          </>
+        ) : (
+          <>
+            <AvatarGroup className="-space-x-1">
+              {shown.map((p) => (
+                <Avatar key={p.id} size="sm" className="size-5">
+                  <AvatarFallback className="bg-gray-200 text-[8px] font-medium text-gray-1000">
+                    {initials(p.name || p.email || '?')}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+              {count > shown.length && (
+                <AvatarGroupCount className="size-5 bg-gray-200 text-[8px] font-medium text-gray-1000">
+                  +{count - shown.length}
+                </AvatarGroupCount>
+              )}
+            </AvatarGroup>
+            {attendeesLabel(participants)}
+          </>
+        )}
       </PopoverTrigger>
       <PopoverContent
         align="start"
@@ -54,6 +82,8 @@ export function ParticipantSummary(props: ParticipantChipsProps) {
     </Popover>
   );
 }
+
+const MAX_FACES = 3;
 
 export function ParticipantChips({
   participants,

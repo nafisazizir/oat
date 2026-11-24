@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   activeSegmentAt,
+  attendeesLabel,
   clampWidth,
   formatClock,
   formatDuration,
@@ -9,6 +10,7 @@ import {
   isNearBottom,
   isPlausibleEmail,
   meetingWhen,
+  scheduleLabel,
   mergeTranscripts,
   shortWhen,
   speakerOf,
@@ -88,21 +90,46 @@ describe('format', () => {
     const start = '2026-11-14T15:04:00.000Z';
     const end = '2026-11-14T15:16:30.000Z';
     expect(meetingWhen(start, end, Date.parse(end) + 1000, 'UTC')).toEqual({
-      label: 'Sat, Nov 14 · 3:04 PM UTC',
-      duration: '12 min',
+      label: 'Today, 3:04 PM UTC',
       inProgress: false,
     });
+    expect(meetingWhen(start, end, Date.parse('2026-11-15T09:00:00Z'), 'UTC').label).toBe(
+      'Yesterday, 3:04 PM UTC',
+    );
+    expect(meetingWhen(start, end, Date.parse('2026-11-20T09:00:00Z'), 'UTC').label).toBe(
+      'Sat, Nov 14, 3:04 PM UTC',
+    );
+    expect(meetingWhen(start, end, Date.parse('2027-01-20T09:00:00Z'), 'UTC').label).toBe(
+      'Nov 14, 2026, 3:04 PM UTC',
+    );
     // No end yet: in progress for a while, then just a date (a recording that never ended).
-    const live = meetingWhen(start, null, Date.parse(start) + 5 * 60_000, 'UTC');
-    expect(live).toMatchObject({ inProgress: true, duration: '5 min' });
-    expect(meetingWhen(start, null, Date.parse(start) + 7 * 3_600_000, 'UTC')).toMatchObject({
-      inProgress: false,
-      duration: null,
-    });
-    expect(meetingWhen(null, null, 0)).toEqual({ label: null, duration: null, inProgress: false });
+    expect(meetingWhen(start, null, Date.parse(start) + 5 * 60_000, 'UTC').inProgress).toBe(true);
+    expect(meetingWhen(start, null, Date.parse(start) + 7 * 3_600_000, 'UTC').inProgress).toBe(
+      false,
+    );
+    expect(meetingWhen(null, null, 0)).toEqual({ label: null, inProgress: false });
     expect(meetingWhen('garbage', null, 0).label).toBeNull();
     // Local zone: no zone name.
     expect(meetingWhen(start, end, Date.parse(end)).label).not.toContain('UTC');
+  });
+
+  it('describes a calendar slot', () => {
+    const now = Date.parse('2026-11-14T12:00:00Z');
+    const slot = scheduleLabel('2026-11-15T16:00:00Z', '2026-11-15T16:30:00Z', false, now, 'UTC');
+    expect(slot.replace(/\s/g, ' ')).toBe('Tomorrow, 4:00 – 4:30 PM');
+    const late = scheduleLabel('2026-11-15T23:45:00Z', '2026-11-16T00:15:00Z', false, now, 'UTC');
+    expect(late.replace(/\s/g, ' ')).toBe('Tomorrow, 11:45 PM – 12:15 AM');
+    expect(scheduleLabel('2026-11-14T00:00:00Z', '2026-11-15T00:00:00Z', true, now, 'UTC')).toBe(
+      'Today, all day',
+    );
+  });
+
+  it('names attendees briefly', () => {
+    const p = (name: string, email: string | null = null) => ({ name, email });
+    expect(attendeesLabel([])).toBe('');
+    expect(attendeesLabel([p('Ana Lee')])).toBe('Ana Lee');
+    expect(attendeesLabel([p('Ana Lee'), p('', 'ben@x.io')])).toBe('Ana and ben');
+    expect(attendeesLabel([p('Ana Lee'), p('Ben Ito'), p('Cy'), p('Di')])).toBe('Ana, Ben +2');
   });
 
   it('writes short list dates', () => {

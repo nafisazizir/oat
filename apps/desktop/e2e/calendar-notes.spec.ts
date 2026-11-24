@@ -236,7 +236,7 @@ test('detected call during an event → "Start notes?" → note from the event, 
     timeout: scaled(20_000),
   });
   await expect(page.getByTestId('note-title')).toHaveValue('Design review');
-  await expect(page.getByTestId('attendees-toggle')).toHaveText('2 attendees');
+  await expect(page.getByTestId('attendees-toggle')).toHaveAttribute('data-count', '2');
   await openAttendees(page);
   const chips = page.getByTestId('participant-chip');
   await expect(chips).toHaveCount(2);
@@ -245,9 +245,10 @@ test('detected call during an event → "Start notes?" → note from the event, 
   for (const name of ['Jordan Lee', 'Priya Nair'])
     await expect(chips.filter({ hasText: name })).toHaveCount(1);
   await closeAttendees(page);
+  // Recording: the recorded time (Live) replaces the slot; the call link stays.
   const scheduled = page.getByTestId('note-calendar-event');
-  await expect(scheduled).toContainText('Scheduled');
-  await expect(scheduled.getByRole('button', { name: 'Join Zoom' })).toBeVisible();
+  await expect(scheduled.getByRole('link', { name: 'Join Zoom' })).toBeVisible();
+  await expect(page.getByTestId('meeting-live')).toBeVisible();
   await expect(page.getByTestId('meeting-time')).toHaveAttribute('data-in-progress', 'true');
   expect((await notifications(electronApp))[0]!.closed).toBe(true);
   const { meetingId } = await invoke<{ meetingId: string }>(page, 'recording:get');
@@ -303,12 +304,12 @@ test('Upcoming → Start notes opens the event’s note; again reopens the same 
   const listed = await page.getByTestId('meeting-list-item').count();
   await tomorrow.click();
   await expect(page.getByTestId('note-title')).toHaveValue(tomorrowTitle);
-  await expect(page.getByTestId('meeting-time')).toContainText('Not recorded yet');
+  await expect(page.getByTestId('meeting-time')).toHaveCount(0);
   await openAttendees(page);
   await expect(page.getByTestId('participant-chip')).toHaveCount(1);
   await expect(page.getByTestId('participant-chip')).toContainText('Sam Okafor');
   await closeAttendees(page);
-  await expect(page.getByTestId('note-calendar-event')).toContainText('Scheduled');
+  await expect(page.getByTestId('note-calendar-event')).toContainText('Tomorrow, ');
   // Recording can start into it (nothing recorded yet): no "recorded on another device" hint.
   await expect(page.getByRole('button', { name: 'Start recording' })).toBeVisible();
   await expect(page.getByText('Recorded on another device')).toHaveCount(0);

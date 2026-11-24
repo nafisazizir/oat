@@ -112,10 +112,13 @@ test('meeting header, attendees, transcript sheet (collapse, click → deep link
   await page.goto(`/d/${doc.id}`);
   await settled(page);
 
-  // Header: when, how long, who (from the calendar).
+  // Header: when and who (from the calendar), no duration.
   const header = page.getByTestId('meeting-header').filter({ visible: true });
   await expect(header.getByTestId('meeting-time')).toContainText('Nov 12');
-  await expect(header.getByTestId('meeting-duration')).toHaveText('30 min');
+  await expect(header.getByTestId('meeting-duration')).toHaveCount(0);
+  await expect(header.getByTestId('attendees-toggle')).toHaveAccessibleName(
+    'Attendees: Riley Chen',
+  );
   await page.getByTestId('attendees-toggle').click();
   await expect(chips(page)).toHaveCount(1);
   await expect(chips(page).first()).toHaveAttribute('data-source', 'calendar');

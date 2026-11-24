@@ -231,24 +231,24 @@ export function PageEditorSurface({
             }
           }}
         />
-        <div
-          className="flex min-h-8 flex-wrap items-center gap-2 text-label-12 text-gray-900"
-          data-testid={isMeeting ? 'meeting-header' : undefined}
-        >
-          <VisibilityBadge visibility={doc.visibility} workspace={workspace} />
-          {!trashed && !doc.access.edit && (
-            <Badge variant="outline">
-              <IconEye data-icon="inline-start" />
-              View only
-            </Badge>
-          )}
-          {!isMeeting && (
+        {isMeeting ? (
+          // A meeting brings its own header row (`MeetingMetaRow`): access, time, people in one style.
+          meta
+        ) : (
+          <div className="flex min-h-8 flex-wrap items-center gap-2 text-label-12 text-gray-900">
+            <VisibilityBadge visibility={doc.visibility} workspace={workspace} />
+            {!trashed && !doc.access.edit && (
+              <Badge variant="outline">
+                <IconEye data-icon="inline-start" />
+                View only
+              </Badge>
+            )}
             <span className="inline-flex h-6 items-center rounded-md bg-gray-100 px-2.5 text-label-12">
               Edited {formatDay(updatedAt)}
             </span>
-          )}
-          {meta}
-        </div>
+            {meta}
+          </div>
+        )}
       </header>
 
       {beforeEditor}
