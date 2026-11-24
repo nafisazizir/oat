@@ -28,6 +28,8 @@ vi.mock('./document-enhancement', () => ({
   useDocumentEnhancement: () => ({
     streaming: false,
     beforeEditor: null,
+    enhance: () => null,
+    historyAction: null,
     enhancement: { follow: vi.fn() },
   }),
 }));

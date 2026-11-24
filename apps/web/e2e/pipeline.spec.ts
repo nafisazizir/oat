@@ -145,14 +145,23 @@ test('a meeting ends → the pipeline enhances it and auto-sends it to Notion', 
   await expect(page.getByTestId('document-title')).toHaveValue(title);
   await expect(page.getByTestId('pipeline-status')).toHaveCount(0);
 
-  // The meeting ends (the desktop syncs `ended_at`): the pipeline runs on its own.
+  // The meeting ends (the desktop syncs `ended_at`): the pipeline runs silently on its own.
   await push([meetingRow('2026-11-15T10:30:00.000Z')]);
   await page.reload();
-  const status = page.getByTestId('pipeline-status');
-  await expect(status).toContainText('Post-meeting:');
-  await evidence(page, 'running');
-  await expect(status).toHaveAttribute('data-status', 'completed', { timeout: 90_000 * scale });
-  await expect(status).toHaveText('Post-meeting: done');
+  await expect(page.getByTestId('pipeline-status')).toHaveCount(0);
+  await expect
+    .poll(
+      async () => {
+        const res = (await (
+          await page.request.get(`/api/documents/${doc.id}/pipeline`)
+        ).json()) as {
+          run: { status: string } | null;
+        };
+        return res.run?.status ?? null;
+      },
+      { timeout: 90_000 * scale, intervals: [500] },
+    )
+    .toBe('completed');
   await evidence(page, 'done');
 
   // Enhanced (the AI's blocks are in the note now) and sent: the Notion mock received this note's page.
@@ -170,7 +179,7 @@ test('a meeting ends → the pipeline enhances it and auto-sends it to Notion', 
   ]);
   // The note's Notion button loads its status once: after a reload it links to the page the pipeline made.
   await page.reload();
-  await expect(page.getByTestId('pipeline-status')).toHaveText('Post-meeting: done');
+  await expect(page.getByTestId('pipeline-status')).toHaveCount(0);
   await page.getByTestId('document-more').click();
   const link = page.getByTestId('notion-link');
   await expect(link).toContainText('In Notion');

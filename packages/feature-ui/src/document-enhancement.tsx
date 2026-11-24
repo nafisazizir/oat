@@ -1,11 +1,10 @@
 'use client';
 
 import type { JSONContent } from '@oat/editor';
-import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { EnhanceError } from './enhance-controls';
 import { EnhancePreview } from './enhance-preview';
-import { EnhanceToolbar } from './enhance-toolbar';
+import { useEnhanceControls } from './enhance-toolbar';
 import { useEnhancement } from './use-enhancement';
 import { noteToastId, useNoteVersions } from './use-note-versions';
 
@@ -80,24 +79,12 @@ export function useDocumentEnhancement({
       }
     },
   });
-  const secondary = useCallback(
-    (
-      workspaceId: string,
-      renderSecondaryActions: (history: React.ReactNode) => React.ReactNode,
-    ) => (
-      <EnhanceToolbar
-        enhancement={enhancement}
-        versions={versions}
-        workspaceId={workspaceId}
-        renderSecondaryActions={renderSecondaryActions}
-      />
-    ),
-    [enhancement, versions],
-  );
+  const controls = useEnhanceControls({ enhancement, versions });
   return {
     enhancement,
     versions,
-    secondary,
+    enhance: controls.enhanceButton,
+    historyAction: controls.historyAction,
     streaming: enhancement.state.phase === 'streaming',
     beforeEditor: (
       <>
@@ -105,6 +92,7 @@ export function useDocumentEnhancement({
         {enhancement.state.phase === 'streaming' && (
           <EnhancePreview output={enhancement.state.preview} />
         )}
+        {enabled && editable && controls.dialogs}
       </>
     ),
   };

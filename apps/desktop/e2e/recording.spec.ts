@@ -341,12 +341,10 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   const stopped = await page.evaluate(() => window.oat.invoke('recording:stop'));
   expect(stopped.ok).toBe(true);
 
-  // Files closed, finished and playable on this Mac (3.7): the playhead owns the scroll now — scrolling up never offers
-  // "Jump to live" for a recording that is over.
+  // Files closed, finished on this Mac: audio files are internal-only (no playback bar), and scrolling up
+  // never offers "Jump to live" for a recording that is over.
   const scroller = page.getByTestId('transcript-scroll');
-  await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'paused', {
-    timeout: scaled(15_000),
-  });
+  await expect(page.getByTestId('playback')).toHaveCount(0);
   await scroller.evaluate((el) => {
     el.scrollTop = 0;
     el.dispatchEvent(new Event('scroll'));

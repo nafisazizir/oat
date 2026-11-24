@@ -25,7 +25,6 @@ import {
   wantsTranscript,
 } from '@oat/feature-ui/assistant';
 import {
-  activeSegmentAt,
   MeetingTime,
   mergeTranscripts,
   ParticipantSummary,
@@ -49,14 +48,13 @@ import { Skeleton } from '@oat/ui/components/skeleton';
 import { Spinner } from '@oat/ui/components/spinner';
 import {
   IconAlertCircle,
-  IconCheck,
   IconEye,
   IconLock,
   IconNotes,
   IconStack2,
   IconUsers,
 } from '@tabler/icons-react';
-import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createPortal } from 'react-dom';
 
@@ -67,14 +65,13 @@ import { IssueBanner, RecordingBar } from '../recording/recording-controls.tsx';
 import { TranscriptPanel } from '../recording/transcript-panel.tsx';
 import { useTranscript } from '../recording-state.ts';
 import { isActive } from '../recording-view.ts';
-import { PlaybackBar, playerKey, useMeetingPlayback } from './audio-player.tsx';
 import {
   registerFlush,
   useMeetingNote,
   useStoredTranscript,
   useTranscriptStatus,
 } from './meetings-state.ts';
-import { GraceLine, PipelineLine } from './post-meeting.tsx';
+import { PipelineWatcher } from './post-meeting.tsx';
 import { type AutosaveState, NoteAutosave } from './note-autosave.ts';
 import { meetingAssistantHandle } from './meeting-assistant';
 import { MeetingActions } from '../workspace/meeting-actions';
@@ -120,7 +117,6 @@ export function MeetingView({
   );
   const toggleRef = useRef<HTMLButtonElement>(null);
   const [stopContainer, setStopContainer] = useState<HTMLDivElement | null>(null);
-  const canStop = isActive(snapshot?.status) || snapshot?.status === 'error';
   const focus = useMemo(() => parseDeepLink(focusQuery ?? {}), [focusQuery]);
   const [picked, setPicked] = useState<{
     id: string;
@@ -144,17 +140,11 @@ export function MeetingView({
       : storedItems;
   }, [documentId, stored.segments, meetingId, live.meetingId, live.segments]);
 
-  // Playback (3.7): only a note with a meeting, and not while it is being recorded (the bar above says so).
-  const { audioRef, player } = useMeetingPlayback(
-    documentId && meetingId && !recordingThis ? meetingId : null,
-  );
   const closePanel = () => {
-    player.pause();
     setPanelOpen(false);
     requestAnimationFrame(() => toggleRef.current?.focus({ preventScroll: true }));
   };
   usePanelEscape(panelOpen && !!documentId, closePanel);
-  const playable = player.available && !recordingThis;
   const linked = focusedLine(segments, focus);
   const selected =
     picked &&
@@ -163,45 +153,19 @@ export function MeetingView({
     picked.documentId === documentId
       ? picked.id
       : linked;
-  const targetMs =
-    focus.seg && linked === focus.seg
-      ? segments.find((s) => s.id === linked)?.startMs
-      : focus.t !== undefined
-        ? focus.t * 1000
-        : undefined;
-  const seek = player.seek;
   useEffect(() => {
     if (documentId && wantsTranscript(focus)) {
       setPanelOpen(true);
-      if (playable && targetMs !== undefined) seek(targetMs);
     }
-  }, [documentId, focus, focusRevision, linked, targetMs, playable, seek, setPanelOpen]);
-  // Re-renders only when the highlighted line changes, not on every frame of the playhead.
-  const activeId = useSyncExternalStore(player.clock.subscribe, () =>
-    playable ? activeSegmentAt(segments, player.clock.ms) : undefined,
-  );
+  }, [documentId, focus, focusRevision, setPanelOpen]);
 
-  // 7.5: just stopped → the grace period (the end isn't written yet); ended → the post-meeting pipeline.
+  // 7.5: just stopped → the grace period holds `endedAt` before it is written.
   const grace = useMeetingGrace();
   const graceHere =
     grace && meetingId && grace.meetingId === meetingId && !recordingThis ? grace : null;
-  let postMeeting: ReactNode = null;
-  if (note && meetingId && !recordingThis) {
-    if (graceHere) {
-      postMeeting = (
-        <GraceLine
-          dueAt={graceHere.dueAt}
-          onFinishNow={() => call('grace:finish-now', { meetingId })}
-        />
-      );
-    } else if (note.endedAt) {
-      postMeeting = <PipelineLine documentId={note.documentId} endedAt={note.endedAt} />;
-    }
-  }
 
   // Home (no note open) shows the recording's state; a note shows it only while it is the one recorded.
   const showsRecording = documentId === null || recordingThis;
-  const followLive = recordingThis || (meetingId !== null && live.meetingId === meetingId);
 
   const surface = (
     <section
@@ -214,7 +178,9 @@ export function MeetingView({
           {documentId === null ? 'Meeting notes' : note?.title || 'Untitled meeting'}
         </h1>
       )}
-      <audio ref={audioRef} preload="metadata" hidden data-testid="playback-audio" />
+      {note && meetingId && !recordingThis && !graceHere && note.endedAt && (
+        <PipelineWatcher documentId={note.documentId} endedAt={note.endedAt} />
+      )}
       <IssueBanner snapshot={snapshot} />
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
@@ -254,7 +220,6 @@ export function MeetingView({
                   endedAt={
                     note.endedAt ?? (graceHere ? new Date(graceHere.endedAt).toISOString() : null)
                   }
-                  postMeeting={postMeeting}
                   controlsContainer={controlsContainer}
                 />
                 <BlockFocus
@@ -271,47 +236,43 @@ export function MeetingView({
         <AssistantToggleAnchor
           className="absolute inset-x-0"
           transcript={
-            documentId && panelOpen && (note || !loaded || canStop) ? (
+            documentId &&
+            panelOpen &&
+            (note || !loaded || isActive(snapshot?.status) || snapshot?.status === 'error') ? (
               <TranscriptSheet
                 items={segments}
                 onClose={closePanel}
                 footer={
                   <>
                     <DockControlsOutlet panel="transcript" />
-                    {canStop && <div className="ms-auto" ref={setStopContainer} />}
+                    <div
+                      className="ms-auto flex items-center gap-2 empty:hidden"
+                      ref={setStopContainer}
+                    />
                   </>
                 }
               >
-                <div
-                  className="flex min-h-0 flex-1 flex-col"
-                  onKeyDown={(event) => playerKey(event, player)}
-                >
-                  {documentId && meetingId && !recordingThis && <PlaybackBar player={player} />}
+                <div className="flex min-h-0 flex-1 flex-col">
                   <TranscriptPanel
                     key={`${documentId}:${focusRevision}:${focus.seg ?? ''}:${focus.t ?? ''}`}
                     segments={segments}
-                    // A just-recorded note that can be played back follows the playhead, not the live end.
-                    live={showsRecording || (followLive && !playable)}
+                    live={showsRecording}
                     snapshot={showsRecording ? snapshot : null}
                     loaded={documentId === null ? live.loaded : loaded && stored.loaded}
                     failed={documentId === null ? live.failed : stored.failed}
                     meetingKey={documentId}
                     focusId={selected}
                     onSelect={
-                      playable
-                        ? (s) => player.seek(s.startMs)
-                        : documentId
-                          ? (s) =>
-                              setPicked({
-                                id: s.id,
-                                query: focusQuery,
-                                revision: focusRevision,
-                                documentId,
-                              })
-                          : undefined
+                      documentId
+                        ? (s) =>
+                            setPicked({
+                              id: s.id,
+                              query: focusQuery,
+                              revision: focusRevision,
+                              documentId,
+                            })
+                        : undefined
                     }
-                    activeId={activeId}
-                    playheadKey={playable ? player.seekCount : undefined}
                     status={transcriptStatus}
                   />
                 </div>
@@ -431,15 +392,12 @@ function NoteBody({
   note,
   live,
   endedAt,
-  postMeeting,
   controlsContainer,
 }: {
   note: MeetingNote;
   live: boolean;
   /** The meeting's end, also while it waits out the grace period (not written yet). */
   endedAt: string | null;
-  /** The post-meeting line (7.5): grace countdown or pipeline status. */
-  postMeeting: ReactNode;
   controlsContainer?: HTMLElement | null;
 }) {
   const [title, setTitle] = useState(note.title);
@@ -565,7 +523,10 @@ function NoteBody({
             autosave.queue({ title: next });
           }}
         />
-        <div className="flex min-h-7 flex-wrap items-center gap-2 text-label-12 text-gray-900">
+        <div
+          className="flex min-h-7 flex-wrap items-center gap-2 text-label-12 text-gray-900"
+          data-testid="meeting-header"
+        >
           {note.workspaceName && (
             // 3.9: which workspace the note lives in (it never moves, D-18).
             <Badge
@@ -601,16 +562,27 @@ function NoteBody({
               )
             }
           />
+          {editable ? capabilities.enhance(note.workspaceId) : null}
         </div>
+        {controlsContainer ? (
+          createPortal(
+            <div className="flex items-center gap-2 text-label-12 text-gray-900 empty:hidden">
+              <SaveStatus state={save.state} error={save.error} />
+            </div>,
+            controlsContainer,
+          )
+        ) : (
+          <div className="flex items-center gap-2 text-label-12 text-gray-900 empty:hidden">
+            <SaveStatus state={save.state} error={save.error} />
+          </div>
+        )}
         <MeetingActions
           container={controlsContainer}
           id={documentId}
           beforeRemove={editable ? assistant.settle : undefined}
           removeDisabled={live}
           renderSecondaryActions={(lifecycle) =>
-            editable
-              ? capabilities.secondary(note.workspaceId, (history) => notion(history, lifecycle))
-              : notion(null, lifecycle)
+            notion(editable ? capabilities.historyAction : null, lifecycle)
           }
         />
 
@@ -631,20 +603,6 @@ function NoteBody({
           </div>
         )}
       </header>
-      {controlsContainer ? (
-        createPortal(
-          <div className="flex items-center gap-2 text-label-12 text-gray-900">
-            <SaveStatus state={save.state} error={save.error} />
-            {postMeeting}
-          </div>,
-          controlsContainer,
-        )
-      ) : (
-        <div className="flex items-center gap-2 text-label-12 text-gray-900">
-          <SaveStatus state={save.state} error={save.error} />
-          {postMeeting}
-        </div>
-      )}
       {capabilities.beforeEditor}
       <div data-testid="note-editor" hidden={capabilities.streaming}>
         <OatEditor
@@ -681,6 +639,7 @@ function SaveStatus({ state, error }: { state: AutosaveState; error: string | nu
   const base = 'inline-flex items-center gap-1';
   switch (state) {
     case 'idle':
+    case 'saved':
       return null;
     case 'pending':
     case 'saving':
@@ -688,13 +647,6 @@ function SaveStatus({ state, error }: { state: AutosaveState; error: string | nu
         <span className={base} data-testid="save-status" data-state="saving" aria-live="polite">
           <Spinner aria-hidden className="size-3" />
           Saving…
-        </span>
-      );
-    case 'saved':
-      return (
-        <span className={base} data-testid="save-status" data-state="saved" aria-live="polite">
-          <IconCheck aria-hidden className="size-3" />
-          Saved on this Mac
         </span>
       );
     case 'error':

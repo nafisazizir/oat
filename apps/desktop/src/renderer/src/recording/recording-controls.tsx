@@ -322,40 +322,45 @@ export function RecordingBar({
       {!compact && stop}
     </>
   );
+  const inputSelect = options &&
+    options.fixtures.length > 0 &&
+    (status === 'idle' || status === 'error') && (
+      <Select
+        size={compact ? 'lg' : 'sm'}
+        variant="default"
+        shape={compact ? 'rounded' : 'default'}
+        items={[
+          { value: 'sidecar', label: 'Mic + system audio' },
+          ...options.fixtures.map((f) => ({
+            value: `${FILE_PREFIX}${f}`,
+            label: `Fixture: ${f}`,
+          })),
+        ]}
+        value={input}
+        onValueChange={(value) => {
+          if (value !== null) onInputChange(value);
+        }}
+      >
+        <SelectTrigger aria-label="Audio input (dev)" data-testid="audio-input">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="sidecar">Mic + system audio</SelectItem>
+          {options.fixtures.map((f) => (
+            <SelectItem key={f} value={`${FILE_PREFIX}${f}`}>
+              Fixture: {f}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
   const extras = (
     <div className={cn('flex items-center gap-2', compact && 'empty:hidden')}>
       {!hideTranscriptionStatus &&
         (!compact || (active && snapshot && transcriptionHealth(snapshot.stt) !== 'live')) && (
           <SttStatusPill snapshot={snapshot} />
         )}
-      {options && options.fixtures.length > 0 && (status === 'idle' || status === 'error') && (
-        <Select
-          size="sm"
-          items={[
-            { value: 'sidecar', label: 'Mic + system audio' },
-            ...options.fixtures.map((f) => ({
-              value: `${FILE_PREFIX}${f}`,
-              label: `Fixture: ${f}`,
-            })),
-          ]}
-          value={input}
-          onValueChange={(value) => {
-            if (value !== null) onInputChange(value);
-          }}
-        >
-          <SelectTrigger aria-label="Audio input (dev)" data-testid="audio-input">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="sidecar">Mic + system audio</SelectItem>
-            {options.fixtures.map((f) => (
-              <SelectItem key={f} value={`${FILE_PREFIX}${f}`}>
-                Fixture: {f}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
+      {!compact && inputSelect}
     </div>
   );
   const controls = compact ? (
@@ -395,7 +400,15 @@ export function RecordingBar({
       data-status={status}
     >
       {controlsContainer ? createPortal(controls, controlsContainer) : controls}
-      {compact && stopContainer && createPortal(stop, stopContainer)}
+      {compact &&
+        stopContainer &&
+        createPortal(
+          <>
+            {inputSelect}
+            {stop}
+          </>,
+          stopContainer,
+        )}
       {error && (
         <p role="status" className="text-copy-13 text-red-900">
           {error}

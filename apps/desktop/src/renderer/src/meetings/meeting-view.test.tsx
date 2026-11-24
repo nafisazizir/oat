@@ -25,17 +25,15 @@ vi.mock('@oat/feature-ui/document', () => ({
   useDocumentEnhancement: () => ({
     streaming: false,
     beforeEditor: null,
-    secondary: (_workspace: string, render: (node: ReactNode) => ReactNode) => render(null),
+    enhance: () => <button data-testid="enhance-button">Enhance</button>,
+    historyAction: null,
   }),
 }));
 
 const model = vi.hoisted(() => ({
   note: null as unknown,
   loaded: true,
-  pause: vi.fn(),
   call: vi.fn(),
-  seek: vi.fn(),
-  playable: false,
   failure: undefined as string | undefined,
   retry: vi.fn(),
   segments: [] as { id: string; source: 'mic'; startMs: number; endMs: number; text: string }[],
@@ -54,7 +52,7 @@ vi.mock('../recording-state.ts', () => ({
   useTranscript: () => ({ meetingId: null, segments: [], loaded: true, failed: false }),
 }));
 vi.mock('../auto-stop/auto-stop-state.ts', () => ({ useMeetingGrace: () => null }));
-vi.mock('./post-meeting.tsx', () => ({ GraceLine: () => null, PipelineLine: () => null }));
+vi.mock('./post-meeting.tsx', () => ({ PipelineWatcher: () => null }));
 vi.mock('../recording/transcript-panel.tsx', () => ({
   TranscriptPanel: ({ focusId, onSelect }: { focusId?: string; onSelect?(s: unknown): void }) => (
     <>
@@ -64,19 +62,6 @@ vi.mock('../recording/transcript-panel.tsx', () => ({
       <button onClick={() => onSelect?.({ id: 'other', startMs: 9999 })}>Pick other</button>
     </>
   ),
-}));
-vi.mock('./audio-player.tsx', () => ({
-  useMeetingPlayback: () => ({
-    audioRef: { current: null },
-    player: {
-      available: model.playable,
-      seek: model.seek,
-      pause: model.pause,
-      clock: { subscribe: () => () => {}, ms: 0 },
-    },
-  }),
-  PlaybackBar: () => null,
-  playerKey: () => {},
 }));
 vi.mock('./meetings-state.ts', () => ({
   useMeetingNote: () => ({
@@ -118,12 +103,9 @@ beforeEach(() => {
   localStorage.clear();
   model.note = note;
   model.loaded = true;
-  model.pause.mockReset();
   model.call.mockReset();
-  model.seek.mockReset();
   model.scroll.mockReset();
   model.retry.mockReset();
-  model.playable = false;
   model.failure = undefined;
   model.segments = [];
   vi.stubGlobal('CSS', { escape: (id: string) => id });
@@ -203,7 +185,6 @@ describe('calm meeting surface', () => {
     await waitFor(() => expect(screen.getByTestId('transcript-panel')).toBeTruthy());
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByTestId('transcript-panel')).toBeNull();
-    expect(model.pause).toHaveBeenCalled();
     expect(localStorage.getItem('oat.desktop.transcript.open:alice')).toBe('false');
   });
   it('does not inherit another user’s open state and supports the close button and pill', async () => {
@@ -259,17 +240,30 @@ describe('calm meeting surface', () => {
     );
     expect(model.scroll).toHaveBeenCalledTimes(2);
   });
-  it('seeks loaded audio by segment (before time), re-seeks repeated links and falls back to time', () => {
-    model.playable = true;
-    model.segments = [{ id: 'segment', source: 'mic', startMs: 1000, endMs: 2000, text: 'Hello' }];
-    const focus = { seg: 'segment', t: '9' };
-    const view = render(<MeetingView {...props} focus={focus} focusRevision={1} />);
-    expect(model.seek).toHaveBeenLastCalledWith(1000);
-    view.rerender(<MeetingView {...props} focus={focus} focusRevision={2} />);
-    expect(model.seek).toHaveBeenCalledTimes(2);
-    view.rerender(
-      <MeetingView {...props} focus={{ seg: 'unknown', t: '1.5' }} focusRevision={3} />,
+  it('places the dev audio selector as a rounded lg control on the far right of the transcript footer and hides playback/saved status', async () => {
+    render(
+      <MeetingView
+        {...props}
+        options={{ fixtures: ['standup-short'], defaultInput: 'sidecar', defaultFixture: null }}
+      />,
     );
-    expect(model.seek).toHaveBeenLastCalledWith(1500);
+    expect(screen.queryByText('Saved on this Mac')).toBeNull();
+    expect(screen.queryByTestId('audio-input')).toBeNull();
+    await userEvent.click(screen.getByTestId('transcript-toggle'));
+    expect(screen.queryByTestId('playback')).toBeNull();
+    expect(screen.queryByTestId('playback-audio')).toBeNull();
+    const audioInput = screen.getByTestId('audio-input');
+    const footer = screen.getByTestId('transcript-panel').querySelector('footer');
+    expect(audioInput.closest('footer')).toBe(footer);
+    expect(audioInput.getAttribute('data-size')).toBe('lg');
+    expect(audioInput.className).toContain('rounded-full');
+    expect(audioInput.parentElement?.className).toContain('ms-auto');
+  });
+  it('renders Enhance inline in the metadata header and omits post-meeting header controls', () => {
+    render(<MeetingView {...props} />);
+    const header = screen.getByTestId('meeting-header');
+    expect(header.contains(screen.getByTestId('enhance-button'))).toBe(true);
+    expect(screen.queryByTestId('meeting-grace')).toBeNull();
+    expect(screen.queryByTestId('pipeline-status')).toBeNull();
   });
 });

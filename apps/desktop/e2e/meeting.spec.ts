@@ -130,8 +130,8 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
   await notes.click();
   await page.keyboard.type(NOTE);
   await title.fill('Beta launch sync');
-  await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', 'saved');
   await expect(page.getByTestId('meeting-list-item')).toContainText('Beta launch sync');
+  await expect(page.getByText('Saved on this Mac')).toHaveCount(0);
 
   // An attendee, added by hand (attendees are behind the "N attendees" chip).
   await expect(page.getByTestId('attendees-toggle')).toHaveText('0 attendees');

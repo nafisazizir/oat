@@ -55,21 +55,16 @@ const UNCHECKED = {
 };
 
 /**
- * The enhance controls in the note header (4.4 + 4.5), editors only: Enhance / Regenerate with its template
- * menu (plus "Note history", "Show my original notes" and "Undo enhancement" once the note has versions), a
- * History button, the history dialog, and the D-20 confirmation before anything replaces the user's edits.
- * History is for editors (earlier versions can hold text removed before sharing).
+ * Splits the enhance UI so the Enhance / Regenerate button sits inline in the metadata row under the title,
+ * History sits inside the top-bar More menu, and the history + D-20 replace-confirm dialogs stay mounted
+ * alongside the note.
  */
-export function EnhanceToolbar({
+export function useEnhanceControls({
   enhancement,
   versions,
-  workspaceId,
-  renderSecondaryActions = (history) => history,
 }: {
   enhancement: Enhancement;
   versions: NoteVersions;
-  workspaceId: string;
-  renderSecondaryActions?: (history: ReactNode) => ReactNode;
 }) {
   const latest = versions.list?.versions[0];
   const hasHistory = Boolean(latest || versions.list?.snapshots.length);
@@ -113,65 +108,66 @@ export function EnhanceToolbar({
       : CONFIRM[pending.kind]
     : null;
 
-  return (
-    <>
-      <EnhanceButton
-        enhancement={enhancement}
-        workspaceId={workspaceId}
-        regenerate={Boolean(latest)}
-        onStart={(input) =>
-          void versions.guard('regenerate', () => {
-            toast.dismiss(versions.toastId);
-            // "Regenerate" repeats the newest version's template unless one was picked.
-            const templateId = input?.templateId ?? latest?.templateId ?? undefined;
-            void enhancement.start(templateId ? { ...input, templateId } : input);
-          })
-        }
-      >
-        {latest && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              data-testid="enhance-history"
-              onClick={() => openHistory({ kind: 'version', id: latest.id })}
-            >
-              <IconHistory />
-              Note history
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              data-testid="enhance-original"
-              onClick={() => openHistory({ kind: 'original' })}
-            >
-              <IconNotes />
-              Show my original notes
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              data-testid="enhance-undo"
-              disabled={versions.restoring || versions.checking}
-              onClick={() => versions.undo()}
-            >
-              <IconArrowBackUp />
-              Undo enhancement
-            </DropdownMenuItem>
-          </>
-        )}
-      </EnhanceButton>
-      {renderSecondaryActions(
-        hasHistory ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            data-testid="history-button"
-            onClick={() =>
-              openHistory(latest ? { kind: 'version', id: latest.id } : { kind: 'original' })
-            }
+  const enhanceButton = (workspaceId: string): ReactNode => (
+    <EnhanceButton
+      enhancement={enhancement}
+      workspaceId={workspaceId}
+      regenerate={Boolean(latest)}
+      onStart={(input) =>
+        void versions.guard('regenerate', () => {
+          toast.dismiss(versions.toastId);
+          // "Regenerate" repeats the newest version's template unless one was picked.
+          const templateId = input?.templateId ?? latest?.templateId ?? undefined;
+          void enhancement.start(templateId ? { ...input, templateId } : input);
+        })
+      }
+    >
+      {latest && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            data-testid="enhance-history"
+            onClick={() => openHistory({ kind: 'version', id: latest.id })}
           >
-            <IconHistory data-icon="inline-start" />
-            History
-          </Button>
-        ) : null,
+            <IconHistory />
+            Note history
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            data-testid="enhance-original"
+            onClick={() => openHistory({ kind: 'original' })}
+          >
+            <IconNotes />
+            Show my original notes
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            data-testid="enhance-undo"
+            disabled={versions.restoring || versions.checking}
+            onClick={() => versions.undo()}
+          >
+            <IconArrowBackUp />
+            Undo enhancement
+          </DropdownMenuItem>
+        </>
       )}
+    </EnhanceButton>
+  );
 
+  const historyAction: ReactNode = hasHistory ? (
+    <Button
+      size="sm"
+      variant="ghost"
+      data-testid="history-button"
+      onClick={() =>
+        openHistory(latest ? { kind: 'version', id: latest.id } : { kind: 'original' })
+      }
+    >
+      <IconHistory data-icon="inline-start" />
+      History
+    </Button>
+  ) : null;
+
+  const dialogs: ReactNode = (
+    <>
       <NoteHistoryDialog
         open={historyOpen}
         onOpenChange={setHistoryOpen}
@@ -205,6 +201,29 @@ export function EnhanceToolbar({
           )}
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  return { enhanceButton, historyAction, dialogs };
+}
+
+export function EnhanceToolbar({
+  enhancement,
+  versions,
+  workspaceId,
+  renderSecondaryActions = (history) => history,
+}: {
+  enhancement: Enhancement;
+  versions: NoteVersions;
+  workspaceId: string;
+  renderSecondaryActions?: (history: ReactNode) => ReactNode;
+}) {
+  const { enhanceButton, historyAction, dialogs } = useEnhanceControls({ enhancement, versions });
+  return (
+    <>
+      {enhanceButton(workspaceId)}
+      {renderSecondaryActions(historyAction)}
+      {dialogs}
     </>
   );
 }

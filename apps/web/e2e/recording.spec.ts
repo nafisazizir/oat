@@ -315,7 +315,7 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
     .toBeLessThan(2000);
   await page.getByTestId('playback-toggle').click();
   if (process.env.E2E_PLAYBACK_SCREENSHOTS) {
-    await expect(page.getByTestId('pipeline-status')).toContainText('Post-meeting: done');
+    await expect(page.getByTestId('pipeline-status')).toHaveCount(0);
     await page.reload();
     await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'paused');
     if (!(await page.getByTestId('enhance-button').textContent())?.includes('Regenerate')) {
@@ -323,6 +323,7 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
       await expect(page.getByText('Notes enhanced', { exact: true })).toBeVisible();
     }
     await expect(page.getByTestId('enhance-button')).toContainText('Regenerate');
+    await expect(page.getByTestId('meeting-header').getByTestId('enhance-button')).toBeVisible();
     await page.getByTestId('document-more').click();
     await expect(page.getByTestId('history-button')).toBeVisible();
     await expect(page.getByTestId('notion-send')).toBeVisible();
@@ -330,7 +331,6 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
     await expect(page.getByTestId('history-button')).not.toBeVisible();
     const actions = page.getByTestId('document-actions');
     const boxes = await Promise.all([
-      actions.getByTestId('enhance-button').boundingBox(),
       actions.getByRole('button', { name: 'Share', exact: true }).boundingBox(),
       actions.getByTestId('document-more').boundingBox(),
     ]);

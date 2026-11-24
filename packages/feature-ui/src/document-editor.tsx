@@ -110,20 +110,26 @@ export function DocumentEditorSurface({
     />
   );
   const assignees = useTaskAssignees(doc.id);
+  const inlineMeta = (
+    <>
+      {meta}
+      {editable && meeting ? capabilities.enhance(doc.workspaceId) : null}
+    </>
+  );
   return (
-    <PageEditorSurface
-      meta={meta}
-      headerActions={headerActions}
-      Actions={Actions}
-      statusExtra={meeting && renderPipeline?.(capabilities.enhancement.follow)}
-      renderSecondaryActions={(lifecycle) =>
-        editable && meeting
-          ? capabilities.secondary(doc.workspaceId, (history) => secondary(history, lifecycle))
-          : secondary(null, lifecycle)
-      }
-      beforeEditor={capabilities.beforeEditor}
-      streaming={capabilities.streaming}
-      taskAssignees={assignees}
-    />
+    <>
+      {meeting && renderPipeline?.(capabilities.enhancement.follow)}
+      <PageEditorSurface
+        meta={inlineMeta}
+        headerActions={headerActions}
+        Actions={Actions}
+        renderSecondaryActions={(lifecycle) =>
+          secondary(editable && meeting ? capabilities.historyAction : null, lifecycle)
+        }
+        beforeEditor={capabilities.beforeEditor}
+        streaming={capabilities.streaming}
+        taskAssignees={assignees}
+      />
+    </>
   );
 }

@@ -83,6 +83,7 @@ const pillRadius = /(?<![\w-])rounded-full(?![\w-])/;
 const noteDockPills: Record<string, Record<string, string>> = {
   'apps/desktop/src/renderer/src/recording/recording-controls.tsx': {
     'RecordingButton:Button': 'aria-label={label}',
+    'RecordingBar:Select': "shape={compact ? 'rounded' : 'default'}",
   },
   'apps/web/src/components/meeting/meeting-note.tsx': {
     'MeetingNote:RecordingStopButton': 'shape="rounded"',
