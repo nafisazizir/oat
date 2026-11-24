@@ -11,6 +11,10 @@
  * - Audio stays on the recording device (D-10/D-32); this panel receives transcripts only.
  */
 import {
+  MeetingAccess,
+  MeetingMetaRow,
+  MeetingLive,
+  MeetingPrivate,
   MeetingTime,
   ParticipantSummary,
   TranscriptSheet,
@@ -202,8 +206,14 @@ export function MeetingNote({
   }, [lines, recordingHere, recording.segments]);
 
   const header = (
-    <>
-      {!browserLive && (
+    // B: Private only when it is, when, the calendar slot / Join, people, View only / In trash. No
+    // workspace (the sidebar says it), no shared audience (the default), no duration.
+    <MeetingMetaRow>
+      <MeetingPrivate visibility={doc.visibility} />
+      {browserLive ? (
+        // Recording here now: the cached times may be a previous take's until this one syncs.
+        <MeetingLive />
+      ) : (
         <MeetingTime
           startedAt={info.startedAt}
           endedAt={info.endedAt}
@@ -215,14 +225,6 @@ export function MeetingNote({
       <ParticipantSummary
         participants={info.participants}
         editable={editable && hydrated}
-        onAdd={async (input) => {
-          try {
-            const added = await meetingApi.addParticipant(doc.id, input);
-            setInfo((i) => ({ ...i, participants: [...i.participants, added] }));
-          } catch (error) {
-            throw participantError(error);
-          }
-        }}
         onRemove={async (p) => {
           try {
             await meetingApi.removeParticipant(doc.id, p.id);
@@ -232,7 +234,8 @@ export function MeetingNote({
           }
         }}
       />
-    </>
+      <MeetingAccess state={doc.deletedAt !== null ? 'trash' : doc.access.edit ? 'edit' : 'view'} />
+    </MeetingMetaRow>
   );
 
   const transcript = (

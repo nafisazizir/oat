@@ -112,16 +112,54 @@ export function initials(name: string): string {
 export const IN_PROGRESS_MAX_MS = 6 * 60 * 60_000;
 
 export interface MeetingWhen {
-  /** "Thu, Nov 14 · 3:04 PM"; null when the meeting was never recorded. */
+  /** "Today, 3:04 PM", "Yesterday, 3:04 PM", "Thu, Nov 14, 3:04 PM"; null when never recorded. */
   label: string | null;
-  /** "12 min" once ended (or while in progress, so far). */
-  duration: string | null;
   inProgress: boolean;
 }
 
+const DAY_MS = 86_400_000;
+
+/** Calendar day number of `at` in `timeZone` (undefined = the viewer's), for "today"/"yesterday". */
+function dayNumber(at: number, timeZone?: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    ...(timeZone ? { timeZone } : {}),
+  }).formatToParts(at);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  return Math.round(Date.UTC(get('year'), get('month') - 1, get('day')) / DAY_MS);
+}
+
+/** "Today", "Yesterday", "Tomorrow", "Thu, Nov 14", or "Nov 14, 2025" in another year. */
+export function dayLabel(at: number, now: number, timeZone?: string): string {
+  const diff = dayNumber(at, timeZone) - dayNumber(now, timeZone);
+  if (diff === 0) return 'Today';
+  if (diff === -1) return 'Yesterday';
+  if (diff === 1) return 'Tomorrow';
+  const zone = timeZone ? { timeZone } : {};
+  const sameYear =
+    new Intl.DateTimeFormat('en-US', { year: 'numeric', ...zone }).format(at) ===
+    new Intl.DateTimeFormat('en-US', { year: 'numeric', ...zone }).format(now);
+  return new Intl.DateTimeFormat(
+    'en-US',
+    sameYear
+      ? { weekday: 'short', month: 'short', day: 'numeric', ...zone }
+      : { month: 'short', day: 'numeric', year: 'numeric', ...zone },
+  ).format(at);
+}
+
+function timeLabel(at: number, timeZone?: string, zoneName = true): string {
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    ...(timeZone ? { timeZone, ...(zoneName ? { timeZoneName: 'short' as const } : {}) } : {}),
+  }).format(at);
+}
+
 /**
- * The meeting's time line. `timeZone` undefined = the viewer's zone; the web passes `'UTC'` for the server
- * render (and the first client render) so hydration matches, then the local zone.
+ * When the meeting was recorded, for its header. `timeZone` undefined = the viewer's zone; the web passes
+ * `'UTC'` for the server render (and the first client render) so hydration matches, then the local zone.
  */
 export function meetingWhen(
   startedAt: string | null,
@@ -129,28 +167,53 @@ export function meetingWhen(
   now: number,
   timeZone?: string,
 ): MeetingWhen {
-  if (!startedAt) return { label: null, duration: null, inProgress: false };
+  if (!startedAt) return { label: null, inProgress: false };
   const start = Date.parse(startedAt);
-  if (!Number.isFinite(start)) return { label: null, duration: null, inProgress: false };
-  const day = new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    ...(timeZone ? { timeZone } : {}),
-  }).format(start);
-  const time = new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    ...(timeZone ? { timeZone, timeZoneName: 'short' } : {}),
-  }).format(start);
+  if (!Number.isFinite(start)) return { label: null, inProgress: false };
   const end = endedAt ? Date.parse(endedAt) : NaN;
   const inProgress = !Number.isFinite(end) && now - start >= 0 && now - start < IN_PROGRESS_MAX_MS;
-  const duration = Number.isFinite(end)
-    ? formatDuration(end - start)
-    : inProgress
-      ? formatDuration(now - start)
-      : null;
-  return { label: `${day} · ${time}`, duration, inProgress };
+  return { label: `${dayLabel(start, now, timeZone)}, ${timeLabel(start, timeZone)}`, inProgress };
+}
+
+/** A calendar slot: "Today, 4:00 – 4:30 PM", "Tomorrow · All day". */
+export function scheduleLabel(
+  start: string,
+  end: string,
+  allDay: boolean,
+  now: number,
+  timeZone?: string,
+): string {
+  const from = Date.parse(start);
+  const day = dayLabel(from, now, timeZone);
+  if (allDay) return `${day}, all day`;
+  const to = Date.parse(end);
+  // Over midnight, `formatRange` would add both dates; the day is already said.
+  const range =
+    dayNumber(from, timeZone) === dayNumber(to, timeZone)
+      ? new Intl.DateTimeFormat('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          ...(timeZone ? { timeZone } : {}),
+        }).formatRange(from, to)
+      : `${timeLabel(from, timeZone, false)} – ${timeLabel(to, timeZone, false)}`;
+  return `${day}, ${range}`;
+}
+
+/** First name, or an email's local part. */
+function firstName(p: Pick<Participant, 'name' | 'email'>): string {
+  const name = (p.name || p.email || '?').trim();
+  return name.includes('@') ? name.replace(/@.*$/, '') : name.split(/\s+/)[0]!;
+}
+
+/** The attendees' short label: "Ana Lee", "Ana and Ben", "Ana, Ben +3". */
+export function attendeesLabel(
+  participants: readonly Pick<Participant, 'name' | 'email'>[],
+): string {
+  const [a, b] = participants;
+  if (!a) return '';
+  if (!b) return (a.name || a.email || '?').trim();
+  if (participants.length === 2) return `${firstName(a)} and ${firstName(b)}`;
+  return `${firstName(a)}, ${firstName(b)} +${participants.length - 2}`;
 }
 
 /** Short date for lists: "3:04 PM" today, "Nov 14" this year, "Nov 14, 2025" before. */

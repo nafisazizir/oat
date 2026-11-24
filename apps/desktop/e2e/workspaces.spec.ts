@@ -228,7 +228,7 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording', {
     timeout: scaled(20_000),
   });
-  await expect(page.getByTestId('note-workspace')).toHaveText(DESIGN);
+  await expect(page.getByTestId('workspace-switcher')).toContainText(DESIGN);
   await expect(page.getByTestId('meeting-list-item')).toHaveCount(1);
   // A new recording starts in Private.
   await expect(inSection('private')).toHaveCount(1);
@@ -379,7 +379,7 @@ test('a role change follows by sync; the active workspace survives a relaunch', 
   );
   // Its note is view-only here now.
   await page.getByTestId('meeting-list-item').first().click();
-  await expect(page.getByTestId('note-workspace')).toHaveText(DESIGN);
+  await expect(page.getByTestId('workspace-switcher')).toContainText(DESIGN);
   await expect(page.getByText('View only', { exact: true }).last()).toBeVisible();
   await expect(page.getByTestId('note-title')).toHaveAttribute('readonly');
 

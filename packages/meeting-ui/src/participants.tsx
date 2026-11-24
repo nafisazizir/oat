@@ -1,70 +1,44 @@
 'use client';
 
 /**
- * Who was in the meeting, as chips: from the calendar event's attendees (7.3) or added by hand. Editors add
- * (name + optional email, in a popover) and remove them; the caller persists (web API / desktop local store).
+ * Who was in the meeting: "N people" in the header, a small row menu behind it with one row per person
+ * (from the calendar event's attendees, 7.3, or added by hand). Editors remove someone with their row's
+ * trash button (or Delete on the focused row); the caller persists (web API / desktop local store).
  */
+import { Avatar, AvatarFallback } from '@oat/ui/components/avatar';
 import { Button } from '@oat/ui/components/button';
-import { Input } from '@oat/ui/components/input';
-import { Label } from '@oat/ui/components/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@oat/ui/components/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@oat/ui/components/dropdown-menu';
 import { cn } from '@oat/ui/lib/utils';
-import { Spinner } from '@oat/ui/components/spinner';
-import { IconCalendar, IconPlus, IconUsers, IconX } from '@tabler/icons-react';
-import { type FormEvent, useId, useState } from 'react';
+import { IconTrash, IconUser, IconUsers } from '@tabler/icons-react';
+import { useState } from 'react';
 
-import { initials, isPlausibleEmail, type Participant } from './format.ts';
+import { attendeesLabel, initials, type Participant } from './format.ts';
+import { metaActionClass } from './meeting-meta.tsx';
 
 export interface ParticipantChipsProps {
   participants: readonly Participant[];
   editable: boolean;
-  /** Rejects with a user-facing message (shown in the form). */
-  onAdd?: (input: { name: string; email: string | null }) => Promise<void>;
   onRemove?: (participant: Participant) => Promise<void>;
   className?: string;
 }
 
-export const MAX_PARTICIPANT_NAME = 200;
-
-export function ParticipantSummary(props: ParticipantChipsProps) {
-  const count = props.participants.length;
-  return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="secondary"
-            size="xs"
-            className="text-gray-900"
-            data-testid="attendees-toggle"
-          />
-        }
-      >
-        <IconUsers aria-hidden />
-        {count} {count === 1 ? 'attendee' : 'attendees'}
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        aria-label="Attendees"
-        className="max-h-72 w-80 overflow-y-auto"
-        data-testid="participant-details"
-      >
-        <ParticipantChips {...props} />
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-export function ParticipantChips({
+export function ParticipantSummary({
   participants,
   editable,
-  onAdd,
   onRemove,
   className,
 }: ParticipantChipsProps) {
-  // Optimistic remove: the chip goes at once; it comes back (with the error) if `onRemove` rejects.
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Optimistic remove: the row goes at once; it comes back (with the error) if `onRemove` rejects.
   const [removed, setRemoved] = useState<ReadonlySet<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
+  const canRemove = editable && !!onRemove;
 
   async function remove(p: Participant) {
     if (!onRemove) return;
@@ -74,6 +48,8 @@ export function ParticipantChips({
       await onRemove(p);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Couldn’t remove them.');
+      // The row (and the menu) may have gone with the optimistic remove: bring it back to show why.
+      setMenuOpen(true);
     } finally {
       setRemoved((prev) => {
         const next = new Set(prev);
@@ -84,157 +60,99 @@ export function ParticipantChips({
   }
 
   const shown = removed.size ? participants.filter((p) => !removed.has(p.id)) : participants;
+  const count = shown.length;
+  // Only me: nothing to show.
+  if (count === 0) return null;
+  const only = shown[0];
 
   return (
-    <div className={cn('flex flex-col gap-1', className)}>
-      <ul
-        aria-label="Attendees"
-        className="flex flex-wrap items-center gap-1.5"
-        data-testid="participants"
-        data-count={shown.length}
+    <DropdownMenu size="sm" open={menuOpen} onOpenChange={setMenuOpen}>
+      <DropdownMenuTrigger
+        className={cn(metaActionClass, className)}
+        aria-label={
+          // Starts with what it shows (voice control targets the visible label), then who.
+          count === 1
+            ? `Attendee: ${only?.name || only?.email}`
+            : `${count} people: ${attendeesLabel(shown)}`
+        }
+        data-testid="attendees-toggle"
+        data-count={count}
       >
-        {shown.map((p) => (
-          <li
-            key={p.id}
-            data-testid="participant-chip"
-            data-source={p.source}
-            title={p.email ?? undefined}
-            className="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-md border border-gray-alpha-400 bg-background-100 ps-0.5 pe-2.5 text-label-13 text-gray-1000 has-[button]:pe-0.5"
-          >
-            <span
-              aria-hidden
-              className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gray-200 text-label-12 text-gray-1000"
+        {count === 1 && only ? (
+          <>
+            <IconUser aria-hidden />
+            {only.name || only.email}
+          </>
+        ) : (
+          <>
+            <IconUsers aria-hidden />
+            {count} people
+          </>
+        )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        aria-label="Attendees"
+        className="w-64"
+        data-testid="participant-details"
+      >
+        <DropdownMenuGroup data-testid="participants" data-count={count}>
+          {shown.map((p) => (
+            <DropdownMenuItem
+              key={p.id}
+              closeOnClick={false}
+              className="pe-1"
+              data-testid="participant-chip"
+              data-source={p.source}
+              title={p.email && p.email !== p.name ? `${p.name} <${p.email}>` : p.name}
+              // The trash button is for the mouse; the keyboard removes with Delete (announced here).
+              aria-keyshortcuts={canRemove ? 'Delete' : undefined}
+              onKeyDown={(event) => {
+                if (canRemove && (event.key === 'Delete' || event.key === 'Backspace')) {
+                  event.preventDefault();
+                  void remove(p);
+                }
+              }}
             >
-              {initials(p.name || p.email || '?')}
-            </span>
-            <span className="truncate">{p.name || p.email}</span>
-            {p.source === 'calendar' && (
-              <IconCalendar
-                aria-label="From the calendar"
-                className="size-3 shrink-0 text-gray-900"
-              />
-            )}
-            {editable && onRemove && (
-              <button
-                type="button"
-                aria-label={`Remove ${p.name || p.email}`}
-                onClick={() => void remove(p)}
-                className="flex size-6 shrink-0 items-center justify-center rounded-md text-gray-900 transition-colors hover:bg-gray-alpha-200 hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 focus-visible:outline-none"
-              >
-                <IconX className="size-3" />
-              </button>
-            )}
-          </li>
-        ))}
-        {editable && onAdd && (
-          <li>
-            <AddParticipant onAdd={onAdd} />
-          </li>
+              <PersonRow participant={p} />
+              {canRemove && (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="ms-auto shrink-0 text-gray-900"
+                  aria-label={`Remove ${p.name || p.email}`}
+                  title="Remove"
+                  tabIndex={-1}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void remove(p);
+                  }}
+                >
+                  <IconTrash />
+                </Button>
+              )}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+        {error && (
+          <p role="alert" className="px-2 py-1 text-label-13 text-red-900">
+            {error}
+          </p>
         )}
-        {shown.length === 0 && !(editable && onAdd) && (
-          <li className="text-label-13 text-gray-900">No attendees</li>
-        )}
-      </ul>
-      {error && (
-        <p role="alert" className="text-label-13 text-red-900">
-          {error}
-        </p>
-      )}
-    </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
-function AddParticipant({ onAdd }: { onAdd: NonNullable<ParticipantChipsProps['onAdd']> }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const id = useId();
-
-  const reset = () => {
-    setName('');
-    setEmail('');
-    setError(null);
-  };
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const n = name.trim();
-    const e = email.trim();
-    if (!n && !e) return setError('Add a name or an email.');
-    if (e && !isPlausibleEmail(e)) return setError('That email doesn’t look right.');
-    setPending(true);
-    setError(null);
-    try {
-      await onAdd({ name: (n || e).slice(0, MAX_PARTICIPANT_NAME), email: e || null });
-      reset();
-      setOpen(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Couldn’t add them.');
-    } finally {
-      setPending(false);
-    }
-  }
-
+function PersonRow({ participant: p }: { participant: Participant }) {
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) reset();
-      }}
-    >
-      <PopoverTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2.5 text-button-12 text-gray-900"
-            data-testid="add-participant"
-          />
-        }
-      >
-        <IconPlus data-icon="inline-start" />
-        Add attendee
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-72">
-        <form noValidate className="flex flex-col gap-2.5" onSubmit={(event) => void submit(event)}>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={`${id}-name`}>Name</Label>
-            <Input
-              id={`${id}-name`}
-              value={name}
-              autoFocus
-              maxLength={MAX_PARTICIPANT_NAME}
-              autoComplete="off"
-              onChange={(event) => setName(event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={`${id}-email`}>
-              Email <span className="text-gray-900">(optional)</span>
-            </Label>
-            <Input
-              id={`${id}-email`}
-              type="email"
-              value={email}
-              maxLength={320}
-              autoComplete="off"
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </div>
-          {error && (
-            <p role="alert" className="text-label-13 text-red-900">
-              {error}
-            </p>
-          )}
-          <Button type="submit" size="sm" disabled={pending} className="self-end">
-            {pending && <Spinner data-icon="inline-start" />}
-            Add
-          </Button>
-        </form>
-      </PopoverContent>
-    </Popover>
+    <>
+      <Avatar size="sm" aria-hidden>
+        <AvatarFallback>{initials(p.name || p.email || '?')}</AvatarFallback>
+      </Avatar>
+      <span className="min-w-0 truncate">{p.name || p.email}</span>
+      {p.email && p.name && p.email !== p.name && (
+        <span className="min-w-0 truncate text-label-12 text-gray-900">{p.email}</span>
+      )}
+    </>
   );
 }

@@ -115,9 +115,9 @@ test('connect Google Calendar → upcoming meetings on Home → disconnect', asy
   await expect(chips.and(page.locator('[data-source=calendar]'))).toHaveCount(3);
   for (const name of ['Jordan Lee', 'Sam Okafor', 'Priya Nair'])
     await expect(chips.filter({ hasText: name })).toHaveCount(1);
-  // 9.3 (7.3 follow-up): like the desktop, the note says when it's scheduled and links the call.
+  // 9.3 (7.3 follow-up): like the desktop, the note (nothing recorded yet) shows its slot and links the call.
   const eventLine = page.getByTestId('note-calendar-event').filter({ visible: true });
-  await expect(eventLine).toContainText(/Scheduled\s*\w{3}, \w{3} \d+\s*·\s*\d+:\d{2}/);
+  await expect(eventLine).toContainText(/(Today|Tomorrow|\w{3}, \w{3} \d+), \d+:\d{2}/);
   await expect(eventLine.getByRole('link', { name: 'Join Google Meet' })).toHaveAttribute(
     'href',
     /^https:\/\/meet\.google\.com\//,

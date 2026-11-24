@@ -4,8 +4,10 @@
  */
 export {
   activeSegmentAt,
+  attendeesLabel,
   clampWidth,
   compareTranscriptItems,
+  dayLabel,
   formatClock,
   formatDuration,
   initials,
@@ -13,6 +15,7 @@ export {
   isPlausibleEmail,
   meetingWhen,
   mergeTranscripts,
+  scheduleLabel,
   type MeetingWhen,
   type Participant,
   shortWhen,
@@ -21,6 +24,18 @@ export {
   type TranscriptItem,
 } from './format.ts';
 export { MeetingTime } from './meeting-time.tsx';
+export {
+  MeetingAccess,
+  MeetingEventMeta,
+  MeetingLive,
+  MeetingMetaRow,
+  MeetingPrivate,
+  MetaItem,
+  MeetingWorkspace,
+  type MeetingMetaLook,
+  metaActionClass,
+  metaItemClass,
+} from './meeting-meta.tsx';
 export { groupNotesByDate } from './note-groups.ts';
 export { usePanelEscape } from './panel-escape.ts';
 export { TranscriptToggle } from './transcript-toggle.tsx';
@@ -33,11 +48,6 @@ export {
   type PlaybackSource,
 } from './playback.ts';
 export { NoteColumn, TRANSCRIPT_PANEL_SIZE } from './note-column.tsx';
-export {
-  MAX_PARTICIPANT_NAME,
-  ParticipantChips,
-  ParticipantSummary,
-  type ParticipantChipsProps,
-} from './participants.tsx';
+export { ParticipantSummary, type ParticipantChipsProps } from './participants.tsx';
 export { SidePanel, type SidePanelProps, useStoredState } from './side-panel.tsx';
 export { TranscriptList, type TranscriptListProps } from './transcript-list.tsx';

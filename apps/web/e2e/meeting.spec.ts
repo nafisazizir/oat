@@ -112,10 +112,11 @@ test('meeting header, attendees, transcript sheet (collapse, click → deep link
   await page.goto(`/d/${doc.id}`);
   await settled(page);
 
-  // Header: when, how long, who (from the calendar).
+  // Header: when and who (from the calendar), no duration.
   const header = page.getByTestId('meeting-header').filter({ visible: true });
   await expect(header.getByTestId('meeting-time')).toContainText('Nov 12');
-  await expect(header.getByTestId('meeting-duration')).toHaveText('30 min');
+  await expect(header.getByTestId('meeting-duration')).toHaveCount(0);
+  await expect(header.getByTestId('attendees-toggle')).toHaveAccessibleName('Attendee: Riley Chen');
   await page.getByTestId('attendees-toggle').click();
   await expect(chips(page)).toHaveCount(1);
   await expect(chips(page).first()).toHaveAttribute('data-source', 'calendar');
@@ -157,19 +158,18 @@ test('meeting header, attendees, transcript sheet (collapse, click → deep link
   ).toBeVisible();
   await evidence(page, 'web-meeting');
 
-  // Attendees: add (persisted), remove (persisted).
-  await page.getByTestId('attendees-toggle').click();
-  await page.getByTestId('add-participant').click();
-  await page.getByLabel('Name').fill('Dana Scully');
-  await page.getByLabel('Email (optional)').fill('dana@example.com');
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await expect(chips(page)).toHaveCount(2);
-  await expect(chips(page).nth(1)).toHaveAttribute('data-source', 'manual');
-  await evidence(page, 'web-attendees');
+  // Attendees: one added through the API (the header has no add for now), removed in the menu (persisted).
+  const added = await page.request.post(`/api/documents/${doc.id}/participants`, {
+    headers: { origin: new URL(page.url()).origin },
+    data: { name: 'Dana Scully', email: 'dana@example.com' },
+  });
+  expect(added.status()).toBe(201);
   await page.reload();
   await settled(page);
   await page.getByTestId('attendees-toggle').click();
   await expect(chips(page)).toHaveCount(2);
+  await expect(chips(page).nth(1)).toHaveAttribute('data-source', 'manual');
+  await evidence(page, 'web-attendees');
   // Removal is optimistic: the chip goes at once, so wait for the server before reloading.
   const removed = page.waitForResponse(
     (r) => r.request().method() === 'DELETE' && /\/participants\//.test(r.url()) && r.ok(),
@@ -247,6 +247,5 @@ test('a trashed meeting note is read-only: no attendee changes', async ({ page }
   await expect(page.getByTestId('trash-banner')).toBeVisible();
   await page.getByTestId('attendees-toggle').click();
   await expect(chips(page)).toHaveCount(1);
-  await expect(page.getByTestId('add-participant')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Remove Riley Chen' })).toHaveCount(0);
 });

@@ -95,7 +95,7 @@ export default async function DocumentPage({ params, searchParams }: Props) {
               eventLine={
                 // Keyed: rendered among the client header's children (React warns otherwise).
                 <Suspense key="calendar-event" fallback={null}>
-                  <MeetingEventLine documentId={doc.id} />
+                  <MeetingEventLine documentId={doc.id} recorded={meeting.startedAt !== null} />
                 </Suspense>
               }
             />

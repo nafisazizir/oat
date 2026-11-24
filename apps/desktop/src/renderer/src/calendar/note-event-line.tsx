@@ -1,39 +1,37 @@
 /**
- * Under a meeting note's title (7.3): the calendar event it was made from — when it is scheduled and its
- * Zoom / Meet / Teams link — while the calendar still has the event.
+ * Under a meeting note's title (7.3): the calendar event it was made from — its slot while nothing is
+ * recorded yet, and its Zoom / Meet / Teams link until the event is over — while the calendar still has it.
  */
 import type { NoteCalendarEvent } from '@oat/core/bridge';
-import { Button } from '@oat/ui/components/button';
-import { IconCalendarEvent, IconVideo } from '@tabler/icons-react';
+import { MeetingEventMeta, scheduleLabel } from '@oat/meeting-ui';
+import { useEffect, useState } from 'react';
 
 import { bridge } from '../bridge.ts';
-import { CONFERENCE_LABELS, formatRange } from './calendar-state.ts';
+import { CONFERENCE_LABELS } from './calendar-state.ts';
 
-const DAY = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-
-export function NoteEventLine({ event }: { event: NoteCalendarEvent | null }) {
+export function NoteEventLine({
+  event,
+  recorded,
+}: {
+  event: NoteCalendarEvent | null;
+  /** Something is recorded: the recorded time replaces the slot. */
+  recorded: boolean;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
   if (!event) return null;
   const label = event.conferenceProvider ? CONFERENCE_LABELS[event.conferenceProvider] : null;
+  const joinable = event.conferenceUrl && Date.parse(event.end) > now;
   return (
-    <p
-      className="flex flex-wrap items-center gap-1.5 text-label-14 text-gray-900"
-      data-testid="note-calendar-event"
-    >
-      <IconCalendarEvent aria-hidden className="size-4" />
-      <span>
-        Scheduled {DAY.format(new Date(event.start))} · {formatRange(event.start, event.end)}
-      </span>
-      {event.conferenceUrl && (
-        <Button
-          variant="outline"
-          size="xs"
-          className="ms-1"
-          onClick={() => bridge().send('shell:open-external', { url: event.conferenceUrl! })}
-        >
-          <IconVideo data-icon="inline-start" />
-          Join{label ? ` ${label}` : ''}
-        </Button>
-      )}
-    </p>
+    <MeetingEventMeta
+      schedule={scheduleLabel(event.start, event.end, false, now)}
+      showSchedule={!recorded}
+      joinLabel={joinable ? `Join${label ? ` ${label}` : ''}` : null}
+      joinHref={event.conferenceUrl ?? undefined}
+      onJoin={() => bridge().send('shell:open-external', { url: event.conferenceUrl! })}
+    />
   );
 }

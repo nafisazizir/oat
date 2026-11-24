@@ -7,7 +7,6 @@
  * seeks there and the line under the playhead is highlighted (`audio-player.tsx`).
  */
 import type { InvokeResponse, MeetingNote, RecordingSnapshot } from '@oat/core/bridge';
-import { visibilityBadge } from '@oat/core/sections';
 import { sameDocumentContent } from '@oat/core/sync';
 import { BlockFocus, OatEditor } from '@oat/editor/react';
 import { NotionExportButton, useDocumentEnhancement } from '@oat/feature-ui/document';
@@ -25,6 +24,10 @@ import {
   wantsTranscript,
 } from '@oat/feature-ui/assistant';
 import {
+  MeetingAccess,
+  MeetingMetaRow,
+  MeetingPrivate,
+  MeetingWorkspace,
   MeetingTime,
   mergeTranscripts,
   ParticipantSummary,
@@ -35,7 +38,6 @@ import {
   type TranscriptItem,
   useStoredState,
 } from '@oat/meeting-ui';
-import { Badge } from '@oat/ui/components/badge';
 import { Button } from '@oat/ui/components/button';
 import {
   Empty,
@@ -46,14 +48,7 @@ import {
 } from '@oat/ui/components/empty';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import { Spinner } from '@oat/ui/components/spinner';
-import {
-  IconAlertCircle,
-  IconEye,
-  IconLock,
-  IconNotes,
-  IconStack2,
-  IconUsers,
-} from '@tabler/icons-react';
+import { IconAlertCircle, IconNotes } from '@tabler/icons-react';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createPortal } from 'react-dom';
@@ -75,6 +70,7 @@ import { PipelineWatcher } from './post-meeting.tsx';
 import { type AutosaveState, NoteAutosave } from './note-autosave.ts';
 import { meetingAssistantHandle } from './meeting-assistant';
 import { MeetingActions } from '../workspace/meeting-actions';
+import { useWorkspaces } from '../workspaces/workspaces-state.ts';
 import { meetingDocumentAdapter } from './meeting-document';
 import { api } from '../lib/api';
 
@@ -472,6 +468,7 @@ function NoteBody({
     }),
   );
   const workspaceHost = useWorkspaceHost();
+  const activeWorkspaceId = useWorkspaces().active?.id;
   const capabilities = useDocumentEnhancement({
     documentId,
     loadedVersion: note.version ?? 0,
@@ -523,47 +520,27 @@ function NoteBody({
             autosave.queue({ title: next });
           }}
         />
-        <div
-          className="flex min-h-7 flex-wrap items-center gap-2 text-label-12 text-gray-900"
-          data-testid="meeting-header"
-        >
-          {note.workspaceName && (
-            // 3.9: which workspace the note lives in (it never moves, D-18).
-            <Badge
-              variant="secondary"
-              className="h-6 gap-1 rounded-md px-2.5 text-gray-900"
-              data-testid="note-workspace"
-            >
-              <IconStack2 />
-              {note.workspaceName}
-            </Badge>
+        {/* The facts under the title, one style (B): the workspace only when it isn't the one shown (D-18),
+            no shared audience (the default), no duration; Private only when it is. */}
+        <MeetingMetaRow>
+          {note.workspaceName && note.workspaceId !== activeWorkspaceId && (
+            <MeetingWorkspace name={note.workspaceName} />
           )}
-          <Badge variant="secondary" className="h-6 gap-1 rounded-md px-2.5 text-gray-900">
-            {note.visibility === 'private' ? <IconLock /> : <IconUsers />}
-            {/* What the note's visibility is (D-36), in the web's words. */}
-            {visibilityBadge(note.visibility, note.workspaceName ?? '')}
-          </Badge>
-          {!editable && (
-            <Badge variant="outline" className="gap-1">
-              <IconEye />
-              {trashed ? 'In trash' : 'View only'}
-            </Badge>
-          )}
-
+          <MeetingPrivate visibility={note.visibility} />
           <MeetingTime startedAt={note.startedAt} endedAt={endedAt} live={live} />
-          <NoteEventLine event={note.calendarEvent} />
+          <NoteEventLine event={note.calendarEvent} recorded={note.startedAt !== null} />
           <ParticipantSummary
             participants={note.participants}
             editable={editable && note.meetingId !== null}
-            onAdd={(p) => bridgeAction(() => call('meeting:add-participant', { documentId, ...p }))}
             onRemove={(p) =>
               bridgeAction(() =>
                 call('meeting:remove-participant', { documentId, participantId: p.id }),
               )
             }
           />
+          <MeetingAccess state={trashed ? 'trash' : editable ? 'edit' : 'view'} />
           {editable ? capabilities.enhance(note.workspaceId) : null}
-        </div>
+        </MeetingMetaRow>
         {controlsContainer ? (
           createPortal(
             <div className="flex items-center gap-2 text-label-12 text-gray-900 empty:hidden">

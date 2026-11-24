@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Participant, TranscriptItem } from './format.ts';
-import { ParticipantChips } from './participants.tsx';
+import { ParticipantSummary } from './participants.tsx';
 import { SidePanel } from './side-panel.tsx';
 import { TranscriptList } from './transcript-list.tsx';
 import { TranscriptSheet } from './transcript-sheet.tsx';
@@ -198,71 +198,47 @@ describe('TranscriptList', () => {
   });
 });
 
-describe('ParticipantChips', () => {
+describe('ParticipantSummary menu', () => {
   const people: Participant[] = [
     { id: 'p1', name: 'Ada Lovelace', email: 'ada@example.com', source: 'calendar' },
     { id: 'p2', name: 'Grace Hopper', email: null, source: 'manual' },
   ];
+  const open = () => userEvent.click(screen.getByTestId('attendees-toggle'));
+  const removeGrace = async () => {
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove Grace Hopper' }));
+  };
 
-  it('shows chips; read-only has no controls', () => {
-    render(<ParticipantChips participants={people} editable={false} />);
-    expect(screen.getAllByTestId('participant-chip').map((c) => c.textContent)).toEqual([
-      'ALAda Lovelace',
+  it('shows rows; read-only has no controls', async () => {
+    render(<ParticipantSummary participants={people} editable={false} />);
+    expect(screen.getByTestId('attendees-toggle').textContent).toBe('2 people');
+    await open();
+    expect((await screen.findAllByTestId('participant-chip')).map((c) => c.textContent)).toEqual([
+      'ALAda Lovelaceada@example.com',
       'GHGrace Hopper',
     ]);
-    expect(screen.getByLabelText('From the calendar')).toBeTruthy();
-    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Remove/ })).toBeNull();
   });
 
-  it('read-only and empty says so', () => {
-    render(<ParticipantChips participants={[]} editable={false} />);
-    expect(screen.getByText('No attendees')).toBeTruthy();
-  });
-
-  it('adds (validated) and removes', async () => {
-    const onAdd = vi.fn(async () => {});
+  it('removes', async () => {
     const onRemove = vi.fn(async () => {});
-    render(<ParticipantChips participants={people} editable onAdd={onAdd} onRemove={onRemove} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Remove Grace Hopper' }));
+    render(<ParticipantSummary participants={people} editable onRemove={onRemove} />);
+    await open();
+    await removeGrace();
     expect(onRemove).toHaveBeenCalledWith(people[1]);
-
-    await userEvent.click(screen.getByTestId('add-participant'));
-    await userEvent.type(screen.getByLabelText('Email (optional)'), 'not-an-email');
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(await screen.findByText('That email doesn’t look right.')).toBeTruthy();
-    expect(onAdd).not.toHaveBeenCalled();
-
-    await userEvent.clear(screen.getByLabelText('Email (optional)'));
-    await userEvent.type(screen.getByLabelText('Email (optional)'), 'lin@example.com');
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
-    // No name: the email stands in.
-    expect(onAdd).toHaveBeenCalledWith({ name: 'lin@example.com', email: 'lin@example.com' });
-    await waitFor(() => expect(screen.queryByLabelText('Name')).toBeNull());
   });
 
-  it('removes optimistically and puts the chip back when the caller rejects', async () => {
+  it('removes optimistically and puts the row back when the caller rejects', async () => {
     let reject!: (error: Error) => void;
     const onRemove = vi.fn(() => new Promise<void>((_, r) => (reject = r)));
-    render(<ParticipantChips participants={people} editable onRemove={onRemove} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Remove Grace Hopper' }));
+    render(<ParticipantSummary participants={people} editable onRemove={onRemove} />);
+    await open();
+    await removeGrace();
     // Gone before the caller answers.
-    expect(screen.getAllByTestId('participant-chip')).toHaveLength(1);
-    expect(screen.getByTestId('participants').dataset.count).toBe('1');
+    expect(screen.getByTestId('attendees-toggle').textContent).toBe('Ada Lovelace');
 
     reject(new Error('Network down'));
     expect(await screen.findByText('Network down')).toBeTruthy();
-    expect(screen.getAllByTestId('participant-chip')).toHaveLength(2);
-  });
-
-  it('shows the error the caller rejects with', async () => {
-    const onAdd = vi.fn(async () => {
-      throw new Error('You can’t edit this note.');
-    });
-    render(<ParticipantChips participants={[]} editable onAdd={onAdd} />);
-    await userEvent.click(screen.getByTestId('add-participant'));
-    await userEvent.type(screen.getByLabelText('Name'), 'Lin');
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(await screen.findByText('You can’t edit this note.')).toBeTruthy();
+    expect(screen.getByTestId('attendees-toggle').textContent).toBe('2 people');
   });
 });
 
