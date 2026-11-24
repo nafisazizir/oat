@@ -247,6 +247,7 @@ describe('calm meeting surface', () => {
       />,
     );
     expect(screen.queryByText('Saved on this Mac')).toBeNull();
+    expect(screen.queryByTestId('audio-input')).toBeNull();
     await userEvent.click(screen.getByTestId('transcript-toggle'));
     expect(screen.queryByTestId('playback')).toBeNull();
     expect(screen.queryByTestId('playback-audio')).toBeNull();

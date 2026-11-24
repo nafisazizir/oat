@@ -341,11 +341,7 @@ export function RecordingBar({
           if (value !== null) onInputChange(value);
         }}
       >
-        <SelectTrigger
-          aria-label="Audio input (dev)"
-          data-testid="audio-input"
-          className={compact ? 'shadow-sm' : undefined}
-        >
+        <SelectTrigger aria-label="Audio input (dev)" data-testid="audio-input">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -364,7 +360,7 @@ export function RecordingBar({
         (!compact || (active && snapshot && transcriptionHealth(snapshot.stt) !== 'live')) && (
           <SttStatusPill snapshot={snapshot} />
         )}
-      {!(compact && stopContainer) && inputSelect}
+      {!compact && inputSelect}
     </div>
   );
   const controls = compact ? (
