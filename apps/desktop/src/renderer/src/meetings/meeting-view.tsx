@@ -532,7 +532,6 @@ function NoteBody({
           <ParticipantSummary
             participants={note.participants}
             editable={editable && note.meetingId !== null}
-            onAdd={(p) => bridgeAction(() => call('meeting:add-participant', { documentId, ...p }))}
             onRemove={(p) =>
               bridgeAction(() =>
                 call('meeting:remove-participant', { documentId, participantId: p.id }),

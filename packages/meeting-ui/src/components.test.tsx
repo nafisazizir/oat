@@ -216,30 +216,15 @@ describe('ParticipantSummary menu', () => {
       'ALAda Lovelaceada@example.com',
       'GHGrace Hopper',
     ]);
-    expect(screen.queryByTestId('add-participant')).toBeNull();
     expect(screen.queryByRole('menuitem', { name: /^Remove/ })).toBeNull();
   });
 
-  it('adds (validated) and removes', async () => {
-    const onAdd = vi.fn(async () => {});
+  it('removes', async () => {
     const onRemove = vi.fn(async () => {});
-    render(<ParticipantSummary participants={people} editable onAdd={onAdd} onRemove={onRemove} />);
+    render(<ParticipantSummary participants={people} editable onRemove={onRemove} />);
     await open();
     await removeGrace();
     expect(onRemove).toHaveBeenCalledWith(people[1]);
-
-    await userEvent.click(await screen.findByTestId('add-participant'));
-    await userEvent.type(await screen.findByLabelText('Email (optional)'), 'not-an-email');
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(await screen.findByText('That email doesn’t look right.')).toBeTruthy();
-    expect(onAdd).not.toHaveBeenCalled();
-
-    await userEvent.clear(screen.getByLabelText('Email (optional)'));
-    await userEvent.type(screen.getByLabelText('Email (optional)'), 'lin@example.com');
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
-    // No name: the email stands in.
-    expect(onAdd).toHaveBeenCalledWith({ name: 'lin@example.com', email: 'lin@example.com' });
-    await waitFor(() => expect(screen.queryByLabelText('Name')).toBeNull());
   });
 
   it('removes optimistically and puts the row back when the caller rejects', async () => {
@@ -254,18 +239,6 @@ describe('ParticipantSummary menu', () => {
     reject(new Error('Network down'));
     expect(await screen.findByText('Network down')).toBeTruthy();
     expect(screen.getByTestId('attendees-toggle').textContent).toBe('2 people');
-  });
-
-  it('shows the error the caller rejects with', async () => {
-    const onAdd = vi.fn(async () => {
-      throw new Error('You can’t edit this note.');
-    });
-    render(<ParticipantSummary participants={[]} editable onAdd={onAdd} />);
-    await open();
-    await userEvent.click(await screen.findByTestId('add-participant'));
-    await userEvent.type(await screen.findByLabelText('Name'), 'Lin');
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(await screen.findByText('You can’t edit this note.')).toBeTruthy();
   });
 });
 

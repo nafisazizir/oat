@@ -113,12 +113,6 @@ function Header({
       <ParticipantSummary
         participants={list}
         editable={editable}
-        onAdd={async (p) =>
-          setList((l) => [
-            ...l,
-            { id: crypto.randomUUID(), name: p.name, email: p.email ?? null, source: 'manual' },
-          ])
-        }
         onRemove={async (p) => setList((l) => l.filter((x) => x.id !== p.id))}
       />
       <MeetingAccess state={state.viewer} />
@@ -317,7 +311,7 @@ export function MeetingHeaderPlayground() {
 
       <NoteColumn className="gap-3 pt-16">
         <p className="text-label-12 text-gray-900">
-          Playground: the real header components. Click the people to add or remove.
+          Playground: the real header components. Click the people to see or remove them.
         </p>
         <textarea
           aria-label="Title"

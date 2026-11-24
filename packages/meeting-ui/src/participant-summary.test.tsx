@@ -14,13 +14,10 @@ describe('participant summary', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Attendee: Riley' }));
     expect((await screen.findByTestId('participant-details')).textContent).toContain('Riley');
   });
-  it('keeps adding attendees reachable on an empty meeting', async () => {
-    render(<ParticipantSummary participants={[]} editable onAdd={async () => {}} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Add attendees' }));
-    expect(await screen.findByTestId('add-participant')).toBeTruthy();
-  });
-  it('shows nothing for a solo meeting I cannot edit', () => {
-    const { container } = render(<ParticipantSummary participants={[]} editable={false} />);
+  it('shows nothing for a solo meeting, even to an editor', () => {
+    const { container } = render(
+      <ParticipantSummary participants={[]} editable onRemove={async () => {}} />,
+    );
     expect(container.innerHTML).toBe('');
   });
   it('names one person, counts more', () => {

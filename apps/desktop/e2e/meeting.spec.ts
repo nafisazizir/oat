@@ -133,15 +133,13 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
   await expect(page.getByTestId('meeting-list-item')).toContainText('Beta launch sync');
   await expect(page.getByText('Saved on this Mac')).toHaveCount(0);
 
-  // An attendee, added by hand (attendees are behind "N people"; "Add attendees" while there are none).
-  await expect(page.getByTestId('attendees-toggle')).toHaveAccessibleName('Add attendees');
-  await openAttendees(page);
-  await page.getByTestId('add-participant').click();
-  await page.getByLabel('Name').fill('Dana Scully');
-  await page.getByLabel('Email (optional)').fill('dana@example.com');
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await expect(page.getByTestId('participant-chip')).toHaveCount(1);
-  await closeAttendees(page);
+  // An attendee added by hand (over the bridge: the header has no add for now; just me shows nothing).
+  await expect(page.getByTestId('attendees-toggle')).toHaveCount(0);
+  await invoke(page, 'meeting:add-participant', {
+    documentId,
+    name: 'Dana Scully',
+    email: 'dana@example.com',
+  });
   await expect(page.getByTestId('attendees-toggle')).toHaveText('Dana Scully');
 
   // The transcript is closed until asked for; opened, the live transcript fills the panel beside the note.
@@ -242,11 +240,11 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
     }
 
     // An attendee added on the web reaches the desktop with the next sync.
-    await openAttendees(web);
-    await web.getByTestId('add-participant').click();
-    await web.getByLabel('Name').fill('Fox Mulder');
-    await web.getByRole('button', { name: 'Add', exact: true }).click();
-    await expect(web.getByTestId('participant-chip')).toHaveCount(2);
+    const added = await web.request.post(`${webUrl}/api/documents/${documentId}/participants`, {
+      headers: { origin: webUrl },
+      data: { name: 'Fox Mulder', email: null },
+    });
+    expect(added.status()).toBe(201);
   } finally {
     await context.close();
   }

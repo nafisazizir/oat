@@ -3,57 +3,40 @@
 /**
  * Who was in the meeting: "N people" in the header, a small row menu behind it with one row per person
  * (from the calendar event's attendees, 7.3, or added by hand). Editors remove someone with their row's
- * trash button and add people from "Add attendee"; the caller persists (web API / desktop local store).
+ * trash button; the caller persists (web API / desktop local store).
  */
 import { Avatar, AvatarFallback } from '@oat/ui/components/avatar';
-import { Button } from '@oat/ui/components/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@oat/ui/components/dropdown-menu';
-import { Input } from '@oat/ui/components/input';
-import { Popover, PopoverContent } from '@oat/ui/components/popover';
 import { cn } from '@oat/ui/lib/utils';
-import { Spinner } from '@oat/ui/components/spinner';
-import { IconPlus, IconTrash, IconUser, IconUserPlus, IconUsers } from '@tabler/icons-react';
-import { type FormEvent, useRef, useState } from 'react';
+import { IconTrash, IconUser, IconUsers } from '@tabler/icons-react';
+import { useState } from 'react';
 
-import { attendeesLabel, initials, isPlausibleEmail, type Participant } from './format.ts';
+import { attendeesLabel, initials, type Participant } from './format.ts';
 import { metaActionClass } from './meeting-meta.tsx';
 
 export interface ParticipantChipsProps {
   participants: readonly Participant[];
   editable: boolean;
-  /** Rejects with a user-facing message (shown in the form). */
-  onAdd?: (input: { name: string; email: string | null }) => Promise<void>;
   onRemove?: (participant: Participant) => Promise<void>;
   className?: string;
 }
 
-export const MAX_PARTICIPANT_NAME = 200;
-
-// Sized to the small menu rows it opens from.
-const compactInput = 'data-[size=sm]:h-7 px-2 text-label-13 md:text-label-13';
-
 export function ParticipantSummary({
   participants,
   editable,
-  onAdd,
   onRemove,
   className,
 }: ParticipantChipsProps) {
-  const trigger = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [adding, setAdding] = useState(false);
   // Optimistic remove: the row goes at once; it comes back (with the error) if `onRemove` rejects.
   const [removed, setRemoved] = useState<ReadonlySet<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
-  const canAdd = editable && !!onAdd;
   const canRemove = editable && !!onRemove;
 
   async function remove(p: Participant) {
@@ -77,116 +60,75 @@ export function ParticipantSummary({
 
   const shown = removed.size ? participants.filter((p) => !removed.has(p.id)) : participants;
   const count = shown.length;
-  // Only me: nothing to show. Editors can still add people (revealed on hover, always on touch screens).
-  if (count === 0 && !canAdd) return null;
+  // Only me: nothing to show.
+  if (count === 0) return null;
   const only = shown[0];
 
   return (
-    <>
-      <DropdownMenu size="sm" open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger
-          ref={trigger}
-          className={cn(
-            metaActionClass,
-            count === 0 &&
-              !adding &&
-              'pointer-fine:opacity-0 pointer-fine:group-hover/meta:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100',
-            className,
-          )}
-          aria-label={
-            // Starts with what it shows (voice control targets the visible label), then who.
-            count === 0
-              ? 'Add attendees'
-              : count === 1
-                ? `Attendee: ${only?.name || only?.email}`
-                : `${count} people: ${attendeesLabel(shown)}`
-          }
-          data-testid="attendees-toggle"
-          data-count={count}
-        >
-          {count === 0 ? (
-            <>
-              <IconUserPlus aria-hidden />
-              Add attendees
-            </>
-          ) : count === 1 && only ? (
-            <>
-              <IconUser aria-hidden />
-              {only.name || only.email}
-            </>
-          ) : (
-            <>
-              <IconUsers aria-hidden />
-              {count} people
-            </>
-          )}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          aria-label="Attendees"
-          className="w-64"
-          data-testid="participant-details"
-        >
-          {count > 0 && (
-            <DropdownMenuGroup data-testid="participants" data-count={count}>
-              {shown.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex min-w-0 items-center gap-1"
-                  data-testid="participant-chip"
-                  data-source={p.source}
-                >
-                  <DropdownMenuItem
-                    className="min-w-0 flex-1"
-                    title={p.email && p.email !== p.name ? `${p.name} <${p.email}>` : p.name}
-                  >
-                    <PersonRow participant={p} />
-                  </DropdownMenuItem>
-                  {canRemove && (
-                    <DropdownMenuItem
-                      aria-label={`Remove ${p.name || p.email}`}
-                      title="Remove"
-                      closeOnClick={false}
-                      onClick={() => void remove(p)}
-                      className="size-6 shrink-0 justify-center p-0 text-gray-900"
-                    >
-                      <IconTrash className="size-3.5" />
-                    </DropdownMenuItem>
-                  )}
-                </div>
-              ))}
-            </DropdownMenuGroup>
-          )}
-          {count === 0 && !canAdd && <DropdownMenuLabel>No attendees</DropdownMenuLabel>}
-          {error && (
-            <p role="alert" className="px-2 py-1 text-label-13 text-red-900">
-              {error}
-            </p>
-          )}
-          {canAdd && (
-            <>
-              {count > 0 && <DropdownMenuSeparator />}
-              <DropdownMenuItem data-testid="add-participant" onClick={() => setAdding(true)}>
-                <IconPlus />
-                Add attendee
+    <DropdownMenu size="sm" open={menuOpen} onOpenChange={setMenuOpen}>
+      <DropdownMenuTrigger
+        className={cn(metaActionClass, className)}
+        aria-label={
+          // Starts with what it shows (voice control targets the visible label), then who.
+          count === 1
+            ? `Attendee: ${only?.name || only?.email}`
+            : `${count} people: ${attendeesLabel(shown)}`
+        }
+        data-testid="attendees-toggle"
+        data-count={count}
+      >
+        {count === 1 && only ? (
+          <>
+            <IconUser aria-hidden />
+            {only.name || only.email}
+          </>
+        ) : (
+          <>
+            <IconUsers aria-hidden />
+            {count} people
+          </>
+        )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        aria-label="Attendees"
+        className="w-64"
+        data-testid="participant-details"
+      >
+        <DropdownMenuGroup data-testid="participants" data-count={count}>
+          {shown.map((p) => (
+            <div
+              key={p.id}
+              className="flex min-w-0 items-center gap-1"
+              data-testid="participant-chip"
+              data-source={p.source}
+            >
+              <DropdownMenuItem
+                className="min-w-0 flex-1"
+                title={p.email && p.email !== p.name ? `${p.name} <${p.email}>` : p.name}
+              >
+                <PersonRow participant={p} />
               </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      {canAdd && onAdd && (
-        <Popover open={adding} onOpenChange={setAdding}>
-          <PopoverContent
-            anchor={trigger}
-            align="start"
-            sideOffset={4}
-            aria-label="Add attendee"
-            className="w-64 gap-0 p-1.5"
-          >
-            {adding && <AddParticipantForm onAdd={onAdd} onDone={() => setAdding(false)} />}
-          </PopoverContent>
-        </Popover>
-      )}
-    </>
+              {canRemove && (
+                <DropdownMenuItem
+                  aria-label={`Remove ${p.name || p.email}`}
+                  title="Remove"
+                  closeOnClick={false}
+                  onClick={() => void remove(p)}
+                  className="size-6 shrink-0 justify-center p-0 text-gray-900"
+                >
+                  <IconTrash className="size-3.5" />
+                </DropdownMenuItem>
+              )}
+            </div>
+          ))}
+        </DropdownMenuGroup>
+        {error && (
+          <p role="alert" className="px-2 py-1 text-label-13 text-red-900">
+            {error}
+          </p>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -201,77 +143,5 @@ function PersonRow({ participant: p }: { participant: Participant }) {
         <span className="min-w-0 truncate text-label-12 text-gray-900">{p.email}</span>
       )}
     </>
-  );
-}
-
-function AddParticipantForm({
-  onAdd,
-  onDone,
-}: {
-  onAdd: NonNullable<ParticipantChipsProps['onAdd']>;
-  onDone: () => void;
-}) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const n = name.trim();
-    const e = email.trim();
-    if (!n && !e) return setError('Add a name or an email.');
-    if (e && !isPlausibleEmail(e)) return setError('That email doesn’t look right.');
-    setPending(true);
-    setError(null);
-    try {
-      await onAdd({ name: (n || e).slice(0, MAX_PARTICIPANT_NAME), email: e || null });
-      onDone();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Couldn’t add them.');
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <form noValidate className="flex flex-col gap-1.5" onSubmit={(event) => void submit(event)}>
-      <Input
-        size="sm"
-        className={compactInput}
-        aria-label="Name"
-        placeholder="Name"
-        value={name}
-        autoFocus
-        maxLength={MAX_PARTICIPANT_NAME}
-        autoComplete="off"
-        onChange={(event) => setName(event.target.value)}
-      />
-      <Input
-        size="sm"
-        className={compactInput}
-        type="email"
-        aria-label="Email (optional)"
-        placeholder="Email (optional)"
-        value={email}
-        maxLength={320}
-        autoComplete="off"
-        onChange={(event) => setEmail(event.target.value)}
-      />
-      {error && (
-        <p role="alert" className="px-1 text-label-13 text-red-900">
-          {error}
-        </p>
-      )}
-      <div className="flex justify-end gap-1.5">
-        <Button type="button" variant="ghost" size="xs" onClick={onDone}>
-          Cancel
-        </Button>
-        <Button type="submit" size="xs" disabled={pending}>
-          {pending && <Spinner data-icon="inline-start" />}
-          Add
-        </Button>
-      </div>
-    </form>
   );
 }

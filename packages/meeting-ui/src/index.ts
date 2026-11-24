@@ -48,10 +48,6 @@ export {
   type PlaybackSource,
 } from './playback.ts';
 export { NoteColumn, TRANSCRIPT_PANEL_SIZE } from './note-column.tsx';
-export {
-  MAX_PARTICIPANT_NAME,
-  ParticipantSummary,
-  type ParticipantChipsProps,
-} from './participants.tsx';
+export { ParticipantSummary, type ParticipantChipsProps } from './participants.tsx';
 export { SidePanel, type SidePanelProps, useStoredState } from './side-panel.tsx';
 export { TranscriptList, type TranscriptListProps } from './transcript-list.tsx';

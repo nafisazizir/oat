@@ -225,14 +225,6 @@ export function MeetingNote({
       <ParticipantSummary
         participants={info.participants}
         editable={editable && hydrated}
-        onAdd={async (input) => {
-          try {
-            const added = await meetingApi.addParticipant(doc.id, input);
-            setInfo((i) => ({ ...i, participants: [...i.participants, added] }));
-          } catch (error) {
-            throw participantError(error);
-          }
-        }}
         onRemove={async (p) => {
           try {
             await meetingApi.removeParticipant(doc.id, p.id);

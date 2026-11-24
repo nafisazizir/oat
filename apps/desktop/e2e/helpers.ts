@@ -192,7 +192,7 @@ export async function stopRecording(page: Page) {
 }
 
 /**
- * The open note's attendees (desktop and web): the chips, "Add attendee" and the remove buttons are in a
+ * The open note's attendees (desktop and web): the rows and their remove buttons are in a
  * menu behind "N people". Opens it when it is closed; `closeAttendees` puts it away again.
  */
 export async function openAttendees(page: Page) {
