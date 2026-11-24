@@ -111,11 +111,17 @@ export function InviteDialog({
             <Field>
               <FieldLabel htmlFor="invite-role">Role</FieldLabel>
               <Select
+                size="sm"
                 items={roles.map((value) => ({ value, label: ROLE_INFO[value].label }))}
                 value={role}
                 onValueChange={(value) => setRole(value as Role)}
               >
-                <SelectTrigger id="invite-role" className="w-full" disabled={pending}>
+                <SelectTrigger
+                  id="invite-role"
+                  size="default"
+                  className="w-full"
+                  disabled={pending}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
