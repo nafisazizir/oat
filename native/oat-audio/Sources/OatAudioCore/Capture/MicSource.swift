@@ -98,8 +98,10 @@ public final class MicSource: CaptureSource, @unchecked Sendable {
                 input.voiceProcessingOtherAudioDuckingConfiguration =
                     AVAudioVoiceProcessingOtherAudioDuckingConfiguration(enableAdvancedDucking: false, duckingLevel: .min)
                 input.isVoiceProcessingBypassed = false
-                // VPIO needs the output side of the graph configured; we never play anything (volume 0).
-                engine.mainMixerNode.outputVolume = 0
+                // Nothing is connected to the output: we never play anything. Do not touch `mainMixerNode`
+                // here. Accessing it wires mixer → output at the mixer's default 44.1 kHz, and VPIO, one unit
+                // for both directions, then refuses to initialise on a 48 kHz device (-10875, "client-side
+                // input and output formats do not match").
                 voiceProcessing = true
             } catch {
                 delegate?.source(id, didFailWithCode: "aec_unavailable",
