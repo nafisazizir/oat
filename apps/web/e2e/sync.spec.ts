@@ -83,7 +83,8 @@ test('conflicted copy: banner, side-by-side compare, keep this copy', async ({ p
   await expect(page.getByText('Ship the beta in April.')).toBeVisible();
   await expect(page.getByTestId('conflict-banner')).toHaveCount(0);
   // The copy went to the trash: it is no longer a conflict.
-  expect((await page.request.get(`/api/sync/conflicts/${copyId}`)).status()).toBe(404);
+  const resolved = await page.request.get(`/api/sync/conflicts/${copyId}`, { maxRetries: 1 });
+  expect(resolved.status()).toBe(404);
 });
 
 test('the sidebar updates live when the note is renamed elsewhere', async ({ page }) => {

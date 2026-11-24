@@ -215,7 +215,16 @@ test('connect Notion → choose a database → send a note → update it → dis
   await page.goto('/settings/integrations');
   await card.getByRole('button', { name: 'Disconnect' }).click();
   await expect(card.getByTestId('notion-status')).toHaveText('Not connected');
-  await page.goto(`/d/${doc.id}`);
+  const [status] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === `/api/documents/${doc.id}/notion` &&
+        response.request().method() === 'GET',
+    ),
+    page.goto(`/d/${doc.id}`),
+  ]);
+  expect(status.ok()).toBe(true);
+  expect(await status.json()).toMatchObject({ configured: true, connection: null, export: null });
   await page.getByTestId('document-more').click();
   await expect(page.getByTestId('notion-send')).toHaveText('Send to Notion');
   await page.getByTestId('notion-send').click();

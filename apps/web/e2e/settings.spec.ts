@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 
 import { expect, test } from './fixtures';
+import { waitForIntegrations } from './settings-helpers';
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -39,6 +40,7 @@ for (const theme of ['light', 'dark'] as const) {
       expect(highlighted).toEqual([label]);
       const box = (await page.getByTestId('settings-content').boundingBox())!;
       expect(box.width).toBeLessThanOrEqual(640);
+      if (path === '/settings/integrations') await waitForIntegrations(page);
       await page.evaluate(() => document.fonts.ready);
       const { violations } = await new AxeBuilder({ page })
         .include('[aria-label="Settings sections"]')

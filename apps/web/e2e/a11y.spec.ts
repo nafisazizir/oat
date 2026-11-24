@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 
 import { SIGNED_OUT, signInWithMagicLink, uniqueAddress } from './auth-helpers';
 import { expect, hydrationAware, test } from './fixtures';
+import { waitForIntegrations } from './settings-helpers';
 import { seedSweepContent } from './sweep-helpers';
 
 /**
@@ -49,25 +50,35 @@ async function scan(page: Page, route: string): Promise<Finding[]> {
     .filter((finding) => finding.targets.length > 0);
 }
 
+type Route = [string, (page: Page) => Promise<void>];
+
+async function scanRoutes(page: Page, routes: Route[]): Promise<Finding[]> {
+  const findings: Finding[] = [];
+  for (const [route, ready] of routes) {
+    await test.step(route, async () => {
+      await page.goto(route);
+      await ready(page);
+      findings.push(...(await scan(page, route)));
+    });
+  }
+  return findings;
+}
+
 for (const theme of ['light', 'dark'] as const) {
-  test(`main routes have no serious/critical axe violations (${theme})`, async ({
+  test(`note and search routes have no serious/critical axe violations (${theme})`, async ({
     page,
     browser,
     baseURL,
   }) => {
     await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript((value) => localStorage.setItem('oat-theme', value), theme);
-    const findings: Finding[] = [];
-
     const anonContext = await browser.newContext({
       storageState: SIGNED_OUT,
       colorScheme: theme,
       reducedMotion: 'reduce',
     });
+    await anonContext.addInitScript((value) => localStorage.setItem('oat-theme', value), theme);
     const anon = hydrationAware(await anonContext.newPage());
-    await anon.goto('/sign-in');
-    await expect(anon.getByRole('heading', { level: 1, name: 'Welcome to Oat' })).toBeVisible();
-    findings.push(...(await scan(anon, '/sign-in')));
 
     await page.goto('/sign-in');
     await signInWithMagicLink(page, uniqueAddress(`e2e-a11y-${theme}`), baseURL!);
@@ -85,7 +96,7 @@ for (const theme of ['light', 'dark'] as const) {
       })
       .toBe(true);
 
-    const routes: [string, (p: Page) => Promise<void>][] = [
+    const findings = await scanRoutes(page, [
       ['/home', (p) => expect(p.getByRole('heading', { level: 1, name: 'Home' })).toBeVisible()],
       [`/d/${content.page.id}`, (p) => expect(p.getByTestId('document-title')).toBeVisible()],
       [
@@ -93,34 +104,55 @@ for (const theme of ['light', 'dark'] as const) {
         (p) => expect(p.getByTestId('meeting-header').filter({ visible: true })).toBeVisible(),
       ],
       ['/search?q=pilot', (p) => expect(p.locator('.line-clamp-2 > mark').first()).toBeVisible()],
-      ['/assistant', (p) => expect(p.getByTestId('chat-input')).toBeVisible()],
-      ['/tasks', (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible()],
-      ['/templates', (p) => expect(p.getByTestId('template-card').first()).toBeVisible()],
-      [
-        '/templates/new',
-        (p) => expect(p.getByRole('textbox', { name: 'Template name' })).toBeVisible(),
-      ],
-      ['/settings', (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible()],
-      ['/settings/profile', (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible()],
-      ['/settings/integrations', (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible()],
-      [
-        '/settings/workspace/members',
-        (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible(),
-      ],
-    ];
-    for (const [route, ready] of routes) {
-      await page.goto(route);
-      await ready(page);
-      findings.push(...(await scan(page, route)));
-    }
-
-    await anon.goto(content.shareUrl);
-    await expect(anon.getByTestId('shared-document')).toBeVisible();
-    findings.push(...(await scan(anon, '/share/[token]')));
-    await anon.goto('/share/abc123token');
-    await expect(anon.getByRole('heading', { level: 1 })).toBeVisible();
-    findings.push(...(await scan(anon, '/share/[unknown]')));
+    ]);
+    findings.push(
+      ...(await scanRoutes(anon, [
+        [content.shareUrl, (p) => expect(p.getByTestId('shared-document')).toBeVisible()],
+        ['/share/abc123token', (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible()],
+      ])),
+    );
     await anonContext.close();
+    expect(findings, JSON.stringify(findings, null, 2)).toEqual([]);
+  });
+
+  test(`sign-in and workspace routes have no serious/critical axe violations (${theme})`, async ({
+    page,
+    baseURL,
+  }) => {
+    await page.emulateMedia({ colorScheme: theme });
+    await page.addInitScript((value) => localStorage.setItem('oat-theme', value), theme);
+    const findings = await scanRoutes(page, [
+      [
+        '/sign-in',
+        (p) => expect(p.getByRole('heading', { level: 1, name: 'Welcome to Oat' })).toBeVisible(),
+      ],
+    ]);
+    await signInWithMagicLink(page, uniqueAddress(`e2e-a11y-workspace-${theme}`), baseURL!);
+    await expect(page).toHaveURL(/\/home$/);
+    findings.push(
+      ...(await scanRoutes(page, [
+        ['/assistant', (p) => expect(p.getByTestId('chat-input')).toBeVisible()],
+        ['/tasks', (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible()],
+        ['/templates', (p) => expect(p.getByTestId('template-card').first()).toBeVisible()],
+        [
+          '/templates/new',
+          (p) => expect(p.getByRole('textbox', { name: 'Template name' })).toBeVisible(),
+        ],
+        ['/settings', (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible()],
+        ['/settings/profile', (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible()],
+        [
+          '/settings/integrations',
+          async (p) => {
+            await expect(p.getByRole('heading', { level: 1 })).toBeVisible();
+            await waitForIntegrations(p);
+          },
+        ],
+        [
+          '/settings/workspace/members',
+          (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible(),
+        ],
+      ])),
+    );
 
     expect(findings, JSON.stringify(findings, null, 2)).toEqual([]);
   });

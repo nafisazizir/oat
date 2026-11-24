@@ -438,6 +438,10 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
   capacity-constrained hosted macOS Swift job. Keep the parallel fast matrix and the local gates. Job evidence:
   [ci-fast-only](tasks/ci-fast-only.md).
 
+- 2026-11-24 · Stale-test maintenance · Updated local test expectations and added the rule to update
+  affected tests and run relevant local gates with every change. The full Linux gate passed in 621.5 s;
+  desktop E2E, acceptance and Swift were skipped on Linux. [Evidence](tasks/update-stale-tests.md).
+
 - 2026-11-24 · Meeting header facts row (option B) · One uniformly styled row under the title: Private only when
   private, Live, recorded time (or the calendar slot until something is recorded), Join until the event ends,
   attendees, View only / In trash. No workspace badge (desktop shows it only for a note from another workspace),

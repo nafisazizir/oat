@@ -30,6 +30,9 @@ task brief (`task-file`), spawn a subagent (`subagent-briefs`) or research Grano
 - Stop and ask the human for anything on the "Human checkpoints" list in `.agent/FACTORY.md`.
 - Verify before claiming done. "Done" means the task's acceptance checks ran and passed, with evidence
   recorded in the task file.
+- Every change must keep affected unit, integration, web E2E and desktop E2E tests in sync with the intended
+  behavior. GitHub runs only the fast tier: run the relevant local gates and report anything you could not
+  run. Update any stale tests or documentation you notice; do not hide a product regression by weakening a test.
 
 ## Stack at a glance
 

@@ -10,16 +10,18 @@ import { EVIDENCE_3_3 } from './paths';
  * writes carry our Origin like the app's own fetches do).
  */
 
-/** The active workspace id (the sidebar carries it). Navigates to /home if no app page is open. */
 /** Runs a ⌘K palette command by its name — how Tasks, Templates and Trash are reached. */
 export async function runCommand(page: Page, name: string) {
   await page.keyboard.press('ControlOrMeta+k');
   const palette = page.getByRole('dialog', { name: 'Command palette' });
-  await palette.getByRole('combobox').fill(name);
-  await palette.getByRole('option', { name, exact: true }).click();
+  const input = palette.getByRole('combobox');
+  await input.fill(name);
+  await expect(palette.getByRole('option', { name, exact: true, selected: true })).toBeVisible();
+  await input.press('Enter');
   await expect(palette).toBeHidden();
 }
 
+/** The active workspace id (the sidebar carries it). Navigates to /home if no app page is open. */
 export async function activeWorkspaceId(page: Page): Promise<string> {
   const sidebar = page.getByTestId('app-sidebar');
   if (!(await sidebar.count())) await page.goto('/home');

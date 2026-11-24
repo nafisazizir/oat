@@ -1,5 +1,8 @@
 # Oat — Plan & Task Board
 
+- [x] Human-requested stale-test maintenance; the full Linux gate is green. Desktop E2E and acceptance
+  still need a Mac. [task](tasks/update-stale-tests.md)
+
 - [x] Human-requested fast-only hosted CI (D-42); static checks and all 17 tasks tests pass locally.
   [task](tasks/ci-fast-only.md)
 
