@@ -80,10 +80,35 @@ const controlTag =
   /^(?:button|input|select|textarea|summary|a)$|(?:Button|Input|InputGroup|Textarea|Select|Trigger|Toggle(?:Group(?:Item)?)?|TabsList|Menu(?:Checkbox|Radio)?Item|Card)$/;
 const pillRadius = /(?<![\w-])rounded-full(?![\w-])/;
 
+const noteDockPills: Record<string, Record<string, string>> = {
+  'apps/desktop/src/renderer/src/recording/recording-controls.tsx': {
+    'RecordingButton:Button': 'aria-label={label}',
+  },
+  'apps/web/src/components/meeting/meeting-note.tsx': {
+    'MeetingNote:RecordingStopButton': 'shape="rounded"',
+  },
+  'apps/web/src/components/meeting/recording-controls.tsx': {
+    'RecordMenu:Button': 'aria-label="Record"',
+    'LiveControls:Button': "shape={grouped ? 'rounded' : undefined}",
+  },
+  'packages/feature-ui/src/chat-session.tsx': {
+    'ChatSession:Button': "shape={layout === 'dock' ? 'rounded' : undefined}",
+    'Composer:InputGroup': "className={compact ? 'min-h-10 rounded-full' : undefined}",
+    'Composer:Button': "shape={compact ? 'rounded' : undefined}",
+  },
+  'packages/feature-ui/src/document-assistant.tsx': {
+    'DocumentAssistant:Button': 'data-testid="assistant-toggle"',
+  },
+  'packages/meeting-ui/src/transcript-toggle.tsx': {
+    'TranscriptToggle:Button': 'data-testid="transcript-toggle"',
+  },
+};
+
 function pillControls(file: string, code: string) {
   const source = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const violations: string[] = [];
-  function visit(node: ts.Node) {
+  function visit(node: ts.Node, scope = '') {
+    if (ts.isFunctionDeclaration(node)) scope = node.name?.text ?? '';
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       const tag = node.tagName.getText(source).split('.').at(-1)!;
       if (controlTag.test(tag)) {
@@ -95,13 +120,17 @@ function pillControls(file: string, code: string) {
               (attribute.name.getText(source) === 'shape' &&
                 /['"]rounded['"]/.test(attribute.initializer?.getText(source) ?? ''))),
         );
-        if (usesPill) {
+        const dockAttribute = noteDockPills[file]?.[`${scope}:${tag}`];
+        if (
+          usesPill &&
+          !node.attributes.properties.some((a) => a.getText(source) === dockAttribute)
+        ) {
           const { line } = source.getLineAndCharacterOfPosition(node.getStart(source));
           violations.push(`${file}:${line + 1}: <${tag}>`);
         }
       }
     }
-    ts.forEachChild(node, visit);
+    ts.forEachChild(node, (child) => visit(child, scope));
   }
   visit(source);
   return violations;
@@ -176,7 +205,7 @@ describe('repository ziiz vocabulary', () => {
     ).toEqual(['example.tsx:2: <Button>', 'example.tsx:3: <Input>', 'example.tsx:4: <button>']);
   });
 
-  it('uses the default Ziiz shape on app and meeting controls', () => {
+  it('uses the default Ziiz shape outside the floating note dock', () => {
     const appScopes = [
       'apps/web/src/',
       'apps/desktop/src/renderer/',
