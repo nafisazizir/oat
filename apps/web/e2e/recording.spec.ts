@@ -89,6 +89,12 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   await page.goto(`/d/${doc.id}`);
   await expect(page.locator('html')).toHaveAttribute('data-sync-live', '');
   const connectionsBeforeStart = syncConnections;
+  const group = page.getByRole('group', { name: 'Transcript and recording controls' });
+  await expect(group.getByTestId('transcript-toggle')).toHaveCSS('border-end-end-radius', '0px');
+  await expect(group.getByRole('button', { name: 'Record', exact: true })).toHaveCSS(
+    'border-inline-start-width',
+    '0px',
+  );
   await page.getByRole('button', { name: 'Record', exact: true }).click();
   const pushed = page.waitForResponse(
     (response) => response.url().endsWith('/api/sync/push') && response.ok(),
@@ -96,6 +102,11 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   await page.getByRole('button', { name: 'Mic only', exact: true }).click();
   await expect(page.getByTestId('web-recording')).toHaveAttribute('data-status', 'recording');
   await expect(page.getByTestId('note-bottom-bar').getByTestId('web-recording')).toBeVisible();
+  await expect(group.getByLabel('Recorded time')).toBeVisible();
+  await expect(group.getByRole('button', { name: 'Stop recording' })).toHaveCSS(
+    'border-end-end-radius',
+    '0px',
+  );
   const response = await pushed;
   const headers = await response.request().allHeaders();
   expect(headers['origin']).toBe(baseURL);

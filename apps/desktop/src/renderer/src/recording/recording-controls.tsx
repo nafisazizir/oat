@@ -10,6 +10,7 @@ import type {
   RecordingSnapshot,
 } from '@oat/core/bridge';
 import { Button } from '@oat/ui/components/button';
+import { ButtonGroup, ButtonGroupText } from '@oat/ui/components/button-group';
 import {
   Select,
   SelectContent,
@@ -28,7 +29,7 @@ import {
   IconPlayerStopFilled,
   IconWifiOff,
 } from '@tabler/icons-react';
-import { useEffect, useState, type ComponentProps } from 'react';
+import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { formatClock } from '../../../shared/transcript.ts';
@@ -188,7 +189,9 @@ function RecordingButton({
   }
   return (
     <Tooltip>
-      <TooltipTrigger render={<Button size="icon-sm" aria-label={label} {...props} />}>
+      <TooltipTrigger
+        render={<Button {...props} variant="outline" size="icon-lg" aria-label={label} />}
+      >
         {children}
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
@@ -209,7 +212,7 @@ export function RecordingBar({
   recorded = true,
   hint = null,
   controlsContainer,
-  compact = false,
+  transcriptToggle,
   hideTranscriptionStatus = false,
 }: {
   snapshot: RecordingSnapshot | null;
@@ -224,11 +227,12 @@ export function RecordingBar({
   /** Why the open note can't be continued. */
   hint?: string | null;
   controlsContainer?: HTMLElement | null;
-  compact?: boolean;
+  transcriptToggle?: ReactNode;
   hideTranscriptionStatus?: boolean;
 }) {
   const action = useRecordingAction();
   const cancelStart = useRecordingAction();
+  const compact = !!transcriptToggle;
   const status = snapshot?.status ?? 'idle';
   const active = isActive(status);
   const stopAction = status === 'starting' ? cancelStart : action;
@@ -240,19 +244,13 @@ export function RecordingBar({
     return action.run(() => call('recording:start', startRequest(input, meetingId)));
   }
 
-  const controls = (
-    <div
-      className={cn(
-        'flex items-center',
-        compact ? 'flex-wrap justify-center gap-1' : 'gap-2',
-        !compact && !controlsContainer && 'flex-wrap justify-center',
-      )}
-    >
+  const buttons = (
+    <>
       {status === 'recording' && (
         <RecordingButton
           compact={compact}
           label="Pause"
-          variant={compact ? 'ghost' : 'secondary'}
+          variant="secondary"
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:pause'))}
         >
@@ -264,7 +262,7 @@ export function RecordingBar({
         <RecordingButton
           compact={compact}
           label="Resume"
-          variant={compact ? 'ghost' : 'secondary'}
+          variant="secondary"
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:resume'))}
         >
@@ -290,10 +288,10 @@ export function RecordingBar({
       )}
       {(status === 'starting' || status === 'stopping') &&
         (compact ? (
-          <span className="inline-flex size-8 items-center justify-center" role="status">
+          <ButtonGroupText className="w-10 justify-center px-0" role="status">
             <Spinner aria-hidden role={undefined} />
             <span className="sr-only">{pendingLabel}</span>
-          </span>
+          </ButtonGroupText>
         ) : (
           <Button disabled size="sm" variant="secondary">
             <Spinner data-icon="inline-start" />
@@ -317,60 +315,73 @@ export function RecordingBar({
           {!compact && (status === 'error' ? 'Dismiss' : 'Stop')}
         </RecordingButton>
       )}
-
+    </>
+  );
+  const extras = (
+    <div className={cn('flex items-center gap-2', compact && 'empty:hidden')}>
+      {!hideTranscriptionStatus &&
+        (!compact || (active && snapshot && transcriptionHealth(snapshot.stt) !== 'live')) && (
+          <SttStatusPill snapshot={snapshot} />
+        )}
+      {options && options.fixtures.length > 0 && (status === 'idle' || status === 'error') && (
+        <Select
+          size="sm"
+          items={[
+            { value: 'sidecar', label: 'Mic + system audio' },
+            ...options.fixtures.map((f) => ({
+              value: `${FILE_PREFIX}${f}`,
+              label: `Fixture: ${f}`,
+            })),
+          ]}
+          value={input}
+          onValueChange={(value) => {
+            if (value !== null) onInputChange(value);
+          }}
+        >
+          <SelectTrigger aria-label="Audio input (dev)" data-testid="audio-input">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sidecar">Mic + system audio</SelectItem>
+            {options.fixtures.map((f) => (
+              <SelectItem key={f} value={`${FILE_PREFIX}${f}`}>
+                Fixture: {f}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+  );
+  const controls = compact ? (
+    <div className="flex flex-wrap items-center gap-2">
+      <ButtonGroup aria-label="Transcript and recording controls" className="rounded-md shadow-sm">
+        {transcriptToggle}
+        {buttons}
+        {active && (
+          <ButtonGroupText className="px-2.5">
+            <Elapsed snapshot={snapshot} />
+          </ButtonGroupText>
+        )}
+      </ButtonGroup>
+      {extras}
+    </div>
+  ) : (
+    <div
+      className={cn('flex items-center gap-2', !controlsContainer && 'flex-wrap justify-center')}
+    >
+      {buttons}
       {active && (
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-2">
-            {!compact && <RecordingDot status={status} />}
+            <RecordingDot status={status} />
             <Elapsed snapshot={snapshot} />
           </span>
-          {!compact && (
-            <>
-              <LevelMeter compact label="Me" source="mic" db={snapshot?.levels.mic?.rmsDb} />
-              <LevelMeter
-                compact
-                label="Them"
-                source="system"
-                db={snapshot?.levels.system?.rmsDb}
-              />
-            </>
-          )}
+          <LevelMeter compact label="Me" source="mic" db={snapshot?.levels.mic?.rmsDb} />
+          <LevelMeter compact label="Them" source="system" db={snapshot?.levels.system?.rmsDb} />
         </div>
       )}
-      <div className="flex items-center gap-2">
-        {!hideTranscriptionStatus &&
-          (!compact || (active && snapshot && transcriptionHealth(snapshot.stt) !== 'live')) && (
-            <SttStatusPill snapshot={snapshot} />
-          )}
-        {options && options.fixtures.length > 0 && (status === 'idle' || status === 'error') && (
-          <Select
-            size="sm"
-            items={[
-              { value: 'sidecar', label: 'Mic + system audio' },
-              ...options.fixtures.map((f) => ({
-                value: `${FILE_PREFIX}${f}`,
-                label: `Fixture: ${f}`,
-              })),
-            ]}
-            value={input}
-            onValueChange={(value) => {
-              if (value !== null) onInputChange(value);
-            }}
-          >
-            <SelectTrigger aria-label="Audio input (dev)" data-testid="audio-input">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="sidecar">Mic + system audio</SelectItem>
-              {options.fixtures.map((f) => (
-                <SelectItem key={f} value={`${FILE_PREFIX}${f}`}>
-                  Fixture: {f}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
+      {extras}
     </div>
   );
   return (

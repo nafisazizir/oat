@@ -24,8 +24,8 @@ export function TranscriptToggle({
         render={
           <Button
             ref={ref}
-            variant="ghost"
-            size="icon-sm"
+            variant="outline"
+            size="icon-lg"
             className="relative"
             onClick={onClick}
             aria-expanded={open}

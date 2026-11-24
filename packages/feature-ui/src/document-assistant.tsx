@@ -68,11 +68,7 @@ export function AssistantToggleAnchor({
         {feedback && <div className="pointer-events-auto empty:hidden">{feedback}</div>}
       </div>
       <div className="flex flex-wrap items-end justify-center gap-2">
-        {children && (
-          <div className="pointer-events-auto flex min-h-10 max-w-full flex-wrap items-center justify-center gap-1 rounded-lg border border-gray-alpha-400 bg-background-100 p-1 shadow-sm">
-            {children}
-          </div>
-        )}
+        {children && <div className="pointer-events-auto min-w-0">{children}</div>}
         {slot?.node && (
           <div className="min-w-32 flex-1" hidden={!!transcript}>
             {slot.node}

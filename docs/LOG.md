@@ -419,3 +419,5 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
 - 2026-11-24 · Floating meeting note dock · Web and desktop meeting notes now group recording, transcript and Ask in a floating bottom dock. The transcript gained search and copy; Ask uses existing note prompts, threads and citations. Fast CI and focused web e2e passed. Light and dark renderer evidence and the limits of the mock bridge are recorded in docs/tasks/ui-note-dock.md.
 
 - 2026-11-24 · Dock icon follow-up · The recording and transcript buttons now use icons and Oat tooltips; the transcript uses a waveform with a live dot. The elapsed timer remains visible. Light, dark and tooltip captures are recorded in docs/tasks/ui-note-dock.md.
+
+- 2026-11-24 · Dock button group follow-up · Web and desktop now attach the transcript, recording buttons and elapsed time using Oat’s existing ButtonGroup. Ask remains separate.

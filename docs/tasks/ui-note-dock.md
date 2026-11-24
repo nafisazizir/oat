@@ -18,6 +18,8 @@ The compact capture controls sit left of Ask near the bottom of the note. A tran
 
 The capture buttons are icon-only on web and desktop. The transcript uses a waveform with a live dot and exposes its expanded state. Recording and transcript buttons retain accessible names and show Oat tooltips. The elapsed timer is a separate readout.
 
+The buttons and elapsed readout share one attached control using Oat’s existing `ButtonGroup` and `ButtonGroupText`. Ask stays separate.
+
 ## Acceptance criteria
 
 - Capture baseline and dock states in the built desktop renderer with a mock bridge.
@@ -43,3 +45,5 @@ The capture buttons are icon-only on web and desktop. The transcript uses a wave
 - Slow CI: stack, migration and integration tests passed. Desktop Electron e2e (29 tests), acceptance and Swift checks skipped on Linux.
 - The full Chromium run found a missing transcript close selector, now preserved by `TranscriptSheet`. It also failed two auth checks that expect email text in the unchanged workspace menu and two home shell checks that timed out clicking the detached Templates command. See `/home/ubuntu/oat-dock-shots/ci-integration.log`.
 - Icon-only follow-up: fast CI printed `ci: ok`; the focused web meeting, assistant, calm-notes and recording suites printed `14 passed (1.8m)`. Refreshed the light and dark captures and added `/home/ubuntu/oat-dock-shots/after-dark-tooltip.png` (waveform hover).
+- ButtonGroup follow-up: inspected the attached controls in the light and dark desktop renderer captures for idle, recording, listening, transcript and chat. Both waveform tooltip captures are at `/home/ubuntu/oat-dock-shots/after-{light,dark}-tooltip.png`.
+  Fast CI printed `ci: ok`; the Chromium recording suite printed `3 passed (49.9s)` after preserving the off-note recording banner. The focused meeting, assistant and calm-notes specs passed in the preceding combined run.

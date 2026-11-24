@@ -312,16 +312,18 @@ export function MeetingNote({
             ) : undefined
           }
         >
-          <TranscriptToggle
-            ref={toggleRef}
-            open={open}
-            count={items.length}
-            live={polling || (recordingHere && recording.status === 'recording')}
-            onClick={() => (open ? closePanel() : setOpen(true))}
-          />
           <RecordingControls
             documentId={doc.id}
             eligible={editable && !(info.endedAt && lines.length > 0)}
+            transcriptToggle={
+              <TranscriptToggle
+                ref={toggleRef}
+                open={open}
+                count={items.length}
+                live={polling || (recordingHere && recording.status === 'recording')}
+                onClick={() => (open ? closePanel() : setOpen(true))}
+              />
+            }
           />
         </AssistantToggleAnchor>
       </div>

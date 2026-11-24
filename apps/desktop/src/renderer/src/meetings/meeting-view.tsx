@@ -341,33 +341,42 @@ export function MeetingView({
             ) : undefined
           }
         >
-          {documentId && (
-            <TranscriptToggle
-              ref={toggleRef}
-              open={panelOpen}
-              count={segments.length}
-              live={recordingThis && snapshot?.status === 'recording'}
-              onClick={() => (panelOpen ? closePanel() : setPanelOpen(true))}
-            />
-          )}
-          <RecordingBar
-            snapshot={snapshot}
-            options={options}
-            input={input}
-            onInputChange={onInputChange}
-            compact={documentId !== null}
-            hideTranscriptionStatus={!!documentId && panelOpen && recordingThis}
-            // D-24: continue only an editable note whose audio is on this Mac; else a new note.
-            meetingId={note?.editable && note.recordedHere ? meetingId : null}
-            recorded={note?.startedAt !== null}
-            hint={
-              note && meetingId && !(note.editable && note.recordedHere)
-                ? note.editable
-                  ? 'Recorded on another device — recording starts a new note.'
-                  : 'You can’t add to this note — recording starts a new note.'
-                : null
+          <div
+            className={
+              documentId === null
+                ? 'flex min-h-10 max-w-full flex-wrap items-center justify-center gap-1 rounded-lg border border-gray-alpha-400 bg-background-100 p-1 shadow-sm'
+                : undefined
             }
-          />
+          >
+            <RecordingBar
+              snapshot={snapshot}
+              options={options}
+              input={input}
+              onInputChange={onInputChange}
+              transcriptToggle={
+                documentId && (
+                  <TranscriptToggle
+                    ref={toggleRef}
+                    open={panelOpen}
+                    count={segments.length}
+                    live={recordingThis && snapshot?.status === 'recording'}
+                    onClick={() => (panelOpen ? closePanel() : setPanelOpen(true))}
+                  />
+                )
+              }
+              hideTranscriptionStatus={!!documentId && panelOpen && recordingThis}
+              // D-24: continue only an editable note whose audio is on this Mac; else a new note.
+              meetingId={note?.editable && note.recordedHere ? meetingId : null}
+              recorded={note?.startedAt !== null}
+              hint={
+                note && meetingId && !(note.editable && note.recordedHere)
+                  ? note.editable
+                    ? 'Recorded on another device — recording starts a new note.'
+                    : 'You can’t add to this note — recording starts a new note.'
+                  : null
+              }
+            />
+          </div>
         </AssistantToggleAnchor>
       )}
     </section>

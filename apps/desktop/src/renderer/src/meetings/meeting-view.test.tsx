@@ -160,6 +160,9 @@ describe('calm meeting surface', () => {
       issues: [],
     };
     const view = render(<MeetingView {...props} snapshot={snapshot} />);
+    const group = screen.getByRole('group', { name: 'Transcript and recording controls' });
+    expect(screen.getByTestId('transcript-toggle').parentElement).toBe(group);
+    expect(screen.getByRole('button', { name: 'Continue recording' }).parentElement).toBe(group);
     await userEvent.click(screen.getByRole('button', { name: 'Continue recording' }));
     expect(model.call).toHaveBeenCalledWith('recording:start', {
       input: 'sidecar',
