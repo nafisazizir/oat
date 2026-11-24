@@ -437,3 +437,11 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
 - 2026-11-24 · CI fast only (D-42) · Remove the repeatedly timed-out hosted Linux full job and the
   capacity-constrained hosted macOS Swift job. Keep the parallel fast matrix and the local gates. Job evidence:
   [ci-fast-only](tasks/ci-fast-only.md).
+
+- 2026-11-24 · Meeting header facts row (option B) · One uniformly styled row under the title: Private only when
+  private, Live, recorded time (or the calendar slot until something is recorded), Join until the event ends,
+  attendees, View only / In trash. No workspace badge (desktop shows it only for a note from another workspace),
+  no shared-audience badge, no duration. Attendees are an "N people" (or one name) trigger opening a small
+  DropdownMenu, one row per person with an inline trash button (Delete on the focused row); the header no longer
+  adds attendees (API kept). Dev playground at `/dev-probes/meeting-header`. Local web E2E `meeting` + `calendar`
+  passed (6/6); desktop E2E is macOS-only and was not run.
