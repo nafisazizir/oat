@@ -62,6 +62,7 @@ public enum StopReason: String, Sendable {
 /// Events carried in `kind=2` frames (UTF-8 JSON payload). Field names are part of the protocol.
 public enum CaptureEvent: Sendable {
     case started(sampleRate: Int, frameMs: Int, sources: [SourceID], synthetic: Bool, aec: Bool = false)
+    case captureReady
     case stopped(reason: StopReason, samples: [(SourceID, Int)])
     case paused
     case resumed
@@ -78,7 +79,7 @@ public enum CaptureEvent: Sendable {
     /// Frame source byte for this event.
     public var source: SourceID {
         switch self {
-        case .started, .stopped, .paused, .resumed: return .none
+        case .started, .captureReady, .stopped, .paused, .resumed: return .none
         case .error(let s, _, _, _), .deviceChanged(let s, _), .level(let s, _, _), .overrun(let s, _, _, _),
              .formatChanged(let s, _, _, _): return s
         }
@@ -96,7 +97,10 @@ public enum CaptureEvent: Sendable {
                 ("sources", .array(sources.map { .string($0.name) })),
                 ("synthetic", .bool(synthetic)),
                 ("aec", .bool(aec)),
+                ("await_capture_ready", .bool(true)),
             ])
+        case .captureReady:
+            return .object([("type", .string("capture_ready"))])
         case let .stopped(reason, samples):
             return .object([
                 ("type", .string("stopped")),

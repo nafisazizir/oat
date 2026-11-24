@@ -26,6 +26,10 @@ export interface FakeConfig {
   exitBeforeStart?: boolean;
   /** Write one audio frame per source right after `started`, before any stdin command is read. */
   audioRightAfterStarted?: boolean;
+  /** Send a startup warning, then wait for this file before opening capture. */
+  captureReadyFile?: string;
+  /** Announce the protocol but fail to open capture. */
+  failToOpen?: boolean;
 }
 
 const config = JSON.parse(process.env.FAKE_SIDECAR ?? '{}') as FakeConfig;
@@ -86,9 +90,11 @@ if (!config.noStarted) {
     sources,
     synthetic: true,
     aec: false,
+    ...(config.captureReadyFile || config.failToOpen ? { await_capture_ready: true } : {}),
   });
 }
 
+let ready = !config.captureReadyFile && !config.failToOpen;
 const tone = Int16Array.from({ length: frameSamples }, (_, i) =>
   Math.round(8000 * Math.sin((2 * Math.PI * 440 * i) / sampleRate)),
 );
@@ -101,6 +107,11 @@ if (config.audioRightAfterStarted && !config.noStarted) {
 }
 const ticker = setInterval(() => {
   if (paused || stopped || config.noStarted) return;
+  if (!ready) {
+    if (!config.captureReadyFile || !existsSync(config.captureReadyFile)) return;
+    ready = true;
+    event({ type: 'capture_ready' });
+  }
   // Emit every frame that is due (sample-count clock, like the real sidecar).
   while ((frameIndex + 1) * frameUs <= nowUs()) {
     const tUs = frameIndex * frameUs;
@@ -112,6 +123,20 @@ const ticker = setInterval(() => {
     if (durationS && frameIndex * frameUs >= durationS * 1_000_000) return stop('duration');
   }
 }, 10);
+if (config.failToOpen || config.captureReadyFile) {
+  event(
+    {
+      type: 'error',
+      source: 'mic',
+      code: config.failToOpen ? 'mic_start_failed' : 'aec_unavailable',
+      message: 'simulated microphone startup problem',
+      fatal: !!config.failToOpen,
+    },
+    SOURCE.MIC,
+  );
+  process.stderr.write('fake-sidecar: opening devices\n');
+  if (config.failToOpen) stop('error', 1);
+}
 
 const crashes =
   config.crashAfterMs !== undefined &&

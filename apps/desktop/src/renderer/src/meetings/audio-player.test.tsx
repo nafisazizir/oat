@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { renderHook, waitFor } from '@testing-library/react';
+import { fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { call } from '../bridge.ts';
 import { useMeetingPlayback } from './audio-player.tsx';
@@ -11,6 +11,7 @@ vi.mock('../bridge.ts', () => ({
 }));
 afterEach(() => {
   localStorage.clear();
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
@@ -41,3 +42,33 @@ it.each(['mic', 'system'] as const)(
     expect(localStorage.getItem('oat.desktop.playback.source')).toBe(JSON.stringify(preferred));
   },
 );
+
+it('clears playing when leaving a meeting even if reloading the audio cancels its pause event', async () => {
+  vi.mocked(call).mockImplementation(async (_channel, request) => {
+    const { meetingId } = request as { meetingId: string };
+    return {
+      meetingId,
+      status: 'available',
+      url: `oat-audio://local/${meetingId}/`,
+      durationMs: 1000,
+      parts: [{ part: 1, startMs: 0, endMs: 1000, sources: ['mic'], partial: false }],
+    } as Awaited<ReturnType<typeof call>>;
+  });
+  // The HTML media element can discard a queued pause event when its source is removed.
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
+  function Player({ id }: { id: string | null }) {
+    const { audioRef, player } = useMeetingPlayback(id);
+    return <audio ref={audioRef} data-testid="audio" data-playing={player.playing} />;
+  }
+  const { rerender } = render(<Player id="first" />);
+  const audio = screen.getByTestId('audio');
+  await waitFor(() => expect(audio.getAttribute('src')).toContain('/first/'));
+  fireEvent.play(audio);
+  expect(audio.getAttribute('data-playing')).toBe('true');
+
+  rerender(<Player id={null} />);
+  rerender(<Player id="second" />);
+  await waitFor(() => expect(audio.getAttribute('src')).toContain('/second/'));
+  expect(audio.getAttribute('data-playing')).toBe('false');
+});

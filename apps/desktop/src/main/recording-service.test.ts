@@ -31,6 +31,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TranscriptStore } from '../shared/transcript.ts';
 import type { Logger } from './ipc.ts';
+import { MeetingNotes } from './meeting-notes.ts';
 import { MeetingPersistence } from './meeting-persistence.ts';
 import { Workspaces } from './workspaces.ts';
 import {
@@ -366,8 +367,13 @@ describe('RecordingService', () => {
   });
 
   it('a source that cannot start: visible error, stop acknowledges it', async () => {
+    const createSource = vi
+      .fn(() => new FileSource({ input: { stereo: join(FIXTURES, 'standup-short.wav') } }))
+      .mockImplementationOnce(
+        () => new FileSource({ input: { stereo: join(baseDir, 'missing.wav') } }),
+      );
     const h = setup({
-      source: () => new FileSource({ input: { stereo: join(baseDir, 'missing.wav') } }),
+      source: createSource,
     });
     await expect(h.service.start({ spec: fixture })).rejects.toBeInstanceOf(RecordingServiceError);
     expect(h.service.status).toBe('error');
@@ -378,8 +384,11 @@ describe('RecordingService', () => {
     );
     await h.service.stop();
     expect(h.service.status).toBe('idle');
-    // …and a new start works.
-    expect(h.statuses.at(-1)).toBe('idle');
+    // The same start action can now use a fresh source.
+    await h.service.start({ spec: fixture });
+    expect(h.service.status).toBe('recording');
+    expect(h.service.snapshot().issues).toEqual([]);
+    await h.service.stop();
   });
 
   it('a createSource that throws (no sidecar binary) fails the start the same way', async () => {
@@ -415,6 +424,40 @@ describe('RecordingService', () => {
 });
 
 describe('RecordingService: quit and concurrency (review 2.5 #1)', () => {
+  it('shutdown cancels a start waiting on native capture', async () => {
+    let cancelStart!: (error: Error) => void;
+    let finishStop!: (event: Awaited<ReturnType<AudioSource['whenStopped']>>) => void;
+    const starting = new Promise<void>((_, reject) => (cancelStart = reject));
+    const stopped = new Promise<Awaited<ReturnType<AudioSource['whenStopped']>>>(
+      (resolve) => (finishStop = resolve),
+    );
+    const stop = vi.fn(async () => {
+      finishStop({ type: 'stopped', tUs: 0, reason: 'command', samples: { mic: 0, system: 0 } });
+      cancelStart(new Error('sidecar stopped before startup completed'));
+    });
+    const h = setup({
+      source: () => ({
+        state: 'idle',
+        sampleRate: 16_000,
+        onEvent: () => () => {},
+        onFrame: () => () => {},
+        whenStopped: () => stopped,
+        start: () => starting,
+        stop,
+        pause: () => {},
+        resume: () => {},
+      }),
+    });
+    const start = h.service.start({ spec: { input: 'sidecar' } });
+    await h.waitFor('starting');
+    await h.service.shutdown();
+    await start;
+    expect(stop).toHaveBeenCalledOnce();
+    expect(h.service.busy).toBe(false);
+    expect(h.statuses).not.toContain('recording');
+    expect(h.service.snapshot().issues).toEqual([]);
+  });
+
   it('shutdown() during a Stop resolves only after the archive files are complete', async () => {
     const h = setup({ speed: 'realtime' });
     const { meetingId } = await h.service.start({ spec: fixture });
@@ -441,32 +484,39 @@ describe('RecordingService: quit and concurrency (review 2.5 #1)', () => {
     expect(rows.map((r) => r.status)).toEqual(['complete', 'complete']);
   });
 
-  it('9.4: archive-closed is announced after idle, once the files are closed and the meeting is not busy', async () => {
-    const seen: { meetingId: string; busy: string | null; statuses: string[] }[] = [];
-    let closed!: () => void;
-    const announced = new Promise<void>((resolve) => (closed = resolve));
-    const h = setup({
-      durationMs: 2_000,
-      onArchiveClosed: (id, service) => {
-        seen.push({
-          meetingId: id,
-          busy: service.busyMeetingId,
-          statuses: [...h.statuses],
-        });
-        closed();
-      },
-    });
-    const { meetingId } = await h.service.start({ spec: fixture });
-    await h.waitFor('idle');
-    await announced;
-    // Exactly once, after `idle`, with nothing busy any more: a playable-status read now sees the audio.
-    expect(seen).toEqual([{ meetingId, busy: null, statuses: expect.arrayContaining(['idle']) }]);
-    expect(seen[0]!.statuses.at(-1)).toBe('idle');
-    const rows = await h.service.audioStore.list({ meetingId });
-    expect(rows.map((r) => r.status)).toEqual(['complete', 'complete']);
-    await h.service.shutdown();
-    expect(seen).toHaveLength(1);
-  });
+  it.each(['manual', 'automatic'] as const)(
+    'announces the closed archive after a %s stop',
+    async (mode) => {
+      const seen: { meetingId: string; busy: string | null; statuses: string[] }[] = [];
+      let closed!: () => void;
+      const announced = new Promise<void>((resolve) => (closed = resolve));
+      const h = setup({
+        ...(mode === 'manual' ? { speed: 'realtime' } : { durationMs: 2_000 }),
+        onArchiveClosed: (id, service) => {
+          seen.push({
+            meetingId: id,
+            busy: service.busyMeetingId,
+            statuses: [...h.statuses],
+          });
+          closed();
+        },
+      });
+      const { meetingId } = await h.service.start({ spec: fixture });
+      if (mode === 'manual') {
+        await expect.poll(() => h.service.audioStore.list({ meetingId })).toHaveLength(2);
+        await h.service.stop();
+      }
+      await h.waitFor('idle');
+      await announced;
+      // Exactly once, after `idle`, with nothing busy any more: a playable-status read now sees the audio.
+      expect(seen).toEqual([{ meetingId, busy: null, statuses: expect.arrayContaining(['idle']) }]);
+      expect(seen[0]!.statuses.at(-1)).toBe('idle');
+      const rows = await h.service.audioStore.list({ meetingId });
+      expect(rows.map((r) => r.status)).toEqual(['complete', 'complete']);
+      await h.service.shutdown();
+      expect(seen).toHaveLength(1);
+    },
+  );
 
   it('a second stop shares the first; two concurrent starts → only one runs', async () => {
     const h = setup({ speed: 'realtime' });
@@ -664,6 +714,83 @@ describe('RecordingService + local database (2.6)', () => {
     audio.close();
   });
 
+  it('a failed first recording leaves its note eligible for a retry', async () => {
+    const db = localDb();
+    const meetingId = 'first-attempt';
+    const notes = new MeetingNotes({
+      store: () => db.store,
+      userId: () => 'u1',
+      sync: { kick() {} },
+      onChange() {},
+    });
+    db.store.createMeeting({
+      meetingId,
+      documentId: 'existing-note',
+      ownerId: 'u1',
+      workspaceId: 'ws',
+      title: 'Existing note',
+      startedAt: null,
+    });
+    const failed = setup({
+      persistence: db.persistence,
+      source: () => new FileSource({ input: { stereo: join(baseDir, 'missing.wav') } }),
+    });
+    await expect(failed.service.start({ meetingId, spec: fixture })).rejects.toMatchObject({
+      code: 'unavailable',
+    });
+    expect(db.store.meeting(meetingId)).toMatchObject({ startedAt: null, endedAt: null });
+    expect(await notes.cannotContinue(meetingId)).toBeNull();
+
+    const retry = setup({ persistence: db.persistence });
+    await expect(retry.service.start({ meetingId, spec: fixture })).resolves.toEqual({ meetingId });
+    expect(db.store.meeting(meetingId)?.startedAt).not.toBeNull();
+    await retry.service.stop();
+    expect(db.store.documents()).toHaveLength(1);
+    db.store.close();
+  });
+
+  it('a failed meeting write stops capture at readiness and allows a retry', async () => {
+    const db = localDb();
+    const audio = new AudioIndex({ path: ':memory:' });
+    const source = new FileSource({
+      input: { stereo: join(FIXTURES, 'standup-short.wav') },
+      speed: 'realtime',
+    });
+    const h = setup({
+      persistence: db.persistence,
+      store: audio,
+      source: vi
+        .fn(() => new FileSource({ input: { stereo: join(FIXTURES, 'standup-short.wav') } }))
+        .mockReturnValueOnce(source),
+    });
+    vi.spyOn(db.store, 'createMeeting').mockImplementationOnce(() => {
+      throw new Error('SQLITE_FULL');
+    });
+    const meetingId = 'write-failed';
+    const message = 'Recording couldn’t start: the meeting can’t be saved on this Mac.';
+
+    await expect(h.service.start({ meetingId, spec: fixture })).rejects.toMatchObject({
+      code: 'unavailable',
+      message,
+    });
+    expect(source.state).toBe('stopped');
+    expect(h.service.status).toBe('error');
+    expect(h.statuses).not.toContain('recording');
+    expect(h.service.snapshot()).toMatchObject({
+      startedAt: null,
+      issues: expect.arrayContaining([expect.objectContaining({ message, fatal: true })]),
+    });
+    expect(db.store.meeting(meetingId)).toBeUndefined();
+    expect(db.store.outbox()).toEqual([]);
+    expect(await audio.list({ meetingId })).toEqual([]);
+
+    await expect(h.service.start({ meetingId, spec: fixture })).resolves.toEqual({ meetingId });
+    expect(db.store.meeting(meetingId)?.startedAt).not.toBeNull();
+    await h.service.stop();
+    audio.close();
+    db.store.close();
+  });
+
   it('no workspace known (fresh cache, offline): the start fails visibly', async () => {
     const db = localDb(false);
     const h = setup({ persistence: db.persistence });
@@ -713,7 +840,7 @@ describe('RecordingService + local database (2.6)', () => {
 
   it('a store failure becomes an issue; recording and the live transcript carry on', async () => {
     const failing: TranscriptPersistence = {
-      beginMeeting: async () => {},
+      prepareMeeting: async () => () => {},
       saveSegment: () => {
         throw new Error('disk I/O error');
       },

@@ -63,9 +63,13 @@ export type InputSpec = { input: 'sidecar' } | { input: 'file'; fixture: string 
  * Where the meeting and its final segments are stored (2.6: the local SQLite cache, synced). Segments are
  * on the meeting clock; an empty final is a retraction.
  */
+export type BeginMeeting = (startedAt: number) => void;
+
 export interface TranscriptPersistence {
-  /** Before the audio starts (new or resumed meeting). A rejection fails the start with its message. */
-  beginMeeting(meetingId: string, startedAt: number): Promise<void>;
+  /** Check local storage and workspace before opening audio. Commit the note when capture starts. */
+  prepareMeeting(meetingId: string, requestedAt: number): Promise<BeginMeeting>;
+  /** Release any existing meeting end held while opening capture. */
+  cancelMeetingStart?(meetingId: string): void;
   saveSegment(meetingId: string, segment: LiveSegment): void;
   /** Latest stored segment end of a meeting (ms, meeting clock), for resuming it after a relaunch. */
   meetingEndMs?(meetingId: string): number;
@@ -150,6 +154,7 @@ export interface PowerEvents {
 }
 
 const SLEEP_ISSUE = 'system_sleep';
+const MEETING_SAVE_FAILURE = 'Recording couldn’t start: the meeting can’t be saved on this Mac.';
 
 /** Thrown by commands; `code` maps to a bridge error code. */
 export class RecordingServiceError extends Error {
@@ -157,8 +162,9 @@ export class RecordingServiceError extends Error {
   constructor(
     readonly code: 'invalid_state' | 'unavailable',
     message: string,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
   }
 }
 
@@ -189,6 +195,7 @@ interface Session {
   readonly offsetMs: number;
   readonly archive: RecordingArchive;
   readonly stt: SttPipe;
+  readonly beginMeeting: BeginMeeting | undefined;
   /** Recording clock (frame `tUs`) of the `started` event: session time 0. */
   originUs: number | undefined;
   lastEndUs: number | undefined;
@@ -355,6 +362,13 @@ export class RecordingService {
     try {
       return await this.#start(requested, spec);
     } finally {
+      if (this.#startingMeetingId) {
+        try {
+          this.#o.persistence?.cancelMeetingStart?.(this.#startingMeetingId);
+        } catch (error) {
+          this.#o.log.error('recording: could not restore the pending meeting end', error);
+        }
+      }
       this.#starting = false;
       this.#startingMeetingId = undefined;
     }
@@ -393,16 +407,17 @@ export class RecordingService {
 
     const meetingId = requested ?? (this.#o.newMeetingId ?? (() => uuidv7()))();
     this.#startingMeetingId = meetingId;
+    let beginMeeting: BeginMeeting | undefined;
     if (this.#o.persistence) {
       try {
-        await this.#o.persistence.beginMeeting(meetingId, this.#now());
+        beginMeeting = await this.#o.persistence.prepareMeeting(meetingId, this.#now());
       } catch (error) {
         this.#o.log.error('recording: could not create the meeting', error);
         throw new RecordingServiceError(
           'unavailable',
           error instanceof Error && error.name === 'PersistenceError'
             ? error.message
-            : 'Recording couldn’t start: the meeting can’t be saved on this Mac.',
+            : MEETING_SAVE_FAILURE,
         );
       }
     }
@@ -501,6 +516,7 @@ export class RecordingService {
       offsetMs,
       archive,
       stt,
+      beginMeeting,
       originUs: undefined,
       lastEndUs: undefined,
       finalized: undefined,
@@ -511,10 +527,24 @@ export class RecordingService {
     this.#session = session;
 
     try {
-      await this.#controller.start();
+      await this.#controller.start((event) => {
+        const startedAt = this.#now();
+        try {
+          session.beginMeeting?.(startedAt);
+        } catch (error) {
+          throw new RecordingServiceError('unavailable', MEETING_SAVE_FAILURE, { cause: error });
+        }
+        session.originUs = event.tUs;
+        this.#startedAt = startedAt;
+      });
     } catch (error) {
+      if (this.#controller.state === 'stopping' || this.#controller.state === 'idle') {
+        await this.#finalize(session);
+        return { meetingId };
+      }
       this.#o.log.error('recording: start failed', error);
       await this.#finalize(session);
+      if (error instanceof RecordingServiceError) throw error;
       throw new RecordingServiceError('unavailable', startFailureMessage(error));
     }
     return { meetingId };
@@ -572,7 +602,10 @@ export class RecordingService {
    * (last finals, closed files), a stop in progress or an ended session's file closing is waited for.
    */
   async shutdown(): Promise<void> {
-    while (this.#starting) await new Promise((r) => setTimeout(r, 20));
+    while (this.#starting) {
+      if (this.#controller.state === 'starting') await this.stop().catch(() => undefined);
+      else await new Promise((r) => setTimeout(r, 20));
+    }
     const pending = this.#stopPromise ?? this.#session?.finalized;
     if (pending) {
       await pending.catch(() => undefined);
@@ -609,10 +642,12 @@ export class RecordingService {
       ]);
       this.#transcript.flush();
       this.#reportSessionGaps(session, outcome);
-      try {
-        this.#o.persistence?.endMeeting(session.meetingId, this.#now());
-      } catch (error) {
-        this.#o.log.error('recording: could not stamp the meeting end', error);
+      if (session.originUs !== undefined) {
+        try {
+          this.#o.persistence?.endMeeting(session.meetingId, this.#now());
+        } catch (error) {
+          this.#o.log.error('recording: could not stamp the meeting end', error);
+        }
       }
       const sessionMs = Math.max(
         0,
@@ -626,11 +661,17 @@ export class RecordingService {
     })().finally(() => {
       if (this.#session === session) this.#closing = false;
       this.#changed(true);
-      try {
-        this.#o.onArchiveClosed?.(session.meetingId);
-      } catch (error) {
-        this.#o.log.error('recording: archive-closed listener failed', error);
-      }
+      const notify = () => {
+        try {
+          this.#o.onArchiveClosed?.(session.meetingId);
+        } catch (error) {
+          this.#o.log.error('recording: archive-closed listener failed', error);
+        }
+      };
+      // A manual Stop still marks the meeting busy until its command finishes.
+      // Refresh playback only after it can open the closed archive.
+      if (this.#stopPromise) void this.#stopPromise.then(notify, notify);
+      else notify();
     });
     return session.finalized;
   }
@@ -729,13 +770,7 @@ export class RecordingService {
   }
 
   #onAudioEvent(event: AudioEvent): void {
-    const session = this.#session;
-    if (!session) return;
-    if (event.type === 'started') {
-      session.originUs = event.tUs;
-      this.#startedAt = this.#now();
-      this.#changed(true);
-    } else if (event.type === 'overrun') {
+    if (this.#session && event.type === 'overrun') {
       this.#issue({
         scope: 'audio',
         code: 'overrun',
@@ -999,6 +1034,7 @@ interface SttPipeOptions {
 const who = (source: AudioSourceKind) => (source === 'mic' ? 'Your microphone' : 'Meeting');
 
 function startFailureMessage(error: unknown): string {
+  if (error instanceof RecordingServiceError) return error.message;
   const text = error instanceof Error ? error.message : String(error);
   if (/not found|no such file|ENOENT|does not exist|could not find/i.test(text)) {
     return 'Recording couldn’t start: the audio helper is missing.';

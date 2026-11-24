@@ -125,11 +125,11 @@ struct SessionDropTests {
             if f.kind == .audio { return "a\(f.payload.count / 2)@\(f.tUs)" }
             return (try? JSONSerialization.jsonObject(with: f.payload) as? [String: Any])?["type"] as? String ?? "?"
         }
-        #expect(seq == ["started", "a800@0", "a200@50000", "overrun", "a800@72500", "format_changed", "stopped"], "\(seq)")
-        let overrun = try JSONSerialization.jsonObject(with: frames[3].payload) as! [String: Any]
+        #expect(seq == ["started", "capture_ready", "a800@0", "a200@50000", "overrun", "a800@72500", "format_changed", "stopped"], "\(seq)")
+        let overrun = try JSONSerialization.jsonObject(with: frames[4].payload) as! [String: Any]
         #expect(overrun["stage"] as? String == "capture")
         #expect(overrun["dropped_samples"] as? Int == 160)
-        let fmt = try JSONSerialization.jsonObject(with: frames[5].payload) as! [String: Any]
+        let fmt = try JSONSerialization.jsonObject(with: frames[6].payload) as! [String: Any]
         #expect(fmt["device_sample_rate"] as? Int == 16000 && fmt["previous_device_sample_rate"] as? Int == 48000)
         #expect(fmt["source"] as? String == "mic")
     }
@@ -216,7 +216,7 @@ struct SessionTests {
             s.handle(.stop)
         }
         let types = events(frames).map { $0["type"] as! String }.filter { $0 != "level" }
-        #expect(types == ["started", "paused", "resumed", "stopped"])
+        #expect(types == ["started", "capture_ready", "paused", "resumed", "stopped"])
         let audio = frames.filter { $0.kind == .audio }
         let seconds = Double(audio.reduce(0) { $0 + $1.payload.count }) / 32000
         #expect(seconds > 0.25 && seconds < 0.6, "\(seconds)s kept of ~0.7s")
@@ -239,6 +239,18 @@ struct SessionTests {
         #expect(errs.first?["source"] as? String == "system")
         #expect(errs.first?["code"] as? String == "tap_create_failed", "specific code, not generic start_failed")
         #expect(frames.filter { $0.kind == .audio && $0.source == .mic }.reduce(0) { $0 + $1.payload.count } == 6400)
+    }
+
+    @Test func noCaptureReadyWhenEverySourceFailsToOpen() async throws {
+        let o = CaptureOptions()
+        let (frames, code) = try await run(o, sources: { _ in
+            [FailingSource(id: .mic, failOnStart: true), FailingSource(id: .system, failOnStart: true)]
+        })
+        let ev = events(frames)
+        #expect(code == 1)
+        #expect(ev.first?["await_capture_ready"] as? Bool == true)
+        #expect(ev.compactMap { $0["type"] as? String } == ["started", "error", "error", "stopped"])
+        #expect(ev.last?["reason"] as? String == "error")
     }
 
     @Test func allSourcesFailingStopsWithError() async throws {

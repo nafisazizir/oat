@@ -316,6 +316,47 @@ describe('SidecarSource (fake sidecar)', () => {
     );
   });
 
+  it('waits for a working device and delivers startup warnings after started', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'oat-sidecar-'));
+    const readyFile = join(dir, 'ready');
+    let opening = false;
+    const { source, events, frames } = fake(
+      { captureReadyFile: readyFile },
+      { onStderr: () => (opening = true) },
+    );
+    const starting = source.start();
+    await until(() => opening);
+    expect(source.state).toBe('idle');
+    expect(events).toEqual([]);
+    writeFileSync(readyFile, '');
+    await starting;
+    expect(source.state).toBe('running');
+    expect(types(events).slice(0, 2)).toEqual(['started', 'error']);
+    expect(events[1]).toMatchObject({ code: 'aec_unavailable', fatal: false });
+    await until(() => frames.length > 0);
+  });
+
+  it('rejects startup with the native error when no device opens', async () => {
+    const { source, events } = fake({ failToOpen: true });
+    await expect(source.start()).rejects.toThrow(/mic_start_failed: simulated microphone/);
+    expect(events).toEqual([]);
+    expect((await source.whenStopped()).reason).toBe('error');
+  });
+
+  it('cancels startup after the protocol handshake while waiting for a device', async () => {
+    let opening = false;
+    const { source, events } = fake(
+      { captureReadyFile: join(mkdtempSync(join(tmpdir(), 'oat-sidecar-')), 'ready') },
+      { onStderr: () => (opening = true) },
+    );
+    const starting = source.start();
+    await until(() => opening);
+    await source.stop();
+    await starting;
+    expect(events).toEqual([]);
+    expect((await source.whenStopped()).reason).toBe('command');
+  });
+
   it('rejects start when no `started` frame arrives in time', async () => {
     const { source } = fake({ noStarted: true }, { startTimeoutMs: 200 });
     await expect(source.start()).rejects.toThrow(/no `started` frame within 200 ms/);

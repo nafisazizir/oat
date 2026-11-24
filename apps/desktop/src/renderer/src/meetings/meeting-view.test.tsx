@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { RecordingSnapshot } from '@oat/core/bridge';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MeetingView } from './meeting-view.tsx';
@@ -118,6 +119,7 @@ beforeEach(() => {
   model.note = note;
   model.loaded = true;
   model.pause.mockReset();
+  model.call.mockReset();
   model.seek.mockReset();
   model.scroll.mockReset();
   model.retry.mockReset();
@@ -138,6 +140,37 @@ afterEach(() => {
 });
 
 describe('calm meeting surface', () => {
+  it('lets a note stop its recording while the start request is pending', async () => {
+    let finishStart!: () => void;
+    const starting = new Promise<void>((resolve) => (finishStart = resolve));
+    model.call.mockImplementation((channel) =>
+      channel === 'recording:start' ? starting : Promise.resolve(),
+    );
+    const snapshot: RecordingSnapshot = {
+      seq: 0,
+      status: 'idle',
+      meetingId: 'meeting',
+      input: 'sidecar',
+      fixture: null,
+      startedAt: null,
+      elapsedMs: 0,
+      elapsedAt: 0,
+      levels: { mic: null, system: null },
+      stt: { mic: 'idle', system: 'idle' },
+      issues: [],
+    };
+    const view = render(<MeetingView {...props} snapshot={snapshot} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Continue recording' }));
+    expect(model.call).toHaveBeenCalledWith('recording:start', {
+      input: 'sidecar',
+      meetingId: 'meeting',
+    });
+    view.rerender(<MeetingView {...props} snapshot={{ ...snapshot, status: 'starting' }} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Stop recording' }));
+    expect(model.call).toHaveBeenCalledWith('recording:stop');
+    await act(async () => finishStart());
+  });
+
   it('defaults closed and groups recording with the toggle; persists open for this user', async () => {
     const first = render(<MeetingView {...props} />);
     expect(screen.queryByTestId('transcript-panel')).toBeNull();

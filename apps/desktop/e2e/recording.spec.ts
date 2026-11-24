@@ -199,9 +199,9 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
 }) => {
   test.setTimeout(scaled(150_000));
   const electronApp = await launch({ OAT_AUDIO_SOURCE: `file:${FIXTURE}` });
-  // A smaller window, so the transcript scrolls and "Jump to live" can be exercised.
+  // Fit fewer lines so this short fixture overflows while the recording is still live.
   await electronApp.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0]!.setSize(900, 640),
+    BrowserWindow.getAllWindows()[0]!.setSize(900, 480),
   );
   await signInDesktop(electronApp, page, browser, uniqueAddress('rec'));
 
@@ -226,7 +226,8 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   await page.getByTestId('new-meeting').click();
   // The note it records into opens; its transcript is closed until asked for, so open it at once (the
   // latency below is measured to the first *visible* segment).
-  await openTranscript(page);
+  const panel = await openTranscript(page);
+  await panel.getByRole('separator', { name: 'Resize panel' }).press('End');
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
   const started = await recordingState(page);
   expect(started).toMatchObject({ status: 'recording', input: 'file', fixture: FIXTURE });

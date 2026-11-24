@@ -145,6 +145,11 @@ export function useMeetingPlayback(meetingId: string | null): {
       onPause();
       setFailed(srcKey);
     };
+    if (!srcKey) {
+      // Removing the source and calling load() can cancel a queued pause event.
+      onPause();
+      return;
+    }
     audio.addEventListener('play', onPlay);
     audio.addEventListener('pause', onPause);
     audio.addEventListener('ended', onPause);

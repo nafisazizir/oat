@@ -201,7 +201,7 @@ export function MeetingView({
   const followLive = recordingThis || (meetingId !== null && live.meetingId === meetingId);
 
   const surface = (
-    <section className="flex min-w-0 flex-1 flex-col" aria-label="Meeting">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label="Meeting">
       {/* The page's heading (the title itself is an editable field). */}
       {(!home || documentId !== null) && (
         <h1 className="sr-only">

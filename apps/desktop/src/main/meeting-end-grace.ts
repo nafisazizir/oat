@@ -9,7 +9,7 @@
  * force-quit or power loss inside the period doesn't leave the meeting open forever. At launch the file's ends
  * are *parked*; `accountOpened(user)` (that account's database is open) writes the ones that are due and re-arms
  * one that isn't. An end whose account's database isn't the open one when it is due is parked the same way
- * (never written into another account's database).
+ * (never written into another account's database). A failed database write also leaves the end parked.
  *
  * A decorator over the recording's `TranscriptPersistence` (`MeetingPersistence`), so `RecordingService`
  * doesn't change. One live pending end at a time (one recording at a time).
@@ -21,7 +21,7 @@ import type { LiveSegment } from '@oat/core/bridge';
 import { z } from 'zod';
 
 import type { Logger } from './ipc.ts';
-import type { TranscriptPersistence } from './recording-service.ts';
+import type { BeginMeeting, TranscriptPersistence } from './recording-service.ts';
 
 export interface PendingEnd {
   meetingId: string;
@@ -68,7 +68,9 @@ export class MeetingEndGrace implements TranscriptPersistence {
   readonly #graceMs: number;
   readonly #now: () => number;
   #pending: PendingEnd | null = null;
-  /** Held ends waiting for their account's database (from the file at launch, or parked when due). */
+  /** Live and parked ends for this meeting stay on disk while its recording is opening. */
+  #starting: Pick<PendingEnd, 'meetingId' | 'userId'> | undefined;
+  /** Held ends waiting for their account's database to reopen. */
   #parked: PendingEnd[];
   #timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -88,20 +90,47 @@ export class MeetingEndGrace implements TranscriptPersistence {
     return this.#parked;
   }
 
-  async beginMeeting(meetingId: string, startedAt: number): Promise<void> {
+  async prepareMeeting(meetingId: string, requestedAt: number): Promise<BeginMeeting> {
+    this.#starting = { meetingId, userId: this.#o.userId() };
+    if (this.#pending && this.#isStarting(this.#pending)) this.dispose();
+    const beginMeeting = await this.#o.inner.prepareMeeting(meetingId, requestedAt);
+    return (startedAt) => {
+      beginMeeting(startedAt);
+      this.#clearPreviousEnd();
+      this.#starting = undefined;
+    };
+  }
+
+  cancelMeetingStart(meetingId: string): void {
+    const starting = this.#starting;
+    if (starting?.meetingId !== meetingId) return;
     const pending = this.#pending;
-    if (pending?.meetingId === meetingId) {
+    const heldPending = pending && this.#isStarting(pending);
+    const heldParked = this.#parked.some((p) => this.#isStarting(p));
+    this.#starting = undefined;
+    if (heldPending) {
+      if (pending.dueAt <= this.#now()) this.flush(meetingId);
+      else this.#armTimer(pending);
+    }
+    if (heldParked) this.accountOpened(starting.userId);
+  }
+
+  #isStarting(end: PendingEnd): boolean {
+    return this.#starting?.meetingId === end.meetingId && this.#starting.userId === end.userId;
+  }
+
+  #clearPreviousEnd(): void {
+    const pending = this.#pending;
+    if (pending && this.#isStarting(pending)) {
       // "Continue recording" within the grace period: the meeting never ended.
       this.#set(null);
     } else if (pending) {
       this.flush(); // another meeting starts: the last one is over
     }
-    if (this.#parked.some((p) => p.meetingId === meetingId)) {
-      // Continued after a relaunch, still unended: the held end no longer applies.
-      this.#parked = this.#parked.filter((p) => p.meetingId !== meetingId);
+    if (this.#parked.some((p) => this.#isStarting(p))) {
+      this.#parked = this.#parked.filter((p) => !this.#isStarting(p));
       this.#save();
     }
-    await this.#o.inner.beginMeeting(meetingId, startedAt);
   }
 
   saveSegment(meetingId: string, segment: LiveSegment): void {
@@ -114,37 +143,45 @@ export class MeetingEndGrace implements TranscriptPersistence {
 
   endMeeting(meetingId: string, endedAt: number): void {
     if (this.#pending && this.#pending.meetingId !== meetingId) this.flush();
-    if (this.#graceMs <= 0) {
-      this.#write(meetingId, endedAt);
-      return;
-    }
-    this.#set({
+    const pending = {
       meetingId,
       endedAt,
       dueAt: this.#now() + this.#graceMs,
       userId: this.#o.userId(),
-    });
+    };
+    if (this.#graceMs <= 0) {
+      if (!this.#write(meetingId, endedAt)) {
+        this.#park(pending);
+        this.#save();
+      }
+      return;
+    }
+    this.#set(pending);
   }
 
   /**
    * Writes the pending end now (grace over, "Start now", quit, sign-out, account switch). Returns whether an end
-   * was written. With its account's database closed, the end is parked instead.
+   * was written. If its account's database cannot save it, the end is parked for recovery.
    */
   flush(meetingId?: string): boolean {
     const pending = this.#pending;
-    if (!pending || (meetingId !== undefined && pending.meetingId !== meetingId)) return false;
+    if (
+      !pending ||
+      (meetingId !== undefined && (this.#isStarting(pending) || pending.meetingId !== meetingId))
+    ) {
+      return false;
+    }
     this.#pending = null;
-    clearTimeout(this.#timer);
-    this.#timer = undefined;
+    this.dispose();
     let written = false;
     if (pending.userId !== this.#o.userId()) {
       this.#o.log?.warn(
         `grace: meeting ${pending.meetingId}: its account’s database is closed; ending it when it opens`,
       );
-      this.#parked = [...this.#parked, pending].slice(-MAX_PARKED);
     } else {
       written = this.#write(pending.meetingId, pending.endedAt);
     }
+    if (!written) this.#park(pending);
     this.#save();
     this.#o.onChange?.(null);
     return written;
@@ -156,16 +193,16 @@ export class MeetingEndGrace implements TranscriptPersistence {
    */
   accountOpened(userId: string | null): void {
     if (!userId || this.#o.userId() !== userId) return;
-    const mine = this.#parked.filter((p) => p.userId === userId);
+    const mine = this.#parked.filter((p) => p.userId === userId && !this.#isStarting(p));
     if (mine.length === 0) return;
-    this.#parked = this.#parked.filter((p) => p.userId !== userId);
     const now = this.#now();
     for (const p of mine) {
       if (p.dueAt > now && !this.#pending) {
+        this.#parked = this.#parked.filter((end) => end !== p);
         this.#set(p); // saves
-        continue;
+      } else if (this.#write(p.meetingId, p.endedAt)) {
+        this.#parked = this.#parked.filter((end) => end !== p);
       }
-      this.#write(p.meetingId, p.endedAt);
     }
     this.#save();
   }
@@ -185,19 +222,29 @@ export class MeetingEndGrace implements TranscriptPersistence {
     }
   }
 
+  #park(pending: PendingEnd): void {
+    this.#parked = [
+      ...this.#parked.filter(
+        (p) => p.meetingId !== pending.meetingId || p.userId !== pending.userId,
+      ),
+      pending,
+    ].slice(-MAX_PARKED);
+  }
+
   #set(pending: PendingEnd | null): void {
-    clearTimeout(this.#timer);
-    this.#timer = undefined;
+    this.dispose();
     this.#pending = pending;
-    if (pending) {
-      this.#timer = setTimeout(
-        () => this.flush(pending.meetingId),
-        Math.max(0, pending.dueAt - this.#now()),
-      );
-      this.#timer.unref?.();
-    }
+    if (pending) this.#armTimer(pending);
     this.#save();
     this.#o.onChange?.(pending);
+  }
+
+  #armTimer(pending: PendingEnd): void {
+    this.#timer = setTimeout(
+      () => this.flush(pending.meetingId),
+      Math.max(0, pending.dueAt - this.#now()),
+    );
+    this.#timer.unref?.();
   }
 
   #load(): PendingEnd[] {

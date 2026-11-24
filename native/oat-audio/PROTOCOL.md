@@ -47,6 +47,12 @@ string field).
 | `level`              | mic / system        | `rms_db`, `peak_db` (dBFS, −100 = silence)                                                                                       | every 250 ms of audio per source, for meters                                                                                                                                                                                                                              |
 | `overrun`            | mic / system        | `stage` (`capture`·`output`), `dropped_samples` (at `sample_rate`), `dropped_ms`                                                 | audio was dropped because a consumer fell behind — see _Backpressure_. `dropped_samples` is exact. `t_us` = time of the first dropped audio (`output`) or emission time (`capture`; it sits in stream order between the last audio before the gap and the first after it) |
 
+When the first `started` frame includes `await_capture_ready: true`, it describes the requested streams
+while device setup is still in progress. A session-level `capture_ready` event follows once at least one
+source is open, before any audio frames. Errors may arrive before readiness. If every source fails to open,
+the helper emits their errors followed by `stopped` with reason `error`, without announcing readiness.
+Older helpers omit the field and clients treat their `started` frame as immediately ready.
+
 Error codes currently emitted (start failures carry the specific code; `start_failed` is only the fallback):
 `tap_create_failed`, `tap_format`, `aggregate_failed`, `ioproc_failed`, `device_start_failed`, `no_device`,
 `mic_start_failed`, `device_lost`, `start_failed`, `convert_failed` (non-fatal), `tap_buffer_invalid` (non-fatal,

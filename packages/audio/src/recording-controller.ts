@@ -191,8 +191,11 @@ export class RecordingController {
     };
   }
 
-  /** `idle` | `error` → `starting` → `recording`. Rejects (and enters `error`) if the source cannot start. */
-  async start(): Promise<void> {
+  /**
+   * `idle` | `error` → `starting` → `recording`. A synchronous readiness check can reject
+   * startup before listeners and frame subscribers see the recording.
+   */
+  async start(beforeRecording?: (event: AudioEventOf<'started'>) => void): Promise<void> {
     this.#expect('start', ['idle', 'error']);
     const source = this.#options.createSource();
     this.#source = source;
@@ -201,13 +204,32 @@ export class RecordingController {
     this.#elapsedBefore = 0;
     this.#runningSince = undefined;
     this.#transition('starting');
+    let readinessFailure: { cause: unknown } | undefined;
     this.#detach = [
-      source.onFrame((frame) => this.#onFrame(source, frame)),
-      source.onEvent((event) => this.#onEvent(source, event)),
+      source.onFrame((frame) => {
+        if (!readinessFailure) this.#onFrame(source, frame);
+      }),
+      source.onEvent((event) => {
+        if (readinessFailure) return;
+        if (event.type === 'started') {
+          if (this.#state !== 'starting') return;
+          try {
+            beforeRecording?.(event);
+          } catch (error) {
+            readinessFailure = { cause: error };
+            return;
+          }
+        }
+        this.#onEvent(source, event);
+      }),
     ];
     void source.whenStopped().then((stopped) => this.#onStopped(source, stopped));
     try {
       await source.start();
+      if (readinessFailure) {
+        await source.stop();
+        throw readinessFailure.cause;
+      }
     } catch (error) {
       if (this.#source === source && this.#state === 'starting') {
         this.#enterError({
