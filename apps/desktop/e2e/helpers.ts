@@ -193,7 +193,7 @@ export async function stopRecording(page: Page) {
 
 /**
  * The open note's attendees (desktop and web): the chips, "Add attendee" and the remove buttons are in a
- * popover behind the attendees facepile. Opens it when it is closed; `closeAttendees` puts it away again.
+ * menu behind "N people". Opens it when it is closed; `closeAttendees` puts it away again.
  */
 export async function openAttendees(page: Page) {
   const details = page.getByTestId('participant-details');

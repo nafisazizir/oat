@@ -1,17 +1,24 @@
 'use client';
 
 /**
- * Who was in the meeting: a facepile + names in the header (`ParticipantSummary`), chips in its popover: from the calendar event's attendees (7.3) or added by hand. Editors add
- * (name + optional email, in a popover) and remove them; the caller persists (web API / desktop local store).
+ * Who was in the meeting: "N people" in the header (`ParticipantSummary`), one row per person in its menu: from
+ * the calendar event's attendees (7.3) or added by hand. Editors add (name + optional email, inline) and remove
+ * them; the caller persists (web API / desktop local store).
  */
-import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount } from '@oat/ui/components/avatar';
 import { Button } from '@oat/ui/components/button';
 import { Input } from '@oat/ui/components/input';
 import { Label } from '@oat/ui/components/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@oat/ui/components/popover';
 import { cn } from '@oat/ui/lib/utils';
 import { Spinner } from '@oat/ui/components/spinner';
-import { IconCalendar, IconPlus, IconUserPlus, IconX } from '@tabler/icons-react';
+import {
+  IconCalendar,
+  IconPlus,
+  IconUser,
+  IconUserPlus,
+  IconUsers,
+  IconX,
+} from '@tabler/icons-react';
 import { type FormEvent, useId, useState } from 'react';
 
 import { attendeesLabel, initials, isPlausibleEmail, type Participant } from './format.ts';
@@ -33,9 +40,16 @@ export function ParticipantSummary(props: ParticipantChipsProps) {
   const count = participants.length;
   // Only me: nothing to show. Editors can still add people (revealed on hover, always on touch screens).
   if (count === 0 && !(editable && props.onAdd)) return null;
-  const shown = participants.slice(0, count > MAX_FACES ? MAX_FACES - 1 : MAX_FACES);
+  const only = participants[0];
   return (
-    <Popover>
+    <Popover
+      onOpenChange={(open, details) => {
+        // Escape in the add form closes the form, not the menu.
+        const target = details.event?.target;
+        if (!open && details.reason === 'escape-key' && target instanceof Element)
+          if (target.closest('[data-participant-form]')) details.cancel();
+      }}
+    >
       <PopoverTrigger
         className={cn(
           metaActionClass,
@@ -51,30 +65,22 @@ export function ParticipantSummary(props: ParticipantChipsProps) {
             <IconUserPlus aria-hidden />
             Add attendees
           </>
+        ) : count === 1 && only ? (
+          <>
+            <IconUser aria-hidden />
+            {only.name || only.email}
+          </>
         ) : (
           <>
-            <AvatarGroup className="-space-x-1 group-data-[look=pill]/meta:-ms-1 group-data-[look=pill]/meta:*:data-[slot=avatar]:ring-gray-100">
-              {shown.map((p) => (
-                <Avatar key={p.id} size="sm" className="size-5">
-                  <AvatarFallback className="bg-gray-200 text-[8px] font-medium text-gray-1000">
-                    {initials(p.name || p.email || '?')}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
-              {count > shown.length && (
-                <AvatarGroupCount className="size-5 bg-gray-200 text-[8px] font-medium text-gray-1000">
-                  +{count - shown.length}
-                </AvatarGroupCount>
-              )}
-            </AvatarGroup>
-            {attendeesLabel(participants)}
+            <IconUsers aria-hidden />
+            {count} people
           </>
         )}
       </PopoverTrigger>
       <PopoverContent
         align="start"
         aria-label="Attendees"
-        className="max-h-72 w-80 overflow-y-auto"
+        className="w-72 gap-0 p-1"
         data-testid="participant-details"
       >
         <ParticipantChips {...props} />
@@ -83,8 +89,7 @@ export function ParticipantSummary(props: ParticipantChipsProps) {
   );
 }
 
-const MAX_FACES = 3;
-
+/** One row per person (avatar, name, email), remove on hover; "Add attendee" at the bottom. */
 export function ParticipantChips({
   participants,
   editable,
@@ -92,7 +97,7 @@ export function ParticipantChips({
   onRemove,
   className,
 }: ParticipantChipsProps) {
-  // Optimistic remove: the chip goes at once; it comes back (with the error) if `onRemove` rejects.
+  // Optimistic remove: the row goes at once; it comes back (with the error) if `onRemove` rejects.
   const [removed, setRemoved] = useState<ReadonlySet<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
 
@@ -116,10 +121,10 @@ export function ParticipantChips({
   const shown = removed.size ? participants.filter((p) => !removed.has(p.id)) : participants;
 
   return (
-    <div className={cn('flex flex-col gap-1', className)}>
+    <div className={cn('flex flex-col', className)}>
       <ul
         aria-label="Attendees"
-        className="flex flex-wrap items-center gap-1.5"
+        className="flex max-h-72 flex-col overflow-y-auto"
         data-testid="participants"
         data-count={shown.length}
       >
@@ -128,8 +133,7 @@ export function ParticipantChips({
             key={p.id}
             data-testid="participant-chip"
             data-source={p.source}
-            title={p.email ?? undefined}
-            className="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-md border border-gray-alpha-400 bg-background-100 ps-0.5 pe-2.5 text-label-13 text-gray-1000 has-[button]:pe-0.5"
+            className="group/row flex min-h-9 items-center gap-2.5 rounded-md ps-2 pe-1 text-label-13 text-gray-1000 hover:bg-gray-alpha-100"
           >
             <span
               aria-hidden
@@ -137,11 +141,16 @@ export function ParticipantChips({
             >
               {initials(p.name || p.email || '?')}
             </span>
-            <span className="truncate">{p.name || p.email}</span>
+            <span className="flex min-w-0 flex-1 flex-col py-1">
+              <span className="truncate">{p.name || p.email}</span>
+              {p.email && p.name && p.email !== p.name && (
+                <span className="truncate text-label-12 text-gray-900">{p.email}</span>
+              )}
+            </span>
             {p.source === 'calendar' && (
               <IconCalendar
                 aria-label="From the calendar"
-                className="size-3 shrink-0 text-gray-900"
+                className="size-3.5 shrink-0 text-gray-900"
               />
             )}
             {editable && onRemove && (
@@ -149,26 +158,27 @@ export function ParticipantChips({
                 type="button"
                 aria-label={`Remove ${p.name || p.email}`}
                 onClick={() => void remove(p)}
-                className="flex size-6 shrink-0 items-center justify-center rounded-md text-gray-900 transition-colors hover:bg-gray-alpha-200 hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 focus-visible:outline-none"
+                className="flex size-7 shrink-0 items-center justify-center rounded-md text-gray-900 transition-colors hover:bg-gray-alpha-200 hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 focus-visible:outline-none pointer-fine:opacity-0 pointer-fine:group-hover/row:opacity-100 pointer-fine:focus-visible:opacity-100"
               >
-                <IconX className="size-3" />
+                <IconX className="size-3.5" />
               </button>
             )}
           </li>
         ))}
-        {editable && onAdd && (
-          <li>
-            <AddParticipant onAdd={onAdd} />
-          </li>
-        )}
         {shown.length === 0 && !(editable && onAdd) && (
-          <li className="text-label-13 text-gray-900">No attendees</li>
+          <li className="px-2 py-2 text-label-13 text-gray-900">No attendees</li>
         )}
       </ul>
       {error && (
-        <p role="alert" className="text-label-13 text-red-900">
+        <p role="alert" className="px-2 py-1.5 text-label-13 text-red-900">
           {error}
         </p>
+      )}
+      {editable && onAdd && (
+        <>
+          {shown.length > 0 && <div aria-hidden className="-mx-1 my-1 h-px bg-gray-alpha-200" />}
+          <AddParticipant onAdd={onAdd} />
+        </>
       )}
     </div>
   );
@@ -207,64 +217,79 @@ function AddParticipant({ onAdd }: { onAdd: NonNullable<ParticipantChipsProps['o
     }
   }
 
+  if (!open)
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex min-h-9 items-center gap-2.5 rounded-md px-2 text-label-13 text-gray-900 outline-none hover:bg-gray-alpha-100 hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50"
+        data-testid="add-participant"
+      >
+        <span aria-hidden className="flex size-6 shrink-0 items-center justify-center">
+          <IconPlus className="size-4" />
+        </span>
+        Add attendee
+      </button>
+    );
+
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) reset();
+    <form
+      data-participant-form
+      noValidate
+      className="flex flex-col gap-2.5 p-2"
+      onSubmit={(event) => void submit(event)}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        reset();
+        setOpen(false);
       }}
     >
-      <PopoverTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2.5 text-button-12 text-gray-900"
-            data-testid="add-participant"
-          />
-        }
-      >
-        <IconPlus data-icon="inline-start" />
-        Add attendee
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-72">
-        <form noValidate className="flex flex-col gap-2.5" onSubmit={(event) => void submit(event)}>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={`${id}-name`}>Name</Label>
-            <Input
-              id={`${id}-name`}
-              value={name}
-              autoFocus
-              maxLength={MAX_PARTICIPANT_NAME}
-              autoComplete="off"
-              onChange={(event) => setName(event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={`${id}-email`}>
-              Email <span className="text-gray-900">(optional)</span>
-            </Label>
-            <Input
-              id={`${id}-email`}
-              type="email"
-              value={email}
-              maxLength={320}
-              autoComplete="off"
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </div>
-          {error && (
-            <p role="alert" className="text-label-13 text-red-900">
-              {error}
-            </p>
-          )}
-          <Button type="submit" size="sm" disabled={pending} className="self-end">
-            {pending && <Spinner data-icon="inline-start" />}
-            Add
-          </Button>
-        </form>
-      </PopoverContent>
-    </Popover>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${id}-name`}>Name</Label>
+        <Input
+          id={`${id}-name`}
+          value={name}
+          autoFocus
+          maxLength={MAX_PARTICIPANT_NAME}
+          autoComplete="off"
+          onChange={(event) => setName(event.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${id}-email`}>
+          Email <span className="text-gray-900">(optional)</span>
+        </Label>
+        <Input
+          id={`${id}-email`}
+          type="email"
+          value={email}
+          maxLength={320}
+          autoComplete="off"
+          onChange={(event) => setEmail(event.target.value)}
+        />
+      </div>
+      {error && (
+        <p role="alert" className="text-label-13 text-red-900">
+          {error}
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            reset();
+            setOpen(false);
+          }}
+        >
+          Cancel
+        </Button>
+        <Button type="submit" size="sm" disabled={pending}>
+          {pending && <Spinner data-icon="inline-start" />}
+          Add
+        </Button>
+      </div>
+    </form>
   );
 }

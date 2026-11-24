@@ -207,7 +207,7 @@ describe('ParticipantChips', () => {
   it('shows chips; read-only has no controls', () => {
     render(<ParticipantChips participants={people} editable={false} />);
     expect(screen.getAllByTestId('participant-chip').map((c) => c.textContent)).toEqual([
-      'ALAda Lovelace',
+      'ALAda Lovelaceada@example.com',
       'GHGrace Hopper',
     ]);
     expect(screen.getByLabelText('From the calendar')).toBeTruthy();

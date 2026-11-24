@@ -23,15 +23,18 @@ describe('participant summary', () => {
     const { container } = render(<ParticipantSummary participants={[]} editable={false} />);
     expect(container.innerHTML).toBe('');
   });
-  it('shows faces and names, folding the rest into a count', () => {
+  it('names one person, counts more', () => {
     const people = ['Ana Lee', 'Ben Ito', 'Cy Park', 'Di Wu', 'Eve Ng'].map((name, i) => ({
       ...participant,
       id: String(i),
       name,
     }));
-    render(<ParticipantSummary participants={people} editable={false} />);
-    const trigger = screen.getByRole('button', { name: 'Attendees: Ana, Ben +3' });
-    expect(trigger.textContent).toBe('ALBI+3Ana, Ben +3');
+    const { rerender } = render(<ParticipantSummary participants={people} editable={false} />);
+    expect(screen.getByRole('button', { name: 'Attendees: Ana, Ben +3' }).textContent).toBe(
+      '5 people',
+    );
+    rerender(<ParticipantSummary participants={people.slice(0, 1)} editable={false} />);
+    expect(screen.getByTestId('attendees-toggle').textContent).toBe('Ana Lee');
   });
   it('keeps removal errors visible inside the details', async () => {
     render(
