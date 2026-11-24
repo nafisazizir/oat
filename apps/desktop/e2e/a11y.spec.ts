@@ -249,9 +249,10 @@ test('every desktop screen: axe clean in light and dark (+ sweep screenshots)', 
 
   // Local search.
   await page.getByRole('button', { name: 'Search', exact: true }).click();
-  const search = page.getByLabel('Search notes and transcripts on this Mac');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  const search = palette.getByRole('combobox');
   await search.fill('launch');
-  await expect(page.getByTestId('local-search-results')).toBeVisible();
+  await expect(palette.getByRole('option', { name: /launch/i }).first()).toBeVisible();
   await sweep(page, '12-search');
   await search.fill('');
   await page.keyboard.press('Escape');

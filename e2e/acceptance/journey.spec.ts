@@ -297,7 +297,9 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     await expect(
       panel.locator('[data-testid=transcript-segment][data-source=system]').first(),
     ).toBeVisible({ timeout: scaled(20_000) });
-    await expect(page.getByTestId('stt-status')).toHaveText('Live');
+    await expect
+      .poll(async () => (await invoke<{ stt: unknown }>(page, 'recording:get')).stt)
+      .toEqual({ mic: 'open', system: 'open' });
     const seen = await page.evaluate(
       () => (window as unknown as { __seen: Record<string, number> }).__seen,
     );
@@ -513,11 +515,17 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     await transcriptHit.first().click();
     await expect(web).toHaveURL(new RegExp(`/d/${documentId}\\?t=\\d+`));
 
-    // The desktop's search is a dialog behind the sidebar's Search button (ui-calm-shell).
+    // The desktop palette merges server and local results; check the local index as well.
+    const { hits } = await invoke<{ hits: { documentId: string }[] }>(page, 'search:query', {
+      query: 'staging',
+    });
+    expect(hits).toEqual(expect.arrayContaining([expect.objectContaining({ documentId })]));
     await page.getByRole('button', { name: 'Search', exact: true }).click();
-    const local = page.getByLabel('Search notes and transcripts on this Mac');
+    const local = page.getByRole('dialog', { name: 'Command palette' }).getByRole('combobox');
     await local.fill('staging');
-    await expect(page.getByTestId('local-search-results')).toContainText(TITLE);
+    await expect(
+      page.getByTestId('search-result-transcript').filter({ hasText: TITLE }).first(),
+    ).toBeVisible();
     await evidence(page, 'desktop-search', TASK);
     await local.fill('');
     await page.keyboard.press('Escape');
@@ -643,10 +651,11 @@ test('v1 acceptance: sign up → record → enhance → share → teammate → c
     await page.getByRole('textbox', { name: 'My notes' }).click();
     await page.keyboard.type(TEAM_NOTE);
     await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', 'saved');
-    await expect(
-      (await openTranscript(page)).locator('[data-testid=transcript-segment]').first(),
-    ).toBeVisible({ timeout: scaled(20_000) });
-    await page.getByRole('button', { name: 'Stop recording' }).click();
+    const transcript = await openTranscript(page);
+    await expect(transcript.getByTestId('transcript-segment').first()).toBeVisible({
+      timeout: scaled(20_000),
+    });
+    await transcript.locator('footer').getByRole('button', { name: 'Stop recording' }).click();
     await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
       timeout: scaled(30_000),
     });

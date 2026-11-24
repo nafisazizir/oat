@@ -211,8 +211,11 @@ describe('SidecarSource (fake sidecar)', () => {
     const sinceRestart = log.slice(log.findIndex((e) => 'type' in e && e.type === 'error'));
     expect(sinceRestart.filter((e) => 'pcm' in e)).toEqual([]);
     expect(types(events).filter((t) => t === 'paused')).toHaveLength(1);
+    const resumeFrom = log.length;
     source.resume();
-    await until(() => log.slice(-3).some((e) => 'pcm' in e));
+    await until(
+      () => types(events).includes('resumed') && log.slice(resumeFrom).some((e) => 'pcm' in e),
+    );
     expect(types(events).filter((t) => t === 'resumed')).toHaveLength(1);
   });
 

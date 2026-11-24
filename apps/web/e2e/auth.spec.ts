@@ -109,7 +109,9 @@ test.describe('magic link', () => {
     const initialWorkspaces = await (await page.request.get('/api/workspaces')).json();
     expect(initialWorkspaces.workspaces).toEqual([expect.objectContaining({ memberCount: 1 })]);
     await page.getByTestId('workspace-switcher').click();
-    await expect(page.getByRole('menu')).toContainText(email);
+    const menu = page.getByRole('menu');
+    await expect(menu.getByText(email.split('@')[0]!, { exact: true })).toBeVisible();
+    await expect(menu).not.toContainText(email);
     await page.keyboard.press('Escape');
     await evidence(page, 'home-after-magic-link');
 
@@ -167,8 +169,9 @@ test.describe('Google (mock issuer)', () => {
     // Named after their first name.
     await expect(page.getByTestId('workspace-switcher')).toContainText('Grace’s workspace');
     await page.getByTestId('workspace-switcher').click();
-    await expect(page.getByRole('menu')).toContainText('Grace Hopper');
-    await expect(page.getByRole('menu')).toContainText(email);
+    const menu = page.getByRole('menu');
+    await expect(menu.getByText('Grace Hopper', { exact: true })).toBeVisible();
+    await expect(menu).not.toContainText(email);
     await page.keyboard.press('Escape');
     await evidence(page, 'home-after-google');
   });
