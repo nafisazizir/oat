@@ -160,13 +160,25 @@ describe('calm meeting surface', () => {
       issues: [],
     };
     const view = render(<MeetingView {...props} snapshot={snapshot} />);
+    const group = screen.getByRole('group', { name: 'Transcript and recording controls' });
+    expect(screen.getByTestId('transcript-toggle').parentElement).toBe(group);
+    expect(screen.getByRole('button', { name: 'Continue recording' }).parentElement).toBe(group);
     await userEvent.click(screen.getByRole('button', { name: 'Continue recording' }));
     expect(model.call).toHaveBeenCalledWith('recording:start', {
       input: 'sidecar',
       meetingId: 'meeting',
     });
     view.rerender(<MeetingView {...props} snapshot={{ ...snapshot, status: 'starting' }} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Stop recording' }));
+    expect(group.querySelectorAll(':scope > [data-slot]')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Stop recording' })).toBeNull();
+    expect(screen.queryByTestId('recording-elapsed')).toBeNull();
+    await userEvent.click(screen.getByTestId('transcript-toggle'));
+    expect(screen.getByTestId('note-dock-row').hidden).toBe(true);
+    const footer = screen.getByTestId('transcript-panel').querySelector('footer');
+    expect(footer?.contains(screen.getByTestId('transcript-toggle'))).toBe(true);
+    const stop = screen.getByRole('button', { name: 'Stop recording' });
+    expect(stop.closest('footer')).toBe(footer);
+    await userEvent.click(stop);
     expect(model.call).toHaveBeenCalledWith('recording:stop');
     await act(async () => finishStart());
   });
@@ -182,9 +194,9 @@ describe('calm meeting surface', () => {
     expect(screen.getByTestId('note-bottom-bar').parentElement).toBe(
       screen.getByRole('region', { name: 'Meeting' }),
     );
-    expect(screen.getByTestId('transcript-panel').parentElement).not.toBe(
-      screen.getByTestId('note-bottom-bar').parentElement,
-    );
+    expect(
+      screen.getByTestId('note-bottom-bar').contains(screen.getByTestId('transcript-panel')),
+    ).toBe(true);
     expect(localStorage.getItem('oat.desktop.transcript.open:alice')).toBe('true');
     first.unmount();
     render(<MeetingView {...props} />);

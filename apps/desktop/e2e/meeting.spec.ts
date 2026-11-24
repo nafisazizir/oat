@@ -22,6 +22,7 @@ import {
   launchApp,
   openAttendees,
   openTranscript,
+  stopRecording,
   scaled,
   signInDesktop,
   signInOnWeb,
@@ -154,17 +155,17 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
   await expect(
     panel.locator('[data-testid=transcript-segment][data-source=system]').first(),
   ).toBeVisible({ timeout: scaled(20_000) });
+  await panel.getByRole('button', { name: 'Copy transcript' }).click();
+  await expect(panel.getByRole('status')).toHaveText('Transcript copied');
+  expect(await electronApp.evaluate(({ clipboard }) => clipboard.readText())).not.toBe('');
   await shots(page, 'desktop-live');
 
-  // Collapse and resize the panel.
+  // Collapse the transcript sheet and reopen it from the dock.
   await page.getByRole('button', { name: 'Hide transcript' }).click();
   await expect(panel).toHaveCount(0);
   await page.getByTestId('transcript-toggle').click();
   await expect(panel).toBeVisible();
-  const width = Number(await panel.getAttribute('data-width'));
-  await panel.getByRole('separator', { name: 'Resize panel' }).focus();
-  await page.keyboard.press('ArrowLeft');
-  await expect(panel).toHaveAttribute('data-width', String(width + 16));
+  await expect(panel.getByRole('button', { name: 'Copy transcript' })).toBeEnabled();
 
   // Let a few finals arrive, then stop.
   await expect
@@ -176,7 +177,7 @@ test('jot during a fixture recording → notes + transcript stored locally, sync
       { timeout: scaled(40_000) },
     )
     .toBeGreaterThanOrEqual(6);
-  await page.getByRole('button', { name: 'Stop recording' }).click();
+  await stopRecording(page);
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
     timeout: scaled(30_000),
   });
@@ -299,7 +300,7 @@ test('relaunched: the past meeting opens from the sidebar with its stored transc
     String(stored.length),
   );
   await expect(panel.getByTestId('transcript-segment').first()).toBeVisible();
-  // A past note is not live: no "Jump to live", and the panel kept its width.
+  // A past note is not live: no "Jump to live".
   await expect(page.getByTestId('jump-to-live')).toHaveCount(0);
   await shots(page, 'desktop-past');
 });

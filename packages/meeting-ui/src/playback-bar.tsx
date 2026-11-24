@@ -7,7 +7,6 @@ import { cn } from '@oat/ui/lib/utils';
 import { Spinner } from '@oat/ui/components/spinner';
 import {
   IconAlertCircle,
-  IconDeviceDesktop,
   IconDeviceLaptop,
   IconMicrophone,
   IconPlayerPauseFilled,
@@ -89,6 +88,7 @@ export function playerKey(event: KeyboardEvent<HTMLElement>, player: MeetingPlay
 
 export function PlaybackBar({ player }: { player: MeetingPlayback }) {
   const { info, loadError } = player;
+  if (info?.status === 'none') return null;
   if (loadError && !info) {
     return (
       <PlayerFrame state="error">
@@ -118,10 +118,8 @@ export function PlaybackBar({ player }: { player: MeetingPlayback }) {
         <IconTrash />
       ) : info.status === 'other-device' ? (
         <IconDeviceLaptop />
-      ) : info.status === 'recording' ? (
-        <IconMicrophone />
       ) : (
-        <IconDeviceDesktop />
+        <IconMicrophone />
       );
     return (
       <PlayerFrame state={info.status}>

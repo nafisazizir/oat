@@ -10,6 +10,7 @@ import type {
   RecordingSnapshot,
 } from '@oat/core/bridge';
 import { Button } from '@oat/ui/components/button';
+import { ButtonGroup, ButtonGroupText } from '@oat/ui/components/button-group';
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import {
 } from '@oat/ui/components/select';
 import { cn } from '@oat/ui/lib/utils';
 import { Spinner } from '@oat/ui/components/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import {
   IconAlertTriangle,
   IconMicrophone,
@@ -27,7 +29,7 @@ import {
   IconPlayerStopFilled,
   IconWifiOff,
 } from '@tabler/icons-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { formatClock } from '../../../shared/transcript.ts';
@@ -172,6 +174,33 @@ export function startRequest(
   return meetingId ? { ...input, meetingId } : input;
 }
 
+function RecordingButton({
+  compact,
+  label,
+  children,
+  ...props
+}: ComponentProps<typeof Button> & { compact: boolean; label: string }) {
+  if (!compact) {
+    return (
+      <Button size="sm" aria-label={label} {...props}>
+        {children}
+      </Button>
+    );
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button variant="outline" size="icon-lg" shape="rounded" {...props} aria-label={label} />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 /**
  * The main window's recording bar. Idle on a recorded note, it continues that note's recording (a new
  * part, D-24); anywhere else it starts a new meeting note.
@@ -185,6 +214,10 @@ export function RecordingBar({
   recorded = true,
   hint = null,
   controlsContainer,
+  dockContainer,
+  transcriptToggle,
+  stopContainer,
+  hideTranscriptionStatus = false,
 }: {
   snapshot: RecordingSnapshot | null;
   options: InvokeResponse<'recording:options'> | null;
@@ -198,141 +231,163 @@ export function RecordingBar({
   /** Why the open note can't be continued. */
   hint?: string | null;
   controlsContainer?: HTMLElement | null;
+  dockContainer?: HTMLElement | null;
+  transcriptToggle?: ReactNode;
+  stopContainer?: HTMLElement | null;
+  hideTranscriptionStatus?: boolean;
 }) {
   const action = useRecordingAction();
   const cancelStart = useRecordingAction();
+  const compact = !!transcriptToggle;
   const status = snapshot?.status ?? 'idle';
   const active = isActive(status);
   const stopAction = status === 'starting' ? cancelStart : action;
   const error = status === 'starting' ? cancelStart.error : action.error;
+  const startLabel = meetingId && recorded ? 'Continue recording' : 'Start recording';
+  const pendingLabel = status === 'starting' ? 'Starting…' : 'Saving…';
 
   function start() {
     return action.run(() => call('recording:start', startRequest(input, meetingId)));
   }
 
-  const controls = (
-    <div
-      className={cn('flex items-center gap-2', !controlsContainer && 'flex-wrap justify-center')}
+  const stop = (active || status === 'error') && (
+    <RecordingButton
+      compact={compact}
+      label={status === 'error' ? 'Dismiss' : 'Stop recording'}
+      variant={compact ? 'outline' : 'secondary'}
+      size={compact ? 'icon-sm' : 'sm'}
+      disabled={cancelStart.pending || (status !== 'starting' && action.pending)}
+      onClick={() => void stopAction.run(() => call('recording:stop'))}
+      title={compact ? undefined : status === 'error' ? 'Dismiss' : 'Stop recording'}
     >
+      <IconPlayerStopFilled aria-hidden data-icon="inline-start" />
+      {!compact && (status === 'error' ? 'Dismiss' : 'Stop')}
+    </RecordingButton>
+  );
+
+  const buttons = (
+    <>
       {status === 'recording' && (
-        <Button
-          size="sm"
-          variant="secondary"
+        <RecordingButton
+          compact={compact}
+          label="Pause"
+          variant={compact ? 'outline' : 'secondary'}
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:pause'))}
         >
-          <IconPlayerPause data-icon="inline-start" />
-          Pause
-        </Button>
+          <IconPlayerPause aria-hidden data-icon="inline-start" />
+          {!compact && 'Pause'}
+        </RecordingButton>
       )}
       {status === 'paused' && (
-        <Button
-          size="sm"
-          variant="secondary"
+        <RecordingButton
+          compact={compact}
+          label="Resume"
+          variant={compact ? 'outline' : 'secondary'}
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:resume'))}
         >
-          <IconPlayerPlay data-icon="inline-start" />
-          Resume
-        </Button>
+          <IconPlayerPlay aria-hidden data-icon="inline-start" />
+          {!compact && 'Resume'}
+        </RecordingButton>
       )}
       {(status === 'idle' || status === 'error') && (
-        <Button
-          size="sm"
-          variant="secondary"
+        <RecordingButton
+          compact={compact}
+          label={startLabel}
+          variant={compact ? 'outline' : 'secondary'}
           disabled={action.pending || cancelStart.pending || !snapshot}
           onClick={() => void start()}
         >
           {action.pending ? (
             <Spinner data-icon="inline-start" />
           ) : (
-            <IconMicrophone data-icon="inline-start" />
+            <IconMicrophone aria-hidden data-icon="inline-start" />
           )}
-          {meetingId && recorded ? 'Continue recording' : 'Start recording'}
-        </Button>
+          {!compact && startLabel}
+        </RecordingButton>
       )}
-      {status === 'starting' && (
-        <Button disabled size="sm" variant="secondary">
-          <Spinner data-icon="inline-start" />
-          Starting…
-        </Button>
-      )}
-      {status === 'stopping' && (
-        <Button disabled size="sm" variant="secondary">
-          <Spinner data-icon="inline-start" />
-          Saving…
-        </Button>
-      )}
-      {(active || status === 'error') && (
-        <Button
+      {(status === 'starting' || status === 'stopping') &&
+        (compact ? (
+          <ButtonGroupText shape="rounded" className="w-10 justify-center px-0" role="status">
+            <Spinner aria-hidden role={undefined} />
+            <span className="sr-only">{pendingLabel}</span>
+          </ButtonGroupText>
+        ) : (
+          <Button disabled size="sm" variant="secondary">
+            <Spinner data-icon="inline-start" />
+            {pendingLabel}
+          </Button>
+        ))}
+      {!compact && stop}
+    </>
+  );
+  const extras = (
+    <div className={cn('flex items-center gap-2', compact && 'empty:hidden')}>
+      {!hideTranscriptionStatus &&
+        (!compact || (active && snapshot && transcriptionHealth(snapshot.stt) !== 'live')) && (
+          <SttStatusPill snapshot={snapshot} />
+        )}
+      {options && options.fixtures.length > 0 && (status === 'idle' || status === 'error') && (
+        <Select
           size="sm"
-          variant="secondary"
-          disabled={
-            cancelStart.pending ||
-            status === 'stopping' ||
-            (status !== 'starting' && action.pending)
-          }
-          onClick={() => void stopAction.run(() => call('recording:stop'))}
-          aria-label={status === 'error' ? 'Dismiss' : 'Stop recording'}
+          items={[
+            { value: 'sidecar', label: 'Mic + system audio' },
+            ...options.fixtures.map((f) => ({
+              value: `${FILE_PREFIX}${f}`,
+              label: `Fixture: ${f}`,
+            })),
+          ]}
+          value={input}
+          onValueChange={(value) => {
+            if (value !== null) onInputChange(value);
+          }}
         >
-          <IconPlayerStopFilled data-icon="inline-start" />
-          {status === 'error' ? 'Dismiss' : 'Stop'}
-        </Button>
+          <SelectTrigger aria-label="Audio input (dev)" data-testid="audio-input">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sidecar">Mic + system audio</SelectItem>
+            {options.fixtures.map((f) => (
+              <SelectItem key={f} value={`${FILE_PREFIX}${f}`}>
+                Fixture: {f}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
-
+    </div>
+  );
+  const controls = compact ? (
+    <div className="flex flex-wrap items-center gap-2">
+      <ButtonGroup
+        aria-label="Transcript and recording controls"
+        className="rounded-full shadow-sm"
+      >
+        {transcriptToggle}
+        {buttons}
+      </ButtonGroup>
+      {extras}
+    </div>
+  ) : (
+    <div
+      className={cn('flex items-center gap-2', !controlsContainer && 'flex-wrap justify-center')}
+    >
+      {buttons}
       {active && (
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-2">
             <RecordingDot status={status} />
             <Elapsed snapshot={snapshot} />
           </span>
-          {active && (
-            <>
-              <LevelMeter compact label="Me" source="mic" db={snapshot?.levels.mic?.rmsDb} />
-              <LevelMeter
-                compact
-                label="Them"
-                source="system"
-                db={snapshot?.levels.system?.rmsDb}
-              />
-            </>
-          )}
+          <LevelMeter compact label="Me" source="mic" db={snapshot?.levels.mic?.rmsDb} />
+          <LevelMeter compact label="Them" source="system" db={snapshot?.levels.system?.rmsDb} />
         </div>
       )}
-      <div className="flex items-center gap-2">
-        <SttStatusPill snapshot={snapshot} />
-        {options && options.fixtures.length > 0 && (status === 'idle' || status === 'error') && (
-          <Select
-            size="sm"
-            items={[
-              { value: 'sidecar', label: 'Mic + system audio' },
-              ...options.fixtures.map((f) => ({
-                value: `${FILE_PREFIX}${f}`,
-                label: `Fixture: ${f}`,
-              })),
-            ]}
-            value={input}
-            onValueChange={(value) => {
-              if (value !== null) onInputChange(value);
-            }}
-          >
-            <SelectTrigger aria-label="Audio input (dev)" data-testid="audio-input">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="sidecar">Mic + system audio</SelectItem>
-              {options.fixtures.map((f) => (
-                <SelectItem key={f} value={`${FILE_PREFIX}${f}`}>
-                  Fixture: {f}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
+      {extras}
     </div>
   );
-  return (
+  const bar = (
     <div
       className="flex flex-col gap-2"
       title={hint ?? undefined}
@@ -340,6 +395,7 @@ export function RecordingBar({
       data-status={status}
     >
       {controlsContainer ? createPortal(controls, controlsContainer) : controls}
+      {compact && stopContainer && createPortal(stop, stopContainer)}
       {error && (
         <p role="status" className="text-copy-13 text-red-900">
           {error}
@@ -352,6 +408,7 @@ export function RecordingBar({
       )}
     </div>
   );
+  return dockContainer ? createPortal(bar, dockContainer) : bar;
 }
 
 export function RecordingDot({ status }: { status: RecordingSnapshot['status'] }) {

@@ -2,7 +2,9 @@
 
 import { Alert, AlertTitle, AlertDescription } from '@oat/ui/components/alert';
 import { Button } from '@oat/ui/components/button';
+import { ButtonGroup } from '@oat/ui/components/button-group';
 import { Popover, PopoverTrigger, PopoverContent } from '@oat/ui/components/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@oat/ui/components/tooltip';
 import {
   IconMicrophone,
   IconPlayerPause,
@@ -11,7 +13,8 @@ import {
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 import { browserRecording, supportsRecording } from '@/lib/browser-recording';
 import { useHydrated } from '@/lib/use-hydrated';
@@ -28,36 +31,78 @@ export function useBrowserRecording() {
 export function RecordingControls({
   documentId,
   eligible,
+  transcriptToggle,
+  dockContainer,
 }: {
   documentId: string;
   eligible: boolean;
+  transcriptToggle: ReactNode;
+  dockContainer: HTMLElement | null;
 }) {
   const { user } = useShellData();
   const state = useBrowserRecording();
   const hydrated = useHydrated();
-  const [open, setOpen] = useState(false);
   const here = state.documentId === documentId;
   const active = here && !['idle', 'ended'].includes(state.status);
-  if (active) return <LiveControls />;
-  if (
-    !eligible ||
-    !hydrated ||
-    !supportsRecording() ||
-    (state.documentId !== null && !here && !['idle', 'ended'].includes(state.status))
-  )
-    return null;
+  const canStart =
+    eligible &&
+    hydrated &&
+    supportsRecording() &&
+    (state.documentId === null || here || ['idle', 'ended'].includes(state.status));
+  const group = (
+    <ButtonGroup
+      aria-label="Transcript and recording controls"
+      className="rounded-full shadow-sm"
+      data-testid={active ? 'web-recording' : undefined}
+      data-status={active ? state.status : undefined}
+    >
+      {transcriptToggle}
+      {active ? (
+        <LiveControls state={state} grouped />
+      ) : canStart ? (
+        <RecordMenu documentId={documentId} userId={user.id} disabled={state.pending > 0} />
+      ) : null}
+    </ButtonGroup>
+  );
+  return dockContainer ? createPortal(group, dockContainer) : group;
+}
+
+function RecordMenu({
+  documentId,
+  userId,
+  disabled,
+}: {
+  documentId: string;
+  userId: string;
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
   const start = (tab: boolean) => {
     setOpen(false);
-    void browserRecording.start(documentId, tab, user.id);
+    void browserRecording.start(documentId, tab, userId);
   };
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={<Button variant="secondary" size="sm" disabled={state.pending > 0} />}
-      >
-        <IconMicrophone aria-hidden />
-        Record
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon-lg"
+                  shape="rounded"
+                  aria-label="Record"
+                  disabled={disabled}
+                />
+              }
+            />
+          }
+        >
+          <IconMicrophone aria-hidden />
+        </TooltipTrigger>
+        <TooltipContent>Record</TooltipContent>
+      </Tooltip>
       <PopoverContent align="end" className="w-64">
         <p className="text-label-14 text-gray-1000">Record a browser meeting</p>
         <p className="text-copy-13 text-gray-900">
@@ -79,10 +124,47 @@ export function RecordingControls({
   );
 }
 
-function LiveControls() {
-  const state = useBrowserRecording();
+function LiveControls({
+  state,
+  grouped = false,
+}: {
+  state: ReturnType<typeof useBrowserRecording>;
+  grouped?: boolean;
+}) {
   const busy = state.changing || state.status === 'starting' || state.status === 'stopping';
   const seconds = Math.floor(state.elapsed);
+  const paused = state.status === 'paused';
+  const activity = busy ? state.status : paused ? 'Paused' : 'Recording';
+  const elapsed = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  const pauseButton = (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant={grouped ? 'outline' : 'ghost'}
+            size={grouped ? 'icon-lg' : 'icon-sm'}
+            shape={grouped ? 'rounded' : undefined}
+            aria-label={paused ? 'Resume' : 'Pause'}
+            disabled={busy}
+            onClick={() => void browserRecording.pause()}
+          />
+        }
+      >
+        {paused ? <IconPlayerPlay aria-hidden /> : <IconPlayerPause aria-hidden />}
+      </TooltipTrigger>
+      <TooltipContent>{paused ? 'Resume recording' : 'Pause recording'}</TooltipContent>
+    </Tooltip>
+  );
+  if (grouped) {
+    return (
+      <>
+        {pauseButton}
+        <span className="sr-only" role="status">
+          {activity}
+        </span>
+      </>
+    );
+  }
   return (
     <div
       className="flex items-center gap-1.5"
@@ -91,38 +173,34 @@ function LiveControls() {
     >
       <span className="inline-flex items-center gap-1.5 text-label-13 text-gray-1000" role="status">
         <span className="size-1.5 rounded-full bg-red-700" aria-hidden />
-        <span className="sr-only">
-          {busy ? state.status : state.status === 'paused' ? 'Paused' : 'Recording'}
-        </span>
+        <span className="sr-only">{activity}</span>
       </span>
-      <span className="text-label-13 text-gray-900 tabular-nums">
-        {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}
-      </span>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={state.status === 'paused' ? 'Resume' : 'Pause'}
-        title={state.status === 'paused' ? 'Resume recording' : 'Pause recording'}
-        disabled={busy}
-        onClick={() => void browserRecording.pause()}
-      >
-        {state.status === 'paused' ? (
-          <IconPlayerPlay aria-hidden />
-        ) : (
-          <IconPlayerPause aria-hidden />
-        )}
-      </Button>
-      <Button
-        variant="secondary"
-        size="icon-sm"
-        aria-label="Stop recording"
-        title="Stop recording"
-        disabled={busy}
-        onClick={() => void browserRecording.stop()}
+      <span className="text-label-13 text-gray-900 tabular-nums">{elapsed}</span>
+      {pauseButton}
+      <RecordingStopButton disabled={busy} />
+    </div>
+  );
+}
+
+export function RecordingStopButton({ disabled, shape }: { disabled: boolean; shape?: 'rounded' }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="secondary"
+            size="icon-sm"
+            shape={shape}
+            aria-label="Stop recording"
+            disabled={disabled}
+            onClick={() => void browserRecording.stop()}
+          />
+        }
       >
         <IconPlayerStop aria-hidden />
-      </Button>
-    </div>
+      </TooltipTrigger>
+      <TooltipContent>Stop recording</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -203,7 +281,7 @@ export function BrowserRecordingBanner() {
           <Link href={`/d/${state.documentId}`} className="text-label-14 text-brand-900 underline">
             Open recording note
           </Link>
-          {!['idle', 'ended'].includes(state.status) && <LiveControls />}
+          {!['idle', 'ended'].includes(state.status) && <LiveControls state={state} />}
         </div>
         <RecordingFeedback documentId={state.documentId} />
       </div>

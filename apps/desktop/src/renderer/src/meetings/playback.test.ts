@@ -94,7 +94,7 @@ describe('controls', () => {
     expect(playbackNotice('deleted')?.title).toBe('Audio deleted');
     expect(playbackNotice('other-device')?.title).toBe('Audio is on another device');
     expect(playbackNotice('recording')?.title).toBe('Recording');
-    expect(playbackNotice('none')?.title).toBe('No audio');
+    expect(playbackNotice('none')).toBeNull();
   });
 
   it('the clock notifies only on change', () => {

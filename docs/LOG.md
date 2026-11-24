@@ -415,3 +415,21 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
 - 2026-11-23 · Hosted Mac recording verification · The hosted Mac passed the desktop unit tests, compiled-helper integration, recording and playback suites. The compiled helper captured both synthetic sources because the hosted Mac has no audio devices. Manual Stop now waits until the archive is playable before telling the renderer to refresh playback. The auto-stop fixture gives the detector time to recognize the simulated call. See docs/tasks/mac-recording-startup.md.
 
 - 2026-11-24 · Mic echo cancellation on 48 kHz Macs · Voice processing never started on the dev Mac (AVAudioEngine -10875, "client-side input and output formats do not match"), so every recording fell back to the raw microphone and showed the echo-cancellation warning. Touching `mainMixerNode` wired the output side at 44.1 kHz against a 48 kHz microphone. The helper no longer touches the mixer. Real 3 s captures on the Mac (helper alone and through `SidecarSource`, microphone and system audio) report `aec=true` with no `aec_unavailable` event. 101 Swift tests and the 10 compiled-helper integration tests pass. Not checked: how much echo is removed, and the banner in the Electron window.
+
+- 2026-11-24 · Floating meeting note dock · Web and desktop meeting notes now group recording, transcript and Ask in a floating bottom dock. The transcript gained search and copy; Ask uses existing note prompts, threads and citations. Fast CI and focused web e2e passed. Light and dark renderer evidence and the limits of the mock bridge are recorded in docs/tasks/ui-note-dock.md.
+
+- 2026-11-24 · Dock icon follow-up · The recording and transcript buttons now use icons and Oat tooltips; the transcript uses a waveform with a live dot. The elapsed timer remains visible. Light, dark and tooltip captures are recorded in docs/tasks/ui-note-dock.md.
+
+- 2026-11-24 · Dock button group follow-up · Web and desktop now attach the transcript, recording buttons and elapsed time using Oat’s existing ButtonGroup. Ask remains separate.
+
+- 2026-11-24 · Two-control note dock · Web and desktop show record or pause/resume next to the waveform. Stop moves to the transcript footer, and the timer is gone from the dock. The waveform animates while recording unless reduced motion is requested. The buttons and Ask use Oat’s large sizes.
+
+- 2026-11-24 · Expanded note dock · Transcript and Ask now replace the full dock row and keep the same bottom edge. The capture controls move into the active panel footer.
+
+- 2026-11-24 · Rounded note dock · Floating capture and Ask controls use pill shapes, and expanded panels use Oat’s large radius. The expanded Ask composer now matches the collapsed 40 px height for a single line.
+
+- 2026-11-24 · Stationary dock controls · Transcript and Ask expand around the existing dock positions instead of shifting the controls inward.
+
+- 2026-11-24 · Minimal transcript panel · The waveform no longer looks selected when open. The header keeps only Copy and Minimise; missing audio no longer has a placeholder row. Bubbles align by speaker without visible speaker or timestamp captions.
+
+- 2026-11-24 · Minimal live transcript · The footer drops source labels, level meters and recording badges but keeps Stop. The live body is blank until speech arrives, and still surfaces transcription failures. A microphone picker is a follow-up; recording still uses the default input.

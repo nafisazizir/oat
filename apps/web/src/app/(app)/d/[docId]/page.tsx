@@ -77,6 +77,7 @@ export default async function DocumentPage({ params, searchParams }: Props) {
           documentId={doc.id}
           workspaceId={doc.workspaceId}
           available={doc.deletedAt === null}
+          layout={meeting ? 'dock' : 'panel'}
           transcript={transcript}
           focus={focus}
         >

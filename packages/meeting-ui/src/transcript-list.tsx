@@ -2,9 +2,8 @@
 
 /**
  * The meeting transcript as a virtualised list (desktop live panel, desktop past meeting, web document page):
- * "me" (mic) on the right in the ink bubble, "them" (system audio) on the left in the oat bubble, interims
- * italic and muted until their final replaces them, a speaker + time header when the speaker changes or after
- * a pause.
+ * "me" (mic) on the right, "them" (system audio) on the left, interims italic and muted until
+ * their final replaces them.
  *
  * - `follow`: live mode. Stays on the newest line while the user is at the bottom; scrolling up stops that
  *   and offers "Jump to live".
@@ -267,7 +266,7 @@ export function TranscriptList({
                 >
                   <SegmentRow
                     segment={segment}
-                    header={startsGroup(segment, segments[item.index - 1])}
+                    groupStart={item.index > 0 && startsGroup(segment, segments[item.index - 1])}
                     focused={segment.id === focusId}
                     active={segment.id === activeId}
                     onSelect={onSelect}
@@ -308,13 +307,13 @@ export function TranscriptList({
 
 function SegmentRow({
   segment,
-  header,
+  groupStart,
   focused,
   active,
   onSelect,
 }: {
   segment: TranscriptItem;
-  header: boolean;
+  groupStart: boolean;
   focused: boolean;
   active: boolean;
   onSelect: ((segment: TranscriptItem) => void) | undefined;
@@ -341,7 +340,7 @@ function SegmentRow({
     : {};
   return (
     <div
-      className={cn('flex flex-col pb-1.5', me ? 'items-end' : 'items-start', header && 'pt-3')}
+      className={cn('flex flex-col pb-1.5', me ? 'items-end' : 'items-start', groupStart && 'pt-3')}
       data-testid="transcript-segment"
       data-source={segment.source}
       data-final={final}
@@ -351,17 +350,6 @@ function SegmentRow({
       data-active={active || undefined}
       aria-current={focused ? 'true' : active ? 'time' : undefined}
     >
-      {header && (
-        <div className="mb-1 flex items-baseline gap-2 px-1">
-          <span className="text-label-12 text-gray-1000">{speaker}</span>
-          <time
-            className="text-label-12-mono text-gray-900 tabular-nums"
-            dateTime={`PT${Math.floor(segment.startMs / 1000)}S`}
-          >
-            {formatClock(segment.startMs)}
-          </time>
-        </div>
-      )}
       <p
         data-selectable
         {...select}
@@ -378,6 +366,7 @@ function SegmentRow({
           focused && 'ring-2 ring-brand-600 ring-offset-2 ring-offset-background-100',
         )}
       >
+        {!onSelect && <span className="sr-only select-none">{speaker}: </span>}
         {segment.text}
       </p>
     </div>

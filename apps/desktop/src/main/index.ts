@@ -73,6 +73,7 @@ import { recoverCrashedRecordings } from './recording-recovery.ts';
 import { createRecordingSetup, InputError } from './recording-setup.ts';
 import { mimeType, resolveRendererFile } from './renderer-files.ts';
 import {
+  allowsRendererPermission,
   APP_SCHEME,
   contentSecurityPolicy,
   isSafeExternalUrl,
@@ -211,11 +212,12 @@ function broadcast<C extends SubscribeChannel>(channel: C, value: SubscribePaylo
 
 async function start() {
   serveRenderer();
-  // The renderer needs no device or browser permissions (audio capture is the sidecar's job).
-  session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) =>
-    callback(false),
+  session.defaultSession.setPermissionRequestHandler((_contents, permission, callback, details) =>
+    callback(allowsRendererPermission(permission, details, origins)),
   );
-  session.defaultSession.setPermissionCheckHandler(() => false);
+  session.defaultSession.setPermissionCheckHandler((_contents, permission, _origin, details) =>
+    allowsRendererPermission(permission, details, origins),
+  );
   if (config.rendererDevUrl) addDevServerCsp(config.rendererDevUrl);
 
   const store = new MainStore();

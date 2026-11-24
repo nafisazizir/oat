@@ -161,10 +161,34 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   await page.goto(`/d/${doc.id}`);
 
   // ⌘J opens the panel; the toggle button does too.
-  await expect(page.getByTestId('assistant-toggle')).toBeVisible();
+  const launcher = page.getByTestId('assistant-toggle');
+  await expect(launcher).toBeVisible();
+  const collapsed = (await launcher.boundingBox())!;
+  await expect(launcher).toHaveCSS('height', '40px');
+  expect(
+    await launcher.evaluate((node) => parseFloat(getComputedStyle(node).borderTopLeftRadius)),
+  ).toBeGreaterThanOrEqual(20);
   await page.keyboard.press('ControlOrMeta+j');
   await expect(panel(page)).toBeVisible();
-  await expect(panel(page).getByTestId('chat-empty')).toBeVisible();
+  expect(
+    await panel(page).evaluate((node) => parseFloat(getComputedStyle(node).borderTopLeftRadius)),
+  ).toBeGreaterThanOrEqual(24);
+  await expect(page.getByTestId('note-dock-row')).toBeHidden();
+  const composer = panel(page).locator('[data-slot="input-group"]');
+  await expect(composer).toHaveAttribute('data-size', 'lg');
+  await expect(composer).toHaveCSS('height', '40px');
+  await expect.poll(() => composer.boundingBox()).toEqual(collapsed);
+  expect(
+    await composer.evaluate((node) => parseFloat(getComputedStyle(node).borderTopLeftRadius)),
+  ).toBeGreaterThanOrEqual(20);
+  const recipes = panel(page).getByTestId('chat-suggestions');
+  await expect(recipes).toBeVisible();
+  expect(
+    await recipes
+      .getByRole('button')
+      .first()
+      .evaluate((node) => parseFloat(getComputedStyle(node).borderTopLeftRadius)),
+  ).toBeGreaterThanOrEqual(16);
 
   await ask(page, 'When does the Lakeside pilot start and who sends the onboarding checklist?');
   // Tool activity while it searches, then the answer streams in.
@@ -182,7 +206,7 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   ).toBeVisible();
   await evidence(page, 'note-panel-answer');
 
-  // A transcript chip opens the transcript at that moment, without leaving the page or closing the panel.
+  // A transcript chip opens the transcript at that moment, temporarily hiding the chat in the dock.
   const seg = answer.locator('[data-testid="citation-chip"][data-kind="seg"]').first();
   await seg.click();
   await expect(page).toHaveURL(new RegExp(`/d/${doc.id}\\?t=\\d+&seg=`));
@@ -192,8 +216,16 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   await expect(focused).toHaveCount(1);
   expect(segments).toContain(await focused.getAttribute('data-segment-id'));
   await expect(focused).toBeInViewport();
-  await expect(panel(page)).toBeVisible();
+  await expect(panel(page)).toBeHidden();
+  await expect(reader.locator('footer').getByTestId('transcript-toggle')).toBeVisible();
   await evidence(page, 'transcript-moment');
+  await reader.getByRole('button', { name: 'Hide transcript' }).click();
+  await expect(panel(page)).toBeVisible();
+  await seg.click();
+  await expect(reader).toBeVisible({ timeout: 2_000 });
+  await expect(focused).toHaveCount(1);
+  await reader.getByRole('button', { name: 'Hide transcript' }).click();
+  await expect(panel(page)).toBeVisible();
 
   // A block chip scrolls the note to that block and highlights it.
   await answer.locator('[data-testid="citation-chip"][data-kind="block"]').first().click();
@@ -210,6 +242,7 @@ test('note panel: streamed answer with citation chips that jump to the transcrip
   await expect(page.getByTestId('assistant-toggle')).toBeFocused();
   await page.getByTestId('assistant-toggle').click();
   await expect(page.getByTestId('chat-input')).toBeFocused();
+  await expect.poll(() => composer.boundingBox()).toEqual(collapsed);
   await page.keyboard.press('Escape');
   await expect(panel(page)).toBeHidden();
   await expect(page.getByTestId('assistant-toggle')).toBeFocused();
@@ -252,9 +285,11 @@ test('a ?block= link opened directly scrolls to and highlights the block (server
   await expect(editor(page).locator('[data-id="b-owner"]')).toBeInViewport();
 });
 
-test('below lg the panel is a modal sheet: focus stays inside, Escape closes', async ({ page }) => {
+test('below lg the page assistant is a modal sheet: focus stays inside, Escape closes', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 900, height: 800 });
-  const { doc } = await seedNote(page);
+  const doc = await apiCreateDocument(page, { title: 'Assistant sheet fixture', kind: 'page' });
   await page.goto(`/d/${doc.id}`);
   await page.getByTestId('assistant-toggle').click();
   const dialog = page.getByRole('dialog', { name: 'Assistant' });
@@ -407,6 +442,55 @@ test.describe('with expected HTTP errors', () => {
     await expect(page).toHaveURL(/\/assistant$/);
     await expect(page.getByTestId('chat-empty')).toBeVisible();
   });
+});
+
+test('a multiline Ask draft keeps the dock controls visible in a short window', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 380 });
+  const { doc } = await seedNote(page);
+  await page.goto(`/d/${doc.id}`);
+  await page.getByTestId('assistant-toggle').click();
+  await page
+    .getByTestId('chat-input')
+    .fill(Array.from({ length: 20 }, (_, i) => `Line ${i}`).join('\n'));
+  await expect(panel(page).getByRole('button', { name: 'Send', exact: true })).toBeInViewport({
+    ratio: 1,
+    timeout: 2_000,
+  });
+  await expect(panel(page).getByTestId('transcript-toggle')).toBeInViewport({ ratio: 1 });
+});
+
+test('an active follow-up cannot be interrupted by opening it in Assistant', async ({ page }) => {
+  const { doc } = await seedNote(page);
+  await page.goto(`/d/${doc.id}`);
+  await page.getByTestId('assistant-toggle').click();
+  const expand = page.getByRole('button', { name: 'Open conversation in Assistant' });
+  await ask(page, 'Summarize the pilot');
+  await expect(expand).toBeEnabled();
+
+  let release!: () => void;
+  const hold = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/api/chat', async (route) => {
+    await hold;
+    await route.continue();
+  });
+  try {
+    await ask(page, 'Who owns the checklist?');
+    await expect(page.getByTestId('chat-stop')).toBeVisible();
+    await expect(expand).toBeDisabled({ timeout: 2_000 });
+  } finally {
+    release();
+  }
+  await expect(page.getByTestId('chat-session')).toHaveAttribute('data-status', 'ready');
+  await expect(lastAnswer(page).getByTestId('citation-chip').first()).toHaveAttribute(
+    'data-state',
+    'ready',
+  );
+  await expect(expand).toBeEnabled();
+  await expand.click();
+  await expect(page).toHaveURL(/\/assistant/);
+  await expect(page.getByText('Who owns the checklist?', { exact: true })).toBeVisible();
 });
 
 test('stop aborts a streaming answer', async ({ page }) => {

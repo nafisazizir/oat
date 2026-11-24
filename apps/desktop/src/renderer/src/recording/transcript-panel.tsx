@@ -175,22 +175,18 @@ function EmptyTranscript({
       </Empty>
     );
   }
+  if (listening) return null;
   return (
     <Empty className="flex-1 px-8" data-testid="transcript-empty">
       <EmptyHeader>
-        <EmptyMedia
-          variant="icon"
-          className={listening ? 'bg-brand-100 text-brand-900' : undefined}
-        >
-          <IconWaveSine aria-hidden className={cn(listening && 'animate-pulse')} />
+        <EmptyMedia variant="icon">
+          <IconWaveSine aria-hidden />
         </EmptyMedia>
-        <EmptyTitle>{listening ? 'Listening…' : 'No transcript yet'}</EmptyTitle>
+        <EmptyTitle>No transcript yet</EmptyTitle>
         <EmptyDescription>
-          {listening
-            ? 'What you and the other side say appears here as it’s spoken.'
-            : past
-              ? 'Nothing was transcribed for this note. Record to add to it.'
-              : 'Start recording to transcribe your microphone (you) and your computer’s audio (them), live.'}
+          {past
+            ? 'Nothing was transcribed for this note. Record to add to it.'
+            : 'Start recording to transcribe your microphone (you) and your computer’s audio (them), live.'}
         </EmptyDescription>
       </EmptyHeader>
     </Empty>

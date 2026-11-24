@@ -28,6 +28,7 @@ import {
   launchApp,
   openAttendees,
   openTranscript,
+  stopRecording,
   scaled,
   signInDesktop,
 } from './helpers';
@@ -263,7 +264,7 @@ test('detected call during an event → "Start notes?" → note from the event, 
   await page.getByTestId('meeting-list-item').filter({ hasText: 'Design review' }).click();
   await expect(page.getByTestId('note-title')).toHaveValue('Design review');
 
-  await page.getByRole('button', { name: 'Stop recording' }).click();
+  await stopRecording(page);
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
     timeout: scaled(30_000),
   });

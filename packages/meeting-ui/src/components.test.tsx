@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { TooltipProvider } from '@oat/ui/components/tooltip';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -8,6 +9,8 @@ import type { Participant, TranscriptItem } from './format.ts';
 import { ParticipantChips } from './participants.tsx';
 import { SidePanel } from './side-panel.tsx';
 import { TranscriptList } from './transcript-list.tsx';
+import { TranscriptSheet } from './transcript-sheet.tsx';
+import { TranscriptToggle } from './transcript-toggle.tsx';
 import { NoteColumn, TRANSCRIPT_PANEL_SIZE } from './note-column.tsx';
 
 // jsdom has no layout: give the scroller a size so the virtualizer renders rows.
@@ -19,6 +22,53 @@ const lines: TranscriptItem[] = [
   { id: 's2', source: 'mic', startMs: 2000, endMs: 3000, text: 'Hi, me here' },
   { id: 's3', source: 'mic', startMs: 3500, endMs: 4000, text: 'still typing', isFinal: false },
 ];
+
+it('names the icon-only transcript toggle and describes it on keyboard focus', async () => {
+  const user = userEvent.setup();
+  const onClick = vi.fn();
+  render(
+    <TooltipProvider>
+      <TranscriptToggle open={false} count={3} recording onClick={onClick} />
+    </TooltipProvider>,
+  );
+  const toggle = screen.getByRole('button', { name: 'Transcript, 3 lines', expanded: false });
+  expect(toggle.textContent).toBe('');
+  expect(toggle.getAttribute('aria-controls')).toBe('transcript-panel');
+  await user.tab();
+  expect(document.activeElement).toBe(toggle);
+  expect((await screen.findByRole('tooltip')).textContent).toBe('Show transcript');
+  await user.keyboard('{Enter}');
+  expect(onClick).toHaveBeenCalledOnce();
+});
+
+it('shows only copy and minimise in the transcript header and copies all lines', async () => {
+  const user = userEvent.setup();
+  const copy = vi.spyOn(navigator.clipboard, 'writeText');
+  const onClose = vi.fn();
+  render(
+    <TooltipProvider>
+      <TranscriptSheet items={lines} onClose={onClose}>
+        {lines.map((item) => (
+          <p key={item.id}>{item.text}</p>
+        ))}
+      </TranscriptSheet>
+    </TooltipProvider>,
+  );
+  const panel = screen.getByRole('region', { name: 'Transcript' });
+  const header = within(panel.querySelector('header')!);
+  expect(header.getAllByRole('button')).toHaveLength(2);
+  expect(header.queryByRole('heading')).toBeNull();
+  expect(header.queryByRole('searchbox')).toBeNull();
+  expect(screen.getByText('Hello from them')).toBeTruthy();
+  expect(screen.getByText('Hi, me here')).toBeTruthy();
+  await user.tab();
+  expect((await screen.findByRole('tooltip')).textContent).toBe('Copy transcript');
+  await user.click(header.getByRole('button', { name: 'Copy transcript' }));
+  expect(copy).toHaveBeenCalledWith(expect.stringContaining('0:02 · Me: Hi, me here'));
+  await user.click(header.getByRole('button', { name: 'Hide transcript' }));
+  expect(onClose).toHaveBeenCalledOnce();
+  copy.mockRestore();
+});
 
 describe('shared note geometry', () => {
   it('keeps the web measure and permits caller spacing and attributes', () => {
@@ -37,14 +87,19 @@ describe('shared note geometry', () => {
 });
 
 describe('TranscriptList', () => {
-  it('renders me/them lines with speaker headers, interims marked', () => {
+  it('aligns bubbles by speaker without visible captions and marks interims', () => {
     render(<TranscriptList segments={lines} />);
     const rows = screen.getAllByTestId('transcript-segment');
     expect(rows.map((r) => r.dataset.source)).toEqual(['system', 'mic', 'mic']);
     expect(rows.map((r) => r.dataset.final)).toEqual(['true', 'true', 'false']);
-    expect(screen.getByText('Them')).toBeTruthy();
-    // One "Me" header for two consecutive mic lines.
-    expect(screen.getAllByText('Me')).toHaveLength(1);
+    expect(rows.map((r) => r.classList.contains('items-end'))).toEqual([false, true, true]);
+    expect(rows[0]!.classList.contains('items-start')).toBe(true);
+    expect(rows.flatMap((r) => Array.from(r.querySelectorAll('time')))).toHaveLength(0);
+    expect(rows.map((r) => r.querySelector('.sr-only')?.textContent)).toEqual([
+      'Them: ',
+      'Me: ',
+      'Me: ',
+    ]);
     for (const text of ['Hello from them', 'Hi, me here', 'still typing']) {
       const bubble = screen.getByText(text);
       expect(bubble.className).toContain('rounded-lg');

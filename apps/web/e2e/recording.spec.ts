@@ -89,6 +89,18 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   await page.goto(`/d/${doc.id}`);
   await expect(page.locator('html')).toHaveAttribute('data-sync-live', '');
   const connectionsBeforeStart = syncConnections;
+  const group = page.getByRole('group', { name: 'Transcript and recording controls' });
+  await expect(group.getByTestId('transcript-toggle')).toHaveCSS('border-end-end-radius', '0px');
+  const record = group.getByRole('button', { name: 'Record', exact: true });
+  await expect(record).toHaveCSS('border-inline-start-width', '0px');
+  expect(
+    await group
+      .getByTestId('transcript-toggle')
+      .evaluate((node) => parseFloat(getComputedStyle(node).borderStartStartRadius)),
+  ).toBeGreaterThanOrEqual(20);
+  expect(
+    await record.evaluate((node) => parseFloat(getComputedStyle(node).borderStartEndRadius)),
+  ).toBeGreaterThanOrEqual(20);
   await page.getByRole('button', { name: 'Record', exact: true }).click();
   const pushed = page.waitForResponse(
     (response) => response.url().endsWith('/api/sync/push') && response.ok(),
@@ -96,6 +108,18 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   await page.getByRole('button', { name: 'Mic only', exact: true }).click();
   await expect(page.getByTestId('web-recording')).toHaveAttribute('data-status', 'recording');
   await expect(page.getByTestId('note-bottom-bar').getByTestId('web-recording')).toBeVisible();
+  await expect(group.getByLabel('Recorded time')).toHaveCount(0);
+  await expect(group.getByRole('button')).toHaveCount(2);
+  await expect(group.getByRole('button', { name: 'Pause', exact: true })).toHaveCSS(
+    'border-inline-start-width',
+    '0px',
+  );
+  const waveformBar = group.getByTestId('transcript-toggle').locator('svg path').first();
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await expect(waveformBar).toHaveCSS('animation-name', 'transcript-waveform');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(waveformBar).toHaveCSS('animation-name', 'none');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
   const response = await pushed;
   const headers = await response.request().allHeaders();
   expect(headers['origin']).toBe(baseURL);
@@ -119,17 +143,22 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   const connectionsAfterTabSwitch = syncConnections;
   await expect(page.getByTestId('web-recording')).toHaveAttribute('data-status', 'recording');
   await expect(page.getByTestId('transcript-panel')).toHaveCount(0);
+  const collapsed = (await group.boundingBox())!;
   await page.getByTestId('transcript-toggle').click();
+  await expect(page.getByTestId('note-dock-row')).toBeHidden();
+  await expect.poll(() => group.boundingBox()).toEqual(collapsed);
+  const transcriptPanel = page.getByTestId('transcript-panel');
+  const footer = transcriptPanel.locator('footer');
+  await expect(footer.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+  await expect(footer.getByRole('button')).toHaveCount(3);
+  await expect(footer).not.toContainText(/Browser microphone|Live|Paused/);
+  await expect(transcriptPanel.getByTestId('transcript-empty')).toHaveCount(0);
   await expect(page.getByTestId('transcript-segment').first()).toBeVisible({ timeout: 30000 });
-  await expect
-    .poll(async () => {
-      const clock = (await page.getByTestId('web-recording').innerText()).match(/(\d+):(\d{2})/);
-      return clock ? Number(clock[1]) * 60 + Number(clock[2]) : 0;
-    })
-    .toBeGreaterThanOrEqual(4);
   await expect(page.getByTestId('recording-sync')).toHaveCount(0);
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
   await expect(page.getByTestId('web-recording')).toHaveAttribute('data-status', 'paused');
+  await expect(group.getByRole('button')).toHaveCount(2);
+  await expect(waveformBar).toHaveCSS('animation-name', 'none');
   await page.getByRole('button', { name: 'Resume', exact: true }).click();
   await expect(page.getByTestId('web-recording')).toHaveAttribute('data-status', 'recording');
   if (process.env.E2E_RECORDING_SCREENSHOT) {
@@ -142,9 +171,19 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
   await page.getByRole('link', { name: 'Oat', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Open recording note' })).toBeVisible();
   await expect(page.getByTestId('web-recording')).toHaveAttribute('data-status', 'recording');
+  await expect
+    .poll(async () => {
+      const clock = (await page.getByTestId('web-recording').innerText()).match(/(\d+):(\d{2})/);
+      return clock ? Number(clock[1]) * 60 + Number(clock[2]) : 0;
+    })
+    .toBeGreaterThanOrEqual(4);
   await page.getByRole('link', { name: 'Open recording note' }).click();
   await expect(page).toHaveURL(new RegExp(`/d/${doc.id}$`));
-  await page.getByRole('button', { name: 'Stop recording', exact: true }).click();
+  await page
+    .getByTestId('transcript-panel')
+    .locator('footer')
+    .getByRole('button', { name: 'Stop recording', exact: true })
+    .click();
   await expect(page.getByTestId('web-recording')).toHaveCount(0, { timeout: 30000 });
   await expect(page.getByTestId('playback')).toBeVisible();
   const persisted = await page.getByTestId('transcript-segment').count();
@@ -179,6 +218,25 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
       await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'playing');
     }
   }
+  await page.getByTestId('panel-close').click();
+  await page.getByTestId('assistant-toggle').click();
+  await page.getByTestId('assistant-panel').evaluate((panel) => {
+    const link = document.createElement('a');
+    link.href = '#';
+    link.textContent = 'Answer link';
+    panel.append(link);
+    window.addEventListener('keydown', (event) => {
+      if (event.key === ' ' && event.target === link) {
+        link.dataset.spacePrevented = String(event.defaultPrevented);
+      }
+    });
+  });
+  const answerLink = page.getByRole('link', { name: 'Answer link' });
+  await answerLink.press('Space');
+  await expect(answerLink).toHaveAttribute('data-space-prevented', 'false', { timeout: 2_000 });
+  await expect(page.getByTestId('playback-audio')).toHaveJSProperty('paused', true);
+  await page.getByRole('button', { name: 'Close assistant' }).click();
+  await page.getByTestId('transcript-toggle').click();
   const meeting = await (
     await page.request.get(`/api/documents/${doc.id}/meeting?transcript=1`)
   ).json();
@@ -288,7 +346,9 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
     .getByRole('button', { name: 'Delete audio', exact: true })
     .click();
   await expect(page.getByTestId('playback')).toHaveCount(0);
-  await expect(page.getByTestId('audio-hint')).toBeVisible();
+  await expect(page.getByTestId('transcript-panel')).not.toContainText(
+    /Audio stays on the recording device|No audio was saved/,
+  );
   await page.reload();
   await expect(page.getByTestId('playback')).toHaveCount(0);
   await expect(page.getByTestId('transcript-segment')).toHaveCount(persisted);

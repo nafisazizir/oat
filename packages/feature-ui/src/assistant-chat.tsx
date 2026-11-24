@@ -22,6 +22,7 @@ import {
   IconFileText,
   IconHistory,
   IconMessage,
+  IconMaximize,
   IconPlus,
   IconX,
 } from '@tabler/icons-react';
@@ -72,7 +73,7 @@ const WORKSPACE_SUGGESTIONS = [
 export type AssistantChatProps = {
   scope: ChatScope;
   workspaceId: string;
-  layout: 'panel' | 'page';
+  layout: 'panel' | 'page' | 'dock';
   onClose?: () => void;
   selectedThreadId?: string | null;
   onThreadChange?(id: string | null): void;
@@ -86,11 +87,12 @@ export function AssistantChat({
   selectedThreadId,
   onThreadChange,
 }: AssistantChatProps) {
-  const { client } = useFeatureUi();
+  const { client, navigate } = useFeatureUi();
   const listRequest = useRef<AbortController | null>(null);
   const [threadError, setThreadError] = useState<string | null>(null);
   const documentId = scope.kind === 'document' ? scope.documentId : undefined;
   const [threads, setThreads] = useState<ChatThreadSummary[] | null>(null);
+  const [busy, setBusy] = useState(false);
   const counter = useRef(0);
   const [active, setActive] = useState<Active>(() =>
     selectedThreadId
@@ -273,8 +275,13 @@ export function AssistantChat({
           initialMessages={active.messages}
           {...(active.sources ? { initialSources: active.sources } : {})}
           onThreadSaved={onThreadSaved}
+          onBusyChange={layout === 'dock' ? setBusy : undefined}
           placeholder={
-            active.scope.kind === 'document' ? 'Ask about this note…' : 'Ask about your meetings…'
+            layout === 'dock'
+              ? 'Ask anything'
+              : active.scope.kind === 'document'
+                ? 'Ask about this note…'
+                : 'Ask about your meetings…'
           }
           suggestions={documentId ? NOTE_SUGGESTIONS : WORKSPACE_SUGGESTIONS}
           emptyTitle={documentId ? 'Ask about this note' : 'Ask across your meetings'}
@@ -283,17 +290,31 @@ export function AssistantChat({
               ? 'Answers come from this note and its transcript, with sources you can click.'
               : 'Answers come from the notes and transcripts you can see in this workspace.'
           }
-          autoFocus={layout === 'panel'}
+          autoFocus={layout !== 'page'}
         />
       </>
     );
 
-  if (layout === 'panel') {
+  if (layout !== 'page') {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="flex h-12 shrink-0 items-center gap-1 border-b border-gray-alpha-400 ps-4 pe-2">
           <h2 className="flex-1 truncate text-heading-14">Assistant</h2>
           <ThreadMenu threads={threads} activeId={activeThreadId} onPick={pickThread} />
+          {layout === 'dock' && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Open conversation in Assistant"
+              title="Open conversation in Assistant"
+              disabled={!activeThreadId || busy}
+              onClick={() =>
+                activeThreadId && navigate({ kind: 'assistant', threadId: activeThreadId })
+              }
+            >
+              <IconMaximize />
+            </Button>
+          )}
           <Tooltip>
             <TooltipTrigger
               render={

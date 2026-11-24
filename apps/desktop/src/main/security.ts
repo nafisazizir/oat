@@ -52,6 +52,16 @@ export function isTrustedFrame(
   return origin !== null && origins.has(origin);
 }
 
+export function allowsRendererPermission(
+  permission: string,
+  { isMainFrame, requestingUrl }: { isMainFrame: boolean; requestingUrl?: string },
+  origins: ReadonlySet<string>,
+): boolean {
+  if (permission !== 'clipboard-sanitized-write' || !isMainFrame || !requestingUrl) return false;
+  const origin = originOf(requestingUrl);
+  return origin !== null && origins.has(origin);
+}
+
 /** Links we hand to the system browser. */
 export function isSafeExternalUrl(raw: string): boolean {
   try {

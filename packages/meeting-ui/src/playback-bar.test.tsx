@@ -35,10 +35,20 @@ describe('injected shared playback controller', () => {
       cycleSpeed,
       retry: vi.fn(),
     };
-    const { container } = render(<PlaybackBar player={player} />);
+    const { container, rerender } = render(<PlaybackBar player={player} />);
     fireEvent.click(screen.getByRole('button', { name: 'Play' }));
     expect(toggle).toHaveBeenCalledOnce();
     expect(container.querySelector('[data-testid="playback"]')).not.toBeNull();
+    rerender(
+      <PlaybackBar
+        player={{
+          ...player,
+          available: false,
+          info: { status: 'none', parts: [], durationMs: 0, meetingId: 'meeting', url: null },
+        }}
+      />,
+    );
+    expect(container.firstChild).toBeNull();
     const event = {
       defaultPrevented: false,
       key: 'ArrowRight',

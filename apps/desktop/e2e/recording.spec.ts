@@ -226,27 +226,26 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   await page.getByTestId('new-meeting').click();
   // The note it records into opens; its transcript is closed until asked for, so open it at once (the
   // latency below is measured to the first *visible* segment).
-  const panel = await openTranscript(page);
-  await panel.getByRole('separator', { name: 'Resize panel' }).press('End');
+  await openTranscript(page);
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
   const started = await recordingState(page);
   expect(started).toMatchObject({ status: 'recording', input: 'file', fixture: FIXTURE });
   const meetingId = started.meetingId!;
   const t0 = started.startedAt!;
 
-  // Both voices appear, labelled and coloured, interims first.
+  // Both voices appear in aligned bubbles, interims first.
   await expect(
     page.locator('[data-testid=transcript-segment][data-source=mic]').first(),
   ).toBeVisible({
     timeout: scaled(15_000),
   });
-  await expect(page.getByTestId('stt-status')).toHaveText('Live');
   await expect(
     page.locator('[data-testid=transcript-segment][data-source=system]').first(),
   ).toBeVisible({ timeout: scaled(15_000) });
-  await expect(page.getByText('Them', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Me', { exact: true }).first()).toBeVisible();
-  await expect(page.getByTestId('level-mic').getByRole('meter')).toBeVisible();
+  await expect(page.locator('[data-testid=transcript-segment] time')).toHaveCount(0);
+  const footer = page.getByTestId('transcript-panel').locator('footer');
+  await expect(footer.getByTestId('stt-status')).toHaveCount(0);
+  await expect(footer.getByRole('meter')).toHaveCount(0);
 
   // Latency: speech onset in the audio → first visible segment of that voice (SPEC §8: < 1.5 s).
   const seen = await page.evaluate(
@@ -268,9 +267,9 @@ test('fixture meeting → live me/them transcript, pause/resume, archive on disk
   // Pause: the clock stops, the bar says so; resume carries on.
   await page.getByRole('button', { name: 'Pause' }).click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'paused');
-  const pausedAt = await page.getByTestId('recording-elapsed').textContent();
+  const pausedAt = (await recordingState(page)).elapsedMs;
   await page.waitForTimeout(1_500);
-  await expect(page.getByTestId('recording-elapsed')).toHaveText(pausedAt!);
+  expect((await recordingState(page)).elapsedMs).toBe(pausedAt);
   await evidence(page, 'paused', '2.5');
   await page.getByRole('button', { name: 'Resume' }).click();
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'recording');
@@ -410,10 +409,6 @@ test('transcription down: the error is shown and recording + archive carry on', 
   await expect(banner).toBeVisible({ timeout: scaled(15_000) });
   await expect(banner).toContainText('Transcription is offline — still recording');
   await expect(banner).toContainText(/recording continues/i);
-  await expect(page.getByTestId('stt-status')).toHaveAttribute(
-    'data-health',
-    /reconnecting|offline/,
-  );
 
   // Still recording: the clock runs, audio levels move.
   const before = await recordingState(page);

@@ -2,10 +2,12 @@
 
 import { cn } from '@oat/ui';
 import { Bubble, BubbleContent } from '@oat/ui/components/bubble';
+import { Button } from '@oat/ui/components/button';
 import { Message, MessageContent } from '@oat/ui/components/message';
 import { Skeleton } from '@oat/ui/components/skeleton';
 import { Spinner } from '@oat/ui/components/spinner';
-import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
+import { IconAlertCircle, IconCheck, IconCopy } from '@tabler/icons-react';
+import { useState } from 'react';
 
 import { citationOrder } from './chat-markdown';
 import type { ChatProposal, ChatUIMessage } from '@oat/services/dto/chat';
@@ -76,13 +78,17 @@ export function AssistantMessage({
   message,
   question,
   streaming,
+  actions,
 }: {
   message: ChatUIMessage;
   question: string | undefined;
   streaming: boolean;
+  actions?: boolean;
 }) {
+  const [copyStatus, setCopyStatus] = useState('');
   const proposals = message.metadata?.proposals ?? [];
-  const order = citationOrder(textOf(message));
+  const text = textOf(message);
+  const order = citationOrder(text);
   const shown = new Set<string>();
   const items: React.ReactNode[] = [];
   let textBuffer = '';
@@ -132,6 +138,29 @@ export function AssistantMessage({
       <MessageContent className="gap-2">
         {items}
         <AnswerSources order={order} />
+        {actions && !streaming && text.trim() && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Copy answer"
+              title="Copy answer"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(text);
+                  setCopyStatus('Answer copied');
+                } catch {
+                  setCopyStatus('Couldn’t copy answer');
+                }
+              }}
+            >
+              <IconCopy />
+            </Button>
+            <span role="status" className="text-label-12 text-gray-900">
+              {copyStatus}
+            </span>
+          </div>
+        )}
       </MessageContent>
     </Message>
   );

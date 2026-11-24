@@ -2,12 +2,19 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import { AssistantToggleButton, DocumentAssistant } from './document-assistant';
+import { createPortal } from 'react-dom';
+import { DockControlsOutlet } from './note-dock-controls';
+import {
+  AssistantToggleAnchor,
+  AssistantToggleButton,
+  DocumentAssistant,
+} from './document-assistant';
 
 vi.mock('./assistant-chat', () => ({
   AssistantChat: ({ scope, onClose }: { scope: { documentId: string }; onClose(): void }) => (
     <div data-testid="chat-scope">
       {scope.documentId}
+      <DockControlsOutlet panel="assistant" />
       <button onClick={onClose}>Close assistant</button>
     </div>
   ),
@@ -67,6 +74,41 @@ it('renders a single anchored toggle for a native note toolbar', () => {
   render(note(true, true));
   expect(screen.getAllByTestId('assistant-toggle')).toHaveLength(1);
   expect(screen.getByTestId('assistant-toggle').closest('footer')).toBeTruthy();
+});
+it('keeps note chat inside the floating dock without remembering it as a side panel', () => {
+  window.localStorage.setItem('oat.assistant.panel', '1');
+  render(
+    <DocumentAssistant
+      documentId="note-1"
+      workspaceId="w"
+      available
+      transcript={null}
+      focus={{}}
+      layout="dock"
+    >
+      <AssistantToggleAnchor>
+        {(container) =>
+          container ? createPortal(<button>Record</button>, container) : <button>Record</button>
+        }
+      </AssistantToggleAnchor>
+    </DocumentAssistant>,
+  );
+  expect(screen.queryByTestId('assistant-panel')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Ask anything' }));
+  expect(
+    screen.getByTestId('assistant-panel').closest('[data-testid="note-bottom-bar"]'),
+  ).toBeTruthy();
+  expect(screen.getByTestId('note-dock-row').hidden).toBe(true);
+  expect(
+    screen.getByRole('button', { name: 'Record' }).closest('[data-testid="assistant-panel"]'),
+  ).toBeTruthy();
+  const close = screen.getByRole('button', { name: 'Close assistant' });
+  close.focus();
+  fireEvent.keyDown(close, { key: 'Escape' });
+  expect(screen.queryByTestId('assistant-panel')).toBeNull();
+  expect(screen.getByTestId('note-dock-row').hidden).toBe(false);
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Ask anything' }));
+  expect(window.localStorage.getItem('oat.assistant.panel')).toBe('1');
 });
 it('keeps unavailable notes visible without an assistant control or shortcut', () => {
   render(note(false));

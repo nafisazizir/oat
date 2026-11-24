@@ -26,6 +26,7 @@ import { DefaultChatTransport } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { describeChatError } from './chat-client';
+import { DockControlsOutlet } from './note-dock-controls';
 import { useFeatureUi } from './provider';
 import type { ChatScope, ChatSources, ChatUIMessage } from '@oat/services/dto/chat';
 
@@ -36,6 +37,7 @@ import { useAssistantIntegration } from './assistant-integration';
 /** Mirrors the server's per-message limit (`CHAT_LIMITS.userChars`). */
 const MAX_QUESTION_CHARS = 8000;
 const EMPTY_SOURCES: ChatSources = { citations: {}, documents: {} };
+const RECIPE_LABELS = ['Summarize meeting', 'Decisions & next steps', 'Open questions'];
 const sleep = (ms: number, signal: AbortSignal) =>
   new Promise<void>((resolve) => {
     const done = () => {
@@ -92,11 +94,12 @@ export type ChatSessionProps = {
   initialSources?: ChatSources;
   /** A new thread was created by the first question, or a turn was saved (refresh thread lists). */
   onThreadSaved?: (threadId: string) => void;
+  onBusyChange?: (busy: boolean) => void;
   placeholder: string;
   suggestions: readonly string[];
   emptyTitle: string;
   emptyDescription: string;
-  layout?: 'page' | 'panel';
+  layout?: 'page' | 'panel' | 'dock';
   /** Focus the question box on mount. */
   autoFocus?: boolean;
 };
@@ -112,6 +115,7 @@ export function ChatSession({
   initialMessages = [],
   initialSources = EMPTY_SOURCES,
   onThreadSaved,
+  onBusyChange,
   placeholder,
   suggestions,
   emptyTitle,
@@ -197,6 +201,9 @@ export function ChatSession({
 
   const busy = status === 'submitted' || status === 'streaming';
   useEffect(() => {
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
+  useEffect(() => {
     if (busy || !finishedMessage.current) return;
     const id = finishedMessage.current;
     finishedMessage.current = null;
@@ -243,9 +250,16 @@ export function ChatSession({
           {announcement}
         </p>
         {messages.length === 0 ? (
-          <EmptyChat title={emptyTitle} description={emptyDescription} layout={layout} />
+          layout === 'dock' ? null : (
+            <EmptyChat title={emptyTitle} description={emptyDescription} layout={layout} />
+          )
         ) : (
-          <MessageList messages={messages} busy={busy} lastId={last?.id}>
+          <MessageList
+            messages={messages}
+            busy={busy}
+            lastId={last?.id}
+            answerActions={layout === 'dock'}
+          >
             {status === 'submitted' && last?.role === 'user' && (
               <p className="flex items-center gap-1.5 text-label-13 text-gray-900">
                 <Spinner aria-hidden role={undefined} className="size-3.5" />
@@ -265,29 +279,53 @@ export function ChatSession({
             )}
           </MessageList>
         )}
-        <Composer
-          busy={busy}
-          placeholder={placeholder}
-          autoFocus={autoFocus}
-          onSend={ask}
-          onStop={() => void stop()}
-        />
-        {messages.length === 0 && (
+        {layout !== 'dock' && (
+          <Composer
+            busy={busy}
+            placeholder={placeholder}
+            autoFocus={autoFocus}
+            onSend={ask}
+            onStop={() => void stop()}
+          />
+        )}
+        {(layout === 'dock' || messages.length === 0) && (
           <div
-            className="flex shrink-0 flex-wrap justify-center gap-1 px-4 pb-4"
+            className={cn(
+              'flex shrink-0 gap-1',
+              layout === 'dock' ? 'overflow-x-auto p-2' : 'flex-wrap justify-center px-4 pb-4',
+            )}
             data-testid="chat-suggestions"
           >
-            {suggestions.map((s) => (
+            {suggestions.map((s, index) => (
               <Button
                 key={s}
                 size="sm"
-                variant="secondary"
-                className="h-auto min-h-8 max-w-full text-start whitespace-normal"
+                variant={layout === 'dock' ? 'ghost' : 'secondary'}
+                shape={layout === 'dock' ? 'rounded' : undefined}
+                className={
+                  layout === 'dock'
+                    ? 'shrink-0'
+                    : 'h-auto min-h-8 max-w-full text-start whitespace-normal'
+                }
+                disabled={busy || undefined}
                 onClick={() => ask(s)}
               >
-                {s}
+                {layout === 'dock' ? (RECIPE_LABELS[index] ?? s) : s}
               </Button>
             ))}
+          </div>
+        )}
+        {layout === 'dock' && (
+          <div className="flex shrink-0 items-end gap-2 px-2 pb-2">
+            <DockControlsOutlet panel="assistant" />
+            <Composer
+              compact
+              busy={busy}
+              placeholder={placeholder}
+              autoFocus={autoFocus}
+              onSend={ask}
+              onStop={() => void stop()}
+            />
           </div>
         )}
       </div>
@@ -297,11 +335,13 @@ export function ChatSession({
 
 function MessageList({
   messages,
+  answerActions,
   busy,
   lastId,
   children,
 }: {
   messages: ChatUIMessage[];
+  answerActions: boolean;
   busy: boolean;
   lastId: string | undefined;
   children: React.ReactNode;
@@ -337,6 +377,7 @@ function MessageList({
                       message={message}
                       question={questions.get(message.id)}
                       streaming={busy && message.id === lastId}
+                      actions={answerActions}
                     />
                   )}
                 </MessageScrollerItem>
@@ -384,12 +425,14 @@ function EmptyChat({
 
 function Composer({
   busy,
+  compact,
   placeholder,
   autoFocus,
   onSend,
   onStop,
 }: {
   busy: boolean;
+  compact?: boolean;
   placeholder: string;
   autoFocus?: boolean;
   onSend: (text: string) => void;
@@ -403,18 +446,22 @@ function Composer({
   };
   return (
     <form
-      className="p-3 pt-0"
+      className={compact ? 'min-w-0 flex-1' : 'p-3 pt-0'}
       onSubmit={(event) => {
         event.preventDefault();
         send();
       }}
     >
-      <InputGroup variant="secondary">
+      <InputGroup
+        variant="secondary"
+        size={compact ? 'lg' : undefined}
+        className={compact ? 'min-h-10 rounded-full' : undefined}
+      >
         <InputGroupTextarea
           aria-label="Ask the assistant"
           data-testid="chat-input"
           value={value}
-          rows={2}
+          rows={compact ? 1 : 2}
           maxLength={MAX_QUESTION_CHARS}
           placeholder={placeholder}
           autoFocus={autoFocus}
@@ -425,27 +472,40 @@ function Composer({
               send();
             }
           }}
-          className="max-h-60 min-h-16 [field-sizing:content]"
+          className={cn(
+            '[field-sizing:content]',
+            compact
+              ? 'max-h-[clamp(2rem,calc(57dvh-9rem),15rem)] min-h-0 overflow-y-auto data-[size=lg]:py-1.5'
+              : 'max-h-60 min-h-16',
+          )}
         />
-        <InputGroupAddon align="block-end">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Clear message"
-            title="Clear message"
-            disabled={!value}
-            onClick={() => setValue('')}
-          >
-            <IconX />
-          </Button>
-          <span className="flex flex-1 items-center gap-1.5 text-label-12 text-gray-900">
-            <IconCornerDownLeft className="size-3.5 shrink-0" /> Shift + Enter for a new line
-          </span>
+        <InputGroupAddon
+          align={compact ? 'inline-end' : 'block-end'}
+          className={compact ? 'py-0' : undefined}
+        >
+          {!compact && (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Clear message"
+                title="Clear message"
+                disabled={!value}
+                onClick={() => setValue('')}
+              >
+                <IconX />
+              </Button>
+              <span className="flex flex-1 items-center gap-1.5 text-label-12 text-gray-900">
+                <IconCornerDownLeft className="size-3.5 shrink-0" /> Shift + Enter for a new line
+              </span>
+            </>
+          )}
           {busy ? (
             <Button
               type="button"
               size="icon-sm"
+              shape={compact ? 'rounded' : undefined}
               variant="secondary"
               aria-label="Stop"
               data-testid="chat-stop"
@@ -454,7 +514,13 @@ function Composer({
               <IconPlayerStopFilled />
             </Button>
           ) : (
-            <Button type="submit" size="icon-sm" aria-label="Send" disabled={!value.trim()}>
+            <Button
+              type="submit"
+              size="icon-sm"
+              shape={compact ? 'rounded' : undefined}
+              aria-label="Send"
+              disabled={!value.trim()}
+            >
               <IconArrowUp />
             </Button>
           )}

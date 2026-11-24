@@ -31,7 +31,7 @@ import { type ElectronApplication, expect, type Page, test } from '@playwright/t
 import postgres from 'postgres';
 
 import { databaseUrlFile } from '../../web/e2e/paths';
-import { evidence, launchApp, scaled, signInDesktop } from './helpers';
+import { evidence, launchApp, scaled, signInDesktop, stopRecording } from './helpers';
 
 test.skip(process.platform !== 'darwin', 'desktop e2e runs on macOS');
 test.describe.configure({ mode: 'serial' });
@@ -234,11 +234,11 @@ test('workspaces arrive by sync; new notes go to the active one', async ({ brows
   await expect(inSection('private')).toHaveCount(1);
   await expect(inSection('shared')).toHaveCount(0);
   // The transcript sits behind its toggle (ui-calm): the toggle counts the lines as they arrive.
-  await expect(page.getByRole('button', { name: /^Transcript [1-9]/ })).toBeVisible({
+  await expect(page.getByRole('button', { name: /^Transcript, [1-9]/ })).toBeVisible({
     timeout: scaled(20_000),
   });
   const { meetingId } = await invoke<{ meetingId: string }>(page, 'recording:get');
-  await page.getByRole('button', { name: 'Stop recording' }).click();
+  await stopRecording(page);
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
     timeout: scaled(30_000),
   });
@@ -429,7 +429,7 @@ test('view-only everywhere: the sidebar asks for a workspace and a recording is 
     timeout: scaled(20_000),
   });
   await expect(page.getByTestId('note-workspace')).toHaveText(OWN);
-  await page.getByRole('button', { name: 'Stop recording' }).click();
+  await stopRecording(page);
   await expect(page.getByTestId('recording-bar')).toHaveAttribute('data-status', 'idle', {
     timeout: scaled(30_000),
   });

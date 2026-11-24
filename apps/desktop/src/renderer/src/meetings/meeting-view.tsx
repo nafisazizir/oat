@@ -1,7 +1,7 @@
 /**
- * The desktop meeting note (3.4): recording bar on top; below it the note — editable title, when it was
+ * The desktop meeting note (3.4): editable title, when it was
  * recorded, attendees, and my notes (`OatEditor`, autosaved into the local database and synced, 2.6) — with
- * the transcript in a collapsible, resizable panel on the right (live while this note is being recorded,
+ * the transcript in a collapsible sheet above the note dock (live while this note is being recorded,
  * the stored transcript otherwise). Nothing open: a start screen ("Start recording" makes a new note).
  * A recorded note plays its local audio (3.7): the player sits on top of the transcript, a click on a line
  * seeks there and the line under the playhead is highlighted (`audio-player.tsx`).
@@ -16,7 +16,8 @@ import { useWorkspaceHost } from '@oat/workspace-ui/host';
 import { useShellData } from '@oat/workspace-ui/shell-data';
 import {
   DocumentAssistant,
-  AssistantToggleButton,
+  AssistantToggleAnchor,
+  DockControlsOutlet,
   useRegisterOpenDocument,
   type NoteEditor,
   focusedLine,
@@ -28,10 +29,10 @@ import {
   MeetingTime,
   mergeTranscripts,
   ParticipantSummary,
-  SidePanel,
+  TranscriptSheet,
   TranscriptToggle,
   NoteColumn,
-  TRANSCRIPT_PANEL_SIZE,
+  usePanelEscape,
   type TranscriptItem,
   useStoredState,
 } from '@oat/meeting-ui';
@@ -54,7 +55,6 @@ import {
   IconNotes,
   IconStack2,
   IconUsers,
-  IconWaveSine,
 } from '@tabler/icons-react';
 import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
@@ -119,11 +119,8 @@ export function MeetingView({
     false,
   );
   const toggleRef = useRef<HTMLButtonElement>(null);
-  const closePanel = () => {
-    player.pause();
-    setPanelOpen(false);
-    requestAnimationFrame(() => toggleRef.current?.focus({ preventScroll: true }));
-  };
+  const [stopContainer, setStopContainer] = useState<HTMLDivElement | null>(null);
+  const canStop = isActive(snapshot?.status) || snapshot?.status === 'error';
   const focus = useMemo(() => parseDeepLink(focusQuery ?? {}), [focusQuery]);
   const [picked, setPicked] = useState<{
     id: string;
@@ -151,6 +148,12 @@ export function MeetingView({
   const { audioRef, player } = useMeetingPlayback(
     documentId && meetingId && !recordingThis ? meetingId : null,
   );
+  const closePanel = () => {
+    player.pause();
+    setPanelOpen(false);
+    requestAnimationFrame(() => toggleRef.current?.focus({ preventScroll: true }));
+  };
+  usePanelEscape(panelOpen && !!documentId, closePanel);
   const playable = player.available && !recordingThis;
   const linked = focusedLine(segments, focus);
   const selected =
@@ -201,7 +204,10 @@ export function MeetingView({
   const followLive = recordingThis || (meetingId !== null && live.meetingId === meetingId);
 
   const surface = (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label="Meeting">
+    <section
+      className="group/meeting relative flex min-h-0 min-w-0 flex-1 flex-col"
+      aria-label="Meeting"
+    >
       {/* The page's heading (the title itself is an editable field). */}
       {(!home || documentId !== null) && (
         <h1 className="sr-only">
@@ -240,7 +246,7 @@ export function MeetingView({
                 </EmptyHeader>
               </Empty>
             ) : (
-              <>
+              <div className="pb-24 group-has-[[data-note-dock-panel=transcript]]/meeting:pb-[calc(6rem+min(25rem,55dvh))] group-has-[[data-note-dock-panel=assistant]:not([hidden]_*)]/meeting:pb-[calc(6rem+min(28rem,60dvh))]">
                 <NoteBody
                   key={note.documentId}
                   note={note}
@@ -255,101 +261,114 @@ export function MeetingView({
                   key={`${note.documentId}:${focusRevision}:${focus.block ?? ''}`}
                   blockId={focus.block}
                 />
-              </>
+              </div>
             )}
           </div>
         </div>
-        {documentId && panelOpen && (note || !loaded) && (
-          <SidePanel
-            id="transcript-panel"
-            title={
-              <>
-                <IconWaveSine aria-hidden className="size-4 text-gray-900" />
-                Transcript
-              </>
-            }
-            meta={
-              segments.length > 0 && (
-                <span className="text-label-12 text-gray-900 tabular-nums">{segments.length}</span>
-              )
-            }
-            closeLabel="Hide transcript"
-            onClose={closePanel}
-            storageKey="oat.desktop.transcript.width"
-            defaultWidth={TRANSCRIPT_PANEL_SIZE.default}
-            minWidth={TRANSCRIPT_PANEL_SIZE.min}
-            maxWidth={TRANSCRIPT_PANEL_SIZE.max}
-            data-testid="transcript-panel"
-          >
-            <div
-              className="flex min-h-0 flex-1 flex-col"
-              onKeyDown={(event) => playerKey(event, player)}
-            >
-              {documentId && meetingId && !recordingThis && <PlaybackBar player={player} />}
-              <TranscriptPanel
-                key={`${documentId}:${focusRevision}:${focus.seg ?? ''}:${focus.t ?? ''}`}
-                segments={segments}
-                // A just-recorded note that can be played back follows the playhead, not the live end.
-                live={showsRecording || (followLive && !playable)}
-                snapshot={showsRecording ? snapshot : null}
-                loaded={documentId === null ? live.loaded : loaded && stored.loaded}
-                failed={documentId === null ? live.failed : stored.failed}
-                meetingKey={documentId}
-                focusId={selected}
-                onSelect={
-                  playable
-                    ? (s) => player.seek(s.startMs)
-                    : documentId
-                      ? (s) =>
-                          setPicked({
-                            id: s.id,
-                            query: focusQuery,
-                            revision: focusRevision,
-                            documentId,
-                          })
-                      : undefined
-                }
-                activeId={activeId}
-                playheadKey={playable ? player.seekCount : undefined}
-                status={transcriptStatus}
-              />
-            </div>
-          </SidePanel>
-        )}
       </div>
       {/* Home, idle: no bar (the sidebar's "New meeting note" starts a recording). */}
       {(documentId !== null || (snapshot && snapshot.status !== 'idle')) && (
-        <div
-          className="mx-auto mb-4 flex w-fit max-w-full flex-wrap items-center justify-center gap-2 rounded-lg border border-gray-alpha-400 bg-background-100 p-1.5"
-          data-testid="note-bottom-bar"
+        <AssistantToggleAnchor
+          className="absolute inset-x-0"
+          transcript={
+            documentId && panelOpen && (note || !loaded || canStop) ? (
+              <TranscriptSheet
+                items={segments}
+                onClose={closePanel}
+                footer={
+                  <>
+                    <DockControlsOutlet panel="transcript" />
+                    {canStop && <div className="ms-auto" ref={setStopContainer} />}
+                  </>
+                }
+              >
+                <div
+                  className="flex min-h-0 flex-1 flex-col"
+                  onKeyDown={(event) => playerKey(event, player)}
+                >
+                  {documentId && meetingId && !recordingThis && <PlaybackBar player={player} />}
+                  <TranscriptPanel
+                    key={`${documentId}:${focusRevision}:${focus.seg ?? ''}:${focus.t ?? ''}`}
+                    segments={segments}
+                    // A just-recorded note that can be played back follows the playhead, not the live end.
+                    live={showsRecording || (followLive && !playable)}
+                    snapshot={showsRecording ? snapshot : null}
+                    loaded={documentId === null ? live.loaded : loaded && stored.loaded}
+                    failed={documentId === null ? live.failed : stored.failed}
+                    meetingKey={documentId}
+                    focusId={selected}
+                    onSelect={
+                      playable
+                        ? (s) => player.seek(s.startMs)
+                        : documentId
+                          ? (s) =>
+                              setPicked({
+                                id: s.id,
+                                query: focusQuery,
+                                revision: focusRevision,
+                                documentId,
+                              })
+                          : undefined
+                    }
+                    activeId={activeId}
+                    playheadKey={playable ? player.seekCount : undefined}
+                    status={transcriptStatus}
+                  />
+                </div>
+              </TranscriptSheet>
+            ) : undefined
+          }
         >
-          <RecordingBar
-            snapshot={snapshot}
-            options={options}
-            input={input}
-            onInputChange={onInputChange}
-            // D-24: continue only an editable note whose audio is on this Mac; else a new note.
-            meetingId={note?.editable && note.recordedHere ? meetingId : null}
-            recorded={note?.startedAt !== null}
-            hint={
-              note && meetingId && !(note.editable && note.recordedHere)
-                ? note.editable
-                  ? 'Recorded on another device — recording starts a new note.'
-                  : 'You can’t add to this note — recording starts a new note.'
-                : null
-            }
-          />
-
-          {documentId && (
-            <TranscriptToggle
-              ref={toggleRef}
-              open={panelOpen}
-              count={segments.length}
-              onClick={() => (panelOpen ? closePanel() : setPanelOpen(true))}
-            />
+          {(dockContainer) => (
+            <div
+              className={
+                documentId === null
+                  ? 'flex min-h-10 max-w-full flex-wrap items-center justify-center gap-1 rounded-lg border border-gray-alpha-400 bg-background-100 p-1 shadow-sm'
+                  : undefined
+              }
+            >
+              <RecordingBar
+                snapshot={snapshot}
+                options={options}
+                input={input}
+                onInputChange={onInputChange}
+                transcriptToggle={
+                  documentId && (
+                    <TranscriptToggle
+                      ref={toggleRef}
+                      open={panelOpen}
+                      count={segments.length}
+                      recording={recordingThis && snapshot?.status === 'recording'}
+                      onClick={(event) => {
+                        if (panelOpen) closePanel();
+                        else {
+                          setPanelOpen(true);
+                          if (event.detail === 0)
+                            requestAnimationFrame(() =>
+                              toggleRef.current?.focus({ preventScroll: true }),
+                            );
+                        }
+                      }}
+                    />
+                  )
+                }
+                stopContainer={stopContainer}
+                dockContainer={dockContainer}
+                hideTranscriptionStatus={!!documentId && panelOpen && recordingThis}
+                // D-24: continue only an editable note whose audio is on this Mac; else a new note.
+                meetingId={note?.editable && note.recordedHere ? meetingId : null}
+                recorded={note?.startedAt !== null}
+                hint={
+                  note && meetingId && !(note.editable && note.recordedHere)
+                    ? note.editable
+                      ? 'Recorded on another device — recording starts a new note.'
+                      : 'You can’t add to this note — recording starts a new note.'
+                    : null
+                }
+              />
+            </div>
           )}
-          <AssistantToggleButton />
-        </div>
+        </AssistantToggleAnchor>
       )}
     </section>
   );
@@ -359,6 +378,7 @@ export function MeetingView({
       documentId={note.documentId}
       workspaceId={note.workspaceId}
       available={!note.trashed}
+      layout="dock"
       transcript={null}
       focus={{}}
     >

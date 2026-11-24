@@ -2,8 +2,7 @@
 
 /**
  * A meeting note on the web (3.4): the document editor with the meeting header under its title (when it was
- * recorded, attendees — editable by editors) and the transcript beside it in a collapsible, resizable panel
- * (a section under the note on narrow screens). Same pieces as the desktop (`@oat/meeting-ui`).
+ * recorded, attendees — editable by editors) and a collapsible transcript sheet in the note dock.
  *
  * - `?t=<s>&seg=<id>` (citations, transcript search hits, 6.4) opens the panel at that line, highlighted.
  * - Clicking a line picks it: the URL becomes that line's deep link (shareable; the jump target for audio
@@ -14,10 +13,9 @@
 import {
   MeetingTime,
   ParticipantSummary,
-  SidePanel,
+  TranscriptSheet,
   TranscriptToggle,
   usePanelEscape,
-  TRANSCRIPT_PANEL_SIZE,
   type TranscriptItem,
   TranscriptList,
   useStoredState,
@@ -26,7 +24,6 @@ import {
   playerKey,
 } from '@oat/meeting-ui';
 import { IN_PROGRESS_MAX_MS } from '@oat/meeting-ui/format';
-import { cn } from '@oat/ui';
 import { Button } from '@oat/ui/components/button';
 import {
   AlertDialog,
@@ -44,12 +41,21 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@oat/ui/components/empty';
-import { IconDeviceLaptop, IconX, IconWaveSine } from '@tabler/icons-react';
+import { IconWaveSine } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
-import { AssistantToggleAnchor } from '@/components/assistant/document-assistant';
+import {
+  AssistantToggleAnchor,
+  useTranscriptCitationRevision,
+} from '@/components/assistant/document-assistant';
+import { DockControlsOutlet } from '@oat/feature-ui/assistant';
 import { useShellData } from '@oat/workspace-ui/shell-data';
-import { RecordingControls, RecordingFeedback, useBrowserRecording } from './recording-controls';
+import {
+  RecordingControls,
+  RecordingFeedback,
+  RecordingStopButton,
+  useBrowserRecording,
+} from './recording-controls';
 import { DocumentEditor } from '@/components/document/document-editor';
 import type { DocumentDetail } from '@/lib/api-types';
 import { appendLines, type MeetingInfo, meetingApi, participantError } from '@/lib/meeting';
@@ -59,22 +65,7 @@ import { useOpfsPlayback } from '@/lib/use-opfs-playback';
 import type { WorkspaceAudience } from '@/lib/workspace';
 
 const OPEN_KEY = 'oat.transcript.open';
-const WIDTH_KEY = 'oat.transcript.width';
 const POLL_MS = 5_000;
-/** `lg`: from here on the transcript is a column beside the note; below, a section under it. */
-const WIDE = '(min-width: 64rem)';
-
-function useWide(): boolean {
-  return useSyncExternalStore(
-    (onChange) => {
-      const query = window.matchMedia(WIDE);
-      query.addEventListener('change', onChange);
-      return () => query.removeEventListener('change', onChange);
-    },
-    () => window.matchMedia(WIDE).matches,
-    () => true,
-  );
-}
 
 /** Recorded but not ended, recently: a desktop may still be recording it. */
 function maybeLive(info: MeetingInfo, now: number): boolean {
@@ -99,7 +90,6 @@ export function MeetingNote({
 }) {
   const hydrated = useHydrated();
   const { user } = useShellData();
-  const wide = useWide();
   const [info, setInfo] = useState(initial);
   const lines = useMemo(() => info.transcript ?? [], [info.transcript]);
   const editable = doc.access.edit && doc.deletedAt === null;
@@ -143,11 +133,15 @@ export function MeetingNote({
     setOpen(false);
     requestAnimationFrame(() => toggleRef.current?.focus({ preventScroll: true }));
   };
-  usePanelEscape(open && !wide, closePanel);
+  usePanelEscape(open, closePanel);
   const linkKey = wantsTranscript(focus) ? `${focus.seg ?? ''}|${focus.t ?? ''}` : null;
   useEffect(() => {
     if (linkKey) setOpen(true);
   }, [linkKey, setOpen]);
+  const citationRevision = useTranscriptCitationRevision();
+  useEffect(() => {
+    if (citationRevision) setOpen(true);
+  }, [citationRevision, setOpen]);
 
   // The highlighted line: from the deep link, then whatever the user clicks.
   const linked = useMemo(() => focusedLine(lines, focus), [lines, focus]);
@@ -242,17 +236,13 @@ export function MeetingNote({
   );
 
   const transcript = (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col" onKeyDown={(event) => playerKey(event, player)}>
       {deleteError && (
         <p role="alert" className="text-copy-13 text-red-900">
           {deleteError}
         </p>
       )}
-      {local && !browserLive ? (
-        <PlaybackBar player={player} />
-      ) : info.startedAt && !browserLive ? (
-        <AudioHint />
-      ) : null}
+      {local && !browserLive && <PlaybackBar player={player} />}
       <TranscriptBody
         items={items}
         focusId={focusId}
@@ -261,11 +251,11 @@ export function MeetingNote({
         activeId={activeId}
         playheadKey={local ? player.seekCount : undefined}
       />
-    </>
+    </div>
   );
 
   return (
-    <div className="flex min-w-0 flex-1" onKeyDown={(event) => playerKey(event, player)}>
+    <div className="flex min-w-0 flex-1">
       <audio ref={audioRef} hidden preload="metadata" data-testid="playback-audio" />
       <audio ref={secondaryRef} hidden preload="metadata" />
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
@@ -293,94 +283,79 @@ export function MeetingNote({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {/* At least the window's height, so "Ask about this note" sits at its bottom (9.3b). */}
-      <div className="flex min-h-[calc(100svh-3rem)] min-w-0 flex-1 flex-col">
-        <DocumentEditor
-          document={doc}
-          workspace={workspace}
-          meta={header}
-          overflowActions={
-            local && !browserLive ? (
-              <Button variant="ghost" onClick={() => setDeleteOpen(true)}>
-                Delete audio from this browser
-              </Button>
-            ) : null
-          }
-        />
-        {open && !wide && (
-          <section
-            id="transcript-panel"
-            aria-label="Transcript"
-            data-testid="transcript-panel"
-            className="mx-auto mb-14 flex h-96 w-full max-w-content flex-col overflow-hidden rounded-lg border border-gray-alpha-400 bg-background-100"
-          >
-            <PanelTitle count={items.length} onClose={closePanel} />
-            {transcript}
-          </section>
-        )}
-        {/* "Ask about this note" floats over the note column, never over the transcript panel. */}
+      <div className="group/meeting flex min-h-[calc(100svh-3rem)] min-w-0 flex-1 flex-col">
+        <div className="pb-16 group-has-[[data-note-dock-panel=transcript]]/meeting:pb-[min(25rem,55dvh)] group-has-[[data-note-dock-panel=assistant]:not([hidden]_*)]/meeting:pb-[min(28rem,60dvh)]">
+          <DocumentEditor
+            document={doc}
+            workspace={workspace}
+            meta={header}
+            overflowActions={
+              local && !browserLive ? (
+                <Button variant="ghost" onClick={() => setDeleteOpen(true)}>
+                  Delete audio from this browser
+                </Button>
+              ) : null
+            }
+          />
+        </div>
         <AssistantToggleAnchor
           className="mt-auto"
           feedback={<RecordingFeedback documentId={doc.id} />}
+          transcript={
+            open ? (
+              <TranscriptSheet
+                items={items}
+                onClose={closePanel}
+                footer={
+                  <>
+                    <DockControlsOutlet panel="transcript" />
+                    {browserLive && (
+                      <div className="ms-auto">
+                        <RecordingStopButton
+                          shape="rounded"
+                          disabled={
+                            recording.changing ||
+                            (recording.status !== 'recording' && recording.status !== 'paused')
+                          }
+                        />
+                      </div>
+                    )}
+                  </>
+                }
+              >
+                {transcript}
+              </TranscriptSheet>
+            ) : undefined
+          }
         >
-          <RecordingControls
-            documentId={doc.id}
-            eligible={editable && !(info.endedAt && lines.length > 0)}
-          />
-          <TranscriptToggle
-            ref={toggleRef}
-            open={open}
-            count={items.length}
-            onClick={() => (open ? closePanel() : setOpen(true))}
-          />
+          {(dockContainer) => (
+            <RecordingControls
+              documentId={doc.id}
+              eligible={editable && !(info.endedAt && lines.length > 0)}
+              dockContainer={dockContainer}
+              transcriptToggle={
+                <TranscriptToggle
+                  ref={toggleRef}
+                  open={open}
+                  count={items.length}
+                  recording={recordingHere && recording.status === 'recording'}
+                  onClick={(event) => {
+                    if (open) closePanel();
+                    else {
+                      setOpen(true);
+                      if (event.detail === 0)
+                        requestAnimationFrame(() =>
+                          toggleRef.current?.focus({ preventScroll: true }),
+                        );
+                    }
+                  }}
+                />
+              }
+            />
+          )}
         </AssistantToggleAnchor>
       </div>
-      {open && wide && (
-        <SidePanel
-          id="transcript-panel"
-          title={
-            <>
-              <IconWaveSine aria-hidden className="size-4 text-gray-900" />
-              Transcript
-            </>
-          }
-          meta={
-            items.length > 0 && (
-              <span className="text-label-13 text-gray-900 tabular-nums">{items.length}</span>
-            )
-          }
-          closeLabel="Hide transcript"
-          onClose={closePanel}
-          storageKey={WIDTH_KEY}
-          defaultWidth={TRANSCRIPT_PANEL_SIZE.default}
-          minWidth={TRANSCRIPT_PANEL_SIZE.min}
-          maxWidth={TRANSCRIPT_PANEL_SIZE.max}
-          className="sticky top-12 h-[calc(100svh-3rem)] self-start"
-          data-testid="transcript-panel"
-        >
-          {transcript}
-        </SidePanel>
-      )}
     </div>
-  );
-}
-
-function PanelTitle({ count, onClose }: { count: number; onClose: () => void }) {
-  return (
-    <header className="flex h-11 shrink-0 items-center gap-2 border-b border-gray-alpha-400 ps-4 pe-2">
-      <IconWaveSine aria-hidden className="size-4 text-gray-900" />
-      <h2 className="text-label-14 text-gray-1000">Transcript</h2>
-      {count > 0 && <span className="text-label-13 text-gray-900 tabular-nums">{count}</span>}
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="ms-auto"
-        aria-label="Hide transcript"
-        onClick={onClose}
-      >
-        <IconX />
-      </Button>
-    </header>
   );
 }
 
@@ -392,7 +367,7 @@ function TranscriptBody({
   activeId,
   playheadKey,
 }: {
-  items: TranscriptItem[];
+  items: readonly TranscriptItem[];
   focusId: string | undefined;
   onSelect: (segment: TranscriptItem) => void;
   live: boolean;
@@ -400,19 +375,16 @@ function TranscriptBody({
   playheadKey?: number | undefined;
 }) {
   if (items.length === 0) {
+    if (live) return null;
     return (
       <Empty className="px-8 py-10" data-testid="transcript-empty">
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <IconWaveSine aria-hidden className={cn('text-gray-900', live && 'animate-pulse')} />
+            <IconWaveSine aria-hidden className="text-gray-900" />
           </EmptyMedia>
-          <EmptyTitle className="text-heading-16">
-            {live ? 'Waiting for the transcript…' : 'No transcript'}
-          </EmptyTitle>
+          <EmptyTitle className="text-heading-16">No transcript</EmptyTitle>
           <EmptyDescription className="max-w-xs">
-            {live
-              ? 'Listening for speech. Transcript lines appear here as they arrive.'
-              : 'Record in this browser or the Oat desktop app to get a transcript here.'}
+            Record in this browser or the Oat desktop app to get a transcript here.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -430,18 +402,5 @@ function TranscriptBody({
         className="min-h-0"
       />
     </>
-  );
-}
-
-function AudioHint() {
-  return (
-    <p
-      className="flex shrink-0 items-center gap-1.5 border-b border-gray-alpha-400 px-4 py-1.5 text-label-12 text-gray-900"
-      data-testid="audio-hint"
-      title="Only transcripts sync. Audio stays on the recording device."
-    >
-      <IconDeviceLaptop aria-hidden className="size-3.5 shrink-0" />
-      Audio stays on the recording device
-    </p>
   );
 }

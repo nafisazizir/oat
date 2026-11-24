@@ -3,7 +3,7 @@
 import { Button } from '@oat/ui/components/button';
 import { Sheet, SheetContent, SheetTitle } from '@oat/ui/components/sheet';
 import { cn } from '@oat/ui/lib/utils';
-import { IconSparkles } from '@tabler/icons-react';
+import { IconArrowUp, IconSparkles } from '@tabler/icons-react';
 import {
   createContext,
   useCallback,
@@ -20,6 +20,7 @@ import type { ResolvedCitation } from '@oat/services/dto/chat';
 import { useAppShortcut } from '@oat/ui/hooks/use-app-shortcut';
 
 import { AssistantChat } from './assistant-chat';
+import { DockControlsContext } from './note-dock-controls';
 import { TranscriptReader } from './transcript-reader';
 import {
   type OpenDocumentBridge,
@@ -29,12 +30,14 @@ import {
 } from './open-document';
 
 /**
- * Where the floating "Ask about this note" button goes (9.3b). By default it floats at the bottom right of the
- * window; a page with a column of its own (the meeting note: note + transcript side panel) renders
- * `<AssistantToggleAnchor />` at the end of its note column, so the button stays over the note instead of
- * covering the transcript.
+ * Pages can place the assistant launcher themselves instead of floating it at the window corner.
  */
-type ToggleSlot = { node: React.ReactNode; claim: () => () => void };
+type ToggleSlot = {
+  node: React.ReactNode;
+  panel?: React.ReactNode;
+  onPanelKeyDown?: React.KeyboardEventHandler;
+  claim: () => () => void;
+};
 const AssistantToggleContext = createContext<ToggleSlot | null>(null);
 export function AssistantToggleButton() {
   const slot = useContext(AssistantToggleContext);
@@ -47,29 +50,64 @@ export function AssistantToggleAnchor({
   className,
   children,
   feedback,
+  transcript,
 }: {
   className?: string;
-  children?: React.ReactNode;
+  children?: (controlsContainer: HTMLElement | null) => React.ReactNode;
   feedback?: React.ReactNode;
+  transcript?: React.ReactNode;
 }) {
   const slot = useContext(AssistantToggleContext);
   const claim = slot?.claim;
   useEffect(() => claim?.(), [claim]);
-  if (!slot?.node && !children && !feedback) return null;
+  const [transcriptControls, setTranscriptControls] = useState<HTMLDivElement | null>(null);
+  const [assistantControls, setAssistantControls] = useState<HTMLDivElement | null>(null);
+  const expanded = !!(transcript || slot?.panel);
+  const controlsContainer = transcript
+    ? transcriptControls
+    : slot?.panel
+      ? assistantControls
+      : null;
+  if (!expanded && !slot?.node && !children && !feedback) return null;
   return (
-    <div
-      data-testid="note-bottom-bar"
-      className={cn(
-        'pointer-events-none sticky bottom-0 z-20 flex flex-col items-center gap-2 px-4 pt-2 pb-4 *:pointer-events-auto',
-        className,
-      )}
+    <DockControlsContext.Provider
+      value={{ transcript: setTranscriptControls, assistant: setAssistantControls }}
     >
-      {feedback && <div className="w-full max-w-content empty:hidden">{feedback}</div>}
-      <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-md border border-gray-alpha-300 bg-background-100 p-2">
-        {children}
-        {slot?.node}
+      <div
+        data-testid="note-bottom-bar"
+        className={cn(
+          'pointer-events-none sticky bottom-0 z-20 mx-auto flex w-full max-w-content flex-col gap-2 px-3 pt-2 pb-4 sm:px-6',
+          className,
+        )}
+        onKeyDownCapture={!transcript && slot?.panel ? slot.onPanelKeyDown : undefined}
+      >
+        <div className="absolute inset-x-3 bottom-4 flex flex-col gap-2 sm:inset-x-6">
+          {feedback && (
+            <div className={cn('pointer-events-auto empty:hidden', !expanded && 'mb-12')}>
+              {feedback}
+            </div>
+          )}
+          {expanded && (
+            <div className="-mx-[calc(--spacing(2)+1px)] -mb-[calc(--spacing(2)+1px)]">
+              {transcript && <div className="pointer-events-auto">{transcript}</div>}
+              {slot?.panel && <div hidden={!!transcript}>{slot.panel}</div>}
+            </div>
+          )}
+        </div>
+        <div className="min-h-10">
+          <div
+            data-testid="note-dock-row"
+            hidden={expanded}
+            className={cn('flex-wrap items-end justify-center gap-2', expanded ? 'hidden' : 'flex')}
+          >
+            {children && (
+              <div className="pointer-events-auto min-w-0">{children(controlsContainer)}</div>
+            )}
+            {slot?.node && <div className="min-w-32 flex-1">{slot.node}</div>}
+          </div>
+        </div>
       </div>
-    </div>
+    </DockControlsContext.Provider>
   );
 }
 
@@ -122,6 +160,7 @@ export function DocumentAssistant({
   children,
   onTranscriptClose,
   onOpenTranscript,
+  layout = 'panel',
 }: {
   documentId: string;
   workspaceId: string;
@@ -133,6 +172,7 @@ export function DocumentAssistant({
   children: React.ReactNode;
   onTranscriptClose?(): void;
   onOpenTranscript?(citation: Extract<ResolvedCitation, { kind: 'seg' }>): void;
+  layout?: 'panel' | 'dock';
 }) {
   // `null` until the user toggles: then the remembered choice (read after hydration, so the server render
   // and the first client render agree). Only the side column is remembered: below `lg` the panel is a modal
@@ -140,7 +180,8 @@ export function DocumentAssistant({
   const hydrated = useHydrated();
   const wide = useWide();
   const [choice, setChoice] = useState<boolean | null>(null);
-  const open = available && (choice ?? (hydrated && wide && rememberedOpen()));
+  const dock = layout === 'dock';
+  const open = available && (choice ?? (!dock && hydrated && wide && rememberedOpen()));
 
   const panelRef = useRef<HTMLElement | null>(null);
   const toggleRef = useRef<HTMLButtonElement | null>(null);
@@ -152,14 +193,14 @@ export function DocumentAssistant({
       const value = next ?? !open;
       if (!value && panelRef.current?.contains(document.activeElement)) returnFocus.current = true;
       setChoice(value);
-      if (!wide) return; // the sheet isn't remembered (see `open`)
+      if (dock || !wide) return;
       try {
         window.localStorage.setItem(PANEL_KEY, value ? '1' : '0');
       } catch {
         // Not remembered; fine.
       }
     },
-    [open, wide],
+    [dock, open, wide],
   );
 
   /**
@@ -262,16 +303,46 @@ export function DocumentAssistant({
         Ask about this note
       </Button>
     ) : null;
-  const toggleSlot: ToggleSlot = { node: anchored ? toggleButton : null, claim };
-
   const chat = (
     <AssistantChat
       scope={{ kind: 'document', documentId }}
       workspaceId={workspaceId}
-      layout="panel"
+      layout={layout}
       onClose={() => toggle(false)}
     />
   );
+  const dockNode =
+    available && !open ? (
+      <Button
+        ref={toggleRef}
+        variant="outline"
+        size="lg"
+        shape="rounded"
+        data-testid="assistant-toggle"
+        aria-keyshortcuts="Meta+J"
+        aria-expanded={open}
+        onClick={() => toggle(true)}
+        className="pointer-events-auto w-full justify-start gap-2 bg-background-100 text-gray-900 shadow-sm"
+      >
+        <IconSparkles className="text-brand-800" />
+        Ask anything
+        <IconArrowUp className="ms-auto" />
+      </Button>
+    ) : null;
+  const dockPanel = open ? (
+    <section
+      ref={panelRef}
+      aria-label="Assistant"
+      data-testid="assistant-panel"
+      data-note-dock-panel="assistant"
+      className="pointer-events-auto flex max-h-[min(28rem,60dvh)] min-h-0 flex-col overflow-hidden rounded-3xl border border-gray-alpha-400 bg-background-100 shadow-lg has-[[data-empty=false]]:h-[min(27rem,57dvh)]"
+    >
+      {chat}
+    </section>
+  ) : null;
+  const toggleSlot: ToggleSlot = dock
+    ? { node: dockNode, panel: dockPanel, onPanelKeyDown: closeOnEscape, claim }
+    : { node: anchored ? toggleButton : null, claim };
 
   return (
     <OpenDocumentContext.Provider value={bridge}>
@@ -296,7 +367,7 @@ export function DocumentAssistant({
                 </div>
               )}
             </div>
-            {available && open && wide && (
+            {!dock && available && open && wide && (
               <aside
                 ref={panelRef}
                 aria-label="Assistant"
@@ -309,7 +380,7 @@ export function DocumentAssistant({
               </aside>
             )}
           </div>
-          {available && !wide && (
+          {!dock && available && !wide && (
             <Sheet open={open} onOpenChange={(value) => toggle(value)}>
               <SheetContent
                 ref={panelRef as React.Ref<HTMLDivElement>}
@@ -327,7 +398,7 @@ export function DocumentAssistant({
               </SheetContent>
             </Sheet>
           )}
-          {!anchored && toggleButton}
+          {!dock && !anchored && toggleButton}
         </AssistantToggleContext.Provider>
       </OpenDocumentAssistantIntegration>
     </OpenDocumentContext.Provider>
