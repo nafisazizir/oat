@@ -71,6 +71,9 @@ import type {
   UpcomingMeetingsDto,
   StartNotesInput,
   StartNotesResult,
+  LinkEventInput,
+  LinkEventResult,
+  NoteEventCandidatesDto,
 } from '@oat/services/dto/calendar';
 import type {
   WorkspaceList,
@@ -233,6 +236,18 @@ export function createOatClient(transport: OatTransport) {
           ...options,
         }),
       ),
+      /** The calendar events around the note's time, and the one it is linked to (editors). */
+      eventChoices: endpoint<NoteEventCandidatesDto>()(
+        'GET',
+        '/api/documents/[id]/calendar-event',
+        byId,
+      ),
+      linkEvent: endpoint<LinkEventResult>()(
+        'PUT',
+        '/api/documents/[id]/calendar-event',
+        withBody<LinkEventInput>,
+      ),
+      unlinkEvent: endpoint<void>()('DELETE', '/api/documents/[id]/calendar-event', byId),
       pipeline: endpoint<PipelineRunResponse>()('GET', '/api/documents/[id]/pipeline', byId),
       runPipeline: endpoint<PipelineRunResponse>()('POST', '/api/documents/[id]/pipeline', byId),
       notion: endpoint<NotionDocumentStatus>()('GET', '/api/documents/[id]/notion', byId),

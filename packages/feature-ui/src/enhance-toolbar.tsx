@@ -11,8 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@oat/ui/components/alert-dialog';
-import { DropdownMenuItem, DropdownMenuSeparator } from '@oat/ui/components/dropdown-menu';
-import { IconArrowBackUp, IconHistory, IconNotes } from '@tabler/icons-react';
+import { IconHistory } from '@tabler/icons-react';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -55,7 +54,7 @@ const UNCHECKED = {
 };
 
 /**
- * Splits the enhance UI so the Enhance / Regenerate button sits inline in the metadata row under the title,
+ * Splits the enhance UI so the Enhance / Enhanced button sits inline in the metadata row under the title,
  * History sits inside the top-bar More menu, and the history + D-20 replace-confirm dialogs stay mounted
  * alongside the note.
  */
@@ -113,6 +112,8 @@ export function useEnhanceControls({
       enhancement={enhancement}
       workspaceId={workspaceId}
       regenerate={Boolean(latest)}
+      currentTemplate={latest?.templateName}
+      size="sm"
       onStart={(input) =>
         void versions.guard('regenerate', () => {
           toast.dismiss(versions.toastId);
@@ -121,35 +122,7 @@ export function useEnhanceControls({
           void enhancement.start(templateId ? { ...input, templateId } : input);
         })
       }
-    >
-      {latest && (
-        <>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            data-testid="enhance-history"
-            onClick={() => openHistory({ kind: 'version', id: latest.id })}
-          >
-            <IconHistory />
-            Note history
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            data-testid="enhance-original"
-            onClick={() => openHistory({ kind: 'original' })}
-          >
-            <IconNotes />
-            Show my original notes
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            data-testid="enhance-undo"
-            disabled={versions.restoring || versions.checking}
-            onClick={() => versions.undo()}
-          >
-            <IconArrowBackUp />
-            Undo enhancement
-          </DropdownMenuItem>
-        </>
-      )}
-    </EnhanceButton>
+    />
   );
 
   const historyAction: ReactNode = hasHistory ? (

@@ -46,6 +46,7 @@ import {
   EmptyTitle,
 } from '@oat/ui/components/empty';
 import { IconWaveSine } from '@tabler/icons-react';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import {
@@ -62,7 +63,13 @@ import {
 } from './recording-controls';
 import { DocumentEditor } from '@/components/document/document-editor';
 import type { DocumentDetail } from '@/lib/api-types';
-import { appendLines, type MeetingInfo, meetingApi, participantError } from '@/lib/meeting';
+import {
+  appendLines,
+  eventLinkError,
+  type MeetingInfo,
+  meetingApi,
+  participantError,
+} from '@/lib/meeting';
 import { type DeepLinkFocus, focusedLine, segmentHref, wantsTranscript } from '@/lib/transcript';
 import { useHydrated } from '@/lib/use-hydrated';
 import { useOpfsPlayback } from '@/lib/use-opfs-playback';
@@ -93,6 +100,7 @@ export function MeetingNote({
   eventLine?: React.ReactNode;
 }) {
   const hydrated = useHydrated();
+  const router = useRouter();
   const { user } = useShellData();
   const [info, setInfo] = useState(initial);
   const lines = useMemo(() => info.transcript ?? [], [info.transcript]);
@@ -205,6 +213,29 @@ export function MeetingNote({
     return [...merged.values()].sort((a, b) => a.startMs - b.startMs);
   }, [lines, recordingHere, recording.segments]);
 
+  const eventPicker = {
+    load: () =>
+      meetingApi.eventChoices(doc.id).catch((error) => Promise.reject(eventLinkError(error))),
+    onLink: async (event: { id: string }) => {
+      try {
+        const linked = await meetingApi.linkEvent(doc.id, event.id);
+        setInfo((i) => ({ ...i, participants: linked.participants }));
+      } catch (error) {
+        throw eventLinkError(error);
+      }
+      // The event's slot / Join link under the title is rendered by the server.
+      router.refresh();
+    },
+    onUnlink: async () => {
+      try {
+        await meetingApi.unlinkEvent(doc.id);
+      } catch (error) {
+        throw eventLinkError(error);
+      }
+      router.refresh();
+    },
+  };
+
   const header = (
     // B: Private only when it is, when, the calendar slot / Join, people, View only / In trash. No
     // workspace (the sidebar says it), no shared audience (the default), no duration.
@@ -219,6 +250,8 @@ export function MeetingNote({
           endedAt={info.endedAt}
           // Server render + hydration in UTC (they must agree), then the viewer's zone.
           {...(hydrated ? {} : { timeZone: 'UTC' })}
+          // Editors: the time opens the calendar events around then, to link the note to one.
+          {...(editable && hydrated ? { events: eventPicker } : {})}
         />
       )}
       {eventLine}

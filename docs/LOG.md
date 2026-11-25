@@ -449,3 +449,14 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
   DropdownMenu, one row per person with an inline trash button (Delete on the focused row); the header no longer
   adds attendees (API kept). Dev playground at `/dev-probes/meeting-header`. Local web E2E `meeting` + `calendar`
   passed (6/6); desktop E2E is macOS-only and was not run.
+- 2026-11-25 · Meeting header pills, Enhanced menu, link a calendar event (human-driven session, D-43) · The
+  header row under a meeting title is now `sm` pills (`MeetingMetaRow` defaults to `look="pill"`); once enhanced,
+  the control is one "Enhanced" menu button with the current template + Regenerate on top and the templates
+  below (history/original/undo items removed from it; `TemplatePicker` gained `leading`/`align`). New
+  `/api/documents/[id]/calendar-event` (GET candidates around the note's time, PUT link, DELETE unlink;
+  `server/meeting-event.ts`, `listEventsNear` in `server/calendar.ts`, `@oat/client` methods) and
+  `MeetingEventPicker` on the web's date pill. Local: fast CI; int `meeting-event` 5 passed; web E2E `calendar`,
+  `enhance-versions`, `meeting`, `enhance`, `recording` passed; `tasks.spec` fails its axe target-size check on
+  the sidebar "Oat" link on /tasks (not touched here, not checked against `main`). Not run: full `pnpm run ci`,
+  desktop E2E. Not done: linking from the desktop header (needs IPC + EventKit lookup for past dates).
+

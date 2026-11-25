@@ -23,6 +23,12 @@ export {
   startsGroup,
   type TranscriptItem,
 } from './format.ts';
+export {
+  type EventChoices,
+  type EventPickerProps,
+  type LinkableEvent,
+  MeetingEventPicker,
+} from './event-picker.tsx';
 export { MeetingTime } from './meeting-time.tsx';
 export {
   MeetingAccess,

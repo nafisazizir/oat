@@ -8,8 +8,12 @@ import {
 } from '@oat/auth';
 import { CalendarAccessError, calendarEventKey, mergeCalendarEvents } from '@oat/calendar';
 import { GoogleCalendarSource } from '@oat/calendar/google';
-import { type CalendarEvent, upcoming } from '@oat/core';
-import type { CalendarSourceStatus, UpcomingMeetings } from '@oat/services/dto/calendar';
+import { type CalendarEvent, compareCalendarEvents, isAttending, upcoming } from '@oat/core';
+import type {
+  CalendarSourceState,
+  CalendarSourceStatus,
+  UpcomingMeetings,
+} from '@oat/services/dto/calendar';
 
 import { googleCalendarBaseUrl, serverEnv } from '@/lib/env';
 
@@ -147,6 +151,65 @@ export async function findCalendarEventByKey(
       console.error('calendar: Google Calendar read failed:', error);
     }
     return null;
+  }
+}
+
+/** How far either side of a note's time its linkable events are looked for. */
+export const NEAR_MS = 12 * 3_600_000;
+
+export interface EventsNear {
+  connected: boolean;
+  /** `null` when not connected. */
+  state: CalendarSourceState | null;
+  events: CalendarEvent[];
+}
+
+/**
+ * The user's timed events overlapping `at` ± 12 h (cancelled/declined/all-day left out): what a meeting note
+ * recorded then can be linked to. Inside the window Home reads (a day back … three weeks ahead) this is the
+ * cached source; an older time is read once with a source of its own, so the shared cache keeps its window.
+ */
+export async function listEventsNear(
+  userId: string,
+  at: Date,
+  options: { now?: Date } = {},
+): Promise<EventsNear> {
+  const now = options.now ?? new Date();
+  const connection = await getGoogleCalendarConnection(userId);
+  if (!connection) return { connected: false, state: null, events: [] };
+  if (!connection.hasCalendarScope) return { connected: true, state: 'reconnect', events: [] };
+  const range = { from: new Date(at.getTime() - NEAR_MS), to: new Date(at.getTime() + NEAR_MS) };
+  const cached = googleSource(connection, userId);
+  const recent =
+    range.from.getTime() >= now.getTime() - 24 * 3_600_000 &&
+    range.to.getTime() <= now.getTime() + 21 * 24 * 3_600_000;
+  try {
+    let events: CalendarEvent[];
+    if (recent) {
+      events = await cached.fetchEvents(range);
+    } else {
+      const once = new GoogleCalendarSource({
+        client: cached.client,
+        now: () => at,
+        windowPastMs: NEAR_MS,
+        windowFutureMs: NEAR_MS,
+      });
+      // Synced without a range first: a ranged first read would pad the window by a week each side.
+      await once.sync();
+      events = await once.fetchEvents(range);
+    }
+    return {
+      connected: true,
+      state: 'ok',
+      events: mergeCalendarEvents([events])
+        .filter((e) => !e.allDay && isAttending(e))
+        .sort(compareCalendarEvents),
+    };
+  } catch (error) {
+    if (error instanceof CalendarAccessError)
+      return { connected: true, state: 'reconnect', events: [] };
+    console.error('calendar: Google Calendar read failed:', error);
+    return { connected: true, state: 'error', events: [] };
   }
 }
 

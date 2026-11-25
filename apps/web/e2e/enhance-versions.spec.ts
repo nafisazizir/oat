@@ -11,7 +11,7 @@ import { databaseUrlFile, EVIDENCE_4_5, mocksUrlFile } from './paths';
 /**
  * Tasks 4.5 + 4.6 in the browser: "About me" saved in settings reaches the enhance prompt (read back from the
  * mock LLM's request log); then enhance → edit → Regenerate (warns, D-20) → restore version 1 from Note
- * history → Undo enhancement (my own notes back) → still there after a reload.
+ * history → restore my original notes → still there after a reload.
  */
 
 // Own user: the profile and meeting notes made here must not leak into other specs' shared user.
@@ -140,7 +140,7 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
   expect(prompts[0]).toContain('Correct spellings of names and terms: Brightsmile, DentaCore');
   expect(prompts[0]).toContain('Riley Versions');
 
-  await expect(page.getByTestId('enhance-button')).toHaveText(/Regenerate/);
+  await expect(page.getByTestId('enhance-button')).toHaveText(/Enhanced/);
   await page.getByTestId('document-more').click();
   await expect(page.getByTestId('history-button')).toBeVisible();
   await page.keyboard.press('Escape');
@@ -156,6 +156,7 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
   await page.keyboard.type(' (edited)');
   await saved(page);
   await page.getByTestId('enhance-button').click();
+  await page.getByTestId('enhance-regenerate').click();
   const confirm = page.getByTestId('replace-confirm');
   await expect(confirm).toBeVisible();
   await expect(confirm).toContainText('Regenerate over your edits?');
@@ -165,7 +166,7 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
   await expect(confirm).toHaveCount(0);
   await expect(editor(page)).toContainText('(edited)');
   // Regenerate for real, with another template from the menu.
-  await page.getByTestId('enhance-template-menu').click();
+  await page.getByTestId('enhance-button').click();
   await page.getByTestId('enhance-template').filter({ hasText: 'Sales discovery' }).click();
   await expect(confirm).toBeVisible();
   await page.getByTestId('replace-confirm-action').click();
@@ -195,18 +196,17 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
   await expect(editor(page)).not.toContainText('(edited)');
   await expect(editor(page).locator('[data-origin="ai"]').first()).toBeVisible();
 
-  // --- Show my original notes, then Undo enhancement ------------------------------------------------
-  await page.getByTestId('enhance-template-menu').click();
-  await page.getByTestId('enhance-original').click();
+  // --- My original notes (Note history), then restore them -------------------------------------------
+  await page.getByTestId('document-more').click();
+  await page.getByTestId('history-button').click();
+  await page.getByTestId('history-original').click();
   const original = page.getByTestId('history-preview');
   await expect(original).toContainText('pilot in two clinics (edited)');
   await expect(original.locator('[data-origin="ai"]')).toHaveCount(0);
   await evidence(page, 'original-notes');
-  await page.keyboard.press('Escape');
 
-  await page.getByTestId('enhance-template-menu').click();
-  await page.getByTestId('enhance-undo').click();
-  await expect(page.getByText('Enhancement undone')).toBeVisible();
+  await page.getByTestId('history-restore').click();
+  await expect(page.getByText('Your original notes are back')).toBeVisible();
   await expect(editor(page).locator('[data-origin="ai"]')).toHaveCount(0);
   await expect(editor(page)).toContainText('pilot in two clinics (edited)');
   await expect(editor(page)).toContainText('send security report');

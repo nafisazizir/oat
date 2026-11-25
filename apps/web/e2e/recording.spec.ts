@@ -318,11 +318,11 @@ test('browser mic recording streams to mock STT and persists through cookie-auth
     await expect(page.getByTestId('pipeline-status')).toHaveCount(0);
     await page.reload();
     await expect(page.getByTestId('playback')).toHaveAttribute('data-state', 'paused');
-    if (!(await page.getByTestId('enhance-button').textContent())?.includes('Regenerate')) {
+    if (!(await page.getByTestId('enhance-button').textContent())?.includes('Enhanced')) {
       await page.getByTestId('enhance-button').click();
       await expect(page.getByText('Notes enhanced', { exact: true })).toBeVisible();
     }
-    await expect(page.getByTestId('enhance-button')).toContainText('Regenerate');
+    await expect(page.getByTestId('enhance-button')).toContainText('Enhanced');
     await expect(page.getByTestId('meeting-header').getByTestId('enhance-button')).toBeVisible();
     await page.getByTestId('document-more').click();
     await expect(page.getByTestId('history-button')).toBeVisible();
