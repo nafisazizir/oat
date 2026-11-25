@@ -783,6 +783,18 @@ describe('desktop shell', () => {
     expect(await screen.findByTestId('tasks-empty')).toBeTruthy();
   });
 
+  it('keeps the toolbar Saving spinner visible while stopping on off-note routes', async () => {
+    localStorage.setItem(routeStorageKey(model.user.id), '/settings/integrations');
+    model.recording.status = 'stopping';
+    render(<MainWindow />);
+    expect(await screen.findByTestId('recording-bar')).toBeTruthy();
+    const group = screen.getByRole('group', { name: 'Recording controls' });
+    const status = within(group).getByRole('status');
+    expect(status.className).toContain('size-8');
+    expect(status.className).toContain('rounded-full');
+    expect(status.textContent).toBe('Saving…');
+  });
+
   it('keeps local-only meetings in Private and opens the local-first MeetingView', async () => {
     model.notes = [
       {

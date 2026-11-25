@@ -423,7 +423,7 @@ function SignedInShell({
           <AutoStopQuestion notice={autoStop} />
           {settingsOpen ? (
             <>
-              {recording && (
+              {(recording || recordingStatus === 'stopping') && (
                 <>
                   <RecordingBar
                     snapshot={snapshot}
@@ -459,7 +459,7 @@ function SignedInShell({
               }
               notes={notes}
               recordingControls={
-                recording ? (
+                recording || recordingStatus === 'stopping' ? (
                   <>
                     <RecordingBar
                       snapshot={snapshot}
