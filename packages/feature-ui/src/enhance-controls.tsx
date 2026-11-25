@@ -6,13 +6,7 @@ import { Alert, AlertAction, AlertTitle } from '@oat/ui/components/alert';
 import { ButtonGroup, ButtonGroupSeparator } from '@oat/ui/components/button-group';
 import { DropdownMenuItem } from '@oat/ui/components/dropdown-menu';
 import { Spinner } from '@oat/ui/components/spinner';
-import {
-  IconAlertCircle,
-  IconCheck,
-  IconChevronDown,
-  IconRefresh,
-  IconSparkles,
-} from '@tabler/icons-react';
+import { IconAlertCircle, IconChevronDown, IconRefresh, IconSparkles } from '@tabler/icons-react';
 
 import type { Enhancement } from './use-enhancement';
 
@@ -59,22 +53,13 @@ export function EnhanceButton({
         align="start"
         onSelect={(templateId) => start({ templateId })}
         leading={
-          <div className="flex items-center gap-2 py-0.5 ps-2 pe-1 text-label-14">
-            <IconSparkles className="size-4 shrink-0" />
-            <span className="min-w-0 flex-1 truncate" data-testid="enhance-current-template">
+          <DropdownMenuItem data-testid="enhance-regenerate" onClick={() => start()}>
+            <IconRefresh />
+            Regenerate
+            <span className="ms-auto truncate text-gray-900" data-testid="enhance-current-template">
               {currentTemplate ?? 'Enhanced notes'}
             </span>
-            <DropdownMenuItem
-              aria-label="Regenerate"
-              title="Regenerate"
-              data-testid="enhance-regenerate"
-              className="size-6 justify-center p-0 text-gray-900"
-              onClick={() => start()}
-            >
-              <IconRefresh />
-            </DropdownMenuItem>
-            <IconCheck className="size-4 shrink-0 text-gray-900" />
-          </div>
+          </DropdownMenuItem>
         }
         trigger={
           <Button

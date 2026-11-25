@@ -156,6 +156,9 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
   await page.keyboard.type(' (edited)');
   await saved(page);
   await page.getByTestId('enhance-button').click();
+  const menu = page.getByRole('menu');
+  await expect(menu).toHaveAttribute('data-size', 'sm');
+  await expect(menu.getByRole('menuitem').first()).toHaveAccessibleName(/^Regenerate\s+\S/);
   await page.getByTestId('enhance-regenerate').click();
   const confirm = page.getByTestId('replace-confirm');
   await expect(confirm).toBeVisible();

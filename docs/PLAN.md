@@ -1,5 +1,8 @@
 # Oat — Plan & Task Board
 
+- [ ] Human-requested compact Enhanced dropdown rows on web and desktop.
+  [task](tasks/enhanced-menu-sm.md)
+
 - [x] Human-requested stale-test maintenance; the full Linux gate is green. Desktop E2E and acceptance
   still need a Mac. [task](tasks/update-stale-tests.md)
 

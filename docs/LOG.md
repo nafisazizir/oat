@@ -459,4 +459,6 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
   `enhance-versions`, `meeting`, `enhance`, `recording` passed; `tasks.spec` fails its axe target-size check on
   the sidebar "Oat" link on /tasks (not touched here, not checked against `main`). Not run: full `pnpm run ci`,
   desktop E2E. Not done: linking from the desktop header (needs IPC + EventKit lookup for past dates).
-
+- 2026-11-25 · [Compact Enhanced dropdown](tasks/enhanced-menu-sm.md) · The shared template menu
+  now uses one standard `sm` Regenerate item with the current template name. Format, typecheck, lint,
+  unit tests and the focused Chromium spec passed. Native desktop and visual checks were not run.
