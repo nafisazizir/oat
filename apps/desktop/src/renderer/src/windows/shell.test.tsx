@@ -773,6 +773,13 @@ describe('desktop shell', () => {
     render(<MainWindow />);
     await runCommand('My tasks');
     expect(await screen.findByTestId('recording-bar')).toBeTruthy();
+    const group = screen.getByRole('group', { name: 'Recording controls' });
+    expect(group.className).toContain('rounded-full');
+    expect(within(group).getByRole('button', { name: 'Pause' }).textContent).toBe('');
+    expect(within(group).getByRole('button', { name: 'Stop recording' }).textContent).toBe('');
+    expect(screen.queryByTestId('recording-elapsed')).toBeNull();
+    expect(screen.queryByTestId('level-mic')).toBeNull();
+    expect(screen.queryByTestId('stt-status')).toBeNull();
     expect(await screen.findByTestId('tasks-empty')).toBeTruthy();
   });
 
