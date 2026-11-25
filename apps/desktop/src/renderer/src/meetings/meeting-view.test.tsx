@@ -298,4 +298,24 @@ describe('calm meeting surface', () => {
     expect(screen.queryByTestId('level-system')).toBeNull();
     expect(screen.queryByTestId('stt-status')).toBeNull();
   });
+
+  it('keeps the pill spinner at icon-lg height when stopping alone on Home', () => {
+    const stoppingSnapshot: RecordingSnapshot = {
+      seq: 2,
+      status: 'stopping',
+      meetingId: 'meeting',
+      input: 'sidecar',
+      fixture: null,
+      startedAt: Date.now() - 13_000,
+      elapsedMs: 13_000,
+      elapsedAt: Date.now(),
+      levels: { mic: null, system: null },
+      stt: { mic: 'closed', system: 'closed' },
+      issues: [],
+    };
+    render(<MeetingView {...props} documentId={null} snapshot={stoppingSnapshot} />);
+    const status = screen.getByRole('status');
+    expect(status.className).toContain('size-10');
+    expect(status.className).toContain('rounded-full');
+  });
 });

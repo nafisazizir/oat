@@ -291,7 +291,7 @@ export function RecordingBar({
       {(status === 'starting' || status === 'stopping') && (
         <ButtonGroupText
           shape="rounded"
-          className={cn('justify-center px-0', inToolbar ? 'w-8' : 'w-10')}
+          className={cn('justify-center px-0', inToolbar ? 'size-8' : 'size-10')}
           role="status"
         >
           <Spinner aria-hidden role={undefined} />
