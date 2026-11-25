@@ -34,7 +34,7 @@ const ParticipantInput = z.strictObject({
     .nullish(),
 });
 
-function toParticipant(row: {
+export function toParticipant(row: {
   id: string;
   name: string;
   email: string | null;
@@ -44,7 +44,7 @@ function toParticipant(row: {
 }
 
 /** A meeting note the actor can read, else 404; a page is a 400 (it has no meeting side). */
-async function meetingNote(db: Db, actor: Actor, documentId: string) {
+export async function meetingNote(db: Db, actor: Actor, documentId: string) {
   const doc = await getDocument(db, actor, documentId);
   if (doc.kind !== 'meeting') throw badRequest('Only meeting notes have attendees.');
   return doc;

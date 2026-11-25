@@ -1,10 +1,12 @@
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 
+import { createDb, meeting } from '@oat/db';
 import { type Page } from '@playwright/test';
 
 import { SIGNED_OUT, signInWithMagicLink, uniqueAddress } from './auth-helpers';
+import { apiCreateDocument, unique } from './docs-helpers';
 import { expect, test } from './fixtures';
-import { EVIDENCE_7_3, EVIDENCE_7_4 } from './paths';
+import { databaseUrlFile, EVIDENCE_7_3, EVIDENCE_7_4 } from './paths';
 
 /**
  * 7.4: connect Google Calendar (mock OIDC issuer for consent, the in-process gcal mock from
@@ -13,6 +15,23 @@ import { EVIDENCE_7_3, EVIDENCE_7_4 } from './paths';
  * first Monday after now, so the list is the same whenever this runs.
  */
 test.use({ storageState: SIGNED_OUT, viewport: { width: 1280, height: 800 } });
+
+/** A meeting note recorded at `startedAt` for half an hour (recordings come from the desktop: written directly). */
+async function seedRecordedNote(page: Page, title: string, startedAt: Date): Promise<string> {
+  const doc = await apiCreateDocument(page, { title: unique(title), kind: 'meeting' });
+  const port = new URL(page.url()).port || '80';
+  const db = createDb(readFileSync(databaseUrlFile(port), 'utf8').trim(), { max: 1 });
+  try {
+    await db.insert(meeting).values({
+      documentId: doc.id,
+      startedAt,
+      endedAt: new Date(startedAt.getTime() + 30 * 60_000),
+    });
+  } finally {
+    await db.$client.end();
+  }
+  return doc.id;
+}
 
 /** Screenshot for docs/tasks/evidence/7.4 — only when `E2E_SCREENSHOTS` is set (tracked files). */
 async function evidence(page: Page, name: string, dir = EVIDENCE_7_4) {
@@ -143,7 +162,13 @@ test('connect Google Calendar → upcoming meetings on Home → disconnect', asy
   const body = (await api.json()) as {
     connected: boolean;
     sources: { kind: string; state: string; email: string }[];
-    events: { title: string; source: string; conferenceProvider: string | null; id: string }[];
+    events: {
+      title: string;
+      source: string;
+      conferenceProvider: string | null;
+      id: string;
+      start: string;
+    }[];
   };
   expect(body.connected).toBe(true);
   expect(body.sources).toEqual([{ kind: 'google', state: 'ok', email }]);
@@ -161,6 +186,46 @@ test('connect Google Calendar → upcoming meetings on Home → disconnect', asy
   const anonymous = await playwright.request.newContext({ baseURL });
   expect((await anonymous.get('/api/calendar/upcoming')).status()).toBe(401);
   await anonymous.dispose();
+
+  // A recorded note's date pill links it to a calendar event around then: the event's attendees come along.
+  const recordedId = await seedRecordedNote(
+    page,
+    'Recorded standup',
+    new Date(Date.parse(body.events[1]!.start) + 2 * 60_000),
+  );
+  await page.goto(`/d/${recordedId}`);
+  const when = page.getByTestId('meeting-time').filter({ visible: true });
+  await expect(page.getByTestId('attendees-toggle')).toHaveCount(0);
+  await when.click();
+  const picker = page.getByTestId('event-picker');
+  const options = picker.getByTestId('event-option');
+  await expect(options.filter({ hasText: 'Daily standup' })).toHaveCount(1);
+  await expect(picker.getByTestId('event-unlink')).toHaveCount(0);
+  await evidence(page, 'web-link-event', EVIDENCE_7_3);
+  await options.filter({ hasText: 'Daily standup' }).click();
+  await expect(picker).toHaveCount(0);
+  await page.getByTestId('attendees-toggle').click();
+  await expect(page.getByTestId('participant-chip').filter({ visible: true })).toHaveCount(3);
+  await page.keyboard.press('Escape');
+  // Still linked after a reload; unlinking keeps the attendees.
+  await page.reload();
+  await when.click();
+  await expect(options.filter({ hasText: 'Daily standup' })).toHaveAttribute('data-linked', 'true');
+  await picker.getByTestId('event-unlink').click();
+  await expect(picker).toHaveCount(0);
+  await when.click();
+  await expect(options.filter({ hasText: 'Daily standup' })).not.toHaveAttribute('data-linked');
+  await expect(picker.getByTestId('event-unlink')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('attendees-toggle')).toHaveAttribute('data-count', '3');
+  // A recording from long before the calendar's synced window is read on its own: nothing was on then.
+  const oldId = await seedRecordedNote(page, 'Old call', new Date('2026-01-05T15:04:00Z'));
+  await page.goto(`/d/${oldId}`);
+  await when.click();
+  await expect(picker.getByTestId('event-picker-hint')).toHaveText(
+    'No calendar events around this time.',
+  );
+  await page.keyboard.press('Escape');
 
   // Disconnect → back to the invitation.
   await page.goto('/settings/integrations');

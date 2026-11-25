@@ -95,7 +95,7 @@ function Header({
   const editable = canEdit && state.viewer === 'edit';
   const eventOver = t.slot[1]! < new Date(now).toISOString();
   return (
-    <MeetingMetaRow look={state.look ?? 'plain'}>
+    <MeetingMetaRow look={state.look ?? 'pill'}>
       <MeetingPrivate visibility={state.access} />
       <MeetingTime startedAt={t.startedAt} endedAt={t.endedAt} />
       {state.event !== 'none' && (
@@ -215,7 +215,7 @@ export function MeetingHeaderPlayground() {
   const hydrated = useHydrated();
   const [now] = useState(() => Date.now());
   const [state, setState] = useState<State>(PRESETS[3]!.state);
-  const [look, setLook] = useState<MeetingMetaLook>('plain');
+  const [look, setLook] = useState<MeetingMetaLook>('pill');
   const [title, setTitle] = useState('Weekly product sync');
   const [darkChoice, setDark] = useState<boolean | null>(null);
   const dark = darkChoice ?? (hydrated && document.documentElement.classList.contains('dark'));

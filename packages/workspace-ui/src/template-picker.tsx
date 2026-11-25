@@ -19,12 +19,17 @@ export function TemplatePicker({
   label,
   trigger,
   onSelect,
+  leading,
+  align = 'end',
   children,
 }: {
   workspaceId: string;
   label: string;
   trigger: ReactElement;
   onSelect: (templateId: string) => void;
+  /** Menu items above the template list (a separator follows them). */
+  leading?: ReactNode;
+  align?: 'start' | 'end';
   children?: ReactNode;
 }) {
   return (
@@ -34,6 +39,8 @@ export function TemplatePicker({
       label={label}
       trigger={trigger}
       onSelect={onSelect}
+      leading={leading}
+      align={align}
     >
       {children}
     </Picker>
@@ -45,6 +52,8 @@ function Picker({
   label,
   trigger,
   onSelect,
+  leading,
+  align,
   children,
 }: Parameters<typeof TemplatePicker>[0]) {
   const { client } = useWorkspaceHost();
@@ -63,8 +72,14 @@ function Picker({
   return (
     <DropdownMenu onOpenChange={loadTemplates}>
       <DropdownMenuTrigger render={trigger} />
-      <DropdownMenuContent align="end" className="min-w-52">
+      <DropdownMenuContent align={align} className="min-w-52">
         <DropdownMenuGroup>
+          {leading && (
+            <>
+              {leading}
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuLabel>{label}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {loadError ? (

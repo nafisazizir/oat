@@ -400,3 +400,20 @@ with stale assertions (including auth expecting email alongside the display name
 Remove the hosted Swift job because arm64 runner availability made it unreliable: some jobs were cancelled
 without acquiring a runner, even though the checks passed when runners were available. Keep `pnpm run ci`
 as the full local gate and `pnpm run ci --only swift` for the sidecar on macOS.
+
+## D-43 · 2026-11-25 · accepted · human
+
+**The meeting header row uses pill shapes.** The row under a meeting note's title (Private, Live, date/time,
+calendar slot and Join link, attendees, View only / In trash, and the Enhance / Enhanced control) is a row of
+fully rounded pills at the `sm` control size (32 px, 14 px text, 16 px icons). This extends D-37's pill
+exceptions (avatars, badges, status dots, the floating note dock) to this one row; the default control radius
+still applies everywhere else, and the source-vocabulary test allows the shape only on the listed controls.
+
+Decided with it in the same session: once a note has been enhanced the control is a single "Enhanced" menu
+button (top row: the current template with a Regenerate action, then the templates). Note history stays in the
+More menu, the original notes are restored from Note history, and "Undo enhancement" is offered on the "Notes
+enhanced" toast only. The date/time pill of a recorded note opens the calendar events around that time so an
+editor can link the note to one (`PUT`/`DELETE /api/documents/:id/calendar-event`): linking stores the meeting
+key, fills an empty platform and adds the event's attendees; it never changes the title or body. Web only for
+now; the desktop header shows the same pill without the menu.
+

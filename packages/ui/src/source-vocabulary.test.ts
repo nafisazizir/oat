@@ -81,6 +81,10 @@ const controlTag =
 const pillRadius = /(?<![\w-])rounded-full(?![\w-])/;
 
 const noteDockPills: Record<string, Record<string, string>> = {
+  // D-43: the meeting header row under the title is pills too (its facts via `metaItemClass`).
+  'packages/feature-ui/src/enhance-controls.tsx': {
+    'EnhanceButton:Button': 'shape="rounded"',
+  },
   'apps/desktop/src/renderer/src/recording/recording-controls.tsx': {
     'RecordingButton:Button': 'aria-label={label}',
     'RecordingBar:Select': "shape={compact ? 'rounded' : 'default'}",
@@ -206,7 +210,7 @@ describe('repository ziiz vocabulary', () => {
     ).toEqual(['example.tsx:2: <Button>', 'example.tsx:3: <Input>', 'example.tsx:4: <button>']);
   });
 
-  it('uses the default Ziiz shape outside the floating note dock', () => {
+  it('uses the default Ziiz shape outside the floating note dock and the meeting header row', () => {
     const appScopes = [
       'apps/web/src/',
       'apps/desktop/src/renderer/',

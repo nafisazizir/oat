@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * The meeting header's facts under the title, all in one style (text, icon, spacing): Private (only when
+ * The meeting header's facts under the title, all in one style (pill, icon, spacing): Private (only when
  * it is), Live, when, the calendar slot and its Join link, attendees, View only / In trash. The workspace,
  * a shared note's audience and the duration are left out on purpose.
  */
@@ -16,9 +16,9 @@ import {
 } from '@tabler/icons-react';
 import type { ComponentProps, ReactNode } from 'react';
 
-/** One fact in the meeting header (in a `pill` row, each in the same gray pill). */
+/** One fact in the meeting header (in a `pill` row, each in a gray pill sized like a rounded `sm` button). */
 export const metaItemClass =
-  'inline-flex h-6 shrink-0 items-center gap-1.5 text-label-13 whitespace-nowrap text-gray-900 [&_svg]:size-3.5 [&_svg]:shrink-0 group-data-[look=pill]/meta:rounded-md group-data-[look=pill]/meta:bg-gray-100 group-data-[look=pill]/meta:px-2';
+  'inline-flex h-6 shrink-0 items-center gap-1.5 text-label-13 whitespace-nowrap text-gray-900 [&_svg]:size-3.5 [&_svg]:shrink-0 group-data-[look=pill]/meta:h-8 group-data-[look=pill]/meta:rounded-full group-data-[look=pill]/meta:bg-gray-100 group-data-[look=pill]/meta:gap-1 group-data-[look=pill]/meta:ps-2.5 group-data-[look=pill]/meta:pe-3 group-data-[look=pill]/meta:text-button-14 group-data-[look=pill]/meta:[&_svg]:size-4';
 
 /** A fact that opens or does something: same look, darker on hover/open, focus ring. */
 export const metaActionClass = cn(
@@ -26,18 +26,18 @@ export const metaActionClass = cn(
   'cursor-pointer rounded-md outline-none transition-colors hover:text-gray-1000 focus-visible:ring-3 focus-visible:ring-gray-600/50 aria-expanded:text-gray-1000 group-data-[look=pill]/meta:hover:bg-gray-200 group-data-[look=pill]/meta:aria-expanded:bg-gray-200',
 );
 
-/** `plain`: bare text + icon facts; `pill`: the same facts, each in a gray pill. */
+/** `pill` (default): each fact in a gray pill, matching the Enhance button; `plain`: bare text + icon. */
 export type MeetingMetaLook = 'plain' | 'pill';
 
 export function MeetingMetaRow({
-  look = 'plain',
+  look = 'pill',
   className,
   ...props
 }: ComponentProps<'div'> & { look?: MeetingMetaLook }) {
   return (
     <div
       className={cn(
-        'group/meta flex min-h-6 flex-wrap items-center gap-x-4 gap-y-1 data-[look=pill]:gap-x-1.5 data-[look=pill]:gap-y-1.5',
+        'group/meta flex min-h-6 flex-wrap items-center gap-x-4 gap-y-1 data-[look=pill]:gap-2',
         className,
       )}
       data-testid="meeting-header"
