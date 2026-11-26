@@ -13,7 +13,7 @@ import {
 } from './document-enhancement';
 
 export function DocumentEditorSurface({
-  meta,
+  renderMeta,
   headerActions,
   overflowActions,
   Actions,
@@ -22,7 +22,7 @@ export function DocumentEditorSurface({
   onOpenIntegrations,
   openExternal,
 }: {
-  meta?: ReactNode;
+  renderMeta?(enhanceAction: ReactNode): ReactNode;
   headerActions?: ReactNode;
   overflowActions?: ReactNode;
   Actions?: ComponentProps<typeof PageEditorSurface>['Actions'];
@@ -110,17 +110,12 @@ export function DocumentEditorSurface({
     />
   );
   const assignees = useTaskAssignees(doc.id);
-  const inlineMeta = (
-    <>
-      {meta}
-      {editable && meeting ? capabilities.enhance(doc.workspaceId) : null}
-    </>
-  );
+  const enhanceAction = editable && meeting ? capabilities.enhance(doc.workspaceId) : null;
   return (
     <>
       {meeting && renderPipeline?.(capabilities.enhancement.follow)}
       <PageEditorSurface
-        meta={inlineMeta}
+        meta={renderMeta ? renderMeta(enhanceAction) : enhanceAction}
         headerActions={headerActions}
         Actions={Actions}
         renderSecondaryActions={(lifecycle) =>

@@ -236,7 +236,7 @@ export function MeetingNote({
     },
   };
 
-  const header = (
+  const header = (enhanceAction: React.ReactNode) => (
     // B: Private only when it is, when, the calendar slot / Join, people, View only / In trash. No
     // workspace (the sidebar says it), no shared audience (the default), no duration.
     <MeetingMetaRow>
@@ -268,6 +268,7 @@ export function MeetingNote({
         }}
       />
       <MeetingAccess state={doc.deletedAt !== null ? 'trash' : doc.access.edit ? 'edit' : 'view'} />
+      {enhanceAction}
     </MeetingMetaRow>
   );
 
@@ -334,7 +335,7 @@ export function MeetingNote({
           <DocumentEditor
             document={doc}
             workspace={workspace}
-            meta={header}
+            renderMeta={header}
             overflowActions={
               local && !browserLive ? (
                 <Button variant="ghost" onClick={() => setDeleteOpen(true)}>

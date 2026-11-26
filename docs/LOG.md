@@ -462,3 +462,7 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
 - 2026-11-25 · [Compact Enhanced dropdown](tasks/enhanced-menu-sm.md) · The shared template menu
   now uses one standard `sm` Regenerate item with the current template name. Format, typecheck, lint,
   unit tests and the focused Chromium spec passed. Native desktop and visual checks were not run.
+- 2026-11-26 · [Enhanced dropdown follow-up](tasks/enhanced-menu-sm.md) · Kept the web trigger
+  inline with the meeting facts and restored the icon-only Regenerate control in the shared
+  compact menu. Fast local checks passed; the browser verified the menu and confirmation,
+  then timed out on the later original-notes restoration toast.
