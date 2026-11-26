@@ -206,7 +206,6 @@ export function RecordingBar({
   meetingId = null,
   recorded = true,
   hint = null,
-  controlsContainer,
   dockContainer,
   transcriptToggle,
   stopContainer,
@@ -223,7 +222,6 @@ export function RecordingBar({
   recorded?: boolean;
   /** Why the open note can't be continued. */
   hint?: string | null;
-  controlsContainer?: HTMLElement | null;
   dockContainer?: HTMLElement | null;
   transcriptToggle?: ReactNode;
   stopContainer?: HTMLElement | null;
@@ -232,8 +230,6 @@ export function RecordingBar({
   const action = useRecordingAction();
   const cancelStart = useRecordingAction();
   const hasTranscript = !!transcriptToggle;
-  const inToolbar = !!controlsContainer;
-  const buttonSize = inToolbar ? 'icon-sm' : 'icon-lg';
   const status = snapshot?.status ?? 'idle';
   const active = isActive(status);
   const stopAction = status === 'starting' ? cancelStart : action;
@@ -248,7 +244,7 @@ export function RecordingBar({
   const stop = (active || status === 'error') && (
     <RecordingButton
       label={status === 'error' ? 'Dismiss' : 'Stop recording'}
-      size={hasTranscript ? 'icon-sm' : buttonSize}
+      size={hasTranscript ? 'icon-sm' : 'icon-lg'}
       disabled={cancelStart.pending || (status !== 'starting' && action.pending)}
       onClick={() => void stopAction.run(() => call('recording:stop'))}
     >
@@ -261,7 +257,6 @@ export function RecordingBar({
       {status === 'recording' && (
         <RecordingButton
           label="Pause"
-          size={buttonSize}
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:pause'))}
         >
@@ -271,7 +266,6 @@ export function RecordingBar({
       {status === 'paused' && (
         <RecordingButton
           label="Resume"
-          size={buttonSize}
           disabled={action.pending}
           onClick={() => void action.run(() => call('recording:resume'))}
         >
@@ -281,7 +275,6 @@ export function RecordingBar({
       {(status === 'idle' || status === 'error') && (
         <RecordingButton
           label={startLabel}
-          size={buttonSize}
           disabled={action.pending || cancelStart.pending || !snapshot}
           onClick={() => void start()}
         >
@@ -289,11 +282,7 @@ export function RecordingBar({
         </RecordingButton>
       )}
       {(status === 'starting' || status === 'stopping') && (
-        <ButtonGroupText
-          shape="rounded"
-          className={cn('justify-center px-0', inToolbar ? 'size-8' : 'size-10')}
-          role="status"
-        >
+        <ButtonGroupText shape="rounded" className="size-10 justify-center px-0" role="status">
           <Spinner aria-hidden role={undefined} />
           <span className="sr-only">{pendingLabel}</span>
         </ButtonGroupText>
@@ -305,7 +294,7 @@ export function RecordingBar({
     options.fixtures.length > 0 &&
     (status === 'idle' || status === 'error') && (
       <Select
-        size={inToolbar ? 'sm' : 'lg'}
+        size="lg"
         variant="default"
         shape="rounded"
         items={[
@@ -346,7 +335,7 @@ export function RecordingBar({
     <div className="flex flex-wrap items-center gap-2">
       <ButtonGroup
         aria-label={hasTranscript ? 'Transcript and recording controls' : 'Recording controls'}
-        className={cn('rounded-full', !inToolbar && 'shadow-sm')}
+        className="rounded-full shadow-sm"
       >
         {transcriptToggle}
         {buttons}
@@ -361,7 +350,7 @@ export function RecordingBar({
       data-testid="recording-bar"
       data-status={status}
     >
-      {controlsContainer ? createPortal(controls, controlsContainer) : controls}
+      {controls}
       {hasTranscript &&
         stopContainer &&
         createPortal(

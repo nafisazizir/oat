@@ -368,6 +368,25 @@ function SignedInShell({
   if (!onboarding.state) return <main className="app-drag flex-1" data-testid="shell" aria-busy />;
   const setupShown = onboarding.state.needed || setupOpen;
   const firstRun = onboarding.state.needed;
+  const recordingDock =
+    recording || recordingStatus === 'stopping' ? (
+      <div
+        data-testid="recording-floating-dock"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-content flex-col items-center gap-2 px-3 pt-2 pb-4 sm:px-6"
+      >
+        <div className="pointer-events-auto w-full empty:hidden">
+          <IssueBanner snapshot={snapshot} />
+        </div>
+        <div className="pointer-events-auto">
+          <RecordingBar
+            snapshot={snapshot}
+            options={options}
+            input={input}
+            onInputChange={setChoice}
+          />
+        </div>
+      </div>
+    ) : null;
 
   return (
     <DesktopWorkspaceHost
@@ -423,18 +442,7 @@ function SignedInShell({
           <AutoStopQuestion notice={autoStop} />
           {settingsOpen ? (
             <>
-              {(recording || recordingStatus === 'stopping') && (
-                <>
-                  <RecordingBar
-                    snapshot={snapshot}
-                    options={options}
-                    input={input}
-                    onInputChange={setChoice}
-                    controlsContainer={toolbar}
-                  />
-                  <IssueBanner snapshot={snapshot} />
-                </>
-              )}
+              {recordingDock}
               <SettingsView
                 key={settingsSection}
                 initialSection={settingsSection}
@@ -458,20 +466,7 @@ function SignedInShell({
                   : route
               }
               notes={notes}
-              recordingControls={
-                recording || recordingStatus === 'stopping' ? (
-                  <>
-                    <RecordingBar
-                      snapshot={snapshot}
-                      options={options}
-                      input={input}
-                      onInputChange={setChoice}
-                      controlsContainer={toolbar}
-                    />
-                    <IssueBanner snapshot={snapshot} />
-                  </>
-                ) : null
-              }
+              recordingControls={recordingDock}
               meeting={
                 <MeetingView
                   userId={user.id}
