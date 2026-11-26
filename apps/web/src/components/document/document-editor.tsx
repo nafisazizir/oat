@@ -20,7 +20,11 @@ const keepaliveClient = createOatClient(
 const saveDocument: SaveDocument = (id, input, options) =>
   (options?.keepalive ? keepaliveClient : client).documents.update(id, input);
 const reloadDocument = () => window.location.reload();
-type Extras = { meta?: ReactNode; headerActions?: ReactNode; overflowActions?: ReactNode };
+type Extras = {
+  renderMeta?(enhanceAction: ReactNode): ReactNode;
+  headerActions?: ReactNode;
+  overflowActions?: ReactNode;
+};
 
 export function DocumentEditor({
   document,

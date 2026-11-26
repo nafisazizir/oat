@@ -263,6 +263,7 @@ describe('TemplatePicker', () => {
     );
     expect(load).not.toHaveBeenCalled();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Pick a template' }));
+    expect((await screen.findByRole('menu')).getAttribute('data-size')).toBe('sm');
     await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Team sync' }));
     expect(load).toHaveBeenCalledWith('w');
     expect(select).toHaveBeenCalledWith('custom');

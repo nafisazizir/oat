@@ -70,7 +70,7 @@ function Picker({
     </DropdownMenuItem>
   );
   return (
-    <DropdownMenu onOpenChange={loadTemplates}>
+    <DropdownMenu size="sm" onOpenChange={loadTemplates}>
       <DropdownMenuTrigger render={trigger} />
       <DropdownMenuContent align={align} className="min-w-52">
         <DropdownMenuGroup>

@@ -155,7 +155,18 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
   await page.keyboard.press('End');
   await page.keyboard.type(' (edited)');
   await saved(page);
+  await expect(page.getByTestId('meeting-header').getByTestId('enhance-button')).toBeVisible();
   await page.getByTestId('enhance-button').click();
+  const menu = page.getByRole('menu');
+  await expect(menu).toHaveAttribute('data-size', 'sm');
+  const currentTemplate = menu.getByTestId('enhance-current-template');
+  const regenerate = menu.getByRole('menuitem', { name: 'Regenerate', exact: true });
+  await expect(regenerate).toHaveJSProperty('tagName', 'BUTTON');
+  await expect(regenerate).toBeEmpty();
+  await expect(menu.getByTestId('enhance-template').first()).toBeVisible();
+  await currentTemplate.click();
+  await expect(regenerate).toBeVisible();
+  await expect(page.getByTestId('replace-confirm')).toHaveCount(0);
   await page.getByTestId('enhance-regenerate').click();
   const confirm = page.getByTestId('replace-confirm');
   await expect(confirm).toBeVisible();
@@ -191,7 +202,10 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
   await evidence(page, 'history');
   await page.getByTestId('history-restore').click();
   // The body is exactly version 2's output (no edits since): no warning.
-  await expect(page.getByText('Version 1 restored')).toBeVisible();
+  const activeToasts = page.locator(
+    '[data-sonner-toast][data-mounted="true"][data-removed="false"]',
+  );
+  await expect(activeToasts.getByText('Version 1 restored')).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'Note history' })).toHaveCount(0);
   await expect(editor(page)).not.toContainText('(edited)');
   await expect(editor(page).locator('[data-origin="ai"]').first()).toBeVisible();
@@ -206,7 +220,7 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
   await evidence(page, 'original-notes');
 
   await page.getByTestId('history-restore').click();
-  await expect(page.getByText('Your original notes are back')).toBeVisible();
+  await expect(activeToasts.getByText('Your original notes are back')).toBeVisible();
   await expect(editor(page).locator('[data-origin="ai"]')).toHaveCount(0);
   await expect(editor(page)).toContainText('pilot in two clinics (edited)');
   await expect(editor(page)).toContainText('send security report');
@@ -253,7 +267,7 @@ test('About me reaches the prompt; regenerate warns; restore v1; undo brings my 
   await page.getByTestId('history-restore').click();
   await expect(confirm).toContainText('Replace your edited note?');
   await page.getByTestId('replace-confirm-action').click();
-  await expect(page.getByText('Your edited note is back')).toBeVisible();
+  await expect(activeToasts.getByText('Your edited note is back')).toBeVisible();
   await expect(editor(page)).toContainText('pilot in two clinics (edited)');
   await expect(editor(page).locator('[data-origin="ai"]').first()).toBeVisible();
   // …and what it replaced was saved too.

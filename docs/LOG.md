@@ -459,4 +459,14 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
   `enhance-versions`, `meeting`, `enhance`, `recording` passed; `tasks.spec` fails its axe target-size check on
   the sidebar "Oat" link on /tasks (not touched here, not checked against `main`). Not run: full `pnpm run ci`,
   desktop E2E. Not done: linking from the desktop header (needs IPC + EventKit lookup for past dates).
-
+- 2026-11-25 · [Compact Enhanced dropdown](tasks/enhanced-menu-sm.md) · The shared template menu
+  now uses one standard `sm` Regenerate item with the current template name. Format, typecheck, lint,
+  unit tests and the focused Chromium spec passed. Native desktop and visual checks were not run.
+- 2026-11-26 · [Enhanced dropdown follow-up](tasks/enhanced-menu-sm.md) · Kept the web trigger
+  inline with the meeting facts and restored the icon-only Regenerate control in the shared
+  compact menu. Fast local checks passed; the browser verified the menu and confirmation,
+  then timed out on the later original-notes restoration toast.
+- 2026-11-26 · [Note history restore feedback](tasks/enhanced-menu-sm.md) · Reproduced the
+  original-notes toast timeout on main, despite the note being restored. History success
+  messages now get fresh toast IDs so an exiting toast cannot remove the next confirmation.
+  Chromium checks active success messages and still verifies restored content and persistence.

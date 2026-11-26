@@ -59,22 +59,26 @@ export function EnhanceButton({
         align="start"
         onSelect={(templateId) => start({ templateId })}
         leading={
-          <div className="flex items-center gap-2 py-0.5 ps-2 pe-1 text-label-14">
-            <IconSparkles className="size-4 shrink-0" />
-            <span className="min-w-0 flex-1 truncate" data-testid="enhance-current-template">
-              {currentTemplate ?? 'Enhanced notes'}
-            </span>
-            <DropdownMenuItem
-              aria-label="Regenerate"
-              title="Regenerate"
-              data-testid="enhance-regenerate"
-              className="size-6 justify-center p-0 text-gray-900"
-              onClick={() => start()}
-            >
-              <IconRefresh />
-            </DropdownMenuItem>
-            <IconCheck className="size-4 shrink-0 text-gray-900" />
-          </div>
+          <DropdownMenuItem
+            nativeButton
+            label="Regenerate"
+            aria-label="Regenerate"
+            title="Regenerate"
+            data-testid="enhance-regenerate"
+            onClick={() => start()}
+            render={({ className, ...buttonProps }) => (
+              <div className={className}>
+                <IconSparkles aria-hidden />
+                <span className="min-w-0 flex-1 truncate" data-testid="enhance-current-template">
+                  {currentTemplate ?? 'Enhanced notes'}
+                </span>
+                <Button {...buttonProps} variant="ghost" size="icon-xs">
+                  <IconRefresh aria-hidden />
+                </Button>
+                <IconCheck aria-hidden className="text-gray-900" />
+              </div>
+            )}
+          />
         }
         trigger={
           <Button
