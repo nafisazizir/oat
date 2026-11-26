@@ -96,7 +96,7 @@ export function useEnhanceControls({
       }
       if (!ok) return;
       setHistoryOpen(false);
-      toast.success(message, { id: versions.toastId });
+      toast.success(message);
     });
   };
 

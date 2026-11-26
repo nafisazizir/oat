@@ -1,6 +1,7 @@
 # Oat — Plan & Task Board
 
-- [ ] Human-requested compact Enhanced dropdown rows on web and desktop.
+- [ ] Human-requested compact Enhanced dropdown rows on web and desktop. Web focused E2E is green
+  after fixing the history-restore toast; native desktop verification still needs a Mac.
   [task](tasks/enhanced-menu-sm.md)
 
 - [x] Human-requested stale-test maintenance; the full Linux gate is green. Desktop E2E and acceptance

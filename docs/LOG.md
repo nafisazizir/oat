@@ -466,3 +466,7 @@ checks pass; final-switcher.png refreshed and visually inspected. Local commit o
   inline with the meeting facts and restored the icon-only Regenerate control in the shared
   compact menu. Fast local checks passed; the browser verified the menu and confirmation,
   then timed out on the later original-notes restoration toast.
+- 2026-11-26 · [Note history restore feedback](tasks/enhanced-menu-sm.md) · Reproduced the
+  original-notes toast timeout on main, despite the note being restored. History success
+  messages now get fresh toast IDs so an exiting toast cannot remove the next confirmation.
+  Chromium checks active success messages and still verifies restored content and persistence.
