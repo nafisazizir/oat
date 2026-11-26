@@ -65,19 +65,6 @@ export function DesktopRoutesView({
     )
       return meeting;
   }
-  return (
-    <>
-      {recordingControls}
-      <div className="flex min-h-0 flex-1 flex-col overflow-auto" data-selectable>
-        <ServerRoutes route={route} meeting={meeting} />
-      </div>
-    </>
-  );
-}
-
-function ServerRoutes({ route, meeting }: { route: AppRoute; meeting: ReactNode }) {
-  const host = useWorkspaceHost();
-  const shell = useShellData();
   if (route.view === 'document') {
     const node = shell.documents.find((n) => n.id === route.id);
     return (
@@ -87,9 +74,22 @@ function ServerRoutes({ route, meeting }: { route: AppRoute; meeting: ReactNode 
         blockId={route.query?.block}
         folder={node?.kind === 'folder'}
         meeting={meeting}
+        recordingControls={recordingControls}
       />
     );
   }
+  return (
+    <>
+      {recordingControls}
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto" data-selectable>
+        <ServerRoutes route={route} />
+      </div>
+    </>
+  );
+}
+
+function ServerRoutes({ route }: { route: AppRoute }) {
+  const host = useWorkspaceHost();
   if (['templates', 'template', 'template-new'].includes(route.view) && !host.online)
     return <OfflineWorkspaceView />;
   switch (route.view) {
@@ -152,11 +152,13 @@ function DocumentRoute({
   blockId,
   folder,
   meeting,
+  recordingControls,
 }: {
   id: string;
   blockId?: string;
   folder: boolean;
   meeting: ReactNode;
+  recordingControls?: ReactNode;
 }) {
   const shell = useShellData();
   const host = useWorkspaceHost();
@@ -187,44 +189,52 @@ function DocumentRoute({
       active = false;
     };
   }, [id, folder, shell.workspace.id, inTrash, host.online]);
-  if (!host.online && (!data || folder)) return <OfflineWorkspaceView />;
+  const wrap = (content: ReactNode) => (
+    <>
+      {recordingControls}
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto" data-selectable>
+        {content}
+      </div>
+    </>
+  );
+  if (!host.online && (!data || folder)) return wrap(<OfflineWorkspaceView />);
   if (error)
-    return (
+    return wrap(
       <PageContainer>
         <EmptyState icon={IconFile} title="Page unavailable" titleAs="h1" description={error} />
-      </PageContainer>
+      </PageContainer>,
     );
   if (!data)
-    return (
+    return wrap(
       <PageContainer className="gap-6" aria-busy>
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-10 w-3/4" />
         <Skeleton className="h-64 w-full" />
-      </PageContainer>
+      </PageContainer>,
     );
   if ('kind' in data)
-    return data.kind === 'meeting' ? (
-      meeting
-    ) : (
-      <>
-        {!host.online && (
-          <div
-            role="status"
-            className="flex items-center gap-2 px-6 py-2 text-copy-13 text-amber-900"
-          >
-            <IconCloudOff className="size-4" aria-hidden />
-            You’re offline. Keep this page open; unsaved edits will retry when you reconnect.
-          </div>
-        )}
-        <AssistantPageEditor
-          document={data}
-          workspace={shell.workspaces.find((w) => w.id === data.workspaceId) ?? shell.workspace}
-        />
-        <BlockFocus blockId={blockId} />
-      </>
-    );
+    return data.kind === 'meeting'
+      ? meeting
+      : wrap(
+          <>
+            {!host.online && (
+              <div
+                role="status"
+                className="flex items-center gap-2 px-6 py-2 text-copy-13 text-amber-900"
+              >
+                <IconCloudOff className="size-4" aria-hidden />
+                You’re offline. Keep this page open; unsaved edits will retry when you reconnect.
+              </div>
+            )}
+            <AssistantPageEditor
+              document={data}
+              workspace={shell.workspaces.find((w) => w.id === data.workspaceId) ?? shell.workspace}
+            />
+            <BlockFocus blockId={blockId} />
+          </>,
+        );
   const live = shell.documents.find((node) => node.id === data.id && node.kind === 'folder');
-  return (
+  return wrap(
     <ShellFolderView
       folder={
         live
@@ -238,6 +248,6 @@ function DocumentRoute({
             }
           : data
       }
-    />
+    />,
   );
 }

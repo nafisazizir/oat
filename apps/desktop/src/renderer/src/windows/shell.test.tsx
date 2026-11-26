@@ -773,7 +773,27 @@ describe('desktop shell', () => {
     render(<MainWindow />);
     await runCommand('My tasks');
     expect(await screen.findByTestId('recording-bar')).toBeTruthy();
+    const group = screen.getByRole('group', { name: 'Recording controls' });
+    expect(group.className).toContain('rounded-full');
+    expect(within(group).getByRole('button', { name: 'Pause' }).textContent).toBe('');
+    expect(within(group).getByRole('button', { name: 'Stop recording' }).textContent).toBe('');
+    expect(screen.queryByTestId('recording-elapsed')).toBeNull();
+    expect(screen.queryByTestId('level-mic')).toBeNull();
+    expect(screen.queryByTestId('stt-status')).toBeNull();
     expect(await screen.findByTestId('tasks-empty')).toBeTruthy();
+  });
+
+  it('keeps the floating Saving spinner visible while stopping on off-note routes', async () => {
+    localStorage.setItem(routeStorageKey(model.user.id), '/settings/integrations');
+    model.recording.status = 'stopping';
+    render(<MainWindow />);
+    const dock = await screen.findByTestId('recording-floating-dock');
+    expect(dock.className).toContain('z-30');
+    const group = within(dock).getByRole('group', { name: 'Recording controls' });
+    const status = within(group).getByRole('status');
+    expect(status.className).toContain('size-10');
+    expect(status.className).toContain('rounded-full');
+    expect(status.textContent).toBe('Saving…');
   });
 
   it('keeps local-only meetings in Private and opens the local-first MeetingView', async () => {
