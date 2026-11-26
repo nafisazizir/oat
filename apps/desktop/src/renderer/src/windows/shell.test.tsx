@@ -788,6 +788,7 @@ describe('desktop shell', () => {
     model.recording.status = 'stopping';
     render(<MainWindow />);
     const dock = await screen.findByTestId('recording-floating-dock');
+    expect(dock.className).toContain('z-30');
     const group = within(dock).getByRole('group', { name: 'Recording controls' });
     const status = within(group).getByRole('status');
     expect(status.className).toContain('size-10');

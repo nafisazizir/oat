@@ -372,7 +372,7 @@ function SignedInShell({
     recording || recordingStatus === 'stopping' ? (
       <div
         data-testid="recording-floating-dock"
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-content flex-col items-center gap-2 px-3 pt-2 pb-4 sm:px-6"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-30 mx-auto flex w-full max-w-content flex-col items-center gap-2 px-3 pt-2 pb-4 sm:px-6"
       >
         <div className="pointer-events-auto w-full empty:hidden">
           <IssueBanner snapshot={snapshot} />
